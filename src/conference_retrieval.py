@@ -167,8 +167,11 @@ def parse_years(value: str) -> List[int]:
 
 
 def year_window(year: int) -> Tuple[datetime, datetime]:
+    # 会议论文的 published 日期通常比会议年份早 1 年（OpenReview 提交时间），
+    # 所以窗口向前扩展 1 年以覆盖 "CONF-{year}" 的全部论文。
+    # 后续由 source 字段中的年份标签做精确过滤。
     return (
-        datetime(int(year), 1, 1, tzinfo=timezone.utc),
+        datetime(int(year) - 1, 1, 1, tzinfo=timezone.utc),
         datetime(int(year) + 1, 1, 1, tzinfo=timezone.utc),
     )
 
@@ -384,9 +387,16 @@ def build_result_for_queries(
                     f"tag={query.get('tag') or ''} conference={label} year={year} | {msg}"
                 )
                 total_rpc_hits += len(rows)
+                # 按 source 字段中的会议年份过滤，避免时间窗口查询
+                # 把不属于目标会议年份的论文剔除
+                # source 格式如 "ICLR-2026-Public"、"AAAI-2025-Accepted"
+                year_tag = f"-{year}-"
                 for row in rows:
                     pid = str(row.get("id") or "").strip()
                     if not pid:
+                        continue
+                    row_source = str(row.get("source") or "")
+                    if year_tag not in row_source:
                         continue
                     score = score_from_row(row, mode)
                     old = candidates.get(pid)
