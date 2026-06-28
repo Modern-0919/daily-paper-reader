@@ -1,10 +1,10 @@
 -- ============================================================
--- EMNLP Anthology 论文表
+-- ECCV ECVA 论文表
 -- ============================================================
 
 create extension if not exists vector;
 
-create table if not exists public.emnlp_papers (
+create table if not exists public.eccv_papers (
   id text primary key,
   source text not null,
   source_paper_id text,
@@ -25,12 +25,12 @@ create table if not exists public.emnlp_papers (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists emnlp_papers_source_published_idx
-  on public.emnlp_papers (source, published desc);
+create index if not exists eccv_papers_source_published_idx
+  on public.eccv_papers (source, published desc);
 
-create index if not exists emnlp_papers_published_idx
-  on public.emnlp_papers (published desc);
+create index if not exists eccv_papers_published_idx
+  on public.eccv_papers (published desc);
 
-create index if not exists emnlp_papers_title_abstract_fts_idx
-  on public.emnlp_papers
+create index if not exists eccv_papers_title_abstract_fts_idx
+  on public.eccv_papers
   using gin (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(abstract, '')));

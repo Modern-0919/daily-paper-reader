@@ -153,6 +153,12 @@ def resolve_default_raw_path(date_str: str, backend_key: str) -> str:
         prefix = "emnlp_papers"
     elif safe_backend == "aaai":
         prefix = "aaai_papers"
+    elif safe_backend == "cvpr":
+        prefix = "cvpr_papers"
+    elif safe_backend == "eccv":
+        prefix = "eccv_papers"
+    elif safe_backend == "ijcai":
+        prefix = "ijcai_papers"
     return os.path.join(ROOT_DIR, "archive", date_str, "raw", f"{prefix}_{date_str}.json")
 
 

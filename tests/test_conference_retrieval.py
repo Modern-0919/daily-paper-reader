@@ -28,9 +28,9 @@ class ConferenceRetrievalTest(unittest.TestCase):
     def test_parse_years_keeps_user_order_and_dedupes(self):
         self.assertEqual(self.mod.parse_years("2025,2024,2025"), [2025, 2024])
 
-    def test_year_window_uses_calendar_year(self):
+    def test_year_window_covers_prior_submission_year(self):
         start, end = self.mod.year_window(2025)
-        self.assertEqual(start.isoformat(), "2025-01-01T00:00:00+00:00")
+        self.assertEqual(start.isoformat(), "2024-01-01T00:00:00+00:00")
         self.assertEqual(end.isoformat(), "2026-01-01T00:00:00+00:00")
 
     def test_clone_queries_for_conference_does_not_mutate_original(self):

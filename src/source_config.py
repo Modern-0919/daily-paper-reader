@@ -267,6 +267,60 @@ def build_env_source_backend_overrides() -> Dict[str, Dict[str, Any]]:
             backend["schema"] = _norm(os.getenv("DPR_AAAI_SCHEMA"))
         out["aaai"] = backend
 
+    if _env_bool("DPR_ENABLE_CVPR_BACKEND", False):
+        backend = {
+            "enabled": _env_bool("DPR_CVPR_ENABLED", True),
+            "papers_table": _norm(os.getenv("DPR_CVPR_PAPERS_TABLE") or "cvpr_papers"),
+            "use_vector_rpc": _env_bool("DPR_CVPR_USE_VECTOR_RPC", True),
+            "vector_rpc": _norm(os.getenv("DPR_CVPR_VECTOR_RPC") or "match_cvpr_papers_exact"),
+            "vector_rpc_exact": _norm(os.getenv("DPR_CVPR_VECTOR_RPC_EXACT") or "match_cvpr_papers_exact"),
+            "use_bm25_rpc": _env_bool("DPR_CVPR_USE_BM25_RPC", True),
+            "bm25_rpc": _norm(os.getenv("DPR_CVPR_BM25_RPC") or "match_cvpr_papers_bm25"),
+        }
+        if _norm(os.getenv("DPR_CVPR_URL")):
+            backend["url"] = _norm(os.getenv("DPR_CVPR_URL"))
+        if _norm(os.getenv("DPR_CVPR_ANON_KEY")):
+            backend["anon_key"] = _norm(os.getenv("DPR_CVPR_ANON_KEY"))
+        if _norm(os.getenv("DPR_CVPR_SCHEMA")):
+            backend["schema"] = _norm(os.getenv("DPR_CVPR_SCHEMA"))
+        out["cvpr"] = backend
+
+    if _env_bool("DPR_ENABLE_ECCV_BACKEND", False):
+        backend = {
+            "enabled": _env_bool("DPR_ECCV_ENABLED", True),
+            "papers_table": _norm(os.getenv("DPR_ECCV_PAPERS_TABLE") or "eccv_papers"),
+            "use_vector_rpc": _env_bool("DPR_ECCV_USE_VECTOR_RPC", True),
+            "vector_rpc": _norm(os.getenv("DPR_ECCV_VECTOR_RPC") or "match_eccv_papers_exact"),
+            "vector_rpc_exact": _norm(os.getenv("DPR_ECCV_VECTOR_RPC_EXACT") or "match_eccv_papers_exact"),
+            "use_bm25_rpc": _env_bool("DPR_ECCV_USE_BM25_RPC", True),
+            "bm25_rpc": _norm(os.getenv("DPR_ECCV_BM25_RPC") or "match_eccv_papers_bm25"),
+        }
+        if _norm(os.getenv("DPR_ECCV_URL")):
+            backend["url"] = _norm(os.getenv("DPR_ECCV_URL"))
+        if _norm(os.getenv("DPR_ECCV_ANON_KEY")):
+            backend["anon_key"] = _norm(os.getenv("DPR_ECCV_ANON_KEY"))
+        if _norm(os.getenv("DPR_ECCV_SCHEMA")):
+            backend["schema"] = _norm(os.getenv("DPR_ECCV_SCHEMA"))
+        out["eccv"] = backend
+
+    if _env_bool("DPR_ENABLE_IJCAI_BACKEND", False):
+        backend = {
+            "enabled": _env_bool("DPR_IJCAI_ENABLED", True),
+            "papers_table": _norm(os.getenv("DPR_IJCAI_PAPERS_TABLE") or "ijcai_papers"),
+            "use_vector_rpc": _env_bool("DPR_IJCAI_USE_VECTOR_RPC", True),
+            "vector_rpc": _norm(os.getenv("DPR_IJCAI_VECTOR_RPC") or "match_ijcai_papers_exact"),
+            "vector_rpc_exact": _norm(os.getenv("DPR_IJCAI_VECTOR_RPC_EXACT") or "match_ijcai_papers_exact"),
+            "use_bm25_rpc": _env_bool("DPR_IJCAI_USE_BM25_RPC", True),
+            "bm25_rpc": _norm(os.getenv("DPR_IJCAI_BM25_RPC") or "match_ijcai_papers_bm25"),
+        }
+        if _norm(os.getenv("DPR_IJCAI_URL")):
+            backend["url"] = _norm(os.getenv("DPR_IJCAI_URL"))
+        if _norm(os.getenv("DPR_IJCAI_ANON_KEY")):
+            backend["anon_key"] = _norm(os.getenv("DPR_IJCAI_ANON_KEY"))
+        if _norm(os.getenv("DPR_IJCAI_SCHEMA")):
+            backend["schema"] = _norm(os.getenv("DPR_IJCAI_SCHEMA"))
+        out["ijcai"] = backend
+
     return out
 
 
