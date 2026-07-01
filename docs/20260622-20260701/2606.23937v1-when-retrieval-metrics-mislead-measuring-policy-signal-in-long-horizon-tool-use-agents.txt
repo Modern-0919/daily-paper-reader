@@ -1,0 +1,420 @@
+Title: When Retrieval Metrics Mislead: Measuring Policy Signal in Long-Horizon Tool-Use Agents
+
+URL Source: https://arxiv.org/pdf/2606.23937v1
+
+Published Time: Wed, 24 Jun 2026 00:13:57 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+Preprint. Under review. 
+
+# When Retrieval Metrics Mislead: Measuring Policy Signal in Long-Horizon Tool-Use Agents 
+
+Tianyu Ding 
+
+Amazon Web Services 
+
+tianyd@amazon.com 
+
+Juan Pablo De la Cruz Weinstein 
+
+Amazon Web Services 
+
+jcruam@amazon.com 
+
+# Abstract 
+
+Exact-match retrieval recall is often used as a proxy for whether a retriever supplies useful policy context to a downstream decision model. We test this proxy for pre-action policy classification in τ-bench using Qwen2.5-3B/7B classifiers. Under gold-policy conditioning, a compact structured state improves macro-F1 over raw trajectories by 0.13–0.17 after tuning. We then replace the benchmark-designated policy clause with the top-ranked clause retrieved from decision-time context. Although the exact governing clause is retrieved at rank 1 for only 7% of airline states, the primary 3B classifier obtains macro-F1 0.58 with retrieved clauses versus 0.60 with gold clauses ( ∆ = −0.02, task-cluster 95% CI [−0.23, +0.21 ]); mismatched-policy and no-policy controls score 0.32 and 0.21. We do not detect a macro-F1 difference between retrieved and gold clauses in this configuration, although the interval remains too wide to establish non-inferiority. The same qualitative pattern appears with a second retriever and at 7B, while varying across fine-tuning configurations. These results indicate that exact-match clause recall can underestimate downstream policy utility in this benchmark setting, motivating evaluation with retrieved policies in the classification loop rather than recall alone. 
+
+# 1 Introduction 
+
+Policy-constrained tool-use systems may retrieve a policy clause before deciding whether a proposed action is permissible, requires more evidence, or should be blocked. Retrieval is commonly evaluated by whether the benchmark-designated clause appears among the top-ranked results. When exact-match recall is used as a proxy for downstream utility, it effectively treats nonmatching retrieved clauses as uninformative. We test that assumption in τ-bench. We train Qwen2.5-3B/7B classifiers on pre-action states from airline trajectories. The study separates two interventions: how decision context is represented when the benchmark-designated policy is supplied, and how classifier performance changes when the supplied policy is retrieved rather than gold. This design distinguishes representation effects from the validity of exact-match recall as a measure of policy-retrieval utility: 
+
+(Q1) Under gold-policy conditioning, how does decision-state representation 
+
+affect policy classification? (Q2) When policy clauses are retrieved, does exact-match recall predict downstream classifier performance? 
+
+For Q1 we hold the classifier, training data, and recipe fixed and vary only how the decision state is represented. We find that a compact structured decision state —an explicit elici-tation of {request intent, evidence read so far, applicable policy assertion, pending action class}—substantially improves macro-F1 over raw trajectory text and avoids majority-class prediction. This is a gold-policy representation result: the state constructor is given the correct applicable policy. For Q2 we replace that gold policy with a retrieved policy clause at test time. Exact-match retrieval recall is low—an offline gold-injection diagnostic pre-dicts the structured advantage needs high exact-clause access, yet off-the-shelf retrievers 1
+
+> arXiv:2606.23937v1 [cs.CL] 22 Jun 2026
+
+Preprint. Under review. recover the exact clause only 0.07 of the time at rank 1. That diagnostic, however, is not the pipeline evaluation. When we run the direct retrieved-policy intervention, the primary classifier shows no detectable macro-F1 difference vs. the benchmark’s gold clause and beats both mismatched-policy and no-policy controls by wide margins. For this reported configuration, exact-match recall is too pessimistic: nonmatching retrieved clauses can contain decision-relevant policy information, so exact-match recall@k underestimates downstream policy utility. The effect is sensitive to fine-tuning configuration—the gold-policy gap re-opens for under-trained and maximally-discriminating classifiers—so the supported claim is local to the reported configuration rather than universal. 
+
+Contribution and scope. We make three contributions. First, we isolate the effect of decision-state representation under gold-policy conditioning and show that structured states improve Qwen2.5-3B/7B macro-F1 over raw trajectories. Second, we characterize exact-match policy retrieval across two τ-bench domains, multiple query constructions, and four retrievers, and use a gold-injection probe to quantify the prediction implied by treating nonmatching clauses as uninformative. Third, we test that prediction directly by replacing gold policies with retrieved, mismatched, and absent policy inputs. The direct intervention shows that low exact-match recall can coexist with a small observed gold–retrieved performance gap in the primary configuration, while the effect varies with fine-tuning. Together, these analyses evaluate the criterion validity of exact-match recall for policy-conditioned decision models. All claims concern benchmark-authored τ-bench policy assertions and offline classification. 
+
+# 2 Setup 
+
+Task and data. We use pre-action decision states extracted from τ-bench-airline (Yao et al., 2024) trajectories. Each state has a gold decision a⋆ ∈ { allow , verify , refuse } derived from the task’s policy assertions and the evidence visible at the checkpoint. We use a fixed split grouped by task_id (train 195 / test 85; 15 disjoint test tasks; zero task overlap), so no test task’s policy strings appear in training. 
+
+Construct scope. Throughout the paper, “policy” and “rule” mean the benchmark-authored natural-language assertions attached to each τ-bench task, not naturalistic multi-page operating policies. The identification task is therefore a benchmark-proxy task: recover the governing assertion from decision-time context over the domain’s assertion pool. This is the right construct for auditing whether the gold-policy input used by the classifier is obtainable inside the benchmark, but it is not evidence that real policy-document retrieval would be equally easy or hard. 
+
+Representations (the independent variable). Holding everything else fixed we vary the classifier input: raw (full conversation + raw tool outputs, ∼2118 tokens); masked (tool outputs replaced by typed placeholders, ∼717); structured (explicit {request, evidence, policy, action-class} fact extraction, ∼185); and raw+policy (raw with the elicited policy assertion appended). The structured state is produced by a generator that reads the trajectory and the task policy spec; eliciting the applicable policy assertion is an explicit part of the method’s cost—the policy input is supplied by the state-construction procedure rather than inferred by the classifier itself. How the structured state is built (and what it does not use). The generator sees only information available at the checkpoint: the dialogue so far, parsed tool outputs read up to that point, the pending action’s type (read vs. write/transfer), and the task’s natural-language policy assertions. request is the user’s stated goal; evidence lists parsed facts from tool results (e.g. cabin: basic_economy; insurance: no ); policy is the applicable assertion lifted verbatim from the task spec (e.g. “Agent should not offer compensation unless the user asks”); action class is read vs. write. Crucially the generator does not see the gold decision a⋆, and the policy assertion is a rule , not the answer—it keyword-matches the gold action only 14–33% of the time (Section B.2). This is decision-relevant state, not label-derived 
+
+state. 2Preprint. Under review. 
+
+Decision models and evaluation. The primary model is a supervised fine-tuned Qwen2.5-3B/7B classifier (Qwen Team, 2024) with LoRA (Hu et al., 2022) ( r=16, 5 epochs, lr 5 ×10 −5,bf16), which predicts whether the proposed action may proceed, requires additional verifica-tion, or should be blocked. This is the same fine-tuning recipe under which the documented majority-class failure occurred. For computationally inexpensive diagnostic analyses, we also fit a balanced logistic-regression classifier over frozen MiniLM embeddings (Reimers & Gurevych, 2019). The metric is 3-way macro-F1 (the frozen-encoder structured >raw gap given gold policy holds for MiniLM and bge-large but not e5-large ; the Qwen classifier is our primary representation evidence—Appendix C). We operationalize downstream policy utility as macro-F1 when a retrieved policy clause replaces the benchmark-designated policy clause in the classifier input. Confidence intervals are nonparametric bootstraps. Representation-table intervals resample the per-example test set. For the direct retrieved-policy intervention, point estimates average per-seed macro-F1 values; paired-delta CIs are task-cluster bootstraps over the 15 test task IDs (5000 resamples), recomputing and averaging seed-level deltas per replicate. SFT results pool the 3 seeds’ test predictions in the representation tables. We call a classifier collapsed when it assigns one class to ≥ 90% of test items (the documented ce_smoke failure is refuse ≈100%). 
+
+# 3 Policy-conditioned representation ablation 
+
+Holding the classifier, training data, and recipe fixed, we vary only the input representation. In this section the classifier is given the correct applicable policy clause; we replace this gold-policy condition in §4. The main result is that a compact structured decision state 
+
+(∼185 tokens) that surfaces the applicable policy reaches macro-F1 0.601 at 3B vs. 0.293 for raw trajectory text ( ∼2118 tokens)—a paired gap of +0.308 (CI [+ 0.237, +0.380 ]), which is not an end-to-end gain but a representation effect given the rule. Under proper per-cell tuning (held-out validation split), the structured advantage survives at both scales : +0.173 at 3B, +0.133 at 7B (Table 7 in Appendix B). The effect is not brevity (length/info-matched controls), not a leaked label (a mismatched policy sharply reduces performance), and not output-format compliance (it survives parsed-only rescoring). Among the tested representation interventions, explicit policy access produces the largest observed improvement: appending the applicable policy to raw text helps nearly as much as the full structured state, and a mismatched policy is worse than no policy. Cross-actor transfer (Sonnet →Nova) is positive but not significant at n=50 (Appendix B). 
+
+Critical scope: these results are gold-policy conditioned: the structured state contains the correct benchmark policy clause. Section 4 asks whether the classifier still works when that clause is retrieved rather than supplied by the benchmark. 
+
+# 4 Evaluating exact-match recall as a proxy for downstream policy utility 
+
+Every result so far conditions on the classifier receiving the applicable benchmark policy assertion. The downstream measurement question is whether exact-match retrieval recall predicts classifier performance when that assertion is retrieved from decision-time context. The concern is that retrieval may be too weak: off-the-shelf retrievers recover the exact governing clause only rarely (recall@1 ≈ 0.07). We first run an exact-recall diagnostic, then 
+
+feed retrieved clauses directly into the classifier rather than inferring downstream utility from recall alone. We then map broader exact-match recall patterns across domains, protocols, and retrievers. The reported Qwen classifier is more robust to imperfect retrieval than exact-recall diagnostics alone would suggest. 
+
+Gold-policy injection diagnostic. We hold the diagnostic probe, data, and recipe fixed and degrade only the policy input: for a fraction p of states the classifier receives the gold clause, otherwise it receives the MiniLM top-1 retrieved clause from the same retrieval pool. This gold-injection sweep makes p an effective exact-gold access rate . We run this on the frozen-encoder diagnostic probe (whose gold-policy structured −raw gap is +0.115). On a coarse 3Preprint. Under review. grid the gap first becomes robustly positive near p ≈ 0.75 ( +0.104, 95% CI [+ 0.004, +0.205 ]); on a finer grid (steps of 0.1, three injection seeds) the gap’s CI excludes zero only at p = 1.0 (with p = 0.8 marginal, CI lower −0.001), i.e. the finer sweep places the threshold higher , not lower (and it is robust to the classifier head—a more regularised logistic head and a small MLP never clear zero even at full injection; Appendix C). Either way, this diagnostic probe says the structured-vs.-raw advantage becomes robust only when exact gold-clause access is high—at least ∼0.75 (Figure 1). We treat this as an order-of-magnitude diagnostic, not a sharp pipeline threshold: it is estimated on a frozen-encoder probe, the finer grid puts it if anything higher , and the Qwen classifier’s larger gold-policy gap ( +0.13–0.17 tuned) could behave differently. The direct intervention below asks whether this exact-recall diagnostic predicts the primary Qwen configuration. 
+
+The proxy assumption. The diagnostic’s p is an exact-gold access rate inside a frozen-encoder probe; the retrieval number is exact-match recall@ k; the direct intervention is the Qwen classifier with retrieved clauses in the input. Treating the diagnostic as a deployment prediction assumes that exact gold-clause recovery is a close proxy for downstream policy utility. The direct intervention tests that assumption and finds it too pessimistic for the reported classifier: a non-gold but decision-context-aligned retrieved clause can be useful, so exact-match recall is a poor stand-alone proxy for downstream policy utility in this con-figuration. The diagnostic is pessimistic not because its non-gold inputs are random—they are MiniLM top-1 retrieved clauses—but because the probe treats those non-gold retrieved clauses as low-utility, while the direct classifier intervention measures their downstream effect. We establish the diagnostic crossing point with a controlled gold-injection sweep (vary-ing identification while holding everything else fixed) rather than an observational “does retrieval success predict classifier accuracy” correlation; the latter is tiny (11 / 85) and con-founded with per-example difficulty, and we report it only in Appendix C. 
+
+Retrieved-policy classifier intervention. The diagnostic crossing point and the recall measurement are both indirect : they infer a downstream outcome from how often retrieval returns the exact gold clause. Table 1 reports the central direct test on the retrieved-policy Qwen classifier—train on the benchmark’s gold structured states, then at test time replace the policy line with the top-1 retrieved clause (recall@1 0.07), the gold clause, a mismatched policy clause, or no policy line at all. On the primary configuration (Qwen2.5-3B, the same configuration that reaches structured macro-F1 0.60 given the gold clause), the re-trieved clause yields macro-F1 0.580 versus 0.604 for the benchmark’s gold clause—a gap of −0.024 (95% CI [−0.233, +0.207 ]): no detectable degradation in this experiment (we pre-specify a non-inferiority margin δ=0.05 macro-F1, ∼10% of the gold −raw gap; at n=85 the gap’s CI is too wide to establish non-inferiority, so we report “no detectable loss,” not equivalence). The retrieved clause sits far above both a mismatched policy clause (0.315; top-1 retrieved −mismatched +0.265, CI [+ 0.056, +0.440 ]) and a classifier given no policy line (0.206, which falls into a majority-verify regime); top-1 over no-policy is +0.374 (CI 
+
+[+ 0.121, +0.569 ], excludes zero). So the retrieved clause supplies measurably useful policy information in this classifier evaluation despite recovering the exact gold string only 7% 
+
+of the time. Analysis of informative nonmatching clauses. The mechanism evidence is consistent with decision-context-aligned policy information rather than gold recovery. The top-1 retrieved clause is no closer to the gold clause in embedding space than a random clause is (cosine 0.39 vs. 0.40), but it is far more similar to the request +evidence context than a random clause (0.55 vs. 0.26), and the clause pool is not merely redundant (mean pairwise cosine 0.39, 72 / 122 clusters at cosine ≥ 0.8). An additional control tempers the mechanism: the retrieved clauses are also somewhat longer than the mismatched ones (21 vs. 10 tokens), so we cannot fully separate context alignment from a length effect; we report this as a partial confound rather than a clean mechanism. Clause length alone cannot explain the policy-input effects: the gold and mismatched clauses are essentially equal length (both ∼10 tokens) yet differ by 
+
++0.29 macro-F1. However, length may still contribute to the retrieved-versus-mismatched contrast, so the context-alignment analysis should be interpreted as suggestive rather than 4Preprint. Under review.                        
+
+> Policy input at test time Macro-F1 ∆vs. gold 95% CI Benchmark gold clause 0.604 ––Top-1 retrieved (MiniLM, recall@1 0.07) 0.580 −0.024 [−0.233, +0.207 ]
+> Top-1 retrieved ( bge-large , recall@1 0.07) 0.571 −0.033 [−0.338, +0.269 ]
+> Mismatched policy clause 0.315 −0.288 [−0.543, −0.017 ]
+> No policy line 0.206 −0.398 [−0.647, −0.096 ]
+
+Table 1: Effect of policy input on the primary Qwen2.5-3B classifier. The classifier is trained on gold structured states; at test time only the policy line changes. Macro-F1 is the mean of per-seed macro-F1 values over three seeds on the same n=85 airline states. Delta intervals are task-cluster paired bootstraps over the mean seed-level delta. The top-1 retrieved clause shows no detectable loss vs. the benchmark gold clause, although the CI is compatible with a meaningful degradation. Mismatched-policy and no-policy controls show that the retrieved clause contributes decision-relevant policy information. causal. The effect is also sensitive to fine-tuning configuration : the gold-policy gap stays near zero across the mid-range classifiers that reach ∼0.60 given gold (including a second, different-family retriever, bge-large , and at 7B), but it re-opens for under-trained classifiers (gold ≤ 0.49; top-1 −gold down to −0.16) and for the single most aggressively-trained classifier we tried (8 epochs, lr 10 −4; gold 0.63, top-1 −gold −0.15). The result is therefore scoped to the reported configuration: in this regime, low exact-match recall does not imply low downstream policy utility. (The low-cost frozen-encoder diagnostic probe shows the same pattern; seed-level 3B/7B direct-policy results appear in Appendix Table 11.) 
+
+Exact-match retrieval performance. We then measure how often the applicable clause is exactly retrieved, framed as retrieval over the domain’s full natural-language pol-icy clause set (the “haystack”): for each decision we rank all clauses by similarity to the available context and record whether the gold clause is in the top-k. We do this for two public domains (τ-bench airline, 122 clauses; retail, 51 clauses), two query-construction protocols (the request +evidence decision state; and pooled pre-action user context from the trajectory), and four off-the-shelf retrievers : a MiniLM bi-encoder, two stronger instruction-tuned bi-encoders ( bge-large-en-v1.5 , e5-large-v2 ), and a cross-encoder reranker ( bge-reranker-large ) scoring the entire clause pool (the ceiling of a first-stage +rerank pipeline). All evaluated configurations remain below the diagnos-tic crossing : across the four retrievers, recall@5 is 0.18–0.24 on airline and 0.55–0.60 on retail (and 0.16 on airline under the leaner request +evidence query protocol); the strongest retriever (the cross-encoder reranker) does not change the picture (0.18 airline, 0.57 retail). The shortfall persists even at larger k: the best recall@10 across retrievers is only 0.36 (airline) and 0.72 (retail), and the full recall@ k curves (Appendix Figure 2) stay below the diagnostic crossing until k reaches large candidate sets comprising tens of clauses. The gold clause has a poor median rank of approximately 45 out of 122 on airline. The identification shortfall is therefore not an artifact of a weak bi-encoder—it is robust to retriever strength. We also go beyond off-the-shelf retrieval and test three additional retrieval pipelines—query expansion, a hybrid first stage with cross-encoder reranking of the top candidates, and a coarse-to-fine hierarchical retrieve—none of which clears the diagnostic crossing either (best recall@5 0.38 airline / 0.58 retail; the hierarchical variant is actually worse, as coarse section routing drops the gold clause; Appendix C). So the exact-match shortfall is not merely a weak-retriever artifact: it survives stronger, structured identification. Retail is the closest call: at recall@5 
+
+≈ 0.55–0.60 it sits closest to the threshold of any configuration, though still below it (and the higher finer-grid threshold places retail more clearly below); we nonetheless flag retail as the near-miss case in exact-recall terms rather than a decisive failure. Exact-match recall also varies substantially by decision class (Appendix C, Table 10): recall@5 is 0.00 for allow , 0.05 for verify , and 0.50 for refuse . Even for refuse , the benchmark-designated clause is absent from the top five in approximately half of the evaluated states. 
+
+Sensitivity to author-side scenario fields. A third query construction—appending the task’s task_instructions /known_info scenario fields—reaches higher recall (up to 0.58 5Preprint. Under review. 0.0 0.2 0.4 0.6 0.8 1.0      
+
+> exact-gold access rate p / observed recall@5 (con fi g markers)
+> −0.15
+> −0.10
+> −0.05
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> classi fi er macro-F1 di ff erence
+> break-even
+> recall ≈0.75
+> airline
+> (4 retrievers ×
+> 2 protocols)
+> recall 0.16 –0.24
+> retail
+> (4 retrievers)
+> recall 0.55 –0.60
+> Gold-injection exact-match diagnostic
+> structured −raw classifier gap (macro-F1)
+
+Figure 1: Gold-injection exact-match diagnostic. The curve is the structured −raw classifier macro-F1 gap as a function of effective exact-gold access rate (offline gold-injection sweep: gold clause for a fraction p of states, MiniLM top-1 retrieved clause otherwise; 95% CI band); it crosses zero only near recall ≈ 0.75. Triangles mark achievable exact-match recall@5 for every configuration (two domains × two query protocols × four retrievers), all far left of the crossing—which predicts substantially lower downstream performance if nonmatching retrieved clauses are treated as low-utility. Table 1 tests that prediction directly by replacing the gold policy input with retrieved policy inputs. airline, 0.78 retail, the latter nominally clearing the diagnostic crossing). We exclude it because those fields are written from the task author’s knowledge of the correct resolution and leak policy-relevant content into the user-side query, and because our scoring there credits the best of multiple gold clauses (an upper bound). It does not reflect what a classifier can see at decision time. We report it for completeness; the two main protocols use only decision-time-available context. We report this protocol as a sensitivity analysis but exclude it from the primary comparison. The two main sweeps differ in construction—the request +evidence figure is n=85 airline states, the four-retriever robustness sweep uses the trajectory-context protocol at n=50—but both, and retail, sit below the diagnostic crossing. 
+
+Sensitivity to domain and query construction. Airline ( ≈ 0.16) looks much harder than retail ( ≈ 0.55), which would suggest identification difficulty is domain-dependent —and in-deed, when the two domains are queried with different protocols, their gold-rank-percentile confidence intervals separate. But that separation disappears under matched query con-struction, suggesting sensitivity to the query protocol rather than evidence for a stable domain difference. In a controlled 2 ×2 (domain × query protocol), applying the same 
+
+trajectory-context protocol to both domains does not yield a detectable difference (gold-rank percentile 0.10 airline vs. 0.09 retail; Mann–Whitney p=0.29, n=50 / 40). This is a failure to detect a difference at this sample size, not proof of equivalence, so the defensible statement is that the domains are not distinguishable under a matched protocol , and the large cross-domain gap one might report appears only when the two domains are queried differently. The supported statement is one of consistency (not domain-invariance): achievable exact-match recall stays below the offline gold-injection diagnostic across both domains, both query protocols, and all four retrievers (Figure 1), with no stable cross-domain difference detected under a matched protocol. 6Preprint. Under review. 
+
+Interpretation. The representation effect (Section 3, full ablation in Appendix B) is con-ditioned on access to the benchmark-designated policy clause. The remaining question is whether retrieved policy inputs preserve this representation advantage—and Steps 1 and 3 confirm that exact-match recall is low. But the direct test (Step 2) shows that the recall shortfall does not translate into a detectable loss on the reported classifier: for this classifier, the top-1 retrieved clause shows no detectable macro-F1 loss vs. the benchmark’s gold clause despite low exact-match recall , so exact-match recall@k would mis-rank the utility of retrieved clauses in this setting if used alone. Two bounds matter: the effect is sensitive to fine-tuning configuration (the gold-policy gap re-opens for under-trained and maximally-discriminating classifiers, so low exact-match recall can still translate into detectable losses in those regimes), and at n=85 we report “no detectable degradation” rather than equivalence or established non-inferiority. This reframes the evaluation target: report retrieved-policy classifier performance alongside exact-clause recall, and reserve high-stakes guarantees for systems with verification beyond retrieval alone. Appendix Table 2 maps each main identification number to its result file. 
+
+# 5 Related work 
+
+Tool-use agents and intermediate state. Our classifier targets the pre-action checkpoint of the reason-then-act loop popularized by ReAct (Yao et al., 2023), where an agent interleaves reasoning and tool calls. The idea of decisions riding on an explicit structured intermedi-ate state has deep roots in task-oriented dialogue, where belief/dialogue-state tracking maintains a structured (and ideally calibrated) state distribution that downstream policy decisions consume (van Niekerk et al., 2020); SSDG’s compliance-oriented decision state is a close analogue for write-action gating. Deciding whether to act at all —to abstain, refuse, or ask—is itself studied as a first-class capability: abstention abilities of LLMs (Madhusud-han et al., 2024) and asking clarifying questions before acting (Wu, 2023) both motivate our three-way allow/verify-then-proceed/refuse output rather than a binary block/allow classifier. 
+
+Compliance gating. Pre-action compliance gating for tool agents is dominated by two non-learned paradigms: symbolic/formal runtime enforcement that compiles policies into rules or SMT constraints and intercepts tool calls (Chen et al., 2025; Winston et al., 2026), and prompt/document-level policy conditioning, the τ-bench default. Closest to our structured-state setting, Zwerdling et al. (2025) compile company-policy documents into per-tool guard code on τ-bench-airline; like the symbolic enforcers, this presupposes the applicable policy is already in hand and does not ask whether the governing clause can be identified 
+
+at decision time—the question we isolate here. Retrieval-based guards (Xiang et al., 2024) and agentic-RAG policy-as-code (Romeo et al., 2025) do retrieve guard knowledge, and rule-based runtime-enforcement DSLs (Wang et al., 2025) sit in our pre-action allow/refuse design space, but all presuppose the rule and none measures identification recall against downstream classifier utility. The nearest compliance-benchmark neighbor, MANTRA (Anand et al., 2026), synthesizes SMT-validated compliance traces but verifies behavior post hoc rather than gating actions pre-emptively. Learned guards also classify over raw trajectory text against harm taxonomies (Inan et al., 2023) or raw prefixes. The closest representation-axis work, sufficient-context for RAG (Joren et al., 2024), distills a single sufficiency signal for generate-vs-abstain, not a multi-field policy state for write-action gating. Recent agent-safety work motivates but does not run our ablation: the “verifier tax” shows runtime enforcement intercepts most unsafe actions yet rarely yields safe completion (Sah et al., 2026), and proxy-state evaluation infers a structured state post hoc for reward/eval rather than as a pre-action classifier input (Chuang et al., 2026). To our knowledge, among the venues surveyed above, we are the first to run a controlled decision-state representation ablation 
+
+(model +data +recipe fixed) specifically for a learned allow/verify/refuse pre-action classifier in policy-constrained tool-use agents (as opposed to guardrails or abstention in general). 
+
+Exact-match recall vs. downstream policy utility. A prominent line treats an upstream retrieval/selection step, not the downstream model, as what bounds end-to-end quality: for 
+
+tools , Shi et al. (2025) show strong retrievers select the right tool poorly and that benchmarks 7Preprint. Under review. mask this by pre-annotating the relevant tool; for skills , Wang et al. (2026) find the binding constraint on τ-bench is matching skills to tasks; and task-aligned retrieval (Sun et al., 2026) argues one should retrieve the applicable item, not the most lexically similar one. Our direct intervention partially contrasts with this line: at the level of exact clause recall our retriever is just as weak (7% at rank 1), yet the reported classifier does not show a detectable macro-F1 loss because a non-gold but decision-context-aligned clause can remain useful. Prior work has established that retrieval relevance and exact-match metrics can be weak proxies for downstream utility (sufficient-context for RAG (Joren et al., 2024); answer-equivalence shows token-level exact-match underestimates correct outputs (Bulian et al., 2022); and recall is itself a problematic retrieval-quality metric whose link to LLM response quality is weak (Schwartz et al., 2025)). We evaluate this decoupling in a new setting: retrieval of benchmark-authored policy clauses for pre-action compliance classification. The compliance-enforcement literature largely assumes the rule is in hand—symbolic enforcers compile a known policy (Chen et al., 2025; Winston et al., 2026), proxy-state evaluators infer state for a given task (Chuang et al., 2026)—and where it does retrieve, it (correctly) warns that retrieval alone gives no high-stakes guarantee; our claim is correspondingly about the reported classifier’s accuracy , not a safety guarantee. Closest in spirit to our mechanism, Chen (2026) argue tool-selection failure is at the decision readout, not identification. In our setting, the corresponding observation is that the classifier can exploit a context-aligned nonmatching clause. To our knowledge, the specific measurement—that exact-match clause recall undercounts downstream policy utility for a compliance classifier, and that this varies with fine-tuning configuration—has not been reported. 
+
+# 6 Limitations 
+
+Construct validity: a benchmark-native proxy for “the rule,” not real policy documents. 
+
+Our rule corpus is the set of each domain’s distinct τ-bench nl_assertion strings (122 airline, 51 retail), and both the gold labels and the gold-policy input are drawn from these benchmark-authored assertions. This is a proxy for rule identification: we measure whether the governing assertion can be recovered from decision-time context, not whether an agent can identify the applicable clause from a naturalistic, multi-page policy document. This scope has two implications: (i) external validity to real policy corpora is unproven —a longer, redundant, or differently-structured policy document could be easier or harder; and (ii) our stronger-identifier results (query expansion, cross-encoder reranking, hierarchical retrieval) are robustness checks within this same surrogate construct , not evidence about realistic policy-document identification. We therefore frame the contribution as a benchmark-scoped metric-validity study: exact-match recall can be too pessimistic a proxy for downstream policy utility, rather than a general law about tool-use agents or policy documents. 
+
+Exact recovery is not equivalent to downstream utility. We show exact-match policy-clause recall falls below the offline gold-injection diagnostic across the configurations we test (two domains, two query protocols, four off-the-shelf retrievers), while the direct classifier evaluation shows that low exact recall need not imply low downstream utility. The shortfall is scoped to training-free, off-the-shelf retrieval; a domain-fine-tuned dense retriever, a learned clause selector, or an agent-in-the-loop that asks clarifying questions could improve exact recovery. More importantly, the direct intervention shows that exact recovery is not the only utility metric: retrieved-clause-in-the-loop classifier accuracy must be measured directly. The diagnostic crossing ( ≈ 0.75 on a coarse grid; the finer grid puts it higher) is therefore an order-of-magnitude warning about exact recall, not a sharp deployment threshold. 
+
+Scale and scope. This is a small-N study of a pre-action classifier evaluated offline rather than inside a live agent loop. The representation half is on τ-bench-airline (test 85, 15 tasks; cross-actor n=50); the identification half adds retail ( n=40 tasks carrying policy assertions). Two domains is the ceiling of the public benchmark substrate, not a convenience sample: of the available τ2-bench domains, only airline (50 / 50 tasks) and retail (40 / 114) expose the per-task natural-language policy assertions our labels and haystack require; telecom (0 / 2285) and banking (0 / 97) expose none, so a third domain would require generating new trajectories (reintroducing the actor confound) and is out of scope for a training-free study. The retail trajectories come from different actor models than the airline decision states, so 8Preprint. Under review. we keep the cross-domain claim at the actor-agnostic identification level (retrieval recall and rank), not at absolute classifier macro-F1. We report two model scales (3B, 7B), untuned (shared hyperparameters) and tuned (per-cell selection on a small held-out split, 55 states / 10 tasks), reporting “best observed configuration” rather than a tuned optimum; the tuned ranking of masked vs. structured should not be over-read. The evidence supports a bounded claim: given the benchmark policy, raw trajectory text is a poor classifier input, and in the primary configuration a top-1 retrieved clause showed no detectable degradation vs. the benchmark gold clause despite low exact-match recall. Retrieval is not universally sufficient: the result is sensitive to fine-tuning configuration (the gold-policy gap re-opens for under-trained and maximally-discriminating classifiers), the test sets are small with benchmark-derived labels, and the decision-context-alignment mechanism is partly confounded with retrieved-clause length. Live-loop deployment, learned identification, and high-stakes verification beyond retrieval are left to future work. 
+
+# 7 Conclusion 
+
+Exact-match clause recall is not a reliable stand-alone measure of policy-retrieval utility for the classifier studied here. Under gold-policy conditioning, structured decision states outperform raw trajectories, confirming that explicit policy context is useful. However, replacing the gold clause with a top-ranked retrieved clause yields similar macro-F1 in the primary Qwen2.5-3B configuration despite 7% exact recall@1, whereas mismatched-policy and no-policy inputs perform substantially worse. This result is sensitive to fine-tuning and does not establish non-inferiority, but it demonstrates that nonmatching retrieved clauses can contain decision-relevant policy information. Evaluations of policy retrieval for tool-use compliance classifiers should therefore report downstream retrieved-policy performance alongside exact-match recall. 
+
+# Data and reproducibility 
+
+All experiments use public benchmarks: τ-bench (Yao et al., 2024) and the MIT-licensed τ2-bench release (Barres et al., 2025) (airline and retail domains). All trajectories are generated by publicly-available models on these open-source benchmarks. For the representation half, the airline pre-action decision states are extracted from τ-bench-airline trajectories produced by Claude-Sonnet-4 and Amazon-Nova-Lite agents; the classifier that is trained/evaluated on them is a separate small model (Qwen2.5-3B/7B, or a frozen MiniLM probe). For the identification half, we use the public τ2-bench rollouts (Claude-3.7/GPT-4.1/o4-mini actors) for airline and retail. In all cases the gold allow/verify/refuse labels and the policy clauses derive from each task’s published natural-language policy assertions. No customer, production, or proprietary data is used and no internal models are involved— τ-bench personas are synthetic and all actor/classifier models are public. The anonymous artifact contains the model outputs and analysis scripts required to reproduce all reported statistics, including the gold-injection diagnostic sweep and the cross-domain identification measurements (including the excluded leaky-query protocol, flagged as such). 
+
+# References 
+
+Ashwani Anand, Ivi Chatzi, Ritam Raha, and Anne-Kathrin Schmuck. Mantra: Synthesizing smt-validated compliance benchmarks for tool-using llm agents, 2026. Victor Barres, Honghua Dong, Soham Ray, Xujie Si, and Karthik Narasimhan. τ2-bench: Evaluating conversational agents in a dual-control environment, 2025. Jannis Bulian, Christian Buck, Wojciech Gajewski, Benjamin Börschinger, and Tal Schus-ter. Tomayto, tomahto. beyond token-level answer equivalence for question answering evaluation. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing (EMNLP) , pp. 291–305, 2022. 9Preprint. Under review. Shiyang Chen. Looking is not picking: An attention-segment account of tool-selection failures in llm agents, 2026. Zhaorun Chen et al. Shieldagent: Shielding agents via verifiable safety policy reasoning, 2025. Yun-Shiuan Chuang, Chaitanya Kulkarni, Alec Chiu, et al. Toward scalable verifiable reward: Proxy state-based evaluation for multi-turn tool-calling llm agents, 2026. Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. LoRA: Low-rank adaptation of large language models. In 
+
+International Conference on Learning Representations (ICLR) , 2022. Hakan Inan et al. Llama guard: Llm-based input-output safeguard for human-ai conversa-tions, 2023. Hailey Joren et al. Sufficient context: A new lens on retrieval augmented generation systems, 2024. Nishanth Madhusudhan et al. Do LLMs know when to not answer? investigating abstention abilities of large language models, 2024. Qwen Team. Qwen2.5 technical report, 2024. Nils Reimers and Iryna Gurevych. Sentence-bert: Sentence embeddings using siamese bert-networks. In Proceedings of EMNLP-IJCNLP , 2019. Francesco Romeo, Luigi Arena, Francesco Blefari, Francesco Aurelio Pironti, Matteo Lupinacci, and Angelo Furfaro. Arpaccino: An agentic-rag for policy as code compliance, 2025. Tanmay Sah et al. The verifier tax: Horizon-dependent safety-success tradeoffs in tool-using llm agents, 2026. Shelly Schwartz, Oleg Vasilyev, and Randy Sawaya. How important is recall for measuring retrieval quality?, 2025. Zhengliang Shi, Yuhan Wang, Lingyong Yan, and Pengjie Ren. Retrieval models aren’t tool-savvy: Benchmarking tool retrieval for large language models, 2025. Zhixing Sun, Shenghe Xu, and Tao Li. Beyond similarity: Task-aligned retrieval for language models, 2026. Carel van Niekerk, Michael Heck, Christian Geishauser, Hsien-Chin Lin, Nurul Lubis, Marco Moresi, and Milica Gaši´ c. Knowing what you know: Calibrating dialogue belief state distributions via ensembles. In Findings of EMNLP , 2020. Haoyu Wang, Christopher M. Poskitt, and Jun Sun. Agentspec: Customizable runtime enforcement for safe and reliable llm agents, 2025. Yixuan Wang, Yiyang Zhou, Yiming Liang, Congyu Zhang, Fuxiao Liu, Jiawei Zhou, and Huaxiu Yao. Not all skills help: Measuring and repairing agent knowledge, 2026. Cailin Winston, Claris Winston, and René Just. Solver-aided verification of policy compliance in tool-augmented llm agents, 2026. Jie JW Wu. Large language models should ask clarifying questions to increase confidence in generated code, 2023. Zhen Xiang, Linzhi Zheng, Yanjie Li, Junyuan Hong, Qinbin Li, Han Xie, Jiawei Zhang, Zidi Xiong, Chulin Xie, Carl Yang, Dawn Song, and Bo Li. Guardagent: Safeguard llm agents by a guard agent via knowledge-enabled reasoning, 2024. 10 Preprint. Under review. 
+
+Headline quantity Value Source file Break-even recall (coarse) ≈ 0.75 kill_test_v2 
+
+Break-even (fine grid) p=1.0 breakeven_fine 
+
+Oracle struct −raw gap (offline) +0.115 kill_test_v2 
+
+Tuned struct −raw (3B/7B) +.173/ +.133 hp_summary 
+
+Airline R@5, req +ev (hybrid) 0.16 ret_ceiling 
+
+Airline R@5, traj-ctx ( ×4) 0.18–0.24 stronger_retr 
+
+Retail R@5, traj-ctx ( ×4) 0.55–0.60 stronger_retr 
+
+Best R@10 (air/ret) 0.36/0.72 recall_curves 
+
+Matched pctile (air/ret) 0.10/0.09 protocol_sym 
+
+Matched Mann–Whitney p=0.29 protocol_sym 
+
+Per-class R@5 (a/v/r) .00/.05/.50 identif_class 
+
+Direct MiniLM top-1 vs. gold −.024 [−.233, .207 ] direct_policy_stats 
+
+Direct top-1 vs. no policy +.374 [.121, .569 ] direct_policy_stats 
+
+Table 2: Provenance map for the identification-half headline numbers: each quantity, its value, and the committed result file (under experiments/ ) it is recomputed from. The two airline R@5 figures use different query protocols (request +evidence vs. trajectory-context), reported separately; all land below the diagnostic crossing. 1 3 5 10 20 50      
+
+> k (top-k clauses retrieved)
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> recall@k (gold clause in top-k)
+> identi fi cation
+> break-even
+> airline (pool=122, n=50)
+> MiniLM
+> bge-large
+> e5-large
+> bge-reranker
+> 13510 20 50
+> k (top-k clauses retrieved)
+> identi fi cation
+> break-even
+> retail (pool=51, n=40)
+> Policy-clause identi fi ability: recall stays below break-even across retrievers and k
+
+Figure 2: Policy-clause identifiability profile (recall@ k). For each domain, recall@ k of the applicable gold policy clause as a function of k (log scale), for all four off-the-shelf retrievers, under the trajectory-context query protocol. Dotted line = the ≈ 0.75 diagnostic crossing. On airline (pool 122) recall stays far below this crossing until k = 50; on retail (pool 51) it reaches the crossing only near k = 20–50, i.e. only with large candidate sets comprising a substantial fraction of the policy pool. No retriever, including the full-pool cross-encoder reranker, identifies the applicable clause at small, ingestable k.Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. ReAct: Synergizing reasoning and acting in language models. In International Conference on Learning Representations (ICLR) , 2023. Shunyu Yao, Noah Shinn, Pedram Razavi, and Karthik Narasimhan. τ-bench: A benchmark for tool-agent-user interaction in real-world domains, 2024. Naama Zwerdling, David Boaz, Ella Rabinovich, Guy Uziel, David Amid, and Ateret Anaby-Tavor. Towards enforcing company policy adherence in agentic workflows, 2025. 
+
+# A Identification-number provenance 
+
+Table 2 maps the main identification numbers to the result files used to compute them. 11 Preprint. Under review.                    
+
+> Gate input (tok) macro-F1 95% CI coll.
+> ce_smoke †∼0.12 –3/3
+> raw (2118) 0.293 [0.246, 0.340] 0/3 masked (717) 0.304 [0.248, 0.363] 0/3 raw+policy (2143) 0.430 [0.378, 0.484] 0/3
+> structured (185) 0.601 [0.543, 0.661] 0/3
+
+Table 3: Main representation ablation (Qwen2.5-3B, LoRA, identical recipe to the commit-ted ce_smoke collapse †; 3 seeds; pooled paired bootstrap, 5000 resamples, per-task split). “tok”=mean input tokens; “coll.”=seeds that collapsed to one class. Structured decision-state roughly doubles raw macro-F1 (paired ∆=+ 0.308, CI[ +0.237, +0.380]) and no trained variant reproduces the refuse-100% collapse. †ce_smoke =the companion postmortem’s documented small-data collapse, recomputed from committed records (raw state_text , 3 supervision views); macro-F1 ≈ 0.12 at the refuse-100% collapse (trained accuracy 0.23–0.30, i.e. the majority-class rate).          
+
+> Control: structured −X∆F1 [95% CI] length-matched (raw trunc.) +.184 [.087, .283] info-matched (random win.) +.180 [.027, .330] structure vs. content (shuffled) +.313 [.169, .449]
+> Leakage audit (policy field a leaked label?)
+> policy shuffled (wrong policy) +.268 [.163, .373] policy generic (contentless) +.165 [.082, .254]
+
+Table 4: Controls (offline frozen-encoder gate). The structured advantage is not brevity (length/info-matched), not schema scaffold alone (shuffled fields), and not a leaked label: replacing the policy line with a wrong-but-plausible real policy collapses the gate. Policy text keyword-matches the gold action only 14–33% and the split is task-disjoint. All ∆
+
+are paired-bootstrap macro-F1 gaps (structured minus the named control); leading zeros omitted (e.g. .184 = 0.184); all CIs exclude zero. Rows are offline-MiniLM-logreg gaps; the length-matched row is from an earlier 35-task pilot run and the others from the 195-task offline ablation, so the controls are directional rather than from a single jointly-fitted model. 
+
+# B Full representation ablation 
+
+This appendix gives the full representation ablation summarized in Section 3. Throughout, the classifier is given the correct applicable policy clause; these are representation effects 
+
+given the rule, not end-to-end gains (Section 4 replaces this gold-policy condition with retrieved policies). 
+
+B.1 Primary 3B result 
+
+Table 3 reports the primary 3B representation result (§B.6 shows how it shifts at 7B). Un-der the identical recipe that produced the refuse-collapse, the structured-state classifier reaches macro-F1 0.601 (CI [0.543, 0.661 ]) versus 0.293 for raw—a paired gap of +0.308 (CI [+ 0.237, +0.380 ]), roughly a doubling. Crucially, no trained representation reproduces the degenerate collapse (0 / 12 runs collapse, vs the ce_smoke baseline’s refuse-100%): the collapse was a property of the raw-text small-SFT regime, and a better representation alone escapes it. Figure 3 visualizes the ordering. 
+
+B.2 It is not brevity, not scaffold, not a leaked label, not format compliance 
+
+Table 4 collects the frozen-encoder diagnostic controls. The structured advantage survives a 
+
+length-matched control (raw truncated to the structured length; +0.184) and an information-matched control (a random raw window of equal length; +0.180), so it is not merely brevity 12 Preprint. Under review. raw 
+
+> (~2118 tok)
+> masked
+> (~717)
+> raw+policy
+> (~2143)
+> structured
+> (~185)
+
+0.0 
+
+0.1 
+
+0.2 
+
+0.3 
+
+0.4 
+
+0.5 
+
+0.6 
+
+0.7  
+
+> 3-way decision macro-F1
+> 0.29 0.30
+> 0.43
+> 0.60
+> SSDG: structured decision-state vs raw (Qwen2.5-3B SFT, 3 seeds)
+> majority-class collapse (macro-F1 0.117)
+
+Figure 3: Three-way decision macro-F1 by classifier input under the identical SFT recipe (3 seeds, bootstrap CIs). The dashed line is the majority-class (collapse) macro-F1. Structured decision-state roughly doubles raw. or denoising. It survives field-shuffling (keeping the schema but replacing field contents with another example’s; +0.313), so it is not the schema scaffold alone. 
+
+Leakage audit. Because the structured state contains an “applicable policy” line, a possible alternative explanation is that the classifier simply reads a near-label rationale. Three facts rule this out. First, replacing the policy line with a mismatched-but-plausible real policy asser-tion from another example sharply reduces performance ( ∆=+ 0.268, CI [+ 0.163, +0.373 ])— the classifier uses the correct policy content, not a generic format cue, and a shuffled real policy is wrong content in the same distribution, so this is not a hidden gold-label leak. Second, the policy text keyword-matches the gold action only 14–33% of the time; the classifier must reason policy +evidence → action. Third, the train/test split is task-disjoint (no test task’s policy strings appear in training), so the gain generalizes to unseen tasks within this domain—though not necessarily to unseen policy corpora .
+
+Not output-format compliance. The raw SFT classifier emits some unparseable contin-uations on its long inputs. Re-scoring on the parsed-only subset widens the gap (raw parsed-only macro-F1 0.311 vs structured 0.602), so the advantage is decision quality, not the structured classifier’s higher format compliance. 
+
+B.3 How much is policy access vs. structured selection? 
+
+We decompose the SFT gain. Appending the elicited policy to raw text ( raw+policy ) recovers part of the gap ( +0.137 over raw, CI [+ 0.084, +0.191 ]), but the structured state still beats raw+policy by +0.171 (CI [+ 0.100, +0.241 ]). So policy access explains roughly half the gain and the compact structured selection of request/evidence/policy/action-class explains the other half: structured decision-state distillation improves over raw trajectories even when policy access is controlled; the gain is not explained by merely appending policy text. Generic structure alone does not dominate raw —indeed, in the frozen-encoder diagnostic probe a contentless 
+
+generic-policy structured state underperforms raw, so the structured win depends on real elicited content, not formatting in the abstract. 13 Preprint. Under review.                                
+
+> Input class PRF1 raw allow 0.50 0.32 0.39 verify 0.69 0.46 0.55 refuse 0.31 0.70 0.43 raw+policy allow 0.82 0.39 0.53 verify 0.59 0.54 0.56 refuse 0.46 0.89 0.60
+> structured
+> allow 0.59 0.67 0.63 verify 0.88 0.40 0.55
+> refuse 0.47 1.00 0.64
+
+Table 5: Per-class precision/recall/F1 (SFT gate, pooled over 3 seeds; computed from committed predictions). The structured gate’s gains concentrate on allow (F1 0.39 →0.63) and on never missing a required refusal (refuse recall = 1.00); it trades some verify recall for this. raw+policy sits between.             
+
+> Gold decision nraw acc structured acc
+> allow 24 0.33 0.67
+> verify 43 0.02 0.40
+> refuse 18 0.61 1.00
+
+Table 6: Per-gold-class accuracy (3B SFT, seed 42, committed predictions). The structured-state advantage is not concentrated in one decision type: structured improves over raw on 
+
+all three classes ( +0.33 allow, +0.37 verify, +0.39 refuse), including the refuse class. This argues the effect is a general property of the classifier’s decision, not a single-category artifact. 
+
+Where the gain concentrates. On the easy allow -vs-rest contrast, representation barely matters (0.786 vs 0.783); the structured advantage concentrates on the safety-relevant refuse -vs-rest contrast (0.681 vs 0.623), which motivates keeping a distinct verify-then-proceed 
+
+class rather than a binary block/allow classifier. 
+
+B.4 Per-class and per-task behaviour 
+
+To check whether aggregate macro-F1 masks class-specific behavior, Table 5 reports per-class precision/recall/F1 (computed from the SFT predictions, pooled over seeds). The structured classifier’s gains are concentrated and safety-aligned : allow F1 rises 0.39 → 0.63 and refuse recall reaches 1.00 (it misses no required refusal among the n=18 test refusals), with raw+policy sitting in between. This comes with a visible tradeoff: structured trades some verify recall (0.46 → 0.40) for the large allow /refuse gains—it is not uniformly better on every class. Per task (15 disjoint test tasks, seed 42), the structured-over-raw accuracy delta is positive on 8 tasks, tied on 5, and negative on 2: the gain is broad, not driven by one or two tasks, though the small per-task counts mean individual tasks are noisy. 
+
+B.5 Error analysis: the effect spans policy types, and the mechanism is visible 
+
+Breaking accuracy out by the gold decision (Table 6) shows the structured advantage is not a single-category artifact: structured improves over raw on all three classes ( +0.33 
+
+allow , +0.37 verify , +0.39 refuse ). Inspecting individual cases makes the mechanism concrete. On a must-refuse task (remove a passenger, which the policy forbids), the raw classifier—given the full ∼2,000-token transcript—predicts allow , while the structured classifier, whose input surfaces the line “Policy: do not remove passenger. . . ” , correctly predicts 
+
+refuse . The reverse also occurs: on a legitimate-proceed task the raw classifier over-refuses while the structured classifier, seeing the satisfied policy condition, correctly allows. The quantitative gain therefore tracks the proposed mechanism—the classifier performs well 14 Preprint. Under review.                          
+
+> untuned (3B hp) tuned (per-cell)
+> Gate input 3B 7B 3B 7B
+> raw 0.293 0.306 0.331 0.405 masked 0.304 0.477 ––
+> structured 0.601 0.454 0.504 0.538
+> raw+policy 0.430 0.563 ––structured −raw +0.308 +0.148 +0.173 +0.133
+
+Table 7: Representation ablation across model scale, untuned (3B-inherited hyperparameters) vs. tuned (per-cell grid over lr ×epochs, selected on a held-out validation split, evaluated once on the untouched test; 3 seeds). The structured >raw advantage survives proper tuning at both scales (+0.173 at 3B, +0.133 at 7B), directly addressing the concern that the 7B result was an artifact of reused hyperparameters. Tuning lifts the weak raw baseline (most at 7B, 0.306 → 0.405) and shrinks the large untuned 3B gap ( +0.308 → +0.173), so the two scales converge to a consistent ∼+0.13–0.17 structured advantage once both arms are tuned. Only raw and structured were tuned (the decisive contrast); masked/raw+policy shown untuned for reference. when the decision-relevant policy is explicit in its input, and errs when that signal is buried in raw trajectory text. 
+
+On sample size. We are explicit about statistical scope rather than inflating it. The unit of analysis is the per-task trajectory; our panel is 280 decision states from 280 trajectories (test split 85 over 15 disjoint tasks), and all confidence intervals bootstrap that unit (grouped by task for matched-condition deltas). We do not manufacture larger N by extracting multiple correlated checkpoints per trajectory, which would overstate independence. Instead, the evidence’s strength comes from replication : the same ordering (raw worst; policy access the lever) holds across two model scales (3B, 7B), tuned and untuned, and two classifier families (frozen-encoder probe and generative SFT). A consistent effect across these independent settings is more convincing than a single large but correlated sample. 
+
+B.6 Does it hold at 7B and across actors? 
+
+We re-run the full ablation at Qwen2.5-7B (Table 7) and test transfer across the trajectory-generating actor (Table 8). This is where the boundary of the effect appears. 
+
+What is robust. Across both scales, raw trajectory text is the worst input (0.29–0.31 un-tuned), and getting the applicable policy into the input is the dominant lever: at 7B, simply 
+
+appending the policy to raw text ( raw+policy , 0.563) is the single best representation, and the leakage controls (Section B.2) show the classifier uses the policy’s content . Notably, our two methods triangulate the same conclusion from opposite ends: a frozen-encoder probe with no fine-tuning (Table 4, the cross-actor test) and a tuned generative SFT classifier (Tables 3, 7) both rank raw last and reward policy access—so the effect is not an artifact of any single training setup. 
+
+Is the scale story just untuned hyperparameters? Our first 7B runs reused the 3B hyper-parameters, which raises the possibility that the apparent scale shift is a tuning artifact. We therefore retuned: for each (model, representation) cell we grid-searched learning rate 
+
+× epochs (LoRA rank fixed), selected the best configuration on a held-out validation split 
+
+(task-disjoint from both train and test), and evaluated once on the untouched test set (3 seeds). The structured >raw advantage survives tuning at both scales : +0.173 at 3B and 
+
++0.133 at 7B (Table 7). Tuning behaves as expected—it lifts the weak raw baseline, most at 7B (0.306 → 0.405), and shrinks the very large untuned 3B gap ( +0.308 → +0.173). The sup-ported reading is therefore one of convergence , not divergence: once both arms are properly tuned, structured beats raw by a consistent ∼+0.13–0.17 at 3B and 7B, and the dramatic “3B doubles raw” figure was partly an artifact of an untuned raw baseline. We report “best 15 Preprint. Under review.     
+
+> Gate input macro-F1 [95% CI] raw 0.640 [0.49,0.77] masked 0.818 [0.70,0.92] structured 0.741 [0.60,0.86]
+
+Table 8: Cross-actor transfer (offline gate; train on Sonnet-actor decision states, test on Nova-actor, n=50). The gate transfers across the trajectory-generating model (all inputs 
+
+≥ 0.64), but the structured-vs-raw advantage is not robust here ( +0.103, CI [−0.080, +0.288 ],crosses zero) and masked leads—consistent with the scale finding that the specific structured edge is regime-dependent while abstraction-away-from-raw is general. observed configuration” rather than a tuned optimum, since the validation split is small (55 states / 10 tasks). 
+
+Cross-actor. Training on Sonnet-actor decision states and testing on Nova-actor states (Table 8, frozen-encoder probe), the classifier transfers —all inputs score ≥ 0.64 and raw is again the weakest—but at this small sample ( n=50) the structured-vs-raw margin is not significant ( +0.103, CI [−0.080, +0.288 ]) and masking leads. The robust conclusion— abstraction away from raw text plus policy access—holds across actors; which abstraction wins remains underdetermined at this sample size (here masking; at small scale structured), consistent with the tuned-scale picture where masked and structured are close. 
+
+# C Robustness checks for the identification analysis 
+
+We summarise here the supporting checks referenced in Section 4; all use the same frozen-encoder diagnostic probe. 
+
+Gold-injection threshold is robust to the classifier head. Re-running the gold-injection sweep with a more regularised logistic head ( C=0.1) and a small MLP (64 hidden units) on the same MiniLM features, the structured −raw gap fails to clear zero even at full gold injection (p=1.0): both never robustly beat raw. The balanced-logreg head ( C=1.0) we report is thus the most favourable to the structured arm; the high diagnostic crossing is a property of the task, not of the head. 
+
+Representation advantage across encoders. On the offline probe, the structured −raw gap given gold policy is +0.115 (CI [+ 0.014, +0.221 ]) for MiniLM and +0.142 ( [+ 0.023, +0.260 ])for bge-large-en-v1.5 , but only +0.038 ( [−0.092, +0.164 ], not significant) for e5-large-v2 .The offline representation effect is therefore mostly but not universally encoder-robust; our primary representation evidence is the Qwen classifier (Section 3), for which the offline probe is only a low-cost control. 
+
+Stronger identification pipelines. Beyond the four off-the-shelf retrievers, Table 9 reports three additional retrieval pipelines—query expansion, hybrid first-stage with cross-encoder reranking of the top-20, and coarse-to-fine hierarchical retrieve. None clears the diagnostic crossing (best recall@5 0.38 airline / 0.58 retail); the hierarchical variant is the worst, as the coarse section step drops the gold clause. This is the direct check against “you only tested weak retrieval”: stronger, structured identification does not lift recall above the bar. 
+
+Per-class identifiability. Table 10 breaks airline policy-clause identifiability down by gold decision class. 
+
+Direct-policy seed-level results. Table 11 reports the per-seed macro-F1 values behind the 3B direct-policy intervention in Table 1 and the corresponding 7B check. 
+
+Observational retrieval–accuracy split (reported, not relied upon). The retrieved-policy top-1 classifier is not better when the gold clause is in the top-5 (0.36, n=11) than when it is 16 Preprint. Under review.                            
+
+> airline retail Identification pipeline R@5 R@10 R@5 R@10 Best off-the-shelf retriever 0.24 0.36 0.60 0.72 Query expansion + hybrid 0.38 0.48 0.47 0.68 Hybrid top-20 →cross-enc. rerank 0.32 0.50 0.57 0.70 Hierarchical (section →clause) 0.22 0.26 0.35 0.47
+> Break-even (struct. beats raw) ≳0.75
+
+Table 9: Stronger, additional retrieval pipelines do not clear the exact-recall diagnostic. Beyond the four off-the-shelf retrievers, we test query expansion, a hybrid first-stage with cross-encoder reranking of the top-20 candidates, and a coarse-to-fine hierarchical retrieve. The best recall@5 reaches only 0.38 (airline) / 0.58 (retail), still well below the ≳ 0.75 diagnostic crossing; hierarchical routing is worse because the coarse step drops the gold clause. The exact-match shortfall is thus not an artifact of weak/off-the-shelf retrieval.                  
+
+> a⋆class nrecall@5 recall@10 gold rank (med) allow 24 0.00 0.00 40/122 verify 43 0.05 0.05 48/122
+> refuse 18 0.50 0.50 7/122
+
+Table 10: Policy identifiability by decision class (airline, MiniLM over the 122-clause pool, request +evidence query). Exact-match recall varies substantially by decision class: recall@5 is 0.00 for allow , 0.05 for verify , and 0.50 for refuse . The refuse class has the highest exact-match recall, plausibly because prohibitive clauses use more distinctive language. Per-class 
+
+n is small, so this analysis is descriptive. (This breakdown uses the MiniLM retriever; the per-class recalls therefore aggregate to ≈ 0.13, slightly below the 0.16 headline figure, which is the stronger hybrid retriever—the conclusion is unchanged either way.) missed (0.46, n=74), so we treat this correlation as difficulty-confounded and rely on the controlled injection/direct-policy tests instead. 
+
+# D Reproducibility: fine-tuning configuration 
+
+Because several of our main results come from supervised fine-tuning (SFT) of the classifier (Tables 3, 5, 7), we disclose the training configuration. The frozen-encoder controls (Tables 4, 8) use only a balanced logistic-regression head on all-MiniLM-L6-v2 embeddings. 
+
+Configuration. Table 12 lists the fine-tuning configuration. Untuned runs share one recipe ( lr =5×10 −5, 5 epochs); tuned runs select lr/epochs on a task-disjoint validation split (Table 13). 17 Preprint. Under review. 
+
+Model Policy input seed 7 seed 42 seed 123 Mean 3B Gold policy 0.603 0.602 0.606 0.604 3B MiniLM top-1 0.581 0.580 0.580 0.580 3B bge-large top-1 0.574 0.550 0.589 0.571 3B Mismatched policy 0.315 0.315 0.315 0.315 3B No policy 0.206 0.206 0.206 0.206 7B Gold policy 0.456 0.478 0.467 0.467 7B MiniLM top-1 0.431 0.447 0.472 0.450 7B bge-large top-1 0.512 0.529 0.538 0.526 7B Mismatched policy 0.332 0.335 0.335 0.334 7B No policy 0.288 0.285 0.281 0.285 
+
+Table 11: Seed-level direct retrieved-policy results. Each cell is macro-F1 on the same n=85 states; means average the three seeds. The 3B aggregate CIs are in Table 1. At 7B, MiniLM top-1 vs. gold is −0.017 (task-cluster CI [−0.201, +0.158 ]), while bge-large top-1 vs. gold is 
+
++0.059 (CI [−0.189, +0.304 ]). 
+
+Setting Value 
+
+Fixed across all runs (from trainer source) 
+
+Adapter LoRA, r=16, α=32, dropout 0.05 LoRA targets q,k,v,o_proj Precision bfloat16 LR warmup ratio 0.1 Decoding (eval) greedy ( do_sample=False )Max seq. length 2048 (state tail-truncated) Grad. checkpointing on Seeds {42, 123, 7 }
+
+Per-model batch (eff. batch 4)
+
+3B batch 2 ×accum 2 7B batch 1 ×accum 4 
+
+Untuned baseline runs (E2/E6) 
+
+LR / epochs 5×10 −5 / 5 Train / test 195 / 85 (grouped by task) Base model(s) Qwen2.5-3B / 7B-Instruct 
+
+Table 12: Gate fine-tuning configuration from the training script and committed per-run records. 
+
+Model / repr. best lr best ep test macro-F1 3B raw 5e-5 8 0.331 ±0.012 3B structured 2e-5 3 0.504 ±0.021 7B raw 1e-4 8 0.405 ±0.026 7B structured 5e-5 5 0.538 ±0.023 
+
+Table 13: Tuned configuration per (model, representation) cell. Grid lr ∈ { 2, 5, 10 }× 10 −5
+
+and epochs ∈ { 3, 5, 8 }; best validation cell retrained on fit +val and evaluated once on the untouched test (3 seeds). 18

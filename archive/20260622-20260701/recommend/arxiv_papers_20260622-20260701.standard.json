@@ -1,16 +1,823 @@
 {
   "mode": "standard",
-  "generated_at": "2026-07-01T14:24:23.196514+00:00",
+  "generated_at": "2026-07-01T14:57:00.340443+00:00",
   "stats": {
     "mode": "standard",
-    "tag_count": 0,
-    "deep_divecandidates": 0,
-    "deep_cap": null,
-    "deep_selected": 0,
-    "quick_candidates": 0,
-    "quick_skim_target": 10,
-    "quick_selected": 0
+    "tag_count": 1,
+    "deep_divecandidates": 20,
+    "deep_cap": 6,
+    "deep_selected": 9,
+    "quick_candidates": 18,
+    "quick_skim_target": 11,
+    "quick_selected": 11
   },
-  "deep_dive": [],
-  "quick_skim": []
+  "deep_dive": [
+    {
+      "id": "2606.22737v1",
+      "source": "arxiv",
+      "title": "GroundEval: A Deterministic Replacement for LLM-as-Judge in Stateful Agent Evaluation",
+      "abstract": "Before letting an agent operate over real context, can you prove it used the right evidence? GroundEval turns that question into a deterministic test of what the agent searched, fetched, cited, and was permitted to access. In one case study, two frontier LLM judges scored a plausible agent response above 0.85. But the trace told a different story: the agent had never retrieved the artifact its answer depended on, yielding a GroundEval score of 0.000.   We introduce GroundEval, a judge-free framework for evaluating agents against grounded, time-bounded, and access-controlled evidence. GroundEval uses a domain configuration to generate questions, lets the agent choose how to answer, and then scores both the final answer and the recorded trajectory that produced it. The benchmark targets three failures that LLM-as-judge evaluation struggles to detect: whether an agent checked before claiming absence, reasoned only from evidence available to the actor at the relevant time, and used the correct causal mechanism rather than a plausible one. These correspond to three tracks: Silence, Perspective, and Counterfactual. GroundEval exposes when plausible answers rest on invalid evidence paths, and produces structured per-question diagnostics that pair tool activity with the agent's turn-level narration, making each score inspectable rather than merely reported. What our case studies turned up is that this gap isn't some rare corner case. It's exactly the blind spot that final-answer and judge-based scoring were never built to catch.",
+      "authors": [
+        "Jeffrey Flynt"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL",
+        "cs.SE"
+      ],
+      "published": "2026-06-22T00:41:16+00:00",
+      "link": "https://arxiv.org/pdf/2606.22737v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "deterministic agent evaluation using grounded evidence",
+      "llm_evidence_cn": "基于确定性证据的智能体评估",
+      "llm_evidence": "基于确定性证据的智能体评估",
+      "canonical_evidence": "基于确定性证据的智能体评估",
+      "llm_tldr_en": "GroundEval replaces LLM-as-judge with deterministic tests of agent's search, fetch, cite, and access traces for stateful agent evaluation.",
+      "llm_tldr_cn": "LLM作为评委不可靠，可能忽略智能体未检索证据的问题。本文提出GroundEval，通过检查智能体搜索、获取、引用和访问记录，提供确定性的证据基础评估。案例中LLM评委给出高分但实际智能体未获取关键信息，GroundEval正确判0分。",
+      "llm_tldr": "LLM作为评委不可靠，可能忽略智能体未检索证据的问题。本文提出GroundEval，通过检查智能体搜索、获取、引用和访问记录，提供确定性的证据基础评估。案例中LLM评委给出高分但实际智能体未获取关键信息，GroundEval正确判0分。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.22936v1",
+      "source": "arxiv",
+      "title": "When Agents Commit Too Soon: Diagnosing Premature Commitment in LLM Agents",
+      "abstract": "Long-horizon LLM agents can fail quietly: they settle on one reading of the evidence early, then spend the rest of the run defending it. We call this premature commitment. Final-answer scoring misses the failure mode because it sees only the answer, not whether the process has already collapsed to a stable path. We define representational commitment as cross-run hidden-state convergence at a fixed reasoning step, and use it as an early diagnostic of trajectory consistency. On Llama-3.1-70B running ReAct on HotpotQA, step-4 hidden-state similarity predicts downstream behavioral consistency (r = -0.35, partial r = -0.45), with a localized temporal and layer-wise signature. The signal replicates across Qwen-2.5-72B and Phi-3-14B, and on StrategyQA (r = -0.83). It does not track correctness: committed-wrong and committed-correct questions are not separable in activation similarity. That boundary is central to the claim. Commitment tells us whether an agent has settled, not whether it is right. A runtime monitor detects inconsistent trajectories from hidden states at AUROC up to 0.97 (0.85--0.88 under a stricter split), and a prompting intervention cuts behavioral variance by 28% against a token-matched control while leaving accuracy statistically unchanged. We also test whether the signal can route self-consistency compute; on a harder benchmark it helps only modestly and is matched by a simpler output-based baseline. The result is a diagnostic for a hidden process failure, with clear limits rather than a general accuracy lever.",
+      "authors": [
+        "Aman Mehta"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-22T07:13:13+00:00",
+      "link": "https://arxiv.org/pdf/2606.22936v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "diagnoses premature commitment in LLM agents via hidden-state trajectory analysis",
+      "llm_evidence_cn": "通过隐藏状态轨迹分析诊断LLM智能体过早承诺",
+      "llm_evidence": "通过隐藏状态轨迹分析诊断LLM智能体过早承诺",
+      "canonical_evidence": "通过隐藏状态轨迹分析诊断LLM智能体过早承诺",
+      "llm_tldr_en": "Defines representational commitment as cross-run hidden-state convergence and uses it as an early diagnostic of trajectory consistency, tested on Llama-3.1-70B and other models.",
+      "llm_tldr_cn": "定义表示承诺为跨运行隐藏状态收敛，并将其作为轨迹一致性的早期诊断信号。在Llama-3.1-70B上使用ReAct和HotpotQA实验，发现第4步的隐藏状态相似性能够预测后续行为一致性（r=-0.35），该信号在Qwen-2.5-72B和Phi-3-14B上复现，并且具有局部的时间层分布模式。",
+      "llm_tldr": "定义表示承诺为跨运行隐藏状态收敛，并将其作为轨迹一致性的早期诊断信号。在Llama-3.1-70B上使用ReAct和HotpotQA实验，发现第4步的隐藏状态相似性能够预测后续行为一致性（r=-0.35），该信号在Qwen-2.5-72B和Phi-3-14B上复现，并且具有局部的时间层分布模式。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.22948v1",
+      "source": "arxiv",
+      "title": "ENVS: Environment-Native Verified Search for Long-Horizon GUI Agents",
+      "abstract": "As multimodal agents move from interface understanding to real software control, successful trajectory discovery in live desktop environments becomes a key challenge. GUI tasks require long-horizon sequences of precise mouse and keyboard actions, while feedback is sparse, delayed, and costly to obtain through VM rollouts. We propose Environment-Native Verified Search (ENVS), a training-time search-and-filter pipeline that uses the environment to construct verified supervision before policy optimization: it branches over behaviorally distinct GUI actions in live OSWorld VMs, verifies successful leaves, and trains from globally balanced step-level supervision. To evaluate robustness under realistic desktop interruptions, we also introduce OSWorld-Noisy, a dynamic benchmark for recoverable desktop interruptions that preserves the original tasks while testing whether agents can refocus, dismiss, wait, or recover under live perturbations. On the 300-task OSWorld pool, ENVS reaches 30.3 pass@8 on original evaluations and 29.0 on OSWorld-Noisy, outperforming matched ARPO-style online RL while reducing compute from 184-192 to 138-153 GPU-hours; even with only 30% of its search data, ENVS reaches 27.0 pass@8, exceeding ARPO from the base model. Training from noisy environments also better preserves visual-reasoning abilities on auxiliary benchmarks, including OSWorld-G Refusal (16.7 vs. 1.9) and BLINK Functional Correspondence (26.2 vs. 23.1).",
+      "authors": [
+        "Yincheng Zhou",
+        "Athena Zhuoming Zhong",
+        "Shijie Zhang",
+        "Kevin Zhang",
+        "Teresa Xiaotao Shang",
+        "Shanghang Zhang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CV"
+      ],
+      "published": "2026-06-22T07:28:55+00:00",
+      "link": "https://arxiv.org/pdf/2606.22948v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "proposes ENVS for trajectory discovery and verified supervision in GUI agents",
+      "llm_evidence_cn": "提出ENVS方法用于GUI智能体的轨迹发现和验证监督",
+      "llm_evidence": "提出ENVS方法用于GUI智能体的轨迹发现和验证监督",
+      "canonical_evidence": "提出ENVS方法用于GUI智能体的轨迹发现和验证监督",
+      "llm_tldr_en": "Proposes ENVS, a search-and-filter pipeline for long-horizon GUI agent trajectory discovery using environment verification.",
+      "llm_tldr_cn": "该论文提出环境原生验证搜索（ENVS），针对长期GUI智能体任务，通过分支搜索和验证成功轨迹来生成监督信号，并引入OSWorld-Noisy评估鲁棒性。这是直接的智能体轨迹测试方法。",
+      "llm_tldr": "该论文提出环境原生验证搜索（ENVS），针对长期GUI智能体任务，通过分支搜索和验证成功轨迹来生成监督信号，并引入OSWorld-Noisy评估鲁棒性。这是直接的智能体轨迹测试方法。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.23927v1",
+      "source": "arxiv",
+      "title": "RIFT-Bench: Dynamic Red-teaming For Agentic AI Systems",
+      "abstract": "Agentic AI systems powered by large language models (LLMs) are rapidly evolving into autonomous decision-making systems, exposing attack vectors beyond those of traditional LLM vulnerabilities. Existing security evaluations are often tied to specific implementations or domains, limiting unified comparison across heterogeneous systems. To address this gap, we introduce RIFT-Bench, a graph representation-driven methodology for dynamic red-teaming that enables unified evaluations across diverse agentic architectures. Building on a novel hierarchical representation, RIFT-Bench operates in two automated phases: Discovery, which extracts system structure, and Scanning, which deploys adaptive adversarial attacks and produces a comprehensive evaluation report. It evaluates the examined system itself, leveraging a broad set of dynamically adaptable adversarial probes across diverse attack vectors and objectives. We demonstrate the effectiveness of the proposed evaluation pipeline across 45 agentic systems spanning a diverse range of implementations, showing that the approach generalizes effectively to heterogeneous agentic architectures. Beyond systems and attacks, RIFT-Bench also supports direct evaluation of mitigation strategies. These key capabilities make RIFT-Bench a scalable foundation for security evaluation of agentic AI systems.",
+      "authors": [
+        "Yarin Yerushalmi Levi",
+        "Roy Betser",
+        "Amit Giloni",
+        "Lidor Erez",
+        "Itay Gershon",
+        "Oren Rachmil",
+        "Sindhu Padakandla",
+        "Roman Vainshtein"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-22T20:46:56+00:00",
+      "link": "https://arxiv.org/pdf/2606.23927v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "provides a benchmark and methodology for evaluating agentic AI systems through red-teaming",
+      "llm_evidence_cn": "提供一个通过红队测试评估代理型AI系统的基准和方法",
+      "llm_evidence": "提供一个通过红队测试评估代理型AI系统的基准和方法",
+      "canonical_evidence": "提供一个通过红队测试评估代理型AI系统的基准和方法",
+      "llm_tldr_en": "RIFT-Bench introduces a graph-based dynamic red-teaming methodology for unified security evaluation of diverse agentic AI systems, including trajectory-level attacks.",
+      "llm_tldr_cn": "针对现有代理型AI系统安全评估依赖特定实现、缺乏统一比较的问题，本文提出RIFT-Bench，一种基于图表示的动态红队测试方法。该方法通过两阶段流程（系统结构发现与自适应攻击扫描）自动生成评估报告。RIFT-Bench支持多种代理架构，并能在轨迹层面部署对抗攻击。实验表明能有效揭示不同代理系统的安全漏洞。该基准为代理轨迹测试提供了可复用的评估框架。",
+      "llm_tldr": "针对现有代理型AI系统安全评估依赖特定实现、缺乏统一比较的问题，本文提出RIFT-Bench，一种基于图表示的动态红队测试方法。该方法通过两阶段流程（系统结构发现与自适应攻击扫描）自动生成评估报告。RIFT-Bench支持多种代理架构，并能在轨迹层面部署对抗攻击。实验表明能有效揭示不同代理系统的安全漏洞。该基准为代理轨迹测试提供了可复用的评估框架。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.24626v1",
+      "source": "arxiv",
+      "title": "SAFARI: Scaling Long Horizon Agentic Fault Attribution via Active Investigation",
+      "abstract": "As autonomous agents tackle increasingly complex multi-step, multi-agent tasks, their execution trajectories have scaled beyond the constraints of even the largest context windows. Current methods for effectively diagnosing agent failures load the full trajectory into an LLM's context window, which suffers from attention dilution and fails when agentic traces inevitably exceed context limits. To address this, we introduce SAFARI (Scaling long-horizon Agentic Fault AttRibution via active Investigation), a framework that replaces linear context loading with a tool-augmented diagnostic loop. By equipping LLMs with a specialized toolbox to read and search trajectory segments alongside a persistent Short-Term Memory (STM) for cross-turn reasoning, SAFARI effectively decouples diagnostic accuracy from architectural context limits. Our experiments demonstrate that SAFARI outperforms state-of-the-art results by 20% on the Who&When dataset within a 1M token budget, and by 19% on TRAIL GAIA subset on a 25K token budget. Most significantly, SAFARI maintains a 0.58 precision even when the target fault resides 5x beyond the model's native context window, a scenario where traditional evaluators fail entirely.",
+      "authors": [
+        "Chenyang Zhu",
+        "Jiayu Yao",
+        "Kushal Chawla",
+        "Youbing Yin",
+        "Nathan Wolfe",
+        "Pengshan Cai",
+        "Jingyu Wu",
+        "Spencer Hong",
+        "Sangwoo Cho",
+        "Shi-Xiong Zhang",
+        "Daben Liu",
+        "Sambit Sahu",
+        "Erin Babinsky"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-23T14:23:40+00:00",
+      "link": "https://arxiv.org/pdf/2606.24626v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "framework for diagnosing agent failures by investigating trajectory segments",
+      "llm_evidence_cn": "通过调查轨迹段诊断智能体失败的框架",
+      "llm_evidence": "通过调查轨迹段诊断智能体失败的框架",
+      "canonical_evidence": "通过调查轨迹段诊断智能体失败的框架",
+      "llm_tldr_en": "Introduces SAFARI, a tool-augmented diagnostic loop that searches trajectory segments to attribute faults in long-horizon agentic tasks, overcoming context window limitations.",
+      "llm_tldr_cn": "提出SAFARI框架，通过工具增强的诊断循环来搜索智能体轨迹段，从而归因长周期多步骤任务中的故障，解决了完整轨迹加载到上下文窗口导致的注意力稀释问题。该方法利用短时记忆进行跨回合推理，在需要细致轨迹分析的场景中表现出色。",
+      "llm_tldr": "提出SAFARI框架，通过工具增强的诊断循环来搜索智能体轨迹段，从而归因长周期多步骤任务中的故障，解决了完整轨迹加载到上下文窗口导致的注意力稀释问题。该方法利用短时记忆进行跨回合推理，在需要细致轨迹分析的场景中表现出色。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.27669v1",
+      "source": "arxiv",
+      "title": "When Search Agents Should Ask: DiscoBench for Clarification-Aware Deep Search",
+      "abstract": "Search agents powered by large language models (LLMs) are increasingly used to solve complex information-seeking tasks, requiring multi-step retrieval and reasoning to fulfill user goals. However, existing benchmarks often assume that user queries are complete and explicit, overlooking the fact that real-world search requests are frequently vague, underspecified, or even factually incorrect. In deep search scenarios, such ambiguity can propagate along multi-step reasoning chains and lead agents toward incorrect search trajectories. To address this gap, we introduce DiscoBench, a benchmark for clarification-aware deep search, designed to evaluate whether search agents can proactively identify ambiguity, ask effective clarification questions, and recover correct reasoning paths through user interaction. DiscoBench contains 211 samples and 463 ambiguity instances across 11 real-world domains, covering four ambiguity types. We further design a user simulator for multi-turn interaction and evaluate model performance from four perspectives: task utility, ambiguity detection, interaction strategy, and cost efficiency. Experiments on representative LLMs show that ambiguity detection and effective clarification are distinct capabilities, and that repeatedly searching instead of asking for clarification often performs worse than direct guessing, highlighting a critical gap between retrieval ability and interactive problem-solving in current search agents.",
+      "authors": [
+        "Yiling Tao",
+        "Shihan Deng",
+        "Meiling Tao",
+        "Pengzhi Wei",
+        "Zhichao Hu",
+        "Zhihao Zhu"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-06-26T02:57:15+00:00",
+      "link": "https://arxiv.org/pdf/2606.27669v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "benchmark for evaluating search agent trajectories under ambiguity",
+      "llm_evidence_cn": "用于评估搜索智能体在歧义下轨迹的基准",
+      "llm_evidence": "用于评估搜索智能体在歧义下轨迹的基准",
+      "canonical_evidence": "用于评估搜索智能体在歧义下轨迹的基准",
+      "llm_tldr_en": "DiscoBench is a benchmark for clarification-aware deep search that evaluates whether search agents proactively identify ambiguity and ask effective questions. It uses multi-step search trajectories to test agent behavior in underspecified queries, directly relevant to trajectory evaluation and benchmarking.",
+      "llm_tldr_cn": "现有搜索基准假设用户查询完整明确，忽略了现实中的模糊性。DiscoBench专门设计用于评估搜索智能体在深度搜索场景中识别歧义、提出澄清问题的能力。该基准通过多步搜索轨迹测试智能体行为，可直接用于评估和比较不同agent的轨迹质量。其核心贡献正是为agent轨迹测试提供基准和评估方法，与用户需求高度匹配。",
+      "llm_tldr": "现有搜索基准假设用户查询完整明确，忽略了现实中的模糊性。DiscoBench专门设计用于评估搜索智能体在深度搜索场景中识别歧义、提出澄清问题的能力。该基准通过多步搜索轨迹测试智能体行为，可直接用于评估和比较不同agent的轨迹质量。其核心贡献正是为agent轨迹测试提供基准和评估方法，与用户需求高度匹配。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.29957v1",
+      "source": "arxiv",
+      "title": "SWE-Together: Evaluating Coding Agents in Interactive User Sessions",
+      "abstract": "Most coding-agent benchmarks are static: an agent receives a complete task description up front and is judged only by its final code. Real coding assistance is interactive, with users clarifying goals, adding constraints, and correcting mistakes over multiple turns. We introduce SWE-Together, a multi-turn benchmark reconstructed from real user-agent coding sessions. To make real interactions verifiable, we curate 109 repository-level tasks from 11,260 recorded sessions, selecting sessions with recoverable repository states, clear user goals, and observable outcomes. To replay these interactions across agents, we build a reactive LLM-based user simulator that preserves the original users' intents and provides feedback when the coding agent's progress requires it. To evaluate agents as collaborators, we measure both final repository correctness and the number of corrective feedback turns required during the interaction. Experiments with frontier coding agents show that stronger agents generally achieve higher final success rates while requiring fewer interventions, suggesting an improved user experience.",
+      "authors": [
+        "Yifan Wu",
+        "Zhuokai Zhao",
+        "Songlin Li",
+        "Ho Hin Lee",
+        "Jiacheng Zhu",
+        "Shirley Wu",
+        "Tianhe Yu",
+        "Serena Li",
+        "Lizhu Zhang",
+        "Xiangjun Fan",
+        "Shengzhi Li"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI"
+      ],
+      "published": "2026-06-29T08:35:15+00:00",
+      "link": "https://arxiv.org/pdf/2606.29957v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Multi-turn benchmark for evaluating coding agents in interactive sessions",
+      "llm_evidence_cn": "用于评估编码智能体交互会话的多轮基准",
+      "llm_evidence": "用于评估编码智能体交互会话的多轮基准",
+      "canonical_evidence": "用于评估编码智能体交互会话的多轮基准",
+      "llm_tldr_en": "Introduces SWE-Together, a multi-turn benchmark from real user-agent coding sessions, using an LLM-based user simulator for reproducible evaluation.",
+      "llm_tldr_cn": "针对现有编码智能体基准仅评估最终代码而忽略交互过程的问题，构建了SWE-Together多轮基准。从11,260次真实会话中筛选109个仓库级任务，并构建基于LLM的用户模拟器来重现交互。该基准支持多轮交互评估，能够更真实地反映编码助手在实际使用中的表现。",
+      "llm_tldr": "针对现有编码智能体基准仅评估最终代码而忽略交互过程的问题，构建了SWE-Together多轮基准。从11,260次真实会话中筛选109个仓库级任务，并构建基于LLM的用户模拟器来重现交互。该基准支持多轮交互评估，能够更真实地反映编码助手在实际使用中的表现。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.31372v1",
+      "source": "arxiv",
+      "title": "Failure-Based Testing for Deep Reinforcement Learning Agents",
+      "abstract": "Deep Reinforcement Learning (DRL) agents have been widely adopted across diverse domains to address challenging decision-making problems, such as autonomous driving and robotic control. Given that many of these applications are safety- and security-critical, rigorous testing of DRL agents is indispensable. Existing testing methods are typically guided by reward signals to detect failures. However, for well-trained agents, whose performance approaches optimal levels in standard operating conditions, reward signals remain generally high, making current methods ineffective at uncovering critical failures.   To address these challenges, we propose a novel failure-based method that leverages task-induced failure insights to enhance failure detection capability while reducing the number of tests required. Since DRL agents are inherently designed with human-defined tasks, they provide valuable cues about task difficulty. Intuitively, a DRL agent is more likely to fail when confronted with a more difficult task; therefore, PRT prioritizes these tasks. Building on this foundation, we propose Prior Random Testing, a black-box failure-based testing method that enables targeted prioritization while preserving the diversity of generated test cases. Guided by task-induced failure insights, PRT prioritizes failure-prone regions of the input domain, thereby facilitating efficient failure detection.   PRT is evaluated on four widely used benchmarks and compared with different state-of-the-art methods including fuzzing, search-based and generative-based methods. PRT ranks among the top performers in terms of both the cost of finding the first failure and the diversity of test cases. Notably, compared to random testing, PRT achieves better diversity and reduces the testing cost by over 50%.",
+      "authors": [
+        "Weibin Lin",
+        "Jiangtao Meng",
+        "Zheng Zheng"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE"
+      ],
+      "published": "2026-06-30T09:05:29+00:00",
+      "link": "https://arxiv.org/pdf/2606.31372v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "directly proposes a testing method for DRL agent behavior",
+      "llm_evidence_cn": "直接提出一种针对DRL代理行为的测试方法",
+      "llm_evidence": "直接提出一种针对DRL代理行为的测试方法",
+      "canonical_evidence": "直接提出一种针对DRL代理行为的测试方法",
+      "llm_tldr_en": "Introduces a failure-based testing method for DRL agents, leveraging task-induced failure knowledge to detect critical failures missed by reward-based methods.",
+      "llm_tldr_cn": "针对深度强化学习代理在充分训练后奖励信号通常较高、现有测试方法难以发现关键故障的问题，本文提出一种利用任务故障先验知识的故障驱动测试方法。该方法通过引导测试输入向故障区域探索，显著提升故障检测能力。实验表明在自动驾驶和机器人控制等安全关键领域，该方法能发现传统奖励引导测试遗漏的故障。核心贡献是为DRL代理提供了一种有效的黑盒测试手段，直接满足代理轨迹测试需求。",
+      "llm_tldr": "针对深度强化学习代理在充分训练后奖励信号通常较高、现有测试方法难以发现关键故障的问题，本文提出一种利用任务故障先验知识的故障驱动测试方法。该方法通过引导测试输入向故障区域探索，显著提升故障检测能力。实验表明在自动驾驶和机器人控制等安全关键领域，该方法能发现传统奖励引导测试遗漏的故障。核心贡献是为DRL代理提供了一种有效的黑盒测试手段，直接满足代理轨迹测试需求。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2606.32034v1",
+      "source": "arxiv",
+      "title": "QVal: Cheaply Evaluating Dense Supervision Signals for Long-Horizon LLM Agents",
+      "abstract": "LLM agents increasingly act over long horizons, where a single trajectory can contain hundreds or thousands of actions. In these settings, outcome-only rewards provide too sparse guidance, failing to inform the model about the goodness of intermediate actions. Dense supervision methods aim to solve this problem by scoring intermediate steps, from intrinsic confidence to self-distillation and embedding similarities. However, it is common practice to evaluate them by measuring the downstream performance of a training pipeline that integrates them. This is expensive, conflates supervision quality with training engineering confounders, and renders different methodological families requiring distinct training setups incomparable. As a result, dense supervision methods are rarely benchmarked on common ground. We introduce QVal, a training-free testbed for directly evaluating dense supervision signals. Given a state-action pair, QVal measures how well a method's score is Q-aligned: whether it orders actions according to the Q-values of a strong reference-policy. This lets us compare signals before any training run and separate signal quality from other engineering choices. We instantiate QVal as QVal-v1.0, benchmarking 21 dense supervision methods across four diverse environments and seven methodological families, with over 1.2K evaluation experiments across six open-weight model backbones. We find that simple prompting baselines consistently outperform recent dense supervision methods from the literature, and that performance clusters strongly by family. These findings hold across model sizes, environments, and observation modalities. QVal is designed to be easily extensible to new environments and methods, enabling researchers to iterate on dense supervision methods before any training run.",
+      "authors": [
+        "Sergio Hernández-Gutiérrez",
+        "Matteo Merler",
+        "Ilze Amanda Auzina",
+        "Joschka Strüber",
+        "Ameya Prabhu",
+        "Matthias Bethge"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-06-30T17:58:23+00:00",
+      "link": "https://arxiv.org/pdf/2606.32034v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "Cheap evaluation of dense supervision signals on long-horizon trajectories",
+      "llm_evidence_cn": "对长程轨迹的密集监督信号进行低成本评估",
+      "llm_evidence": "对长程轨迹的密集监督信号进行低成本评估",
+      "canonical_evidence": "对长程轨迹的密集监督信号进行低成本评估",
+      "llm_tldr_en": "Proposes QVal, a cheap method to evaluate dense supervision signals for long-horizon LLM agent trajectories without full training.",
+      "llm_tldr_cn": "针对长程大语言模型智能体轨迹中密集监督信号评估成本高且与其他因素混淆的问题，提出QVal方法。该方法通过设计轻量级评估指标，分离监督信号质量与训练工程混淆因素，使得不同密集监督方法可直接比较。实验证明QVal能可靠预测下游训练性能，为轨迹评估提供了高效工具。",
+      "llm_tldr": "针对长程大语言模型智能体轨迹中密集监督信号评估成本高且与其他因素混淆的问题，提出QVal方法。该方法通过设计轻量级评估指标，分离监督信号质量与训练工程混淆因素，使得不同密集监督方法可直接比较。实验证明QVal能可靠预测下游训练性能，为轨迹评估提供了高效工具。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2606.23449v1",
+      "source": "arxiv",
+      "title": "AOHP: An Open-Source OS-Level Agent Harness for Personalized, Efficient and Secure Interaction",
+      "abstract": "AI agents are driving a new software paradigm, with the ability to autonomously call tools, extract information, manage memory, and complete tasks that span applications and data sources. Most existing end-user operating systems, however, are designed for application-centric workflows and offer little native support for AI agents. This mismatch limits the wider adoption of agents and leads to execution overhead and safety risks when running agents on conventional systems. While the concept of agent-native operating systems is emerging, the research community lacks an open testbed to explore the architectural primitives desired for agent-mediated interaction. We present AOHP (Android Open Harness Project), an OS-level agent harness built on the Android Open Source Project (AOSP). The core design principle of AOHP is to treat agents as first-class OS actors, enabling adaptive user interfaces and agent-friendly runtime environments. AOHP preserves the mature Android software and hardware ecosystem while introducing three agent-oriented system mechanisms: personalized service composition, efficient agent interfaces, and secure information flow. Based on preliminary experiments on challenging tasks covering key capabilities of OS agents, AOHP shows clear advantages in task completion (+21.12% completion rate), execution cost (-51.55% token cost), and security-policy compliance.",
+      "authors": [
+        "Shanhui Zhao",
+        "Jiacheng Liu",
+        "Guohong Liu",
+        "Jichao Yan",
+        "Jialei Ye",
+        "Yuhao Yang",
+        "Hao Wen",
+        "Shizuo Tian",
+        "Yizhen Yuan",
+        "Yuxuan Chen",
+        "Yunxin Liu",
+        "Ju Ren",
+        "Ya-Qin Zhang",
+        "Chao Huang",
+        "Yao Guo",
+        "Yuanchun Li"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.OS"
+      ],
+      "published": "2026-06-22T15:02:42+00:00",
+      "link": "https://arxiv.org/pdf/2606.23449v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "provides open-source OS-level agent harness as a testbed for agent interaction",
+      "llm_evidence_cn": "提供开源的操作系统级智能体框架作为交互测试平台",
+      "llm_evidence": "提供开源的操作系统级智能体框架作为交互测试平台",
+      "canonical_evidence": "提供开源的操作系统级智能体框架作为交互测试平台",
+      "llm_tldr_en": "Presents AOHP, an open OS-level agent harness for personalized, efficient, and secure interaction, serving as a testbed.",
+      "llm_tldr_cn": "该论文提出AOHP，一个开源的操作系统级智能体框架，旨在为AI智能体提供原生的执行环境，解决了现有系统对智能体支持不足的问题，可作为智能体交互和轨迹测试的基准平台。",
+      "llm_tldr": "该论文提出AOHP，一个开源的操作系统级智能体框架，旨在为AI智能体提供原生的执行环境，解决了现有系统对智能体支持不足的问题，可作为智能体交互和轨迹测试的基准平台。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.25978v1",
+      "source": "arxiv",
+      "title": "Multi-Agent Goal Recognition with Team- and Goal-Conditioned Reinforcement Learning and Factorized Branch-and-Bound",
+      "abstract": "Multi-agent goal recognition asks an observer to jointly infer which agents act together and what each team is trying to achieve, so the hypothesis space grows combinatorially with the number of team partitions and goals per team. Real applications such as drone surveillance and collaborative robotics expose only the agents' trajectory, which forces the observer to rank team-goal hypotheses from behavior alone. Multi-Agent Goal Recognition with Branch-and-Bound (MAGR-BB) addresses this setting with a shared team- and goal-conditioned policy used as the scoring model inside a factorized branch-and-bound search. On a controlled multi-agent Blocksworld benchmark, MAGR-BB returns the same top-ranked hypothesis as exhaustive search throughout the trajectory while cutting hypothesis materialization by orders of magnitude and reducing cumulative recognition runtime substantially.",
+      "authors": [
+        "Thiago Thomas",
+        "Gabriel de Oliveira Ramos",
+        "Felipe Meneguzzi"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA",
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-06-24T15:50:39+00:00",
+      "link": "https://arxiv.org/pdf/2606.25978v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "infers team and goal from agent trajectories for evaluation",
+      "llm_evidence_cn": "从智能体轨迹推断团队和目标用于评估",
+      "llm_evidence": "从智能体轨迹推断团队和目标用于评估",
+      "canonical_evidence": "从智能体轨迹推断团队和目标用于评估",
+      "llm_tldr_en": "Uses team- and goal-conditioned RL as scoring model in factorized branch-and-bound search to infer team partitions and goals from agent trajectories.",
+      "llm_tldr_cn": "提出MAGR-BB方法，将团队和目标条件强化学习策略作为评分模型，结合因子化分支定界搜索，从智能体轨迹中联合推断哪些智能体组成团队以及每个团队的目标。该方法利用轨迹行为来评估假设，在受控的多智能体Blocksworld基准上返回与最优假设相同的排序。",
+      "llm_tldr": "提出MAGR-BB方法，将团队和目标条件强化学习策略作为评分模型，结合因子化分支定界搜索，从智能体轨迹中联合推断哪些智能体组成团队以及每个团队的目标。该方法利用轨迹行为来评估假设，在受控的多智能体Blocksworld基准上返回与最优假设相同的排序。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.28436v1",
+      "source": "arxiv",
+      "title": "Dockerless: Environment-Free Program Verifier for Coding Agents",
+      "abstract": "Program verifiers play a central role in training coding agents, including selecting trajectories for supervised fine-tuning (SFT) and providing rewards for reinforcement learning (RL). Standard execution-based verification requires running unit tests inside per-repository environments such as Docker images, incurring substantial environment setup costs. We propose Dockerless, an environment-free agentic patch verifier that evaluates generated code patches without executing them. Rather than simply matching candidate patches to references, Dockerless judges patch correctness using evidence gathered through agentic repository exploration. On a verifier evaluation benchmark, Dockerless outperforms the strongest open-source verifier by 14.3 AUC points. Using Dockerless as both the SFT trajectory filter and the RL reward enables a fully environment-free post-training pipeline. The resulting model reaches 62.0%, 50.0%, and 35.2% resolve rate on SWE-bench Verified, Multilingual, and Pro, respectively. It surpasses the Qwen3.5-9B baseline by 2.4, 8.7, and 2.9 points, matching environment-based post-training.",
+      "authors": [
+        "Wenhao Zeng",
+        "Yuling Shi",
+        "Xiaodong Gu",
+        "Chao Hu",
+        "Chaofan Wang",
+        "Yuhao Cui",
+        "Hongting Zhou",
+        "Mengnan Qi",
+        "Jianqiao Wangni",
+        "Zhaojian Yu",
+        "Shuzheng Gao",
+        "Kai Cai",
+        "Shilin He"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI"
+      ],
+      "published": "2026-06-26T06:14:55+00:00",
+      "link": "https://arxiv.org/pdf/2606.28436v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "environment-free verifier for coding agent trajectories",
+      "llm_evidence_cn": "无需环境的代码智能体轨迹验证器",
+      "llm_evidence": "无需环境的代码智能体轨迹验证器",
+      "canonical_evidence": "无需环境的代码智能体轨迹验证器",
+      "llm_tldr_en": "Dockerless is an environment-free program verifier that judges code patches without execution, using agentic repository exploration, outperforming existing verifiers.",
+      "llm_tldr_cn": "现有代码智能体轨迹验证依赖Docker等环境，成本高。本文提出Dockerless，无需执行代码，通过智能体仓库探索收集证据来判断补丁正确性。在验证基准上超过现有最强开源验证器14.3 AUC点，降低了轨迹验证成本。",
+      "llm_tldr": "现有代码智能体轨迹验证依赖Docker等环境，成本高。本文提出Dockerless，无需执行代码，通过智能体仓库探索收集证据来判断补丁正确性。在验证基准上超过现有最强开源验证器14.3 AUC点，降低了轨迹验证成本。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2606.23937v1",
+      "source": "arxiv",
+      "title": "When Retrieval Metrics Mislead: Measuring Policy Signal in Long-Horizon Tool-Use Agents",
+      "abstract": "Exact-match retrieval recall is often used as a proxy for whether a retriever supplies useful policy context to a downstream decision model. We test this proxy for pre-action policy classification in tau-bench using Qwen2.5-3B/7B classifiers. Under gold-policy conditioning, a compact structured state improves macro-F1 over raw trajectories by 0.13-0.17 after tuning. We then replace the benchmark-designated policy clause with the top-ranked clause retrieved from decision-time context. Although the exact governing clause is retrieved at rank 1 for only 7% of airline states, the primary 3B classifier obtains macro-F1 0.58 with retrieved clauses versus 0.60 with gold clauses (Delta=-0.02, task-cluster 95% CI [-0.23,+0.21]); mismatched-policy and no-policy controls score 0.32 and 0.21. We do not detect a macro-F1 difference between retrieved and gold clauses in this configuration, although the interval remains too wide to establish non-inferiority. The same qualitative pattern appears with a second retriever and at 7B, while varying across fine-tuning configurations. These results indicate that exact-match clause recall can underestimate downstream policy utility in this benchmark setting, motivating evaluation with retrieved policies in the classification loop rather than recall alone.",
+      "authors": [
+        "Tianyu Ding",
+        "Juan Pablo De la Cruz Weinstein"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-06-22T20:57:11+00:00",
+      "link": "https://arxiv.org/pdf/2606.23937v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "evaluates policy signal from agent trajectories vs structured state",
+      "llm_evidence_cn": "评估来自智能体轨迹与结构化状态的策略信号",
+      "llm_evidence": "评估来自智能体轨迹与结构化状态的策略信号",
+      "canonical_evidence": "评估来自智能体轨迹与结构化状态的策略信号",
+      "llm_tldr_en": "Tests the proxy of retrieval recall for policy signal in tau-bench, comparing raw trajectory vs compact structured state for pre-action policy classification.",
+      "llm_tldr_cn": "在tau-bench中测试检索召回率作为策略信号代理的有效性，比较原始轨迹与紧凑结构化状态在动作前策略分类中的表现。发现使用黄金策略时结构化状态比原始轨迹提升宏F1 0.13-0.17，而使用检索到的条款时性能下降很小，表明原始轨迹包含足够的策略信号。",
+      "llm_tldr": "在tau-bench中测试检索召回率作为策略信号代理的有效性，比较原始轨迹与紧凑结构化状态在动作前策略分类中的表现。发现使用黄金策略时结构化状态比原始轨迹提升宏F1 0.13-0.17，而使用检索到的条款时性能下降很小，表明原始轨迹包含足够的策略信号。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.29028v1",
+      "source": "arxiv",
+      "title": "Keypose Exploration: Efficient Automatic Trajectory Labelling and Cross-Embodiment Policy Transfer",
+      "abstract": "Keypose-based manipulation decomposes tasks into critical waypoints to simplify policy learning for long-horizon tasks, but existing approaches rely on task-specific heuristics or manual annotation to extract keyposes from demonstrations. We present an automatic trajectory labelling pipeline for grasp-related tasks. This pipeline combines vision-language models (VLMs) for semantic event detection with classical trajectory analysis for precise temporal alignment, requiring VLM inference only on one single demo among repeating ones per task. Using the labelled data, we train a keypose-guided Diffusion Policy (DP) that exploits keypose conditioning to intervene demonstration distributions. We explore the possibility to apply this property for cross-embodiment transfer: candidate keyposes are sampled and filtered via a reachability map, steering the policy toward kinematically feasible keyposes for the target robot. As a preliminary feasibility study, experiments on two robomimic tasks show that the labelled data produces policies matching a standard DP baseline, and that reachability-filtered keypose conditioning may benefit zero-shot transfer on the multimodal insertion task when feasible candidates are available.",
+      "authors": [
+        "Yupu Lu",
+        "Hang Xu",
+        "Yizhou Chen",
+        "Jia Pan"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-06-27T17:48:39+00:00",
+      "link": "https://arxiv.org/pdf/2606.29028v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "Automatic trajectory labelling pipeline for grasp tasks",
+      "llm_evidence_cn": "自动轨迹标注流水线，可用于测试轨迹",
+      "llm_evidence": "自动轨迹标注流水线，可用于测试轨迹",
+      "canonical_evidence": "自动轨迹标注流水线，可用于测试轨迹",
+      "llm_tldr_en": "Proposes an automatic pipeline using VLMs and classical trajectory analysis to label keypose trajectories, enabling cross-embodiment policy transfer.",
+      "llm_tldr_cn": "针对抓取任务中关键姿态轨迹标注依赖人工或启发式方法的问题，提出自动标注流水线，结合视觉语言模型进行语义事件检测和经典轨迹分析实现精确时间对齐，仅需对每个任务重复演示中一个样本进行VLM推理。利用标注数据训练关键姿态引导的扩散策略，实验表明该方法能有效提升跨本体策略迁移效果。",
+      "llm_tldr": "针对抓取任务中关键姿态轨迹标注依赖人工或启发式方法的问题，提出自动标注流水线，结合视觉语言模型进行语义事件检测和经典轨迹分析实现精确时间对齐，仅需对每个任务重复演示中一个样本进行VLM推理。利用标注数据训练关键姿态引导的扩散策略，实验表明该方法能有效提升跨本体策略迁移效果。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.28733v1",
+      "source": "arxiv",
+      "title": "Agentic Abstention: Do Agents Know When to Stop Instead of Act?",
+      "abstract": "LLM agents are expected to act over multiple turns, using search, browsing interfaces, and terminal tools to complete user goals. Yet not every goal is well specified or achievable in the available environment. In such cases, a reliable agent should recognize that further interaction is unlikely to help and abstain from additional tool calls. We define Agentic Abstention, the problem of deciding when an agent should stop acting under uncertainty. Unlike standard LLM abstention, which is usually evaluated as a single-turn answer-or-abstain decision, agentic abstention is a sequential decision problem: an agent can answer, abstain, or gather more information at each turn, and the need to abstain may only become clear after interacting with the environment. We study this problem across web shopping, terminal environments, and question answering, evaluating 13 LLM-as-agent systems and 2 agent scaffolds on more than 28,000 tasks. Our results show that the main challenge is not only whether agents can abstain, but also when they abstain. Some agents never abstain when they should, while others do so only after many unnecessary interactions. This gap is especially large on tasks where the instruction appears feasible until the environment reveals otherwise (e.g., no valid result matches the instruction). We further find that model scale, reasoning, and agent scaffolding affect abstention in different ways, where larger or more capable models sometimes perform worse at timely abstention. Finally, we introduce CONVOLVE, a context engineering method for improving agentic abstention that distills full interaction trajectories into reusable stopping rules. On WebShop, CONVOLVE substantially improves timely abstention without updating model parameters, raising Llama-3.3-70B's timely recall rate from 26.7 to 57.4. Our dataset and code are available at https://lhannnn.github.io/agentic-abstention",
+      "authors": [
+        "Han Luo",
+        "Bingbing Wen",
+        "Lucy Lu Wang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-27T04:49:37+00:00",
+      "link": "https://arxiv.org/pdf/2606.28733v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "agentic abstention as behavioral testing",
+      "llm_evidence_cn": "智能体弃权行为测试",
+      "llm_evidence": "智能体弃权行为测试",
+      "canonical_evidence": "智能体弃权行为测试",
+      "llm_tldr_en": "Defines agentic abstention as a sequential decision problem where agents should stop acting under uncertainty, and provides a framework for evaluation.",
+      "llm_tldr_cn": "智能体在不确定性下应适时弃权而非盲目行动。本文正式定义智能体弃权问题，将其建模为序列决策过程，并设计评估框架。在多个工具使用场景中验证了弃权策略的重要性。",
+      "llm_tldr": "智能体在不确定性下应适时弃权而非盲目行动。本文正式定义智能体弃权问题，将其建模为序列决策过程，并设计评估框架。在多个工具使用场景中验证了弃权策略的重要性。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2606.24428v1",
+      "source": "arxiv",
+      "title": "Escaping the Self-Confirmation Trap: An Execute-Distill-Verify Paradigm for Agentic Experience Learning",
+      "abstract": "Experience-driven self-evolution is critical for large language model (LLM) agents to improve through open-world interaction. However, existing experience learning methods mostly rely on single-agent loops, where the same agent executes tasks, summarizes outcomes, and determines memory content. This setup makes agents vulnerable to the Self-Confirmation Trap: wrong-but-self-consistent trajectories are misidentified as successful experience, leading to cumulative errors during retrieval and reuse. To address this issue, we propose EDV, an Execute-Distill-Verify framework for reliable experience learning. In the Execute stage, multiple heterogeneous agents explore the same task space in parallel to generate diverse candidate trajectories. In the Distill stage, a dedicated third-party agent comparatively analyzes these trajectories to produce candidate experiences, reducing executor-centric summarization bias. In the Verify stage, the execution group validates candidates via a consensus mechanism, and only approved experiences are written into shared or private memory. By decoupling the three stages, EDV transforms experience learning from isolated self-reflection into collaborative construction, filtering erroneous and noisy content before memory insertion. We evaluate EDV on three challenging long-horizon benchmarks: tau2-bench, Mind2Web and MMTB. Results show EDV consistently outperforms strong baselines, validating that reliable experience construction is essential for robust agent self-evolution. Our code is available at https://github.com/shidingz/EDV.",
+      "authors": [
+        "Shiding Zhu",
+        "Yudi Qi",
+        "Yajie Wang",
+        "Jiaze Li",
+        "Chao Song",
+        "Yaorui Shi",
+        "Yibo Miao",
+        "Hanqi Gao",
+        "Kai Zhang"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-06-23T11:05:05+00:00",
+      "link": "https://arxiv.org/pdf/2606.24428v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "EDV framework executes, distills, and verifies agent trajectories for reliable experience learning",
+      "llm_evidence_cn": "EDV框架通过执行、提炼和验证智能体轨迹实现可靠经验学习",
+      "llm_evidence": "EDV框架通过执行、提炼和验证智能体轨迹实现可靠经验学习",
+      "canonical_evidence": "EDV框架通过执行、提炼和验证智能体轨迹实现可靠经验学习",
+      "llm_tldr_en": "Proposes EDV framework to avoid self-confirmation trap by multi-agent trajectory execution and verification.",
+      "llm_tldr_cn": "该论文提出执行-提炼-验证（EDV）框架，通过多异构智能体并行探索和验证轨迹，避免自我确认陷阱，确保经验可靠性。直接涉及智能体轨迹的测试与验证。",
+      "llm_tldr": "该论文提出执行-提炼-验证（EDV）框架，通过多异构智能体并行探索和验证轨迹，避免自我确认陷阱，确保经验可靠性。直接涉及智能体轨迹的测试与验证。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.31392v1",
+      "source": "arxiv",
+      "title": "ReGRPO: Reflection-Augmented Policy Optimization for Tool-Using Agents",
+      "abstract": "Tool-augmented vision-language models (VLMs) can solve multimodal, multi-step tasks by calling external tools, yet they remain fragile in practice. Existing works have two common gaps. Supervised fine-tuning (SFT) is built mostly on successful trajectories and offers little signal for recovery after tool failures, while sparse trajectory-level RL rewards provide limited guidance on which step failed and how to repair it. We introduce ReGRPO (Reflection-augmented Group Relative Policy Optimization), a framework that learns reflection-guided correction in tool-using agents. ReGRPO starts with a structured reflective data engine: we execute near-miss actions to collect grounded failure observations, then build Reflection-of-Thought triplets (ErrorType, Evidence, FixPlan) paired with corrected actions for warm-start SFT. We then optimize reflection tokens and corrective actions jointly within local trajectories using group-relative advantages, and include a reflection-cost term to reduce unnecessary reflection. Experiments on GTA and GAIA show that, under the same backbone and tool suite, ReGRPO consistently outperforms strong open-source baselines and achieves the best results among the compared open-source controllers. Code and RoT data are available at https://github.com/showlab/ReGRPO.",
+      "authors": [
+        "Binjie Zhang",
+        "Mike Zheng Shou"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-30T09:19:38+00:00",
+      "link": "https://arxiv.org/pdf/2606.31392v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "learns from trajectory failures and uses trajectory-level rewards for RL",
+      "llm_evidence_cn": "从轨迹失败中学习并利用轨迹级奖励进行强化学习",
+      "llm_evidence": "从轨迹失败中学习并利用轨迹级奖励进行强化学习",
+      "canonical_evidence": "从轨迹失败中学习并利用轨迹级奖励进行强化学习",
+      "llm_tldr_en": "Introduces ReGRPO for tool-using agents, leveraging reflection on failed trajectories for policy optimization.",
+      "llm_tldr_cn": "该论文提出ReGRPO框架，通过执行近失败动作收集失败轨迹，构建反思三元组，利用轨迹级反馈进行策略优化。直接分析强化学习中的智能体轨迹。",
+      "llm_tldr": "该论文提出ReGRPO框架，通过执行近失败动作收集失败轨迹，构建反思三元组，利用轨迹级反馈进行策略优化。直接分析强化学习中的智能体轨迹。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.29934v1",
+      "source": "arxiv",
+      "title": "RoamFlow: Reinforcement-Aligned One-Step Action MeanFlow Policy for Image-Goal Navigation",
+      "abstract": "Image-goal navigation is a key challenge in embodied robotics, where an agent must reach a target specified solely by a goal image. While existing reinforcement learning approaches map perceptual observations directly to actions, they struggle to model long-horizon dependencies, often leading to suboptimal trajectories. To address this limitation, we propose RoamFlow, a generative navigation framework that leverages MeanFlow to predict the average velocity field for trajectory synthesis, enabling efficient few-step generation and reducing inference latency. We further adopt a two-stage training strategy that combines expert imitation for stable initialization with reinforcement learning for task-specific policy refinement. Extensive experiments in both Habitat simulation and real-world robotic platforms demonstrate that RoamFlow achieves efficient inference while maintaining strong navigation performance under real-time constraints.",
+      "authors": [
+        "Zixuan Zhang",
+        "Yuqi Chen",
+        "Junjie Gao",
+        "Siyuan Song",
+        "Yongzhou Pan",
+        "Beichen Wang",
+        "Mir Feroskhan"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-06-29T08:10:43+00:00",
+      "link": "https://arxiv.org/pdf/2606.29934v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "trajectory synthesis for image-goal navigation",
+      "llm_evidence_cn": "用于图像目标导航的轨迹合成方法",
+      "llm_evidence": "用于图像目标导航的轨迹合成方法",
+      "canonical_evidence": "用于图像目标导航的轨迹合成方法",
+      "llm_tldr_en": "RoamFlow proposes a generative navigation framework using MeanFlow for trajectory synthesis, enabling efficient few-step generation with reinforcement learning refinement. It addresses long-horizon dependency issues in navigation but focuses on trajectory generation, not testing or evaluation.",
+      "llm_tldr_cn": "现有强化学习方法在图像目标导航中难以建模长程依赖，常导致次优轨迹。RoamFlow提出了一个基于MeanFlow的生成式导航框架，通过预测平均速度场进行轨迹合成，实现高效的少步生成并降低推理延迟。它采用两阶段训练策略，结合专家模仿和强化学习精炼。实验表明RoamFlow在导航成功率上取得提升，但其核心贡献在轨迹生成而非轨迹测试。该工作为agent轨迹研究提供了可借鉴的合成方法，但与测试评估需求相关性有限。",
+      "llm_tldr": "现有强化学习方法在图像目标导航中难以建模长程依赖，常导致次优轨迹。RoamFlow提出了一个基于MeanFlow的生成式导航框架，通过预测平均速度场进行轨迹合成，实现高效的少步生成并降低推理延迟。它采用两阶段训练策略，结合专家模仿和强化学习精炼。实验表明RoamFlow在导航成功率上取得提升，但其核心贡献在轨迹生成而非轨迹测试。该工作为agent轨迹研究提供了可借鉴的合成方法，但与测试评估需求相关性有限。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2606.24515v1",
+      "source": "arxiv",
+      "title": "Reinforcement Learning for Computer-Use Agents with Autonomous Evaluation",
+      "abstract": "Computer-Use Agents (CUAs) execute high-level user goals by perceiving and acting directly within graphical user interfaces. However, reinforcement learning for CUAs remains difficult because open-ended desktop environments rarely provide scalable, machine-readable reward signals: task success is often visually grounded and hard to specify with handcrafted reward functions or dense manual labels.   We propose an RL fine-tuning framework that uses autonomous vision-language evaluation as a scalable supervision signal for GUI agents. Given a final screenshot and the original instruction, a Vision-Language Model judges task completion and provides terminal feedback without task-specific heuristics or manual labels during policy optimization.   Because autonomous evaluators are imperfect, we model their feedback as a noisy binary reward channel and derive a noise-corrected reward estimator for Proximal Policy Optimization. Experiments across macOSWorld, Windows Agent Arena, and OSWorld show that corrected evaluator rewards outperform both zero-shot baselines and raw evaluator rewards, improving success rates by an average of 12.6 percentage points over zero-shot performance and 5.1 points over raw evaluator fine-tuning. These results suggest that autonomous evaluation can serve as a practical reward signal for RL in GUI environments when evaluator noise is explicitly modeled and corrected.",
+      "authors": [
+        "Marta Sumyk",
+        "Oleksandr Kosovan"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.HC"
+      ],
+      "published": "2026-06-23T12:46:29+00:00",
+      "link": "https://arxiv.org/pdf/2606.24515v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "autonomous evaluation of agent trajectories via VLM",
+      "llm_evidence_cn": "基于视觉语言模型的智能体轨迹自主评估",
+      "llm_evidence": "基于视觉语言模型的智能体轨迹自主评估",
+      "canonical_evidence": "基于视觉语言模型的智能体轨迹自主评估",
+      "llm_tldr_en": "Proposes RL fine-tuning for computer-use agents using autonomous vision-language evaluation as reward signal, enabling scalable trajectory assessment.",
+      "llm_tldr_cn": "计算机使用智能体的RL训练缺乏可扩展的奖励信号。本文提出用视觉语言模型自动评估任务完成情况，基于最终截图和指令给出评分和终端反馈。无需手工设计奖励函数，在多个GUI任务上显著提升成功率。",
+      "llm_tldr": "计算机使用智能体的RL训练缺乏可扩展的奖励信号。本文提出用视觉语言模型自动评估任务完成情况，基于最终截图和指令给出评分和终端反馈。无需手工设计奖励函数，在多个GUI任务上显著提升成功率。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.24815v1",
+      "source": "arxiv",
+      "title": "MANGO: Automated Multi-Agent Test Oracle Generation for Vision-Language-Action Models",
+      "abstract": "Vision-Language-Action (VLA) models are emerging robotic control systems that integrate perception, language understanding, and action generation in a unified architecture. Existing testing approaches for VLA-enabled robots rely on manually constructed symbolic test oracles that determine task success from final environment states. These oracles are costly to construct, require domain expertise, and are often tightly coupled to specific tasks and environments, limiting scalability and reuse. Furthermore, they provide only end-state assessments of task outcomes, offering limited insight into intermediate behavior and fault localization. To address these limitations, we introduce MANGO, a multi-agent framework that automatically generates fine-grained oracles from natural-language descriptions of robotic tasks. MANGO first generates a reusable library of atomic tasks, then generates simulator-grounded oracle definitions for each atomic task, and finally produces executable fine-grained oracles by decomposing complex instructions into ordered sequences of atomic actions and corresponding oracles. The framework uses collaborative Generator, Assessor, and Judge agents that iteratively refine generated artifacts through structured feedback. We evaluate MANGO on the LIBERO_10 and RoboCasa Humanoid Tabletop benchmarks. Results show that MANGO generates executable, fine-grained oracles that detect a similar number of failures as symbolic oracles while accurately localizing them and providing richer diagnostic information. Through ablation studies, we further analyzed component contributions and the effect of initial task set, while preserving oracle quality. Overall, the results show the feasibility and effectiveness of test oracle generation for VLA-enabled robots testing.",
+      "authors": [
+        "Pablo Valle",
+        "Shaukat Ali",
+        "Aitor Arrieta",
+        "Lionel Briand"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.RO"
+      ],
+      "published": "2026-06-23T17:00:06+00:00",
+      "link": "https://arxiv.org/pdf/2606.24815v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "automated test oracle generation for VLAs",
+      "llm_evidence_cn": "视觉-语言-动作模型的自动测试预言生成",
+      "llm_evidence": "视觉-语言-动作模型的自动测试预言生成",
+      "canonical_evidence": "视觉-语言-动作模型的自动测试预言生成",
+      "llm_tldr_en": "MANGO automatically generates test oracles for VLA models, moving beyond end-state checks to assess intermediate behavior and faults.",
+      "llm_tldr_cn": "现有VLA机器人测试依赖人工构建符号测试预言，成本高且仅评估最终状态。MANGO提出多智能体框架，自动生成测试预言，能够评估中间行为并定位故障。实验表明该方法提高了测试覆盖率和效率，为自主智能体行为测试提供了可扩展解决方案。",
+      "llm_tldr": "现有VLA机器人测试依赖人工构建符号测试预言，成本高且仅评估最终状态。MANGO提出多智能体框架，自动生成测试预言，能够评估中间行为并定位故障。实验表明该方法提高了测试覆盖率和效率，为自主智能体行为测试提供了可扩展解决方案。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    }
+  ]
 }
