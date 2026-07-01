@@ -25,3 +25,54 @@ subscriptions:
     stage: A
     diff_threshold_pct: 15
   keyword_recall_mode: or
+  intent_profiles:
+    - tag: agent-traj
+      description: agent轨迹测试相关论文参考
+      enabled: true
+      paper_sources:
+        - arxiv
+      keywords:
+        - keyword: agent trajectory testing
+          keyword_cn: 智能体轨迹测试
+          query: methods for testing agent trajectories
+        - keyword: trajectory evaluation
+          keyword_cn: 轨迹评估
+          query: evaluation of agent trajectories
+        - keyword: agent behavior testing
+          keyword_cn: 智能体行为测试
+          query: testing the behavior of autonomous agents
+        - keyword: trajectory analysis
+          keyword_cn: 轨迹分析
+          query: analysis of trajectories in reinforcement learning
+      intent_queries:
+        - query: recent papers on testing trajectories of intelligent agents
+          query_cn: 智能体轨迹测试的最新论文
+          enabled: true
+          source: manual
+          note: ''
+        - query: benchmarks for agent trajectory testing
+          query_cn: 智能体轨迹测试基准
+          enabled: true
+          source: manual
+          note: ''
+        - query: trajectory testing methods for autonomous agents
+          query_cn: 自主智能体的轨迹测试方法
+          enabled: true
+          source: manual
+          note: ''
+      updated_at: '2026-07-01T14:52:09.499Z'
+source_backends:
+  arxiv:
+    papers_table: arxiv_papers
+    use_vector_rpc: true
+    vector_rpc: match_arxiv_papers
+    vector_rpc_exact: match_arxiv_papers_exact
+    use_bm25_rpc: true
+    bm25_rpc: match_arxiv_papers_bm25
+    sync_table: arxiv_sync_status
+    sync_success_value: success
+    schema: public
+    kind: supabase
+    enabled: true
+    url: https://lyucdwgefyfbmaiopjbk.supabase.co
+    anon_key: sb_publishable_lX-oi64Uxyd7SIVv3_w2Uw_MTOojeKq
