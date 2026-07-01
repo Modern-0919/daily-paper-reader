@@ -6,80 +6,71 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-22 ~ 2026-07-01
-- 运行时间：2026-07-01 15:10:55 UTC
+- 最新运行日期：2026-07-01
+- 运行时间：2026-07-01 22:01:21 UTC
 - 运行状态：成功
-- 本次总论文数：20
-- 精读区：9
+- 本次总论文数：17
+- 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日聚焦智能体评估与行为诊断，20篇论文中精读9篇，速读11篇。最值得关注的是确定性替代人类评判的GroundEval（9.0分）和提前承诺陷阱的When Agents Commit Too Soon（9.0分），后者揭示了智能体过早决策的关键缺陷。建议优先阅读这两篇高分论文，并关注速读中AOHP的OS级智能体框架与经验学习的Escaping Self-Confirmation Trap。
-- 详情：[/20260622-20260701/README](/20260622-20260701/README)
+今日重点分析6篇精读论文，涵盖视觉语言导航与测试时强化学习两大前沿方向。最值得关注的是《CLOSER-VLN》提出的闭环自检检索增强推理和《Trust Your Instincts》的置信度驱动测试时RL方法。建议读者后续关注《Learning from Failure》中智能体自我改进策略，以及后训练阶段进度优势对LLM Agent的提升潜力。
+- 详情：[/202607/01/README](/202607/01/README)
 
 ### 精读区论文标签
-1. [GroundEval: A Deterministic Replacement for LLM-as-Judge in Stateful Agent Evaluation](/20260622-20260701/2606.22737v1-groundeval-a-deterministic-replacement-for-llm-as-judge-in-stateful-agent-evaluation)  
+1. [CLOSER-VLN: Closed-Loop Self-Verified Retrieval-Augmented Reasoning for Aerial Vision-Language Navigation](/202607/01/2606.28397v1-closer-vln-closed-loop-self-verified-retrieval-augmented-reasoning-for-aerial-vision-language-navigation)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：基于确定性证据的智能体评估
-2. [When Agents Commit Too Soon: Diagnosing Premature Commitment in LLM Agents](/20260622-20260701/2606.22936v1-when-agents-commit-too-soon-diagnosing-premature-commitment-in-llm-agents)  
+   evidence：无人机视觉语言导航中轨迹偏差的闭环验证方法
+2. [Trust Your Instincts: Confidence-Driven Test-Time RL for Vision-Language-Action Models](/202607/01/2606.29892v1-trust-your-instincts-confidence-driven-test-time-rl-for-vision-language-action-models)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：通过隐藏状态轨迹分析诊断LLM智能体过早承诺
-3. [ENVS: Environment-Native Verified Search for Long-Horizon GUI Agents](/20260622-20260701/2606.22948v1-envs-environment-native-verified-search-for-long-horizon-gui-agents)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：提出ENVS方法用于GUI智能体的轨迹发现和验证监督
-4. [RIFT-Bench: Dynamic Red-teaming For Agentic AI Systems](/20260622-20260701/2606.23927v1-rift-bench-dynamic-red-teaming-for-agentic-ai-systems)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：提供一个通过红队测试评估代理型AI系统的基准和方法
-5. [SAFARI: Scaling Long Horizon Agentic Fault Attribution via Active Investigation](/20260622-20260701/2606.24626v1-safari-scaling-long-horizon-agentic-fault-attribution-via-active-investigation)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：通过调查轨迹段诊断智能体失败的框架
-6. [When Search Agents Should Ask: DiscoBench for Clarification-Aware Deep Search](/20260622-20260701/2606.27669v1-when-search-agents-should-ask-discobench-for-clarification-aware-deep-search)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：用于评估搜索智能体在歧义下轨迹的基准
-7. [SWE-Together: Evaluating Coding Agents in Interactive User Sessions](/20260622-20260701/2606.29957v1-swe-together-evaluating-coding-agents-in-interactive-user-sessions)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：用于评估编码智能体交互会话的多轮基准
-8. [Failure-Based Testing for Deep Reinforcement Learning Agents](/20260622-20260701/2606.31372v1-failure-based-testing-for-deep-reinforcement-learning-agents)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：直接提出一种针对DRL代理行为的测试方法
-9. [QVal: Cheaply Evaluating Dense Supervision Signals for Long-Horizon LLM Agents](/20260622-20260701/2606.32034v1-qval-cheaply-evaluating-dense-supervision-signals-for-long-horizon-llm-agents)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：对长程轨迹的密集监督信号进行低成本评估
+   evidence：通过置信度在测试时评估智能体轨迹
+3. [Life After Benchmark Saturation: A Case Study of CORE-Bench](/202607/01/2606.26158v1-life-after-benchmark-saturation-a-case-study-of-core-bench)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：涵盖轨迹相关维度的代理基准
+4. [The Red Queen Gödel Machine: Co-Evolving Agents and Their Evaluators](/202607/01/2606.26294v2-the-red-queen-gdel-machine-co-evolving-agents-and-their-evaluators)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：将评估纳入改进循环的协同进化框架
+5. [Towards Safety-Aware Mutation Testing for Autonomous Driving Systems](/202607/01/2606.26456v1-towards-safety-aware-mutation-testing-for-autonomous-driving-systems)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：提出面向自动驾驶系统的安全感知变异测试方法
+6. [To Run or Not to Run: Analyzing the Cost-Effectiveness of Code Execution in LLM-Based Program Repair](/202607/01/2606.26978v1-to-run-or-not-to-run-analyzing-the-cost-effectiveness-of-code-execution-in-llm-based-program-repair)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：分析SWE-bench智能体轨迹以研究执行行为
 
 ### 速读区论文标签
-1. [AOHP: An Open-Source OS-Level Agent Harness for Personalized, Efficient and Secure Interaction](/20260622-20260701/2606.23449v1-aohp-an-open-source-os-level-agent-harness-for-personalized-efficient-and-secure-interaction)  
+1. [Learning from Failure: Inference-Time Self-Improvement for Computer-Use Agents](/202607/01/2606.31270v1-learning-from-failure-inference-time-self-improvement-for-computer-use-agents)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：提供开源的操作系统级智能体框架作为交互测试平台
-2. [When Retrieval Metrics Mislead: Measuring Policy Signal in Long-Horizon Tool-Use Agents](/20260622-20260701/2606.23937v1-when-retrieval-metrics-mislead-measuring-policy-signal-in-long-horizon-tool-use-agents)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：评估来自智能体轨迹与结构化状态的策略信号
-3. [Escaping the Self-Confirmation Trap: An Execute-Distill-Verify Paradigm for Agentic Experience Learning](/20260622-20260701/2606.24428v1-escaping-the-self-confirmation-trap-an-execute-distill-verify-paradigm-for-agentic-experience-learning)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：EDV框架通过执行、提炼和验证智能体轨迹实现可靠经验学习
-4. [Reinforcement Learning for Computer-Use Agents with Autonomous Evaluation](/20260622-20260701/2606.24515v1-reinforcement-learning-for-computer-use-agents-with-autonomous-evaluation)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：基于视觉语言模型的智能体轨迹自主评估
-5. [MANGO: Automated Multi-Agent Test Oracle Generation for Vision-Language-Action Models](/20260622-20260701/2606.24815v1-mango-automated-multi-agent-test-oracle-generation-for-vision-language-action-models)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：视觉-语言-动作模型的自动测试预言生成
-6. [Multi-Agent Goal Recognition with Team- and Goal-Conditioned Reinforcement Learning and Factorized Branch-and-Bound](/20260622-20260701/2606.25978v1-multi-agent-goal-recognition-with-team--and-goal-conditioned-reinforcement-learning-and-factorized-branch-and-bound)  
+   evidence：利用失败轨迹进行自改进，提供识别和利用失败案例的方法
+2. [Qwen-AgentWorld: Language World Models for General Agents](/202607/01/2606.24597v1-qwen-agentworld-language-world-models-for-general-agents)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：从智能体轨迹推断团队和目标用于评估
-7. [Keypose Exploration: Efficient Automatic Trajectory Labelling and Cross-Embodiment Policy Transfer](/20260622-20260701/2606.29028v1-keypose-exploration-efficient-automatic-trajectory-labelling-and-cross-embodiment-policy-transfer)  
+   evidence：提供跨领域智能体轨迹模拟的世界模型
+3. [Neglected Free Lunch from Post-training: Progress Advantage for LLM Agents](/202607/01/2606.26080v1-neglected-free-lunch-from-post-training-progress-advantage-for-llm-agents)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：自动轨迹标注流水线，可用于测试轨迹
-8. [ReGRPO: Reflection-Augmented Policy Optimization for Tool-Using Agents](/20260622-20260701/2606.31392v1-regrpo-reflection-augmented-policy-optimization-for-tool-using-agents)  
+   evidence：通过强化学习对LLM智能体轨迹进行逐步评估
+4. [SKILL-DISCO: Distilling and Compiling Agent Traces into Reusable Procedural Skills](/202607/01/2606.26669v1-skill-disco-distilling-and-compiling-agent-traces-into-reusable-procedural-skills)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：从轨迹失败中学习并利用轨迹级奖励进行强化学习
-9. [Dockerless: Environment-Free Program Verifier for Coding Agents](/20260622-20260701/2606.28436v1-dockerless-environment-free-program-verifier-for-coding-agents)  
+   evidence：通过分析轨迹结构将成功智能体轨迹蒸馏为可复用过程技能
+5. [SEATauBench: Adapting Tool-Agent-User Evaluation Into Low-Resource Southeast Asian Languages](/202607/01/2606.28715v1-seataubench-adapting-tool-agent-user-evaluation-into-low-resource-southeast-asian-languages)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：低资源语言中的工具-代理-用户评估框架
+6. [RoAd-RL: A Unified Library and Benchmark for Robust Adversarial Reinforcement Learning](/202607/01/2606.29867v1-road-rl-a-unified-library-and-benchmark-for-robust-adversarial-reinforcement-learning)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：提供RL智能体对抗鲁棒性的基准和评估协议
+7. [MAS-Lab: A Specification-Driven Validation Framework for Reliable Multi-Agent Systems](/202607/01/2606.30546v1-mas-lab-a-specification-driven-validation-framework-for-reliable-multi-agent-systems)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：基于规范的多智能体系统验证框架
+8. [Securing the AI Agent: A Unified Framework for Multi-Layer Agent Red Teaming](/202607/01/2606.31227v1-securing-the-ai-agent-a-unified-framework-for-multi-layer-agent-red-teaming)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：通过红队测试代理行为的框架
+9. [OPID: On-Policy Skill Distillation for Agentic Reinforcement Learning](/202607/01/2606.26790v1-opid-on-policy-skill-distillation-for-agentic-reinforcement-learning)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：无需环境的代码智能体轨迹验证器
-10. [Agentic Abstention: Do Agents Know When to Stop Instead of Act?](/20260622-20260701/2606.28733v1-agentic-abstention-do-agents-know-when-to-stop-instead-of-act)  
+   evidence：在智能体强化学习中分析轨迹级奖励
+10. [RS-Diffuser: Risk-Sensitive Diffusion Planning with Distributional Value Guidance](/202607/01/2606.27766v1-rs-diffuser-risk-sensitive-diffusion-planning-with-distributional-value-guidance)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：智能体弃权行为测试
-11. [RoamFlow: Reinforcement-Aligned One-Step Action MeanFlow Policy for Image-Goal Navigation](/20260622-20260701/2606.29934v1-roamflow-reinforcement-aligned-one-step-action-meanflow-policy-for-image-goal-navigation)  
+   evidence：离线强化学习中风险敏感的轨迹分析
+11. [SWE-MeM: Learning Adaptive Memory Management for Long-Horizon Coding Agents](/202607/01/2606.28434v1-swe-mem-learning-adaptive-memory-management-for-long-horizon-coding-agents)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：用于图像目标导航的轨迹合成方法
+   evidence：基于轨迹状态的适应性内存管理
 
 
 <div class="dpr-home-promo-card">
