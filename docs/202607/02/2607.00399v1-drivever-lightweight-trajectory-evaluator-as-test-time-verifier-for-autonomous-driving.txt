@@ -1,0 +1,220 @@
+Title: DriveVer: Lightweight Trajectory Evaluator as Test-Time Verifier for Autonomous Driving
+
+URL Source: https://arxiv.org/pdf/2607.00399v1
+
+Published Time: Thu, 02 Jul 2026 00:27:29 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# DriveVer: Lightweight Trajectory Evaluator as Test-Time Verifier for Autonomous Driving 
+
+Chong He 1* , Yuechen Luo 1* , Fang Li 2, Shaoqing Xu 2, Fuxi Wen 1, ✉
+
+Abstract — End-to-end autonomous driving models often en-counter performance bottlenecks, as training-time scaling leads to high computational costs and diminishing marginal re-turns. Existing planners typically adopt a one-shot generation paradigm, lacking secondary validation and active correction mechanisms to detect and revise suboptimal or unsafe tra-jectories during inference. To address this issue, we propose DriveVer, a lightweight, plug-and-play Test-Time Verifier that leverages the test-time scaling paradigm to enable autonomous driving systems to validate and refine trajectories without costly and heavy training. We construct a dedicated trajectory dataset based on the NAVSIM benchmark through condition-driven clustering and balanced sampling according to ego-vehicle states and navigation commands. Employing a dual-head ar-chitecture, DriveVer efficiently fuses candidate trajectories with multi-view visual representations and ego-vehicle kinematic features to simultaneously predict a safety confidence score and an absolute geometric refinement vector. Extensive experiments on the NAVSIM benchmark show that DriveVer significantly improves the performance of base planning models. Notably, as an extremely compact model with only 34M parameters, DriveVer introduces minimal computational overhead, achiev-ing competitive results while maintaining real-time inference efficiency. 
+
+I. I NTRODUCTION 
+
+In recent years, end-to-end autonomous driving has shown remarkable progress in handling complex urban driving scenarios [1], [2]. To improve robustness against long-tail and rare corner cases, current research primarily relies on training-time scaling, increasing model capacity and training data to enhance planning performance. However, this strategy incurs substantial computational cost while yielding dimin-ishing performance gains as model scale continues to grow. More importantly, most existing end-to-end planners adopt a one-shot generation paradigm [3], [4], [5], [6], [7], [8], [9], where the planning trajectory is generated once from sensor observations and directly executed by the downstream controller. Consequently, the planner cannot verify or revise its prediction during inference. When encountering complex or adversarial scenarios, suboptimal trajectory predictions cannot be effectively detected or corrected, limiting the safety and reliability of autonomous driving systems. Recently, test-time scaling, also referred to as test-time compute, has emerged as a promising paradigm for improv-ing model performance through additional inference-time computation (e.g., in large language models [10]). Rather than relying solely on larger models, it enables iterative verification and self-correction during inference. However,    
+
+> 1Tsinghua University, 2University of Macau *Equal contribution. ✉Corresponding author.
+
+Fig. 1: Conceptual comparison of different planning paradigms. (a) The base planner directly outputs a one-shot trajectory for execution, which can be unsafe. (b) Our proposed DriveVer refines this initial trajectory at test time, providing a safety score and a corrected trajectory. directly applying this paradigm to autonomous driving re-mains challenging due to stringent real-time constraints, as existing inference mechanisms often introduce computational overhead incompatible with the millisecond-level latency requirements of end-to-end planning [3]. To address this gap and overcome the limitations of pure training-time scaling, we propose DriveVer, a lightweight post-processing framework for trajectory evaluation and re-finement. As illustrated in Fig. 1, we compare the con-ventional planning pipeline with our verification paradigm. Unlike existing end-to-end planners that directly execute a one-shot trajectory, potentially leading to unsafe behaviors in challenging scenarios (Fig. 1(a)), DriveVer introduces an additional safety-critical verification stage at test time. As a plug-and-play Test-Time Verifier, DriveVer operates without modifying the architecture of the underlying planner. Instead, it takes the initial planned trajectory together with sensor observations and ego-state information to estimate trajec-tory quality and perform geometric refinement (Fig. 1(b)), producing a refined trajectory with improved safety and reliability. A key challenge in training such a verifier is the lack of dense supervision in existing autonomous driving datasets. To address this issue, we construct a dedicated trajectory verification and refinement dataset based on the NAVSIM benchmark. Specifically, human driving trajectories are grouped according to ego-vehicle kinematic states (e.g., speed and acceleration) and high-level navigation commands, followed by strict clustering and multiple rounds of sampling to generate diverse candidate trajectories for each driving scenario. By comparing each candidate trajectory with the 
+
+> arXiv:2607.00399v1 [cs.CV] 1 Jul 2026
+
+corresponding human demonstration, we obtain accurate quality scores and geometric refinement targets, providing dense supervision for both trajectory evaluation and refine-ment. DriveVer is designed as a lightweight and computationally efficient framework. It jointly encodes candidate trajecto-ries, high-level navigation commands, ego-vehicle kinematic states (e.g., speed and acceleration), and compressed multi-view visual features through a cross-modal cross-attention mechanism. The network adopts a dual-head architecture, where one branch estimates trajectory quality and safety scores, while the other predicts geometric refinement vec-tors for trajectory correction. Extensive experiments on the NAVSIM benchmark demonstrate that, as a plug-and-play post-processing module, DriveVer consistently improves the performance of diverse end-to-end planners while introduc-ing only minimal computational overhead. In summary, the main contributions of this paper are as follows:  
+
+> •
+
+We propose a lightweight test-time scaling paradigm for autonomous driving: we design DriveVer, a plug-and-play Test-Time Verifier. It breaks the traditional paradigm of improving performance only through ex-tensive training and demonstrates that low-cost tra-jectory scoring and refinement during inference can effectively tighten the system’s safety upper bound.  
+
+> •
+
+We construct a condition-driven trajectory verification dataset: based on the NAVSIM benchmark, we propose a trajectory clustering and sampling strategy based on ego-vehicle kinematic states (speed, acceleration) and navigation commands, constructing a dataset containing diverse candidate trajectories and their corresponding real quality scores for each scenario, filling the data gap in this field.  
+
+> •
+
+We design an efficient cross-modal trajectory refinement architecture, DriveVer, that fuses visual representations and ego-vehicle dynamic features to achieve accurate scoring and geometric-level absolute refinement of ini-tial trajectories. Experiments show that this module achieves highly competitive performance while main-taining extremely high inference efficiency. II. R ELATED WORK 
+
+A. End-to-end Autonomous Driving 
+
+UniAD [5] pioneers a fully differentiable end-to-end framework that unifies multiple perception tasks, demon-strating the feasibility of holistic end-to-end autonomous driving. Building upon this paradigm, VAD [4] improves computational efficiency by adopting a vectorized scene representation. Subsequent methods, including VADv2 [11] and Hydra-MDP [12], further advance the framework by introducing multi-modal planning based on rule-guided scor-ing and sampling from a fixed set of anchor trajectories. More recently, diffusion models have emerged as a promising paradigm for end-to-end autonomous driving, owing to their ability to capture complex multi-modal distributions in high-dimensional action spaces through an iterative denoising process. DiffusionDrive [13] mitigates the mode collapse issue by introducing an anchor-based truncated denoising strategy and significantly improves inference efficiency by reducing the denoising process to only two steps. These ad-vances suggest that diffusion-based generative models offer a promising direction for end-to-end autonomous driving by balancing trajectory quality and inference efficiency. 
+
+B. VLA for Autonomous Driving 
+
+Vision-language models (VLMs) have attracted increasing attention in autonomous driving by enabling unified percep-tion, planning, and decision-making through the integration of visual and textual information. Existing methods can be broadly categorized into two paradigms. The first focuses on scene understanding and high-level reasoning [14], [15], [16], where methods such as Senna [14] generate meta-actions from sensory inputs for downstream planners but have shown limited improvements in real-world driving performance. The second paradigm directly predicts driving trajectories from raw sensory inputs [17], [18], [6], [19], [20], [21], [22]. A notable trend within this line of research is the incorporation of intermediate reasoning, such as Chain-of-Thought (CoT), to improve model interpretability and planning accuracy. Methods including EMMA [17], Reason-Plan [23], and Sce2DriveX [24] demonstrate that domain-specific reasoning effectively enhances trajectory prediction performance. 
+
+C. Trajectory Evaluation and Refinement 
+
+Trajectory evaluation plays a crucial role in autonomous driving by assessing candidate trajectories and filtering un-safe predictions. Existing methods can be broadly catego-rized into model-free approaches, which assign heuristic scores using rule-based metrics or explicit perception anno-tations, and model-based approaches, which leverage learned environment dynamics or intermediate representations, such as BEV features in WOTE [25] and perception caches in Hydra-MDP [12]. Beyond evaluation, improving safety also requires trajectory refinement. Most multi-modal end-to-end planners generate a large set of anchor trajectories and use the evaluation module solely to select the highest-scoring candidate, while conventional refinement methods instead rely on computationally intensive optimization-based smoothers or rule-based safety filters to post-process the selected trajectory. Despite the recent progress in learning-based evaluators such as DriveReward [26], existing evaluation and refinement paradigms exhibit two key limitations. First, their depen-dence on explicit perception annotations or complex environ-ment dynamics makes them computationally expensive and difficult to deploy as lightweight post-hoc modules. Second, framing trajectory evaluation purely as a selection problem over fixed anchor trajectories overlooks the opportunity for direct geometric refinement. As a result, current one-shot planning frameworks still lack an efficient and unified mech-anism that can simultaneously estimate trajectory quality Fig. 2: DriveVer architecture. DriveVer employs a dual-head output architecture for trajectory evaluation and optimization, in which the confidence branch outputs a scalar confidence score to determine the need for intervention, and the refinement branch generates a geometric refinement direction. During inference, once the predicted confidence score exceeds a predefined safety threshold, DriveVer will execute the refinement process to optimize the initial trajectory. and generate corrective geometric refinements for suboptimal initial trajectories. III. M ETHOD 
+
+This section presents DriveVer, a lightweight test-time tra-jectory verifier (Fig. 2). Following the problem formulation, we detail its three core components: (1) the construction of a balanced trajectory dataset for training; (2) a dual-head model architecture for simultaneous trajectory evaluation and geometric refinement; and (3) the conditional test-time inference strategy. 
+
+A. Preliminaries 
+
+In this section, we formally define the problem setup and compare the traditional one-shot generation paradigm with our proposed test-time refinement framework. 
+
+Base E2E Planner Formulation: In the traditional one-shot generation paradigm, at any given time step t, the base end-to-end planner receives a multimodal observation tuple Ot =(It, s ego , c ). Specifically:  
+
+> •
+
+It represents the multi-view camera images (e.g., front, front-left, front-right, and back cameras).  
+
+> •
+
+sego ∈ Rds is the kinematic state vector for the ego-vehicle, which explicitly includes real-time speed and acceleration.  
+
+> •
+
+c denotes the high-level navigation commands guiding the vehicle’s route. Given these inputs, the base planner directly generates a one-shot initial trajectory τinit = {(xt, y t, θ t)}Tt=1 ∈ RT ×3
+
+representing the planned future waypoints, where T denotes the planning horizon, and (xt, y t, θ t) is the location of each waypoint at time t in the current ego-vehicle coordinate system. This trajectory is directly passed to the control layer for execution without any subsequent evaluation or correction. 
+
+DriveVer Formulation: To address the lack of secondary validation and active correction, DriveVer is introduced as a plug-and-play Test-Time Verifier directly after the base planner. The input to DriveVer is an extended tuple Qt =(It, s ego , c, τ init ), which uniquely incorporates the generated initial trajectory τinit alongside the original sensor and state inputs. DriveVer utilizes a dual-head output architecture to evaluate and optimize the given trajectory:  
+
+> •
+
+Confidence Branch Output ( ˆp): A scalar safety score representing the refinement confidence, predicting the quality of the initial trajectory and determining whether it requires intervention.  
+
+> •
+
+Refinement Branch Output ( ˆu): An absolute geomet-ric refinement direction vector for the trajectory. During inference, if the predicted confidence score ˆp
+
+exceeds a predefined safety threshold, DriveVer triggers the refinement process and optimizes the initial trajectory 
+
+τinit , and the refined trajectory τrefined is submitted as the final output for execution. Details will be discussed in the subsequent sections. 
+
+B. Data Collection 
+
+High-quality training data is critical to enable the test-time verifier to reliably evaluate trajectories from the base planner and perform accurate trajectory refinement in real-world driving scenarios. Existing datasets often suffer from the issues of excessively optimal positive samples and sparse negative samples, making it difficult for the model to learn a fine-grained evaluation boundary. To this end, we construct a dedicated dataset for trajectory verification and refinement. Leveraging the NAVSIM [27] dataset, we first construct a high-dimensional library of human driving primitives by performing unsupervised clustering and multi-stage sampling based on ego-vehicle kinematic manifolds (e.g., velocity, acceleration) and high-level navigational commands. For any given scenario, a candidate trajectory set {τi}Nc 
+
+> i=1
+
+is retrieved by matching the current state-space constraints within the cluster. To endow the test-time verifier with the capacity to discriminate among trajectory quality and perform adaptive refinement, we propose a balanced trajectory construction pipeline to mitigate bias caused by an imbalanced sample distribution. Specifically, we first calculate the Predictive Driver Model Score (PDMS) for each candidate trajectory in {τi}Nc 
+
+> i=1
+
+as its quantitative quality metric. Based on the Fig. 3: The architecture of the Transformer Decoder used in the confidence and refinement branches. score distribution, we partition all trajectories into high-quality and low-quality subsets using a threshold of 0.5. To ensure the model learns a well-calibrated decision boundary, we perform class-balanced sampling by extracting Nhalf 
+
+trajectories from each subset, forming a representative and unbiased trajectory pool. We further augment this pool with the corresponding human expert trajectory τgt as the ground-truth reference, resulting in a unified trajectory set with 
+
+Nd = 2 Nhalf + 1 samples. By applying this pipeline to 
+
+Nscene diverse driving scenarios sampled from the NAVSIM dataset, we construct a dedicated, high-quality benchmark for trajectory quality assessment and adaptive refinement. The merit of the proposed dataset resides in two aspects. First, by balancing the number of high-quality and low-quality trajectory samples within each scenario, DriveVer effectively captures the representative characteristics of both trajectory categories, thereby facilitating accurate trajectory evaluation. Second, equipped with guidance from expert tra-jectories, DriveVer can further infer reasonable and reliable refinement directions for defective trajectories. 
+
+C. DriveVer Model Architecture 
+
+The core design concept of DriveVer is lightweight and highly efficient, serving as a plug-and-play module to assist the base planner. The overall model architecture is shown in Fig. 2. DriveVer takes multi-view camera images, ego-vehicle’s kinematic states, high-level navigation commands, and initial trajectories as inputs. The image backbone in DriveVer is adapted from DrivoR [28], which employs LoRA to enable parameter-efficient fine-tuning of the DINOv2 pre-trained Vision Transformer. It compresses perceptual information by assigning R register tokens to each of the 
+
+Ncam cameras, and finally concatenates all register tokens to form Ncam × R scene tokens. The initial trajectory is encoded by a trajectory encoder and fused with the ego-vehicle’s kinematic state and naviga-tion command to form trajectory tokens. Subsequently, the trajectory tokens and scene tokens are fed into the trajectory refinement branch and the confidence branch, which predict the geometric refinement direction and the corresponding refinement confidence, respectively. 
+
+1) Refinement Branch: Given the initial trajectory and scene information, this branch estimates the potential re-finement direction for the trajectory using a Transformer Decoder (Fig. 3) and a dedicated Refinement Decoder. During the training phase, we concatenate the trajectory tokens of the Nd trajectories constructed in Sec. III-B as input to the Transformer Decoder. By performing cross-attention with the scene tokens, the refinement branch learns the underlying driving rules of the current scenario. The output of the Transformer Decoder is then fed into the Refinement Decoder to predict the refinement direction ˆu
+
+for each trajectory. The supervision signal for the refinement direction is obtained by comparing the initial trajectory with the human expert trajectory. Specifically, after flattening the initial tra-jectory and the human expert trajectory ¯τinit , ¯τgt ∈ R3T ×1, the normalized direction vector ugt ∈ R3T ×1 can be calculated as: 
+
+ugt = ¯τgt − ¯τinit 
+
+∥¯τgt − ¯τinit ∥2
+
+(1) where ∥ · ∥ 2 is the Euclidean norm. The training process minimizes the misalignment of cosine similarity between the predicted direction and the ground-truth direction: 
+
+Ldir = E [1 − ⟨ ˆu, u gt ⟩] (2) where E is the expectation operator and ⟨· , ·⟩ denotes the inner product of vectors. The supervision of the refinement direction enables the model to focus more on the overall optimization trend of trajectories, prevents overfitting, and improves prediction robustness. The advantages of this formulation are also validated in subsequent ablation studies. 
+
+2) Confidence Branch: In addition to refining low-score trajectories, DriveVer should also be capable of retaining high-score trajectories, which requires the model to ac-curately assess the quality of the initial trajectory in the corresponding scenario and then decide whether to refine it. The confidence branch also comprises a Transformer Decoder and a Confidence Head. Similar to the refinement branch, the confidence branch learns to evaluate the quality of a trajectory under the given driving scenario by performing cross-attention with the scene tokens in the Transformer Decoder and then outputs a confidence score ˆp for refinement via the Confidence Head. The supervision signal of this branch is obtained as follows: we set the refinement confidence pgt of trajectories whose initial trajectory score exceeds the average score of human expert trajectories (94.8 in NAVSIM) to 0, indicating that the initial trajectory is sufficiently high-quality and no refinement is needed; the confidence of the other trajectories is set to 1. The binary cross entropy (BCE) is selected as the loss function: 
+
+Lconf = E [BCE (ˆ p, p gt )] (3) The total loss function uses the weighted sum of Ldir and 
+
+Lconf :
+
+L = λ · L dir + (1 − λ) · L conf (4) 
+
+D. Inference 
+
+In the inference phase, DriveVer accepts sensor and state inputs, as well as the initial trajectory generated by any base planner. It first computes the confidence ˆp to refine the current trajectory via the confidence branch. Only when the confidence exceeds the predefined threshold pth will it further output the refinement direction ˆu through the trajectory refinement branch. The refined trajectory τrefined 
+
+is calculated as follows: 
+
+τrefined = τinit + α · ˆu (5) where α denotes the magnitude of refinement. It enables DriveVer to adaptively control the refinement strength based on the performance of the base planner: for a base planner with satisfactory performance, only minor refinement is applied; otherwise, a larger correction amplitude is required. IV. E XPERIMENT 
+
+A. Experiment Setup 1) Dataset: NAVSIM [27] is a dataset derived from the real-world nuPlan [29] and is a subset of OpenScene [30]. Sampled at 2 Hz, it emphasizes challenging scenarios in-volving changes in intention, where historical data cannot be extrapolated. In our experiments, we utilize the official 
+
+navtrain (85k samples) and navtest (12k samples) splits for training and evaluation. The base planning model is trained on the 85k samples provided here. The dedicated training dataset for DriveVer is constructed by selecting 14,000 high-quality scenes from the navtrain dataset and generating a set of 16 trajectories with scores spanning from low to high for each scene. 
+
+2) Metric: As opposed to previous benchmarks such as nuScenes [36], mostly formulating driving quality as a measure of similarity to the expert human trajectory, we utilize the Predictive Driver Model Score (PDMS) for 
+
+NAVSIMv1 [27] and the Extended Predictive Driver Model Score (EPDMS) for NAVSIMv2 [37] as the closed-loop planning metrics. For NAVSIMv1, PDMS integrates five sub-metrics: No At-Fault Collision (NC), Drivable Area Compliance (DAC), Time-to-Collision (TTC), Comfort (C), and Ego Progress (EP) to produce a comprehensive closed-loop planning score. Its calculation formula is defined as follows: 
+
+P DM S = N C ×DAC ×
+
+ 5 × EP + 5 × T T C + 2 × C
+
+12 
+
+
+
+,
+
+(6) For NAVSIMv2, the EPDMS metric includes several com-ponents categorized as penalties or weighted subscores. Its key metrics are No At-Fault Collision (NC), Drivable Area Compliance (DAC), Driving Direction Compliance (DDC), Traffic Light Compliance (TLC), Ego Progress (EP), Time to Collision (TTC), Lane Keeping (LK), History Comfort (HC), and Extended Comfort (EC). Its calculation formula is defined as follows: 
+
+EP DM S = N C × DAC × DDC × T LC ×
+
+ 5EP + 2 LK + 2 HC + 5 T T C + 2 EC 
+
+16 
+
+
+
+.
+
+(7) 
+
+3) Implementation Details: We adopted the visual en-coder proposed by DrivoR, which takes RGB images from four cameras (front, front left, front right, and back) as input, assigns 16 learnable register tokens to each camera, and concatenates them to form 64 scene tokens. The parameters of the visual encoder are frozen during training. The decoders for both the refinement and confidence branches are 4-layer transformers with an inner dimension of 256. We adopt the AdamW optimizer with a learning rate of 10 −4 and a cosine annealing learning rate schedule. Training is conducted for 30 epochs on our dedicated dataset, with the loss weight 
+
+λ fixed at 0.5. During inference, the confidence threshold for applying refinement is set to 0.75, and the refinement magnitude α is set to 0.5. 
+
+B. Main Results 1) Quantitative Evaluation: We plug DriveVer into sev-eral end-to-end planners, including DiffusionDrive [13], AdaThinkDrive [6], ELF-VLA [21] and DrivoR [28], to verify its effectiveness. Tab. I shows the performance com-parison between the aforementioned base planners with and without DriveVer on the NAVSIMv1 benchmark. The results demonstrate that DriveVer can steadily improve the performance of the base planners by evaluating and refining their initial trajectories. Specifically, DiffusionDrive achieves a 0.9 improvement in PDMS after integrating DriveVer, yielding the most significant performance gain. Even for DrivoR, which achieves state-of-the-art performance among all base planners, a slight yet consistent PDMS improvement is observed after applying DriveVer, further demonstrating the effectiveness of DriveVer. On the NAVSIMv2 bench-mark, DriveVer continues to demonstrate stable trajectory optimization capability. The results indicate that, by training on our constructed small-scale yet high-quality dataset, DriveVer can accurately evaluate the planning results of the base planner across differ-ent scenarios and guide the trajectory optimization direction, while exhibiting enhanced universality and generalization. 
+
+2) Qualitative Analysis: Figure 4 intuitively illustrates the trajectory optimization results of DriveVer by visualizing the initial trajectory (planned by DiffusionDrive) and the refined trajectory. In the top-left case, the initial trajectory is close to the parked vehicles on the right side of the road, posing a TABLE I: Comparison with state-of-the-art methods on the NAVSIMv1 with PDMS.                                                                                                                                                   
+
+> Method Reference Refine Policy NC ↑DAC ↑TTC ↑CF ↑EP ↑PDMS ↑
+> Constant Velocity --68.0 57.8 50.0 100 19.4 20.6 Ego Status MLP --93.0 77.3 83.6 100 62.8 65.6 UniAD [5] CVPR 2023 -97.8 91.9 92.9 100 78.8 83.4 PARA-Drive [31] CVPR 2024 -97.9 92.4 93.0 99.8 79.3 84.0 DiffusionDrive [13] CVPR 2025 -98.2 96.2 94.7 100 82.2 88.1 WoTE [25] ICCV 2025 -98.5 96.8 94.9 99.9 81.9 88.3 Hydra-NeXt [32] ICCV 2025 -98.1 97.7 94.6 100 81.8 88.6 AutoVLA-3B [19] NeurIPS 2025 -98.4 95.6 100.0 100 81.9 89.1 DriveVLA-W0-3B [33] ICLR 2025 -98.7 99.1 95.3 99.3 83.3 90.3 GoalFlow [34] CVPR 2025 -98.4 98.3 94.6 100 85.0 90.3 DiffusionDrive [13] CVPR 2025 Original 98.2 96.2 94.7 100 82.2 88.1 with DriveVer 98.3 96.8 94.2 100 84.1 89.0(+0.9) DrivoR [28] CVPR 2026 Original 99.0 98.9 96.7 100 90.0 93.7 with DriveVer 99.0 99.0 96.6 100 90.1 93.8 (+0.1) AdaThinkDrive [6] ICRA 2026 Original 98.4 97.8 95.2 100 84.4 90.3 with DriveVer 98.2 97.8 94.5 100 87.3 90.9(+0.6) ELF-VLA [21] CVPR 2026 Original 98.9 98.1 96.0 100 85.3 91.0 with DriveVer 98.7 97.9 95.7 100 87.2 91.5(+0.5)
+
+TABLE II: Comparison with state-of-the-art methods on the NAVSIMv2 with EPDMS. 
+
+Method Refine Policy NC ↑ DAC ↑ DDC ↑ TLC ↑ EP ↑ TTC ↑ LK ↑ HC ↑ EC ↑ EPDMS ↑
+
+Ego Status - 93.1 77.9 92.7 99.6 86.0 91.5 89.4 98.3 85.4 64.0 TransFuser [35] - 96.9 89.9 97.8 99.7 87.1 95.4 92.7 98.3 87.2 76.7 HydraMDP++ [12] - 97.2 97.5 99.4 99.6 83.1 96.5 94.4 98.2 70.9 81.4 Recogdrive-8B [20] - 98.3 95.2 99.5 99.8 87.1 97.5 96.6 98.3 86.5 83.6 DriveVLA-W0-3B [33] - 98.5 99.1 98.0 99.7 86.4 98.1 93.2 97.9 58.9 86.1 Original 98.2 95.9 99.4 99.8 87.5 97.3 96.8 98.3 87.7 84.5 DiffusionDrive [13] with DriveVer 98.3 96.9 99.4 99.7 88.8 97.4 96.7 98.3 86.7 85.5(+1.0) Original 99.0 98.9 98.8 99.6 92.1 98.5 95.1 97.7 70.1 86.5 DrivoR [28] with DriveVer 98.9 98.9 98.8 99.6 92.2 98.5 95.0 97.7 71.0 86.7(+0.2) Original 98.1 97.6 99.1 99.7 91.2 97.7 96.5 98.3 86.6 86.5 AdaThinkDrive [6] with DriveVer 98.2 97.8 99.1 99.7 91.4 97.7 96.4 98.3 86.5 86.7(+0.2) Original 98.9 98.1 99.4 99.8 88.5 98.4 96.9 98.3 87.2 87.1 ELF-VLA [21] with DriveVer 98.7 97.9 99.3 99.7 90.6 98.3 96.6 98.4 86.5 87.2 (+0.1) 
+
+collision risk. DriveVer adjusts the trajectory to the center of the lane, which is consistent with the human expert trajectory. In the bottom-left case, a similar scenario is observed. The trajectory planned by DiffusionDrive is excessively close to the preceding bus, leading to a collision between the ego vehicle and the preceding vehicle. The refined trajectory generated by DriveVer increases the lateral distance to the forward bus, thus avoiding collisions and enhancing driving safety. In the top-right case, DiffusionDrive produces an unreasonable planning result, whereas DriveVer can make substantial corrections leveraging its scene-understanding capability. Similarly, in the bottom-right case, the initial trajectory deviates from the drivable area, and DriveVer can accordingly correct it to keep the ego vehicle within the valid road region. These results further demonstrate that DriveVer has a strong understanding of desirable driving behaviors in driv-ing scenarios: it can not only correct dangerous behaviors in the initial planning results but also reduce potential accident risk and maintain a higher safety level. 
+
+3) Inference Speed: DriveVer is a lightweight model with only 34M parameters, enabling efficient test-time scaling. Experimental results on a single NVIDIA 4090 GPU show that DriveVer takes only 80 ms to refine a single trajectory, which meets the real-time requirements of trajectory plan-ning tasks. It can be plugged into other end-to-end methods without introducing excessive overhead. 
+
+C. Ablation Study 1) Effectiveness of the Confidence Branch: As demon-strated in Tab. III, the confidence branch plays a crucial Fig. 4: Qualitative visualization comparing the initial baseline trajectory from DiffusionDrive (Red) , the trajectory refined by DriveVer (Blue) , and the Ground Truth Trajectory (Green) .TABLE III: Ablation of the confidence branch in PDMS.          
+
+> Method DiffusionDrive DrivoR AdaThinkDrive ELF-VLA w/o confidence branch 88.9 93.5 90.8 91.4 w/ confidence branch 89.0 93.8 90.9 91.5
+
+role in ensuring DriveVer’s overall trajectory refinement performance, particularly when the base planner has already achieved high performance. For instance, if the initial tra-jectories generated by DrivoR are refined indiscriminately without prior evaluation, the PDMS of the refined trajectories degrades rather than improves. This phenomenon arises because the refinement branch exhibits inevitable prediction variance when estimating small refinements for sufficiently high-quality initial trajectories. Refining these trajectories using single-inference results tends to undermine the inherent advantages of the original trajectories. The confidence branch enables DriveVer to evaluate initial trajectories and retain high-quality ones in a simple yet effective manner, while avoiding excessive test-time overhead for only marginal performance gains on such trajectories. 
+
+2) Refinement Method: We compare the performance of our proposed direction vector prediction with a baseline approach that directly predicts the absolute coordinate resid-uals. Specifically, the baseline predicts the residual of each waypoint’s location δτ = τgt − τinit and is supervised by an L1 loss, formulated as LL1 = E
+
+h
+
+∥ ˆδτ − δτ gt ∥1
+
+i
+
+.In contrast, our method predicts the geometric refinement direction vector ˆu and is supervised by a cosine similar-ity loss Lcos = E [1 − ⟨ ˆu, u gt ⟩]. As shown in Tab. IV, our directional refinement approach with the cosine loss outperforms the absolute residual baseline. Optimizing the cosine similarity guides the model to focus on the overall optimization trend of the trajectory, rather than enforcing a strict penalty on the absolute refinement magnitude of each individual waypoint. This formulation effectively reduces the TABLE IV: Comparison of Refinement Methods         
+
+> Refinement Target Supervision Loss PDMS ↑
+> Absolute Residual L1Loss 88.3 Direction Vector (Ours) Cosine Loss 89.0
+
+harsh penalty induced by the L1 loss, which helps mitigate overfitting, improves model robustness, and enables better generalization to provide reliable optimization directions in unseen scenarios. V. C ONCLUSION 
+
+End-to-end autonomous driving models have traditionally relied heavily on training-time scaling, which incurs pro-hibitive computational costs and exhibits sharply diminishing returns. Moreover, most existing planners follow a one-shot trajectory generation paradigm, lacking the ability to post-hoc validate or correct suboptimal or potentially unsafe tra-jectories during inference. To address these fundamental lim-itations, we introduce DriveVer, a lightweight, plug-and-play test-time verifier. Unlike conventional pipelines, DriveVer leverages a test-time scaling mechanism to provide post-hoc evaluation and active geometric correction for autonomous driving systems. By efficiently fusing multi-view visual representations, ego-vehicle kinematic features, and initial candidate trajectories through a cross-modal architecture, DriveVer simultaneously predicts a trajectory safety confi-dence score and an absolute geometric refinement vector. We also construct a dedicated, condition-driven trajec-tory evaluation dataset based on the NAVSIM benchmark. DriveVer significantly tightens the safety upper bound of existing base planners, consistently improving performance across diverse baselines. Notably, as an extremely compact model with only 34 M parameters, DriveVer incurs minimal overhead and achieves an inference latency of just 80 ms ,making it well-suited for real-time deployment. REFERENCES [1] S. Jiang, Z. Huang, K. Qian, Z. Luo, T. Zhu, Y. Zhong, Y. Tang, M. Kong, Y. Wang, S. Jiao et al. , “A survey on vision-language-action models for autonomous driving,” in Proceedings of the IEEE/CVF International Conference on Computer Vision , 2025, pp. 4524–4536. [2] T. Hu, X. Liu, S. Wang, Y. Zhu, A. Liang, L. Kong, G. Zhao, Z. Gong, J. Cen, Z. Huang et al. , “Vision-language-action models for autonomous driving: Past, present, and future,” arXiv preprint arXiv:2512.16760 , 2025. [3] L. Chen, P. Wu, K. Chitta, B. Jaeger, A. Geiger, and H. Li, “End-to-end autonomous driving: Challenges and frontiers,” IEEE Transactions on Pattern Analysis and Machine Intelligence , 2024. [4] B. Jiang, S. Chen, Q. Xu, B. Liao, J. Chen, H. Zhou, Q. Zhang, W. Liu, C. Huang, and X. Wang, “Vad: Vectorized scene representation for efficient autonomous driving,” in Proceedings of the IEEE/CVF International Conference on Computer Vision , 2023, pp. 8340–8350. [5] Y. Hu, J. Yang, L. Chen, K. Li, C. Sima, X. Zhu, S. Chai, S. Du, T. Lin, W. Wang et al. , “Planning-oriented autonomous driving,” in 
+
+Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2023, pp. 17 853–17 862. [6] Y. Luo, F. Li, S. Xu, Z. Lai, L. Yang, Q. Chen, Z. Luo, Z. Xie, S. Jiang, J. Liu et al. , “Adathinkdrive: Adaptive thinking via reinforcement learning for autonomous driving,” arXiv preprint arXiv:2509.13769 ,2025. [7] L. Zhang, Y. Yuan, C. Wu, X. Chang, X. Cai, S. Zeng, L. Shi, S. Wang, H. Zhang, and M. Xu, “Minddriver: Introducing progres-sive multimodal reasoning for autonomous driving,” arXiv preprint arXiv:2602.21952 , 2026. [8] J. Lu, J. Guan, Z. Huang, J. Li, G. Li, L. Kong, Y. Li, H. Wang, S. Xu, Y. Luo, F. Li, C. Dang, J. Wang, T. Xu, J. Wu, J. Wu, X. Hao, W. Zhang, T. Jiang, L. Zhang, L. Zhou, Y. Tang, J. Wang, Y. Gao, X. Bu, H. Tian, Y. Qiu, F. Jia, L. Liu, Y. Ge, H. Li, Y. Shen, J. Cui, H. Xie, B. Wang, H. Sun, J. Zhao, J. Huang, P. Liu, Z. Zhu, Y. Jiang, Z. Guo, C. Gong, H. Leng, K. Ma, N. Wang, G. Chen, K. Yang, H. Ye, and L. Chen, “Xiaomi onevl: One-step latent reasoning and planning with vision-language explanation,” arXiv preprint arXiv:2604.18486 ,2026. [9] Q. Chen, F. Li, S. Xu, Z. Lai, Z. Xie, Y. Luo, S. Jiang, H. Li, L. Chen, B. Wang, Y. Zhang, and Z.-X. Yang, “Vilta: A vlm-in-the-loop adversary for enhancing driving policy robustness,” arXiv preprint arXiv:2601.12672 , 2026. [10] Q. Zhang, F. Lyu, Z. Sun, L. Wang, W. Zhang, W. Hua, H. Wu, Z. Guo, Y. Wang, N. Muennighoff et al. , “A survey on test-time scaling in large language models: What, how, where, and how well?” arXiv preprint arXiv:2503.24235 , 2025. [11] S. Chen, B. Jiang, H. Gao, B. Liao, Q. Xu, Q. Zhang, C. Huang, W. Liu, and X. Wang, “Vadv2: End-to-end vectorized autonomous driving via probabilistic planning,” arXiv preprint arXiv:2402.13243 ,2024. [12] Z. Li, K. Li, S. Wang, S. Lan, Z. Yu, Y. Ji, Z. Li, Z. Zhu, J. Kautz, Z. Wu et al. , “Hydra-mdp: End-to-end multimodal planning with multi-target hydra-distillation,” arXiv preprint arXiv:2406.06978 ,2024. [13] B. Liao, S. Chen, H. Yin, B. Jiang, C. Wang, S. Yan, X. Zhang, X. Li, Y. Zhang, Q. Zhang et al. , “Diffusiondrive: Truncated diffusion model for end-to-end autonomous driving,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 12 037–12 047. [14] B. Jiang, S. Chen, B. Liao, X. Zhang, W. Yin, Q. Zhang, C. Huang, W. Liu, and X. Wang, “Senna: Bridging large vision-language models and end-to-end autonomous driving,” arXiv preprint arXiv:2410.22313 , 2024. [15] B. Jiang, S. Chen, Q. Zhang, W. Liu, and X. Wang, “Alphadrive: Un-leashing the power of vlms in autonomous driving via reinforcement learning and reasoning,” arXiv preprint arXiv:2503.07608 , 2025. [16] Z. Luo, K. Qian, J. Wang, Y. Luo, J. Miao, Z. Fu, Y. Wang, S. Jiang, Z. Huang, Y. Hu et al. , “Mtrdrive: Memory-tool synergistic reason-ing for robust autonomous driving in corner cases,” arXiv preprint arXiv:2509.20843 , 2025. [17] J.-J. Hwang, R. Xu, H. Lin, W.-C. Hung, J. Ji, K. Choi, D. Huang, T. He, P. Covington, B. Sapp et al. , “Emma: End-to-end multimodal model for autonomous driving,” arXiv preprint arXiv:2410.23262 ,2024. [18] S. Xing, C. Qian, Y. Wang, H. Hua, K. Tian, Y. Zhou, and Z. Tu, “Openemma: Open-source multimodal model for end-to-end autonomous driving,” in Proceedings of the Winter Conference on Applications of Computer Vision , 2025, pp. 1001–1009. [19] Z. Zhou, T. Cai, S. Z. Zhao, Y. Zhang, Z. Huang, B. Zhou, and J. Ma, “Autovla: A vision-language-action model for end-to-end autonomous driving with adaptive reasoning and reinforcement fine-tuning,” arXiv preprint arXiv:2506.13757 , 2025. [20] Y. Li, K. Xiong, X. Guo, F. Li, S. Yan, G. Xu, L. Zhou, L. Chen, H. Sun, B. Wang et al. , “Recogdrive: A reinforced cog-nitive framework for end-to-end autonomous driving,” arXiv preprint arXiv:2506.08052 , 2025. [21] Y. Luo, Q. Chen, F. Li, S. Xu, J. Liu, Z. Song, Z.-x. Yang, and F. Wen, “Unleashing vla potentials in autonomous driving via explicit learning from failures,” arXiv preprint arXiv:2603.01063 , 2026. [22] Y. Luo, F. Li, S. Xu, Y. Ji, Z. Zhang, B. Wang, Y. Shen, J. Cui, L. Chen, G. Chen et al. , “Last-vla: Thinking in latent spatio-temporal space for vision-language-action in autonomous driving,” arXiv preprint arXiv:2603.01928 , 2026. [23] X. Liu, Z. Zhong, Y. Guo, Y.-F. Liu, Z. Su, Q. Zhang, J. Wang, Y. Gao, Y. Zheng, Q. Lin et al. , “Reasonplan: Unified scene prediction and decision reasoning for closed-loop autonomous driving,” arXiv preprint arXiv:2505.20024 , 2025. [24] R. Zhao, Q. Yuan, J. Li, H. Hu, Y. Li, C. Zheng, and F. Gao, “Sce2drivex: A generalized mllm framework for scene-to-drive learn-ing,” arXiv preprint arXiv:2502.14917 , 2025. [25] Y. Li, Y. Wang, Y. Liu, J. He, L. Fan, and Z. Zhang, “End-to-end driving with online trajectory evaluation via bev world model,” arXiv preprint arXiv:2504.01941 , 2025. [26] Q. Chen, F. Li, Y. Luo, Z. Zhang, H. Sun, F. Li, B. Wang, G. Chen, Y. Ji, J. Deng, H. Xie, H. Ye, L. Chen, and Y. Zhang, “Drivereward: A comprehensive dataset and generative vision-language reward model for autonomous driving,” arXiv preprint arXiv:2606.08525 , 2026. [27] D. Dauner, M. Hallgarten, T. Li, X. Weng, Z. Huang, Z. Yang, H. Li, I. Gilitschenski, B. Ivanovic, M. Pavone et al. , “Navsim: Data-driven non-reactive autonomous vehicle simulation and benchmarking,” Ad-vances in Neural Information Processing Systems , vol. 37, pp. 28 706– 28 719, 2024. [28] E. Kirby, A. Boulch, Y. Xu, Y. Yin, G. Puy, ´ E. Zablocki, A. Bursuc, S. Gidaris, R. Marlet, F. Bartoccioni et al. , “Driving on registers,” 
+
+arXiv preprint arXiv:2601.05083 , 2026. [29] H. Caesar, J. Kabzan, K. S. Tan, W. K. Fong, E. Wolff, A. Lang, L. Fletcher, O. Beijbom, and S. Omari, “nuplan: A closed-loop ml-based planning benchmark for autonomous vehicles,” arXiv preprint arXiv:2106.11810 , 2021. [30] O. Contributors, “Openscene: The largest up-to-date 3d occupancy prediction benchmark in autonomous driving,” in Proceedings of the Conference on Computer Vision and Pattern Recognition, Vancouver, Canada , 2023, pp. 18–22. [31] X. Weng, B. Ivanovic, Y. Wang, Y. Wang, and M. Pavone, “Para-drive: Parallelized architecture for real-time autonomous driving,” in 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024, pp. 15 449–15 458. [32] Z. Li, S. Wang, S. Lan, Z. Yu, Z. Wu, and J. M. Alvarez, “Hydra-next: Robust closed-loop driving with open-loop training,” arXiv preprint arXiv:2503.12030 , 2025. [33] Y. Li, S. Shang, W. Liu, B. Zhan, H. Wang, Y. Wang, Y. Chen, X. Wang, Y. An, C. Tang et al. , “Drivevla-w0: World models amplify data scaling law in autonomous driving,” arXiv preprint arXiv:2510.12796 , 2025. [34] Z. Xing, X. Zhang, Y. Hu, B. Jiang, T. He, Q. Zhang, X. Long, and W. Yin, “Goalflow: Goal-driven flow matching for multimodal trajec-tories generation in end-to-end autonomous driving,” in Proceedings of the Computer Vision and Pattern Recognition Conference , 2025, pp. 1602–1611. [35] K. Chitta, A. Prakash, B. Jaeger, Z. Yu, K. Renz, and A. Geiger, “Transfuser: Imitation with transformer-based sensor fusion for au-tonomous driving,” IEEE transactions on pattern analysis and machine intelligence , vol. 45, no. 11, pp. 12 878–12 895, 2022. [36] T. Qian, J. Chen, L. Zhuo, Y. Jiao, and Y.-G. Jiang, “Nuscenes-qa: A multi-modal visual question answering benchmark for autonomous driving scenario,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 38, no. 5, 2024, pp. 4542–4550. [37] W. Cao, M. Hallgarten, T. Li, D. Dauner, X. Gu, C. Wang, Y. Miron, M. Aiello, H. Li, I. Gilitschenski et al. , “Pseudo-simulation for autonomous driving,” arXiv preprint arXiv:2506.04218 , 2025.

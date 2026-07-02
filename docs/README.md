@@ -6,71 +6,56 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-01
-- 运行时间：2026-07-01 22:01:21 UTC
+- 最新运行日期：2026-07-02
+- 运行时间：2026-07-02 21:32:48 UTC
 - 运行状态：成功
-- 本次总论文数：17
+- 本次总论文数：12
 - 精读区：6
-- 速读区：11
+- 速读区：6
 
 ### 今日简报（AI）
-今日重点分析6篇精读论文，涵盖视觉语言导航与测试时强化学习两大前沿方向。最值得关注的是《CLOSER-VLN》提出的闭环自检检索增强推理和《Trust Your Instincts》的置信度驱动测试时RL方法。建议读者后续关注《Learning from Failure》中智能体自我改进策略，以及后训练阶段进度优势对LLM Agent的提升潜力。
-- 详情：[/202607/01/README](/202607/01/README)
+今日12篇论文聚焦智能体系统创新，涵盖搜索代理澄清机制、自动驾驶轨迹验证及故障恢复等关键方向。重点推荐两篇9分工作：面向搜索代理的澄清感知深度搜索基准DiscoBench，以及自动驾驶轻量级测试时轨迹验证器DriveVer。建议优先精读上述两篇，把握智能体交互澄清与实时安全验证的前沿突破。
+- 详情：[/202607/02/README](/202607/02/README)
 
 ### 精读区论文标签
-1. [CLOSER-VLN: Closed-Loop Self-Verified Retrieval-Augmented Reasoning for Aerial Vision-Language Navigation](/202607/01/2606.28397v1-closer-vln-closed-loop-self-verified-retrieval-augmented-reasoning-for-aerial-vision-language-navigation)  
+1. [When Search Agents Should Ask: DiscoBench for Clarification-Aware Deep Search](/202607/02/2606.27669v2-when-search-agents-should-ask-discobench-for-clarification-aware-deep-search)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：无人机视觉语言导航中轨迹偏差的闭环验证方法
-2. [Trust Your Instincts: Confidence-Driven Test-Time RL for Vision-Language-Action Models](/202607/01/2606.29892v1-trust-your-instincts-confidence-driven-test-time-rl-for-vision-language-action-models)  
+   evidence：评估agent搜索轨迹的基准
+2. [DriveVer: Lightweight Trajectory Evaluator as Test-Time Verifier for Autonomous Driving](/202607/02/2607.00399v1-drivever-lightweight-trajectory-evaluator-as-test-time-verifier-for-autonomous-driving)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：通过置信度在测试时评估智能体轨迹
-3. [Life After Benchmark Saturation: A Case Study of CORE-Bench](/202607/01/2606.26158v1-life-after-benchmark-saturation-a-case-study-of-core-bench)  
+   evidence：轻量级轨迹评估器用于测试时验证
+3. [Towards Metric-Agnostic Trajectory Forecasting](/202607/02/2607.01133v1-towards-metric-agnostic-trajectory-forecasting)  
+   标签：评分：9.0/10、query:agent-traj
+   evidence：度量子无关的轨迹预测评估方法TraDiE
+4. [The Red Queen Gödel Machine: Co-Evolving Agents and Their Evaluators](/202607/02/2606.26294v1-the-red-queen-gdel-machine-co-evolving-agents-and-their-evaluators)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：涵盖轨迹相关维度的代理基准
-4. [The Red Queen Gödel Machine: Co-Evolving Agents and Their Evaluators](/202607/01/2606.26294v2-the-red-queen-gdel-machine-co-evolving-agents-and-their-evaluators)  
+   evidence：代理与评估器共同进化用于轨迹评估
+5. [AgentBound: Verifiable Behavioral Governance for Autonomous AI Agents](/202607/02/2606.30970v1-agentbound-verifiable-behavioral-governance-for-autonomous-ai-agents)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：将评估纳入改进循环的协同进化框架
-5. [Towards Safety-Aware Mutation Testing for Autonomous Driving Systems](/202607/01/2606.26456v1-towards-safety-aware-mutation-testing-for-autonomous-driving-systems)  
+   evidence：运行时治理框架评估智能体行为
+6. [Can Agents Generalize to the Open World? Unveiling the Fragility of Static Training in Tool Use](/202607/02/2607.01084v1-can-agents-generalize-to-the-open-world-unveiling-the-fragility-of-static-training-in-tool-use)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：提出面向自动驾驶系统的安全感知变异测试方法
-6. [To Run or Not to Run: Analyzing the Cost-Effectiveness of Code Execution in LLM-Based Program Repair](/202607/01/2606.26978v1-to-run-or-not-to-run-analyzing-the-cost-effectiveness-of-code-execution-in-llm-based-program-repair)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：分析SWE-bench智能体轨迹以研究执行行为
+   evidence：系统评估智能体在分布偏移下的行为
 
 ### 速读区论文标签
-1. [Learning from Failure: Inference-Time Self-Improvement for Computer-Use Agents](/202607/01/2606.31270v1-learning-from-failure-inference-time-self-improvement-for-computer-use-agents)  
+1. [FAR: Failure-Aware Retry for Test-Time Recovery and Continual Policy Improvement](/202607/02/2607.01111v1-far-failure-aware-retry-for-test-time-recovery-and-continual-policy-improvement)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：利用失败轨迹进行自改进，提供识别和利用失败案例的方法
-2. [Qwen-AgentWorld: Language World Models for General Agents](/202607/01/2606.24597v1-qwen-agentworld-language-world-models-for-general-agents)  
+   evidence：利用失败轨迹进行测试时恢复
+2. [Managed Autonomy at Runtime: Gear-Based Safety and Governance for Single- and Multi-Agent Cyber-Physical Systems](/202607/02/2607.00334v1-managed-autonomy-at-runtime-gear-based-safety-and-governance-for-single--and-multi-agent-cyber-physical-systems)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：提供跨领域智能体轨迹模拟的世界模型
-3. [Neglected Free Lunch from Post-training: Progress Advantage for LLM Agents](/202607/01/2606.26080v1-neglected-free-lunch-from-post-training-progress-advantage-for-llm-agents)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过强化学习对LLM智能体轨迹进行逐步评估
-4. [SKILL-DISCO: Distilling and Compiling Agent Traces into Reusable Procedural Skills](/202607/01/2606.26669v1-skill-disco-distilling-and-compiling-agent-traces-into-reusable-procedural-skills)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过分析轨迹结构将成功智能体轨迹蒸馏为可复用过程技能
-5. [SEATauBench: Adapting Tool-Agent-User Evaluation Into Low-Resource Southeast Asian Languages](/202607/01/2606.28715v1-seataubench-adapting-tool-agent-user-evaluation-into-low-resource-southeast-asian-languages)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：低资源语言中的工具-代理-用户评估框架
-6. [RoAd-RL: A Unified Library and Benchmark for Robust Adversarial Reinforcement Learning](/202607/01/2606.29867v1-road-rl-a-unified-library-and-benchmark-for-robust-adversarial-reinforcement-learning)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：提供RL智能体对抗鲁棒性的基准和评估协议
-7. [MAS-Lab: A Specification-Driven Validation Framework for Reliable Multi-Agent Systems](/202607/01/2606.30546v1-mas-lab-a-specification-driven-validation-framework-for-reliable-multi-agent-systems)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：基于规范的多智能体系统验证框架
-8. [Securing the AI Agent: A Unified Framework for Multi-Layer Agent Red Teaming](/202607/01/2606.31227v1-securing-the-ai-agent-a-unified-framework-for-multi-layer-agent-red-teaming)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过红队测试代理行为的框架
-9. [OPID: On-Policy Skill Distillation for Agentic Reinforcement Learning](/202607/01/2606.26790v1-opid-on-policy-skill-distillation-for-agentic-reinforcement-learning)  
+   evidence：基于齿轮的运行时控制系统，用于安全自主和故障模式分析
+3. [Agentic System as Compressor: Quantifying System Intelligence in Bits](/202607/02/2606.25960v1-agentic-system-as-compressor-quantifying-system-intelligence-in-bits)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：在智能体强化学习中分析轨迹级奖励
-10. [RS-Diffuser: Risk-Sensitive Diffusion Planning with Distributional Value Guidance](/202607/01/2606.27766v1-rs-diffuser-risk-sensitive-diffusion-planning-with-distributional-value-guidance)  
+   evidence：通过基于压缩的智能度量评估智能体系统
+4. [Joint Learning of Experiential Rules and Policies for Large Language Model Agents](/202607/02/2606.27136v1-joint-learning-of-experiential-rules-and-policies-for-large-language-model-agents)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：离线强化学习中风险敏感的轨迹分析
-11. [SWE-MeM: Learning Adaptive Memory Management for Long-Horizon Coding Agents](/202607/01/2606.28434v1-swe-mem-learning-adaptive-memory-management-for-long-horizon-coding-agents)  
+   evidence：利用轨迹联合学习规则与策略
+5. [Hierarchical Policy Learning via Spectral Decomposition](/202607/02/2606.29570v1-hierarchical-policy-learning-via-spectral-decomposition)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：基于轨迹状态的适应性内存管理
+   evidence：动作轨迹的频谱分析
+6. [ECHO: Learning Epistemically Adaptive Language Agents with Turn-Level Credit](/202607/02/2606.29745v1-echo-learning-epistemically-adaptive-language-agents-with-turn-level-credit)  
+   标签：评分：6.0/10、query:agent-traj
+   evidence：基于信念状态的强化学习中轨迹分析
 
 
 <div class="dpr-home-promo-card">

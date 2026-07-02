@@ -1,0 +1,788 @@
+Title: Towards Metric-Agnostic Trajectory Forecasting
+
+URL Source: https://arxiv.org/pdf/2607.01133v1
+
+Published Time: Thu, 02 Jul 2026 01:27:17 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# Towards Metric-Agnostic Trajectory Forecasting 
+
+Markus Knoche 1 , Daan de Geus 2 , and Bastian Leibe 1 
+
+> 1
+
+RWTH Aachen University, Germany  
+
+> 2
+
+Eindhoven University of Technology, Netherlands 
+
+vision.rwth-aachen.de/TraDiE-policies 
+
+Abstract. Accurate trajectory forecasting of surrounding traffic par-ticipants is a core capability for autonomous driving, enabling vehicles to anticipate behavior and plan safe maneuvers. We observe that cur-rent state-of-the-art forecasting models on Argoverse 2 and the Waymo Open Motion Dataset tailor their training objectives to the different benchmark metrics. Because these metrics encourage conflicting behav-ior, we propose a paradigm change for trajectory forecasting: training models with metric-agnostic probabilistic objectives and treating metric optimization as a downstream task applied to the predictive distribution .Concretely, we introduce Trajectory Distribution Evaluation (TraDiE) policies, metric-specific policies that map a predictive distribution to the set of K trajectories and confidences required by trajectory forecast-ing metrics. We evaluate this framework by introducing DONUT-NLL, which adapts the training objective of the state-of-the-art trajectory fore-casting model DONUT to directly optimize the predictive distribution. Using our policies, DONUT-NLL achieves state-of-the-art results on all metrics of the Waymo motion prediction benchmark. 
+
+# 1 Introduction 
+
+Trajectory forecasting is a core component of autonomous driving systems, as it enables vehicles to anticipate the behavior of other traffic participants. Be-cause human driving is inherently non-deterministic and multimodal, it is not sufficient to predict only a single future trajectory per agent. Instead, trajectory forecasting models must capture multiple plausible futures and quantify uncer-tainty such that downstream applications can account for possible behaviors. In practice, the trajectory forecasting task is defined as follows: given a road graph describing the static scene context ( e.g ., lanes, crosswalks) and the re-cent state histories of relevant agents ( e.g ., cars, pedestrians), the model must predict a set of K future trajectories over a fixed temporal horizon for each agent. Typically, K = 6 . In addition, each trajectory gets assigned a confidence score. Together, these predictions should represent a multimodal distribution over plausible futures corresponding to the true uncertainty of the world. In recent years, a diverse set of architectures and training objectives has been proposed for this task [11, 14, 29, 32, 39, 41]. Interestingly, we observe that these models are strongly shaped by the particular metrics that are used in the most popular benchmarks. Models evaluating on Argoverse 2 [34], whose main metric  
+
+> arXiv:2607.01133v1 [cs.CV] 1 Jul 2026 2M. Knoche et al.
+
+Brier-minFDE depends on endpoint distance, often employ training objectives that closely mirror these distance-based metrics [15, 40]. Conversely, methods evaluated on the Waymo benchmark [3], which uses soft mAP , are optimized for broader coverage of the space of possible future endpoints, e.g ., by using non-maximum suppression to avoid clusters of endpoints [18, 27, 35]. Some recent papers even train multiple models to optimize different metrics [27, 31, 32]. While it is not inherently problematic to optimize for a benchmark, tightly coupling trajectory forecasting models to evaluation metrics can lead to sev-eral issues. Different benchmark metrics encode different, sometimes conflicting, goals: distance-based metrics reward precise final positions, whereas soft mAP expects broad coverage of the future space. As a result, models tuned to one met-ric tend to perform worse on others, and it becomes hard to assess whether im-provements stem from genuinely better forecasting or from better metric-specific tuning. Moreover, benchmark metrics do not directly evaluate the model’s pre-dictive distribution and thus only provide a partial view of its quality. In this work, we argue for a paradigm change in trajectory forecasting: the primary training objective should be to learn a good predictive distribution, inde-pendent of the metrics used to evaluate the forecast. Such a distribution should provide a faithful representation of uncertainty. If it is well-calibrated, it can serve as a general, metric-agnostic interface that can then be exploited by vari-ous downstream tasks, including optimizing for evaluation metrics. We suggest that optimizing for different metrics should become part of the evaluation protocol as a post-processing step applied to the generated predictive distribution. To this end, we build upon and generalize the per-metric opti-mization proposed by HOME [6] by defining metric-specific policies that map these distributions to the finite set of K trajectories and confidences required by a particular metric. Our Tra jectory-Di stribution Evaluation policies (TraDiE policies) are derived from Monte Carlo samples of the predictive distribution for common trajectory prediction metrics. Crucially, these policies are applied to the outputs of a single underlying model, without retraining. This evaluation proto-col rewards the model for a good predictive distribution: if it is accurate, policies optimizing for the metric under the distribution will yield good performance. We argue that adopting this decoupled view will allow the trajectory fore-casting community to again focus on the core of the problem, namely how to represent the predictive distribution and how to improve its accuracy. This turns the choice of predictive distribution into a general design decision. It allows sys-tematic evaluation of how future agent trajectories and their uncertainty should be represented and how trajectory forecasting models should be trained, inde-pendent of specific benchmark metrics. As a concrete instantiation, we apply this idea to DONUT [14], a recent trajectory forecasting model that achieves state-of-the-art results on Argoverse 2. Naively applied to Waymo with its original, minFDE-related loss, DONUT’s soft mAP performance is extremely poor, making it an ideal testbed to study the impact of metric-agnostic training. We replace the original loss with negative log-likelihood objectives, which directly optimize the predictive distribution, and Towards Metric-Agnostic Trajectory Forecasting 3
+
+find that these models improve both minFDE and (soft) mAP significantly when combined with our policies. This shows that optimizing the distribution directly is indeed better than training for surrogate submetrics. We further evaluate different distribution families for representing agents’ positions and show that mixtures of generalized Gaussian distributions are better suited than mixtures of Laplacian distributions or Gaussian scale mixtures. Beyond DONUT, we apply our metric-specific policies to two strong open-source baselines (MTR [27] and QCNet [39]) and show that they (i) consistently improve MTR across metrics and (ii) expose a distribution mismatch for QCNet under distance-based evaluation. In summary, our contributions are: 1. We advocate for a paradigm shift in which trajectory forecasting models are trained with metric-agnostic probabilistic objectives that learn well-calibrated predictive distributions, and in which metric optimization is treated as a downstream step via metric-specific policies. 2. We propose sampling-based metric-specific policies for mapping predictive distributions to K trajectories and confidences, with concrete implementa-tions for minFDE, (soft) mAP and miss rate, enabling evaluation of multiple metrics from a single predictive model without metric-specific retraining. 3. We introduce DONUT-NLL, a negative log-likelihood training scheme for DONUT, which achieves state-of-the-art results on the Waymo benchmark, demonstrating the effectiveness of optimizing the distribution directly. 4. We conduct a systematic comparison of position distributions and empiri-cally find that generalized Gaussian distributions outperform alternatives. 5. We validate that the proposed policies are model-agnostic by applying them to MTR [27] and QCNet [39], highlighting both gains and failure modes when predictive distributions are misspecified. 
+
+# 2 Related Work 
+
+Early work on trajectory forecasting encodes the environment in bird’s-eye-view rasterizations and applies convolutional neural networks to capture local con-text [1, 2, 6, 10, 16, 22, 24]. More modern approaches use sparse input representa-tions, where agents’ histories and map elements are modeled as polylines [5, 17]. On top of such structures inputs, graph neural networks have been used to cap-ture relations between agents and the road layout [20, 36]. Current approaches commonly model agents as queries and use attention mechanisms for interaction between agents and map elements [14, 18, 19, 21, 23, 27, 29–31, 33, 39, 41]. To model uncertainty over future trajectories, earlier works [10, 16] have em-ployed VAEs [13], which allow sampling of an arbitrary number of trajectories. Some approaches [6–8] represent the uncertainty as dense, rasterized heatmaps. Most current models predict a fixed number of possible futures, often represented as the modes of Gaussian mixtures [18, 21, 26–29, 31, 32, 35] or Laplacian mix-tures [14,33,39–41]. For training, they commonly employ a winner-takes-all loss, in which the trajectory closest to the ground truth gets optimized with negative log-likelihood. Other approaches [15, 37, 38] directly regress the best trajectory 4 M. Knoche et al. 
+
+with an L1 or smooth L1 loss without defining a continuous mixture. A few works [11, 25] employ GPT-like models, which discretize sub-trajectories into a fixed number of classes and learn a categorical distribution per timestep. Such models allow sampling arbitrarily many trajectories at inference time. As we discuss in more detail in Sec. 3.3, many of these models optimize for the main metrics of either Argoverse 2 or Waymo. As a result, models perform well on specific aspects of the trajectory prediction task, rather than improv-ing the predictive distribution itself. Moreover, the objectives induced by these metrics are partly conflicting, so models optimized for one benchmark metric typically perform poorly on the other. In contrast, we propose to train models with metric-agnostic probabilistic objectives that focus on learning good predic-tive distributions, and to handle different benchmark metrics via metric-specific policies applied at evaluation time, allowing a single calibrated model to be reused across multiple metrics and downstream tasks. The idea to decouple predictive distribution estimation from reporting has also been explored by HOME [6]. HOME outputs a dense heatmap for the end-points and introduces a mechanism to post-process this output separately for individual metrics. However, the post-processing is tightly coupled to a specific discrete endpoint representation and cannot be used as a general, model-agnostic solution. In contrast, we derive sampling-based policies that can be applied to any probabilistic forecaster and directly follow the metric definitions without model-specific tuning. We provide a detailed comparison to HOME in App. B. 
+
+# 3 Evaluation Metrics 
+
+In this section, we will present common evaluation metrics for trajectory forecast-ing and analyze how previous methods have implicitly or explicitly adapted their optimization pipeline for either distance-based or window-based metrics. For each agent n, these metrics evaluate a set of K predicted trajectories { ˆXpos  
+
+> nk
+
+}Kk=1 
+
+where each trajectory ˆXpos  
+
+> nk
+
+is a sequence ( ˆ xpos 
+
+> nkt
+
+)Tt=1 of 2D positions over T future timesteps, given a ground-truth trajectory Y pos  
+
+> n
+
+= ( ypos  
+
+> nt
+
+)Tt=1 . Some metrics ad-ditionally consider predicted confidences {ˆπnk }Kk=1 assigned to the trajectories. 
+
+3.1 Distance-Based Metrics 
+
+Distance-based metrics evaluate how close a predicted trajectory comes to the ground-truth trajectory. A common example is the minimum final displacement error (minFDE), visualized in Fig. 1b. For an agent n, it is defined as the Eu-clidean distance between the ground-truth endpoint ypos  
+
+> nT
+
+and the closest end-point of K predictions { ˆxpos  
+
+> nkT
+
+}Kk=1 :
+
+minFDE (ypos  
+
+> nT
+
+, { ˆxpos  
+
+> nkT
+
+}Kk=1 ) = min  
+
+> k
+
+∥ypos  
+
+> nT
+
+− ˆxpos  
+
+> nkT
+
+∥2. (1) The minFDE for a dataset is obtained by averaging over all target agents. Towards Metric-Agnostic Trajectory Forecasting 5   
+
+> 0.5
+> 0.30.3
+> (a) predictions (b) minFDE
+> +
+> −
+
+◦   
+
+> (c) (soft) mAP
+> 01
+> 0
+> 1
+> recall precision
+> (d) smoothing
+
+Fig. 1: Illustration of metrics. (a) Each prediction has a confidence assigned. (b) 
+
+For the distance-based metric minFDE, the endpoint distance between ground truth 
+
+and closest prediction is calculated. (c) For the window-based metric (soft) mAP, an oriented window is placed around the ground-truth endpoint. The highest-confidence trajectory within the window (+) counts as a true positive, additional trajecto-ries within the window (◦) are either counted as false positives (mAP) or ignored (soft mAP). Predictions outside the window (−) count as false positives. (d) A
+
+precision-recall curve is created for each confidence score over the entire dataset and then smoothed ; the area under the curve is the (soft) mAP. 
+
+3.2 Window-Based Metrics 
+
+Other metrics rely on windows with a specific size and orientation for evaluation. A simple example is the miss rate (MR), which counts the proportion of agents that are misses, i.e ., where none of the predicted endpoints are within a window 
+
+W around the ground truth ynT . For a single agent n a miss is defined as 
+
+Miss (ynT , { ˆxpos  
+
+> nkT
+
+}Kk=1 ) = I(∄k : ˆ xpos  
+
+> nkT
+
+∈ W (ynT )) , (2) where I is the indicator function. Argoverse 2 defines the window to be a circle with a radius of 2 m . Waymo uses a rectangle aligned to the ground-truth heading 
+
+yhd  
+
+> nT
+
+whose size depends on the agent’s velocity at the last historical timestep. Average precision (AP) is a window-based metric that also considers confi-dences (Fig. 1c) which are not required to sum to 1. To compute AP, predictions for all agents across the dataset are sorted based on their confidence. For each confidence level, precision and recall are computed. A prediction counts as a true positive, if its endpoint is the highest-confidence endpoint within the window W
+
+around the ground-truth endpoint. Predictions with lower confidences within the window either count as false positive (AP) or are ignored (soft AP). Predic-tions outside the window are considered false positives and windows not hit by any predictions become false negatives. From these, a precision-recall curve is computed (Fig. 1d), where standard object detection interpolation is applied [4]. To compute mean average precision (mAP), agents are categorized into buck-ets based on their ground-truth trajectories ( e.g ., straight, left, stationary). AP is computed independently for each bucket and then averaged. Soft mAP is computed analogously and serves as the main metric for Waymo, using the same window definition as the miss rate. 
+
+Conflicting objectives. Distance-based metrics and window-based metrics reward different behaviors from a forecasting model. Distance-based metrics im-prove if at least one predicted trajectory is very close to the ground truth. A 6 M. Knoche et al. 
+
+model is rewarded if it puts many trajectories close together into the main mode, even if they are redundant. By contrast, window-based metrics care about cov-erage: models score well if they have one prediction in the ground-truth window, additional close-by trajectories either bring no benefit or are actively penalized. This incentivizes a spread between predictions. These goals are inherently con-flicting: concentrating predictions to minimize distance helps minFDE but hurts coverage, whereas spreading predictions to cover many windows improves mAP or miss rate but worsens distance-based metrics. 
+
+3.3 Metric-Driven Modeling 
+
+Many current state-of-the-art models implicitly or explicitly tailor their train-ing objectives and post-processing schemes to either distance-based or window-based metrics. Because these metrics reward conflicting behaviors, such metric-dependent training encourages models to specialize for one metric at the expense of others, rather than to learn a generally useful predictive distribution that can support diverse downstream tasks. Models optimized to train for distance-based metrics often predict exactly 
+
+K = 6 trajectories and directly train these outputs by minimizing a distance error between the best trajectory and the ground truth. Concretely, they apply the winner-takes-all (WTA) paradigm which selects the best mode based on Euclidean distance and regress the corresponding trajectory with an L1 loss [15], smooth L1 loss [37,38], a Laplacian negative log-likelihood ( i.e ., an L1 loss with a learned scale) [14,33,39,40], or a Gaussian negative log-likelihood ( i.e ., a squared 
+
+L2 loss with a learned scale) [27, 31, 32]. This procedure mirrors the definition of minFDE, where only the closest prediction contributes to the metric. This improves distance-based metrics but leads to tightly clustered predictions and poor performance on window-based metrics [27, 31, 32]. Generative, GPT-like trajectory forecasting approaches, which can sample an arbitrary number of trajectories, use k-means clustering as a post-processing step to select K trajectories for reporting to the benchmarks [11, 25]. Similarly, several works apply k-means clustering on ensembles of trajectories to further reduce distance-based errors [33, 37–39]. In both cases, clustering minimizes the average squared Euclidean distance between sampled trajectories and the chosen cluster centers, which is a direct surrogate for squared minFDE under the model’s predictive distribution. Again, this prioritizes minimizing distance to the ground truth over modeling the full future distribution. Methods targeting window-based metrics adapt training and post-processing to encourage coverage of many distinct evaluation windows. A common pat-tern on Waymo is to output 64 candidate trajectories and then apply non-maximum suppression (NMS) as post-processing [21, 26, 27, 29, 31]. By sup-pressing predictions that fall close to each other, NMS decreases the number of trajectory endpoints within a window. This is rewarded by (soft) mAP, where only the highest-confidence hit within each window can contribute to the score. Some methods even make the NMS radius depend on the predicted trajectory length [18, 28, 32, 35], which approximates the velocity-dependent window size Towards Metric-Agnostic Trajectory Forecasting 7
+
+used by Waymo and thereby aligns the post-processing even more closely with the specific definition of soft mAP. While these strategies improve mAP and miss rate, they typically worsen minFDE [27, 31, 32]. ModeSeq [41] goes one step further by aligning its training criterion precisely with the window-based metrics. In its early-match-takes-all scheme, a match is defined exactly as a true positive in the benchmark: using a circular window of radius 2 m for Argoverse 2 and a heading-aligned rectangle whose size depends on the last observed velocity for Waymo. This directly trains the model to avoid predicting multiple trajectories within the same window and tailors the opti-mization to the precise hit definitions of the metrics. While this improves the targeted window-based scores, it further biases the model toward the benchmark objective and away from modeling the full predictive distribution. As many current methods are tightly coupled to particular evaluation pro-tocols, instead of aiming for general representations, models cannot be easily applied in novel contexts. In the following, we instead advocate training with metrics-agnostic probabilistic objectives that prioritize the quality and calibra-tion of the predictive distribution. We treat benchmark metrics as downstream problems that are addressed at evaluation time via metric-specific policies. 
+
+# 4 Metric-Specific Policies 
+
+Instead of adapting the training procedure to improve a certain metric, we pro-pose to decouple the training objective from the evaluation metrics. Concretely, models should be trained to output a calibrated predictive distribution over the agents’ future trajectories, which is the most general representation of uncer-tainty. For evaluation, we propose to continue using existing benchmarks, which require reporting K trajectories with associated confidences {( ˆXnk , ˆπnk )}Kk=1 .To obtain these, we introduce TraDiE policies for Trajectory Distribution Eval-uation, which output trajectories and confidences that are optimal for a specific benchmark metric given the predictive distribution. This way, we can assess the quality of the predictive distribution through standard benchmark metrics. Given a model providing a predictive distribution pn(Xn) over future trajec-tories Xn, we define a distribution-aware policy as a mapping 
+
+P : pn(Xn) 7 → { ( ˆXnk , ˆπnk )}Kk=1 . (3) Ideally, such a policy produces trajectories and confidences that are optimal for a given evaluation metric under the assumption that the ground truth is drawn from the model’s predictive distribution. In the following, we design policies for the most commonly used trajectory forecasting metrics, which are evaluated at the endpoint of the forecasting hori-zons. For these, we only require the predictive endpoint distribution pnT (xnT ),
+
+i.e ., the marginal of pn(Xn) over the final timestep T . The policies then operate on endpoints instead of full trajectories. Depending on the metric, xnT is re-quired to contain either only the positions xpos  
+
+> nT
+
+, or both positions and headings 
+
+xhd  
+
+> nT
+
+. Implementation details are provided in App. D. 8 M. Knoche et al. 
+
+> distance policy
+> window policy
+> samples from endpoint distribution
+
+Fig. 2: Illustration of two policies. Samples from the endpoint distribution ( •) of the prediction (left) are used to optimize three endpoints ( ×, ×, ×). The top row shows gradient descent for minFDE; the bottom row shows the iterative process of choosing the sample covered by the most rectangles for soft mAP. 
+
+4.1 Policies for Distance-Based Metrics minFDE. To obtain the optimal position predictions { ˆxpos  
+
+> nkT
+
+}Kk=1 for the minFDE metric given the model’s predicted distribution pnT (xnT ), we define the opti-mization objective for the minFDE policy as 
+
+ExnT ∼pnT 
+
+
+
+min  
+
+> k
+
+∥ ˆxpos  
+
+> nkT
+
+− xpos  
+
+> nT
+
+∥2
+
+
+
+. (4) This is the expected minFDE for the predictions { ˆxpos  
+
+> nkT
+
+}Kk=1 under the predictive distribution pnT (xnT ). We can optimize this by using Monte Carlo sampling to obtain a set of positions, S, from the endpoint distribution following 
+
+S = {x(1)  
+
+> nT
+
+, . . . , x(M ) 
+
+> nT
+
+}, x(m) 
+
+> nT
+
+∼ pnT (xnT ), (5) and minimizing the empirical approximation 
+
+1
+
+|S|
+
+X 
+
+> xnT ∈S
+
+min  
+
+> k
+
+∥ ˆxpos  
+
+> nkT
+
+− xpos  
+
+> nT
+
+∥2 (6) by treating the endpoints ˆxpos  
+
+> nkT
+
+as free variables and optimizing them using gradient descent (Fig. 2, top). 
+
+4.2 Policies for Window-Based Metrics (Soft) mAP. Computing an optimal policy for average precision is challenging, because it depends on the global ranking of all predictions across all agents and scenes. To obtain a tractable approximation, we design a per-agent heuristic. We first draw a set of candidate endpoints from the predictive distribution and associate each candidate with an evaluation window. We then greedily select endpoints that are covered by the largest number of windows, while ignoring windows that have already been hit in previous steps. Towards Metric-Agnostic Trajectory Forecasting 9
+
+More formally, let Wn(ynT ) denote the window defining a hit centered at the ground-truth endpoint ypos  
+
+> nT
+
+with orientation yhd  
+
+> nT
+
+. A specific predicted endpoint 
+
+ˆxpos  
+
+> nkT
+
+from the set of predictions {( ˆ xpos  
+
+> nkT
+
+, ˆπnk )}Kk=1 with confidences ˆπn1 ≥ ˆπn2 ≥· · · ≥ ˆπnK is counted as a true positive (TP) if it lies within the window Wn(ynT )
+
+and no prediction with higher confidence lies in the same window. Formally, we define 
+
+TP nk ( ˆ xpos  
+
+> nkT
+
+, ynT ) = I ( ˆ xpos  
+
+> nkT
+
+∈ Wn(ynT ) ∧ ∀ i < k : ˆ xpos  
+
+> niT
+
+/∈ Wn(ynT )) . (7) As the ground-truth endpoint ynT is not available at inference time, we use samples ˜xnT from the predictive distribution pnT instead. The probability that 
+
+ˆxnkT is the true positive under the predictive distribution is then given by 
+
+TP nk ( ˆ xpos  
+
+> nkT
+
+) = E˜xnT ∼pnT [TP nk ( ˆ xpos  
+
+> nkT
+
+, ˜xnT )] . (8) In practice, we approximate this expectation by averaging over samples ˜xnT 
+
+of a Monte Carlo set S (Fig. 2, bottom). To find predictions { ˆxpos  
+
+> nkT
+
+}Kk=1 , a greedy heuristic iteratively picks ˆxpos  
+
+> nkT
+
+for k ∈ { 1, . . . , K } from the same set S with 
+
+ˆxpos  
+
+> nkT
+
+= arg max  
+
+> xnT ∈S
+
+TP nk (xpos  
+
+> nT
+
+), (9) 
+
+i.e ., we choose the endpoint to which we assign the highest probability of be-coming a true positive. We define the corresponding confidences as 
+
+ˆπnk = TP nk ( ˆ xpos  
+
+> nkT
+
+). (10) This approach has several properties that naturally align with improving average precision. By repeatedly choosing the endpoint that is most likely to be the highest-confidence true positive, we increase the chance that true positives appear earlier than false positives in the global ranking, which improves precision across confidence thresholds. The greedy selection is also a standard heuristic [9] for the maximum coverage problem: prioritizing endpoints that cover many yet-uncovered windows reduces the number of false negatives and thus improves recall and AP. Finally, because windows that have already been hit are ignored in subsequent steps, the procedure avoids placing multiple predictions in the same window, which would either be ignored (soft mAP) or penalized (mAP). 
+
+Miss rate. A forecast is considered a miss if none of the K predictions are within a window around the target. The miss rate is the proportion of misses across the dataset. Argoverse 2 defines this region as a circle with a radius of 
+
+2 m ; Waymo uses the same definition as for the (soft) mAP window. Confidences do not matter for this metric. For an agent n, the probability of a hit (at least one prediction in the window) under the predictive distribution is 
+
+> K
+
+X
+
+> k=1
+
+TP nk ( ˆ xpos  
+
+> nkT
+
+). (11) 10 M. Knoche et al. 
+
+Thus, this metric is optimized when we select { ˆxpos  
+
+> nkT
+
+}Kk=1 to maximize Eq. (11), 
+
+i.e ., we aim to maximize the total number of covered windows under the predic-tive distribution. As our greedy heuristic for (soft) mAP aims to optimize this objective, the same heuristic policy is applicable to soft mAP, mAP, and miss rate. 
+
+# 5 DONUT-NLL 
+
+5.1 Baseline 
+
+To study metric-agnostic training and metric-specific evaluation policies in a controlled setting, we instantiate our approach on top of DONUT [14], a decoder-only transformer for trajectory forecasting that obtains state-of-the-art results on Argoverse 2 [34]. For each agent n ∈ { 1, . . . , N } and each predicted trajectory 
+
+k ∈ { 1, . . . , K }, DONUT predicts a T -step future trajectory. It parameterizes positions with 1D Laplace distributions over the global x- and y-axes by predict-ing μxn, μyn, bxn, byn ∈ RT ×K , and it models heading with von Mises distributions with parameters μhd  
+
+> n
+
+, κhd  
+
+> n
+
+∈ RT ×K . In addition, mixture weights πn ∈ RK are obtained from the decoder via a small prediction head, representing non-negative mode probabilities over the K trajectories. To better align the positional uncertainty with the kinematics of the agents, we make the following adaptation to DONUT: we use the predicted mean heading 
+
+μhd  
+
+> nkt
+
+to align the 1D distributions with the agent’s local longitudinal (lg) and lateral (lt) directions, instead of aligning with global x- and y-axes. Denoting the ground-truth observation at timestep t for agent n by ynt = ( ylg 
+
+> nt
+
+, ylt 
+
+> nt
+
+, yhd  
+
+> nt
+
+),the likelihood at each timestep for a given agent and mode can be computed as 
+
+pnkt (ynt ) = L(ylg  
+
+> nt
+
+| μlg 
+
+> nkt
+
+, blg 
+
+> nkt
+
+) · L(ylt  
+
+> nt
+
+| μlt 
+
+> nkt
+
+, blt 
+
+> nkt
+
+) · vM (yhd  
+
+> nt
+
+| μhd 
+
+> nkt
+
+, κhd 
+
+> nkt
+
+) (12) with L (·) and vM (·) denoting 1D Laplace and von Mises densities, respectively. To optimize the mixture components for the distance-based metrics of the Argoverse 2 benchmark, DONUT uses the winner-takes-all paradigm and selects the best mode k∗ 
+
+> n
+
+using the average Euclidean distance over all timesteps. This component’s log-likelihood is optimized via 
+
+Lreg = − X
+
+> nT
+
+X
+
+> t=1
+
+log pnk ∗
+
+> nt
+
+(ynt ). (13) A classification loss optimizes the log-likelihood of the mixture components’ weights at the final timestep T , with ¯p indicating a no-gradient version of the density: 
+
+Lcls = − X
+
+> n
+
+log 
+
+> K
+
+X
+
+> k=1
+
+πnk ¯pnkT (ynT ). (14) Towards Metric-Agnostic Trajectory Forecasting 11 
+
+5.2 Probabilistic Training Objectives 
+
+To match our paradigm of training a model to directly optimize a predictive distribution rather than specific metrics, we adjust DONUT and propose two new variants: Traj-NLL and Step-NLL. Instead of using the winner-takes-all objective, Traj-NLL directly optimizes the predictive distribution with the per-timestep likelihood in Eq. (12) and minimizes the negative log-likelihood (NLL): 
+
+− log p(Y ) = − X
+
+> n
+
+log 
+
+> K
+
+X
+
+> k=1
+
+πnk TY
+
+> t=1
+
+pnkt (ynt ). (15) In this formulation, the mixture weights πnk are shared across all timesteps t,so each component k corresponds to a complete trajectory hypothesis. To increase temporal flexibility, we further propose Step-NLL that defines a mixture for each timestep independently, yielding the negative log-likelihood 
+
+− log p(Y ) = − X
+
+> nT
+
+X
+
+> t=1
+
+log 
+
+> K
+
+X
+
+> k=1
+
+πnkt pnkt (ynt ). (16) In this second variant, we introduce time-dependent mixture weights πnkt , so that the importance of each component is allowed to vary across timesteps. This increases the expressiveness of the model, as different modes can become more or less relevant over time, but it also weakens the implicit coupling between timesteps that is present when a single πnk is shared across the entire horizon. 
+
+Position distributions. Using our policies, we systematically investigate dif-ferent position distribution families as drop-in replacements for DONUT’s orig-inal Laplace distribution. A common choice [26, 31, 32] is the Gaussian distri-bution. Compared to Laplace, it has lighter tails and a less sharp peak. In pre-liminary experiments, Gaussians performed poorly, which is why we experiment with two generalizations of the Gaussian instead. The generalized Gaussian distribution includes an additional parameter that controls the density’s shape. Laplace and Gaussian distributions are special cases of the generalized Gaussian. We further consider discrete scale mixtures of Gaus-sians with a fixed number of J = 5 components that share a single mean but differ in scale. We provide more details in App. E. 
+
+# 6 Experiments 
+
+Dataset. We evaluate on the large-scale Waymo motion prediction benchmark [3], which reports a number of window-based and distance-based metrics. It consists of approximately 487k training scenes, with 44k scenes for evaluation and 45k scenes for testing. Models must predict K = 6 future trajectories over 
+
+8 s with assigned confidences, using 1.1 s of historical input, sampled at 10 Hz .
+
+Additional baselines. To assess transferability beyond DONUT-NLL, we ap-ply our metric-specific policies to the open-source trajectory forecasting models 12 M. Knoche et al.                                                  
+
+> Table 1: Study of training objectives with Laplace distributions. Applying our distance or window policies (indicated by →) combined with NLL training consistently outperforms the naive WTA predictions. Notably, naive evaluation suggests different design choices than evaluation with policies ( vs. ). Evaluation on Waymo [3] val .
+> Objective Soft mAP ↑mAP ↑Miss rate ↓minFDE ↓
+> WTA 0.3427 →0.4764 0.2995 →0.4736 0.1310 →0.1044 1.0520 →1.0824 Traj-NLL 0.3401 →0.4921 0.2851 →0.4892 0.1286 →0.0946 1.0874 →1.0374
+> Step-NLL 0.3595 →0.5082 0.3163 →0.5053 0.1444 →0.0902 1.2236 →1.0200
+
+MTR [27] and QCNet [39]. MTR was originally evaluated on Waymo and is there-fore optimized for window-based metrics. It predicts a 64 -component Gaussian mixture and uses non-maximum suppression to select 6 trajectories. We report its original NMS outputs as the naive baseline and additionally evaluate our policies by sampling from the full 64 -component mixture. By contrast, QCNet targets Argoverse 2 and directly outputs 6 trajectory modes parameterized as Laplacians. For both models, we vary the training objective and compare the original WTA losses to our probabilistic objectives (Traj-NLL and Step-NLL). 
+
+Main experiments. Our experiments are designed to answer six main ques-tions: (i) are our TraDiE policies effective at turning a single distribution into strong performance across heterogeneous metrics, (ii) do our policies detect poorly calibrated predictive distributions, (iii) how does the training objective (WTA, Traj-NLL, Step-NLL) affect the quality of the learned predictive distri-bution, (iv) does optimizing for distributions instead of metrics favor different design choices, (v) which position distributions are best suited for our paradigm, and (vi) is the analysis of predictive distributions via policies model-agnostic? In Tab. 1, we report results for the WTA, Traj-NLL, and Step-NLL training objectives, both before and after our metric-specific policies. For both NLL vari-ants, which optimize the predictive distribution directly, we find that our policies greatly improve the corresponding metrics. The distance policy consistently re-duces minFDE, and the window policy leads to substantial improvements in soft mAP, mAP, and miss rate. This confirms the first key aspect of our paradigm: given a single predictive distribution, the proposed policies can effectively opti-mize different metrics without retraining the underlying model. Applying the distance policy to WTA degrades minFDE compared with naive evaluation, since WTA directly optimizes minFDE rather than a calibrated dis-tribution. The result is therefore expected: if the predictive distribution poorly aligns with observed uncertainty, optimizing the metric under that distribution may not yield good results. This suggests that our policies expose miscalibration rather than merely improving benchmark scores through post-processing. Comparing the different training objectives, we observe that Step-NLL con-sistently outperforms both WTA and Traj-NLL once TraDiE policies are ap-plied. This directly supports our central hypothesis: optimizing the predictive distribution directly, via NLL, is more beneficial than optimizing a surrogate metric-specific loss once metric-specific policies are used at evaluation time. Towards Metric-Agnostic Trajectory Forecasting 13 
+
+Table 2: Study of position distributions using Step-NLL. Generalized Gaussians outperform the alternatives with policy optimization. Evaluation on Waymo [3] val .                                            
+
+> Position Distr. Soft mAP ↑mAP ↑Miss rate ↓minFDE ↓
+> Laplace 0.3595 →0.5082 0.3163 →0.5053 0.1444 →0.0902 1.2236 →1.0200
+> Scale Mixture 0.3837 →0.5053 0.3533 →0.5024 0.1492 →0.0909 1.2722 →1.0218
+> Gen. Gaussian 0.3759 →0.5101 0.3439 →0.5070 0.1561 →0.0876 1.3127 →1.0103
+
+Table 3: Additional baselines . MTR [27] consistently improves; QCNet [39] de-grades for minFDE due to its poor predictive distributions. Evaluation on Waymo val .                                                                                
+
+> Model Soft mAP ↑mAP ↑Miss rate ↓minFDE ↓
+> MTR  WTA 0.4288 →0.4837 0.4154 →0.4798 0.1386 →0.0979 1.2357 →1.0615
+> Traj-NLL 0.3170 →0.4422 0.2849 →0.4395 0.1739 →0.0984 1.5428 →1.0656
+> Step-NLL 0.2550 →0.4873 0.2428 →0.4838 0.1938 →0.0924 1.5520 →1.0675
+> QCNet  WTA 0.3236 →0.4045 0.2912 →0.4018 0.1628 →0.1276 1.2254 →2.2805 Traj-NLL 0.2980 →0.3814 0.2475 →0.3791 0.1743 →0.1343 1.3416 →2.9618 Step-NLL 0.2401 →0.4209 0.1964 →0.4184 0.1922 →0.1216 1.4207 →3.1753
+
+We can further observe that design decisions differ between models trained to optimize metrics and models trained for distributions: without policies, the best objective for minFDE is WTA, which directly optimizes the distance-based loss. By contrast, Step-NLL outputs the best predictive distribution, as it consistently outperforms the other objectives if we apply our policies. In Tab. 2, we investigate how the choice of position distribution influences performance under our paradigm. We compare Laplace, generalized Gaussian, and Gaussian scale mixture distributions, each combined with Step-NLL and evaluate them naively and with our metric-specific policies. Once our policies are applied, the generalized Gaussian distribution consistently outperforms the alternatives across all metrics. This suggests that its additional shape flexibility over the Laplacian is beneficial for learning a well-calibrated predictive distribu-tion that can be effectively exploited by the downstream policy. As before, the naive evaluation again favors different design choices. For minFDE, naive Laplace performs best, likely because its sharper shape encour-ages the model to place modes close to the ground-truth endpoint. In contrast, naive Gaussian scale mixtures perform best for soft mAP and mAP, presumably because their smoother and broader predictive distributions improve coverage. The consistent advantage of the generalized Gaussian after policy optimization indicates that it learns a better-calibrated predictive distribution. We provide full ablations over all combinations of losses and distribution families in App. F. 
+
+Additional baselines. To evaluate whether our findings extend to other mod-els, we apply our policies to MTR [27] and QCNet [39] and report the results in Tab. 3. MTR improves consistently, and even outperforms the original post-processing, indicating that the distribution-aware policies transfer to a different architecture. Changing the training loss only has a minor impact in this setup. 14 M. Knoche et al.                                                                        
+
+> Table 4: Comparison to state of the art on Waymo [3] test .We mark ensembles with e, and omit methods that train on additional data or use LiDAR. Model Soft mAP ↑mAP ↑Miss rate ↓minFDE ↓
+> DriveGPT [11] 0.3795 —0.1236 1.0609 RMP-YOLO (e2e) [31] 0.3828 0.3440 0.1354 1.0932 IMPACT (e2e) [32] 0.4434 0.4253 0.1274 1.0497 ModeSeq [41] 0.4487 0.4450 0.1244 1.0836 EDA [18] 0.4510 0.4401 0.1169 1.1702 UniMotion [30] 0.4642 0.4534 0.1162 1.1643 RMP-YOLO [31] 0.4673 0.4523 0.1160 1.1697 TrajFlow [35] 0.4710 0.4604 0.1162 1.1667 IMPACT [32] 0.4721 0.4609 0.1143 1.1540 ModeSeq [41] e0.4737 0.4665 0.1204 1.1766 RMP-YOLO [31] e0.4737 0.4531 0.1084 1.1188 IMPACT [32] e0.4801 0.4598 0.1087 1.1295 DONUT-NLL window 0.5018 0.4987 0.0900 1.3280 distance 0.1649 0.1135 0.1199 1.0304
+
+For QCNet, minFDE degrades significantly under the distance policy. This suggests that QCNet has not learned a well-calibrated predictive distribution. Our policies directly optimize the expectation of the metric under the model’s output distribution, so if there is any discrepancy with the real-world uncer-tainty, the policy selects trajectories that are suboptimal in reality. We attribute this mismatch to QCNet’s position distribution parameterization: its Laplacians are oriented according to the last historical heading, and therefore become mis-aligned with the future motion direction on curved trajectories. To compensate, QCNet inflates the uncertainty into a more circular shape, which makes the minFDE-optimal endpoints spread out. Window-based metrics are less affected because the distribution’s main mass stays concentrated around each mode. This is exactly what our policies are meant to expose: if the predictive dis-tribution is miscalibrated, policy optimization cannot find good trajectories for real data. In this sense, policy-optimized evaluation enables a direct diagnostic of distribution quality that naive metric computation can obscure. 
+
+Comparison to the state of the art. In Tab. 4, we apply both of our metric-specific policies to DONUT-NLL with the Step-NLL loss and the general-ized Gaussian position distribution, and compare with state-of-the-art methods. We find that our policies allow a single model to obtain state-of-the-art per-formance across both distance-based and window-based metrics with the same model weights, whereas existing methods typically perform well for only one of these when naively evaluated. DONUT-NLL outperforms IMPACT (e2e) [32] on minFDE, while using roughly 5× fewer parameters. For soft mAP, mAP, and miss rate, it even outperforms ensemble methods while using only a single model. Together, these results validate our proposed paradigm: training a metric-Towards Metric-Agnostic Trajectory Forecasting 15 
+
+agnostic predictive distribution with probabilistic objectives is an effective way to model future trajectories, and the quality of the predictive distribution can be evaluated on benchmarks using our metric-specific policies. 
+
+# 7 Limitations and Discussion 
+
+Our TraDiE policies provide a mechanism for adapting general-purpose trajec-tory prediction models that are trained to output calibrated predictive distri-butions to common trajectory forecasting metrics such as minFDE and soft mAP. This allows a single predictive model to be flexibly adapted to different downstream objectives without retraining. The main drawback is the additional computational cost incurred at inference time. Because our policies are intended for evaluation and not for direct deployment on autonomous vehicles, we did not focus on optimizing efficiency. In practical settings, however, an explicit trade-off between output quality and computational efficiency would be required. Another limitation is that our results are restricted to Waymo. Preliminary experiments on Argoverse 2 suggest that Step-NLL is prone to overfitting, possi-bly because the step-wise mixture weights introduce additional modeling flexibil-ity. Nevertheless, on Waymo, DONUT-NLL combined with our TraDiE policies is the only method to date that reaches state-of-the-art performance on both window-based and distance-based metrics without requiring retraining. 
+
+# 8 Conclusion 
+
+In this paper, we propose to shift the focus of trajectory forecasting from metric-specific training to learning well-calibrated predictive distributions and treating benchmark metrics as downstream tasks via metric-specific policies. Concretely, we design sampling-based policies for minFDE, miss rate, and (soft) mAP. We in-stantiate this framework with DONUT-NLL, a negative log-likelihood variant of DONUT. Our experiments on the Waymo motion prediction benchmark confirm that metric-agnostic probabilistic training, combined with our policies, yields a single model that can be adapted post hoc to diverse metrics while surpassing state-of-the-art results. Importantly, this distribution-centric view changes the preferred design choices: DONUT-NLL outperforms WTA, i.e., metric-specific training. This indicates that centering trajectory forecasting on predictive distri-butions fundamentally changes how forecasting models should be designed. Ex-tending our metric-specific policies to multi-agent forecasting and implementing continuity-aware objectives are interesting directions for future work. 
+
+Acknowledgments. This work was partially funded by the BMBF project 6GEM (16KISK036K). The authors gratefully acknowledge the computing time provided to them at the NHR Center NHR4CES at RWTH Aachen University (project number p0024673). This is funded by the Federal Ministry of Research, Technology and Space, and the state governments participating on the basis of the resolutions of the GWK for national high performance computing at univer-sities ( www.nhr-verein.de/unsere-partner ). 16 M. Knoche et al. 
+
+# References 
+
+1. Chai, Y., Sapp, B., Bansal, M., Anguelov, D.: MultiPath: Multiple Probabilistic Anchor Trajectory Hypotheses for Behavior Prediction. In: CoRL (2020) 2. Cui, H., Radosavljevic, V., Chou, F.C., Lin, T.H., Nguyen, T., Huang, T.K., Schnei-der, J., Djuric, N.: Multimodal Trajectory Predictions for Autonomous Driving using Deep Convolutional Networks. In: ICRA (2019) 3. Ettinger, S., Cheng, S., Caine, B., Liu, C., Zhao, H., Pradhan, S., Chai, Y., Sapp, B., Qi, C.R., Zhou, Y., Yang, Z., Chouard, A., Sun, P., Ngiam, J., Vasudevan, V., McCauley, A., Shlens, J., Anguelov, D.: Large Scale Interactive Motion Forecasting for Autonomous Driving: The Waymo Open Motion Dataset. In: ICCV (2021) 4. Everingham, M., Van Gool, L., Williams, C.K., Winn, J., Zisserman, A.: The pascal visual object classes (voc) challenge. IJCV (2010) 5. Gao, J., Sun, C., Zhao, H., Shen, Y., Anguelov, D., Li, C., Schmid, C.: Vector-Net: Encoding HD Maps and Agent Dynamics from Vectorized Representation. In: CVPR (2020) 6. Gilles, T., Sabatini, S., Tsishkou, D., Stanciulescu, B., Moutarde, F.: HOME: Heatmap Output for future Motion Estimation. In: ITSC (2021) 7. Gilles, T., Sabatini, S., Tsishkou, D., Stanciulescu, B., Moutarde, F.: GOHOME: Graph-Oriented Heatmap Output for future Motion Estimation. In: ICRA (2022) 8. Gilles, T., Sabatini, S., Tsishkou, D., Stanciulescu, B., Moutarde, F.: THOMAS: Trajectory Heatmap Output with learned Multi-Agent Sampling. In: ICLR (2022) 9. Hochbaum, D.S.: Approximating Covering and Packing Problems: Set Cover, Ver-tex Cover, Independent Set, and Related Problems. In: Hochbaum, D.S. (ed.) Ap-proximation Algorithms for NP-hard Problems, chap. 3, pp. 94–143. PWS Pub-lishing Company (1997) 10. Hong, J., Sapp, B., Philbin, J.: Rules of the Road: Predicting Driving Behavior with a Convolutional Model of Semantic Interactions. In: CVPR (2019) 11. Huang, X., Wolff, E.M., Vernaza, P., Phan-Minh, T., Chen, H., Hayden, D.S., Edmonds, M., Pierce, B., Chen, X., Jacob, P.E., Chen, X., Tairbekov, C., Agarwal, P., Gao, T., Chai, Y., Srinivasa, S.: DriveGPT: Scaling Autoregressive Behavior Models for Driving. In: ICML (2025) 12. Kingma, D.P., Ba, J.: Adam: A Method for Stochastic Optimization. In: ICLR (2015) 13. Kingma, D.P., Welling, M.: Auto-encoding variational bayes. In: ICLR (2014) 14. Knoche, M., de Geus, D., Leibe, B.: DONUT: A Decoder-Only Model for Trajec-tory Prediction. In: ICCV (2025) 15. Lan, Z., Jiang, Y., Mu, Y., Chen, C., Li, S.E.: SEPT: Towards Efficient Scene Representation Learning for Motion Prediction. In: ICLR (2024) 16. Lee, N., Choi, W., Vernaza, P., Choy, C.B., Torr, P.H., Chandraker, M.: Desire: Distant future prediction in dynamic scenes with interacting agents. In: CVPR (2017) 17. Liang, M., Yang, B., Hu, R., Chen, Y., Liao, R., Feng, S., Urtasun, R.: Learning Lane Graph Representations for Motion Forecasting. In: ECCV (2020) 18. Lin, L., Lin, X., Lin, T., Huang, L., Xiong, R., Wang, Y.: EDA: Evolving and Distinct Anchors for Multimodal Motion Prediction. In: AAAI (2024) 19. Liu, Y., Zhang, J., Fang, L., Jiang, Q., Zhou, B.: Multimodal Motion Prediction with Stacked Transformers. In: CVPR (2021) 20. Mohamed, A., Qian, K., Elhoseiny, M., Claudel, C.: Social-STGCNN: A Social Spatio-Temporal Graph Convolutional Neural Network for Human Trajectory Pre-diction. In: CVPR (2020) Towards Metric-Agnostic Trajectory Forecasting 17 21. Nayakanti, N., Al-Rfou, R., Zhou, A., Goel, K., Refaat, K.S., Sapp, B.: Wayformer: Motion Forecasting via Simple & Efficient Attention Networks. In: ICRA (2023) 22. Phan-Minh, T., Grigore, E.C., Boulton, F.A., Beijbom, O., Wolff, E.M.: CoverNet: Multimodal Behavior Prediction using Trajectory Sets. In: CVPR (2020) 23. Ruan, H., Yu, H., Yang, W., Fan, S., Nie, Z.: Learning Cooperative Trajectory Representations for Motion Forecasting. In: NeurIPS (2024) 24. Salzmann, T., Ivanovic, B., Chakravarty, P., Pavone, M.: Trajectron++: Dynamically-feasible trajectory forecasting with heterogeneous data. In: ECCV (2020) 25. Seff, A., Cera, B., Chen, D., Ng, M., Zhou, A., Nayakanti, N., Refaat, K.S., Al-Rfou, R., Sapp, B.: MotionLM: Multi-Agent Motion Forecasting as Language Modeling. In: ICCV (2023) 26. Shi, C., Shi, S., Jiang, L.: MTR v3: 1st Place Solution for 2024 Waymo Open Dataset Challenge - Motion Prediction (2024) 27. Shi, S., Jiang, L., Dai, D., Schiele, B.: Motion Transformer with Global Intention Localization and Local Movement Refinement. In: NeurIPS (2022) 28. Shi, S., Jiang, L., Dai, D., Schiele, B.: MTR-A: 1st Place Solution for 2022 Waymo Open Dataset Challenge - Motion Prediction (2022) 29. Shi, S., Jiang, L., Dai, D., Schiele, B.: MTR++: Multi-Agent Motion Prediction With Symmetric Scene Modeling and Guided Intention Querying. IEEE TPAMI (2024) 30. Song, N., Jiang, J., Li, J., Zhu, X., Zhang, L.: UniMotion: A Unified Motion Frame-work for Simulation, Prediction and Planning. In: NeurIPS (2025) 31. Sun, J., Li, J., Liu, T., Yuan, C., Sun, S., Huang, Z., Wong, A., Tee, K.P., Ang, M.H.: RMP-YOLO: A Robust Motion Predictor for Partially Observable Scenarios even if You Only Look Once. In: ICRA (2025) 32. Sun, J., Yue, X., Li, J., Shen, T., Yuan, C., Sun, S., Guo, S., Zhou, Q., Ang Jr, M.H.: IMPACT: Behavioral Intention-Aware Multimodal Trajectory Prediction With Adaptive Context Trimming. RAL (2025) 33. Wang, M., Ren, X., Jin, R., Li, M., Zhang, X., Yu, C., Wang, M., Yang, W.: FutureNet-LOF: Joint Trajectory Prediction and Lane Occupancy Field Prediction with Future Context Encoding. In: ICRA (2025) 34. Wilson, B., Qi, W., Agarwal, T., Lambert, J., Singh, J., Khandelwal, S., Pan, B., Kumar, R., Hartnett, A., Pontes, J.K., Ramanan, D., Carr, P., Hays, J.: Argov-erse 2: Next Generation Datasets for Self-Driving Perception and Forecasting. In: NeurIPS Datasets and Benchmarks (2021) 35. Yan, Q., Zhang, B., Zhang, Y., Yang, D., White, J., Chen, D., Liu, J., Liu, L., Zhuang, B., Shi, S., Liao, R.: Trajflow: Multi-modal motion prediction via flow matching. In: IROS (2025) 36. Zeng, W., Liang, M., Liao, R., Urtasun, R.: Lanercnn: Distributed representations for graph-centric motion forecasting. In: IROS (2021) 37. Zhang, B., Song, N., Gao, B., Zhang, L.: Relative Position Matters: Trajectory Pre-diction and Planning with Polar Representation. arXiv preprint arXiv:2508.11492 (2025) 38. Zhang, B., Song, N., Zhang, L.: DeMo: Decoupling Motion Forecasting into Direc-tional Intentions and Dynamic States. In: NeurIPS (2024) 39. Zhou, Z., Wang, J., Li, Y.H., Huang, Y.K.: Query-Centric Trajectory Prediction. In: CVPR (2023) 40. Zhou, Z., Ye, L., Wang, J., Wu, K., Lu, K.: HiVT: Hierarchical Vector Transformer for Multi-Agent Motion Prediction. In: CVPR (2022) 18 M. Knoche et al. 41. Zhou, Z., Zhou, H., Hu, H., Wen, Z., Wang, J., Li, Y.H., Huang, Y.K.: ModeSeq: Taming Sparse Multimodal Motion Prediction with Sequential Mode Modeling. In: CVPR (2025) Towards Metric-Agnostic Trajectory Forecasting 19 
+
+# Towards Metric-Agnostic Trajectory Forecasting 
+
+# Supplementary Material A Additional Proofs B Comparison to HOME [6] 
+
+In the following, we discuss the similarities and differences between our approach and HOME [6] in more detail. Conceptually, both approaches share the idea of first learning a distributional representation over endpoints and then applying metric-specific optimization to extract a finite set of trajectories for evaluation. However, HOME relies on heuristics tailored to improve the empirical perfor-mance of its specific model. By contrast, our goal is to define model-agnostic 
+
+policies that can be applied to any probabilistic forecaster and that correspond as closely as possible to optimizing the exact benchmark metrics under the pre-dictive distribution. HOME subdivides trajectory forecasting into three steps: (1) learn an end-point heatmap from history and scene information, (2) optimize for different metrics within the heatmap, and (3) apply a second network to connect the endpoint and the last historical point to retrieve a full trajectory. The heatmap is rasterized using square cells with a side length of 0.5 m . The target heatmap M defines a circular Gaussian around the observed endpoint with a standard deviation of 2 m . To train the predicted heatmap ˆM , they weight a variant of the focal loss with a squared error for each cell i:
+
+LHOME (Mi, ˆMi) = −(Mi − ˆMi)2 f (Mi, ˆMi), (17) with the focal loss variant 
+
+f (Mi, ˆMi) = 
+
+(
+
+log( ˆMi) if Mi = 1 ,
+
+(1 − Mi)4 log(1 − ˆMi) otherwise . (18) This objective does not produce a normalized, calibrated probability distribu-tion. In contrast, we train models directly with a negative log-likelihood, yielding a normalized predictive distribution that is more suitable for applying policies that optimize evaluation metrics under this distribution. 
+
+Miss Rate. As defined in Eq. (2), a miss for an agent n occurs when none of the K predicted endpoints lies inside the evaluation window W (ynT ) around the ground-truth endpoint ynT . Given a predictive endpoint distribution pnT , the optimal policy for miss rate is therefore to choose K endpoints that maximize the probability of at least one hit, which is exactly the objective formalized in Eq. (11). HOME instead applies a greedy algorithm that selects endpoints such that the window around each selected endpoint covers as much probability mass as 20 M. Knoche et al. 
+
+possible. Note that this is a different objective: instead of finding endpoints covering as many windows as possible, they search for windows covering as many endpoints as possible. For Argoverse 2 [34], where all windows are circular with fixed radius, both formulations coincide. However, their method does not match the metric definition when windows depend on heading or velocity, as is the case for the rectangular, heading-aligned windows used in Waymo [3]. In contrast, our policies are derived directly from the miss rate objective and therefore apply to arbitrary window geometries. Moreover, HOME does not use the exact benchmark window parameters from Argoverse 2 [34]: instead of performing the optimization with circular windows of radius 2 m , they use 1.8 m as this empirically lowers their miss rate. While this is a reasonable engineering choice for maximizing benchmark performance of a particular model, the algorithm does not optimize the miss-rate metric under the learned distribution as defined by the benchmark. In our framework, the policy is part of the evaluation protocol: we commit to using the exact metric definition without additional tuning, so that differences in benchmark scores can be attributed to the quality of the predictive distribution rather than to metric-specific hyperparameters embedded in the policy. 
+
+minFDE. HOME proposes a custom iterative algorithm derived from k-means to optimize minFDE. Standard k-means minimizes the sum of squared Euclidean distances between points and their assigned cluster centers. In contrast, op-timizing minFDE requires minimizing the non-squared Euclidean distance, so 
+
+k-means does not directly optimize minFDE under the predictive distribution. HOME further modifies the centroid update as 
+
+ck = 1
+
+Nk
+
+X
+
+> i
+
+I(dki ≤ 3) ˆMi
+
+dki
+
+mi
+
+dki
+
+xi, (19) where xi are the cell positions within the heatmap ˆM , dki is the distance between cell xi and centroid ck, mi = min k dki is the distance from xi to its closest centroid, and Nk is a normalization factor. Unlike classical k-means, which updates each centroid using only the points currently assigned to it (regardless of their distance), HOME includes cells from all clusters within a radius of 3 m around the centroid to allow for flexible decision boundaries. Additionally, they apply a custom weighting factor per cell based on the ratio between its distance to the closest centroid and its distance to the centroid being updated. These heuristics are reasonable when designing an end-to-end system tuned for Argoverse, but the resulting endpoints cannot be interpreted as solutions to the minFDE optimization problem under an arbitrary predictive distribution. Instead, these design choices are tightly coupled to their specific model and therefore cannot serve as a general, model-agnostic policy for other forecasting approaches. In contrast, our policy directly optimizes minFDE under the predictive distribution pnT by choosing endpoints that minimize the objective in Eq. (4). It is therefore directly tied to the metric definition and only requires the ability to sample from the predictive distribution. Towards Metric-Agnostic Trajectory Forecasting 21 
+
+# C Policy for minADE 
+
+The minimum average displacement error (minADE) is defined analogously to minFDE, but averages the error over all timesteps t ∈ { 1, . . . , T }:
+
+minADE (Y pos  
+
+> n
+
+, { ˆXpos  
+
+> nk
+
+}Kk=1 ) = min 
+
+> k
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥ypos  
+
+> nt
+
+− ˆxpos 
+
+> nkt
+
+∥2. (20) In principle, we can apply the same approach as for minFDE, except that we need to optimize full trajectories { ˆXpos  
+
+> nk
+
+}Kk=1 , where each trajectory is a sequence 
+
+( ˆ xpos 
+
+> nkt
+
+)Tt=1 . This requires models to define a predictive distribution over complete trajectories from which we can draw an arbitrary number of samples. Many cur-rent architectures do not support this directly: they either parametrize indepen-dent per-timestep distributions [14, 18, 26, 29, 31, 32, 35], or they directly regress a fixed set of K trajectories [15, 37, 38]. For this reason, we focus on endpoint-based metrics, which only require the endpoint marginal and are therefore more generally applicable across existing forecasting models. 
+
+# D Implementation Details 
+
+Multi-horizon aggregation. The Waymo benchmark evaluates all metrics at 
+
+3 s , 5 s , and 8 s and averages the results. Accordingly, we apply the corresponding policies to the predictive endpoint distribution at these three horizons separately, and then combine the selected endpoints into a single trajectory for each mode. Intermediate timesteps do not affect these metrics and are therefore ignored. A practical difficulty arises because confidences for (soft) mAP must be de-fined per trajectory for submission to the Waymo benchmark. However, our policies operate per horizon and produce separate confidences for each endpoint. To obtain per-trajectory confidences, we first sort the K candidate endpoints by their policy-derived confidence in descending order for each horizon. We then construct K trajectories by pairing endpoints with the same rank across hori-zons: trajectory k consists of the k-th most confident endpoint at 3 s , 5 s , and 
+
+8 s . This rank-wise pairing ensures that the endpoints belonging to the same tra-jectory correspond to similar confidence levels across horizons, so that the single confidence we later assign to the trajectory remains similar to the individual confidences produced by the per-horizon policies. We then assign a single confidence to each trajectory. Rather than averaging the three per-horizon confidences, we choose the confidence of the 8 s endpoint as the trajectory confidence. The longest horizon is both the most challenging and the most informative part of the forecasting task, and it typically dominates the practical usefulness of the predictions. Using the 8 s confidence therefore makes the trajectory-level ranking used by (soft) mAP as faithful as possible to the policy we would ideally apply at the most important horizon, while keeping the evaluation protocol simple and deterministic. 22 M. Knoche et al. 
+
+Note that this issue does not arise for minFDE, as confidences do not affect the metric. Any assignment of endpoints to trajectories yields the same minFDE. Since intermediate timesteps are not evaluated when submitting to the bench-marks, we keep them undefined. As many current models can only produce distributions or samples for individual timesteps, full trajectories can only be produced by post-processing ( e.g ., interpolation). 
+
+Policy hyperparameters. We use |S| = 3000 samples for all Monte Carlo sets. To optimize minFDE, we initialize the K = 6 endpoints by sampling from 
+
+S and apply the Adam optimizer [12] for 300 steps with a learning rate of 0.2. We repeat this procedure 10 times with different random initializations and select the solution with the lowest empirical objective value. 
+
+DONUT-NLL. For DONUT-NLL, we mostly use the same architecture and training parameters as DONUT [14], but add the new loss variants. We pre-processed Waymo such that the resulting structure is similar to DONUT’s pre-processing for Argoverse, but added stop signs and traffic lights (with their last observed state) as additional polygons. To decrease the scene size, we ignore sta-tionary agents that are farther than 3 m from the road, we remove all driveways and road polygons far away from the target agent, and we only keep every fifth point of each map polyline. As DONUT requires full observed history, we apply PCHIP interpolation to obtain full agent histories. 
+
+# E Position Distributions 
+
+The Laplace distribution is parameterized by a location μ ∈ R and a scale b > 0
+
+as 
+
+Laplace (x | μ, b ) = 12b exp 
+
+
+
+− |x − μ|
+
+b
+
+
+
+. (21) With mean μ and standard deviation σ > 0, the Gaussian distribution is defined as 
+
+N (x | μ, σ 2) = 1
+
+√2πσ exp 
+
+"
+
+− 12
+
+ x − μσ
+
+2#
+
+. (22) The generalized Gaussian uses a location μ ∈ R, a scale α > 0, and a shape parameter β > 0, and is given by 
+
+GG (x | μ, α, β ) = β
+
+2αΓ (1 /β ) exp 
+
+"
+
+− x − μα 
+
+> β
+
+#
+
+, (23) where Γ (·) denotes the Gamma function. Laplace and Gaussian distributions are special cases of the generalized Gaussian family with β = 1 and β = 2 ,respectively. We also use discrete scale mixtures of Gaussians with a fixed number of J = 5 
+
+components that share a single mean but differ in their scale. We define 
+
+SMG (x | μ, {ωj , σ j }Jj=1 ) = 
+
+> J
+
+X
+
+> j=1
+
+ωj N (x | μ, σ 2 
+
+> j
+
+), (24) Towards Metric-Agnostic Trajectory Forecasting 23 
+
+where μ ∈ R is the shared location parameter, σj > 0 are component standard deviations, and ωj ≥ 0 are mixture weights satisfying PJj=1 ωj = 1 .We use each of these distribution families as a direct substitute for the 1D longitudinal and lateral Laplace distributions in DONUT. While the number of parameters needed to specify the distribution differs between families, this only changes the dimensionality of the model’s output head and can be implemented by adjusting the size of the final linear layer at each decoding step. 
+
+# F Full Ablations 
+
+In Tab. 5, we show the full ablations with all losses and distribution families. Overall, applying our TraDiE policies improves performance compared to naive evaluation, except for WTA, where minFDE degrades. This is consistent with the fact that WTA explicitly optimizes for the endpoint error rather than a properly calibrated predictive distribution. We further observe that optimizing for the quality of the predictive dis-tribution leads to different preferred design choices than optimizing directly for benchmark metrics. With our policies applied, Step-NLL combined with the gen-eralized Gaussian consistently outperforms all other approaches, whereas naive evaluation would favor different losses and position distributions. 
+
+# G Limitations 
+
+Continuity of trajectories. A clear limitation of our minFDE and mAP poli-cies is that they generally do not produce temporally continuous trajectories. Downstream applications that require K = 6 continuous trajectories that are themselves optimal for minFDE or mAP cannot use these policies directly. How-ever, applicability to downstream control or planning is not the purpose of these particular policies. Our goal is to evaluate the quality of the predictive distribu-tion under the metrics used by the benchmarks. Given a calibrated predictive distribution, any downstream task can define its own policy tailored to that specific use case. 
+
+Runtime. With default parameters, optimizing (soft) mAP with our policy takes approximately 0.03 s per scene, while minFDE is considerably slower at around 0.26 s per scene. This additional cost is incurred only at evaluation time. Note that we did not aim for efficiency in this work. Our policies are designed for evaluation, not as AV planning-stack components, and they serve as a proof of concept for tailoring policies to a specific downstream task. 
+
+# H Visualizations 
+
+We visualize endpoint distributions together with naive endpoints, endpoints optimized for minFDE, and endpoints optimized for soft mAP in Figs. 3 to 12 24 M. Knoche et al. 
+
+Table 5: Ablation on position distributions. Applying our policies for distance-or window-based metrics generally outperforms the naive predictions ( bold ). Notably, naive evaluation suggests a different best training objective and position distribution than the policy-optimized evaluation ( vs. ). Numbers are shown in grey when they are obtained using policies that are not appropriate for the corresponding metric. Evaluation on Waymo [3] val .                                                                                                                                                 
+
+> Opt. Loss Pos.-Distr. Soft mAP ↑mAP ↑Miss rate ↓minFDE ↓
+> naive
+> WTA Laplace 0.3427 0.2995 0.1310 1.0520
+> WTA Gen. Gaussian 0.3476 0.3071 0.1291 1.0594
+> WTA Scale Mixture 0.3579 0.3154 0.1268 1.0428
+> Traj-NLL Laplace 0.3401 0.2851 0.1286 1.0874 Traj-NLL Gen. Gaussian 0.3481 0.2923 0.1297 1.1120 Traj-NLL Scale Mixture 0.3639 0.3084 0.1276 1.0862 Step-NLL Laplace 0.3595 0.3163 0.1444 1.2236 Step-NLL Gen. Gaussian 0.3759 0.3439 0.1561 1.3127 Step-NLL Scale Mixture 0.3837 0.3533 0.1492 1.2722 window policy  WTA Laplace 0.4764 0.4736 0.1044 1.3466 WTA Gen. Gaussian 0.4764 0.4733 0.1059 1.3619 WTA Scale Mixture 0.4827 0.4798 0.1014 1.3640 Traj-NLL Laplace 0.4921 0.4892 0.0946 1.3317 Traj-NLL Gen. Gaussian 0.4825 0.4794 0.0975 1.3669 Traj-NLL Scale Mixture 0.4963 0.4935 0.0947 1.3418 Step-NLL Laplace 0.5082 0.5053 0.0902 1.3100 Step-NLL Gen. Gaussian 0.5101 0.5070 0.0876 1.2980 Step-NLL Scale Mixture 0.5053 0.5024 0.0909 1.3098 distance policy  WTA Laplace 0.1593 0.1103 0.1325 1.0824 WTA Gen. Gaussian 0.1584 0.1102 0.1306 1.0884 WTA Scale Mixture 0.1626 0.1115 0.1295 1.0808 Traj-NLL Laplace 0.1626 0.1142 0.1202 1.0374
+> Traj-NLL Gen. Gaussian 0.1609 0.1129 0.1221 1.0477
+> Traj-NLL Scale Mixture 0.1639 0.1136 0.1206 1.0344
+> Step-NLL Laplace 0.1708 0.1148 0.1186 1.0200
+> Step-NLL Gen. Gaussian 0.1689 0.1146 0.1169 1.0103
+> Step-NLL Scale Mixture 0.1707 0.1145 0.1195 1.0218
+
+for DONUT and DONUT-NLL. In general, endpoints optimized for soft mAP show greater coverage than endpoints obtained under the minFDE policy. In some cases, they even lie on individual outliers when the windows in the main mode of the distribution are already covered by higher-confidence endpoints (Fig. 3). Such outlier endpoints receive low confidences from our policy and therefore have little effect on the (soft) mAP score. In Fig. 12, we can observe a limitation of winner-takes-all training. Because the straight and right-turn futures have much higher likelihood than the left-turn future, the model places all mixture components along these futures to optimize the WTA objective. At the same time, it is aware of the possibility of turning left and therefore inflates the uncertainty of the modes to account for this alternative. This results in very wide modes that do not reflect the true multimodal structure of the future and thus deviate from a well-calibrated predictive distribution. Towards Metric-Agnostic Trajectory Forecasting 25 
+
+Fig. 3: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. 26 M. Knoche et al. 
+
+Fig. 4: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. Towards Metric-Agnostic Trajectory Forecasting 27 
+
+Fig. 5: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. 28 M. Knoche et al. 
+
+Fig. 6: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. Towards Metric-Agnostic Trajectory Forecasting 29 
+
+Fig. 7: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. 30 M. Knoche et al. 
+
+Fig. 8: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. Towards Metric-Agnostic Trajectory Forecasting 31 
+
+Fig. 9: Visualization of a random scene. The heatmap shows the endpoint distri-bution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. 32 M. Knoche et al. 
+
+Fig. 10: Visualization of a random scene. The heatmap shows the endpoint dis-tribution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. Towards Metric-Agnostic Trajectory Forecasting 33 
+
+Fig. 11: Visualization of a random scene. The heatmap shows the endpoint dis-tribution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies. 34 M. Knoche et al. 
+
+Fig. 12: Visualization of a random scene. The heatmap shows the endpoint dis-tribution for the target agent . Naive endpoints and endpoints under our policy are marked with ×. Pos-NLL Generalized Gaussian is the best performing model after applying our policies.
