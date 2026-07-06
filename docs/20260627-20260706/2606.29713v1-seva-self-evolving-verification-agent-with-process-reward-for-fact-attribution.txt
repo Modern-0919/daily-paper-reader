@@ -1,0 +1,1003 @@
+Title: SEVA: Self-Evolving Verification Agent with Process Reward for Fact Attribution
+
+URL Source: https://arxiv.org/pdf/2606.29713v1
+
+Published Time: Tue, 30 Jun 2026 01:37:01 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# SEVA: Self-Evolving Verification Agent with Process Reward for Fact Attribution 
+
+Aojie Yuan 1 Yi Nian 1 Haiyue Zhang 1 Zijian Su 2 Yue Zhao 1
+
+## Abstract 
+
+Hallucination is the reliability bottleneck for LLM-based agents, and fact attribution verifiers are the last line of defense — yet today’s ver-ifiers emit only opaque binary labels, leaving agents unable to self-correct and operators un-able to audit. We present S EVA , a structured ver-ification agent that emits evidence alignments, step-by-step reasoning chains, calibrated confi-dence, and a six-category error diagnosis with actionable fixes. Training such an agent with RL is non-trivial: standard binary reward on multi-component output triggers advantage collapse —within-group reward variance vanishes and the GRPO gradient disappears. We resolve this with a process reward that decomposes verification qual-ity into five independent components weighted 
+
+70 /30 toward process signals, restoring the gra-dient and inducing an implicit curriculum — the agent first masters verification behavior (align-ment 0.917 →0.997 , format 72% →100% ), then 
+
+outcomes (F1 64 .9→69 .0). Structured output fur-ther enables a Verify →Reflect →Probe →Refine self-evolution loop, which over four rounds on a 7B model surfaces an unexpected structural find-ing: each round produces a benchmark-specialist ,not a generalist ( +15 pp on HaluEval, −10 to 
+
+−14 pp on TruthfulQA in the same model, per-sistent at 4× data). On ClearFacts, S EVA -3B matches GPT-4o-mini (69.0 vs. 69.8 F1) while producing substantially richer, auditable output — confirming a principle that should generalize: for any RL task with multi-component generation, re-ward granularity must match output granularity .
+
+> 1
+
+University of Southern California, Los Angeles, USA 
+
+> 2
+
+University of Michigan, Ann Arbor, USA. Correspon-dence to: Aojie Yuan <aojieyua@usc.edu >, Yi Nian 
+
+<yinian@usc.edu >, Haiyue Zhang <haiyuez@usc.edu >, Zijian Su <simoon@umich.edu >, Yue Zhao <yue.z@usc.edu >.
+
+Accepted at the ICML 2026 Workshop on Trustworthy AI for Good (AI4GOOD), Seoul, South Korea. Copyright 2026 by the author(s). Code: https://github.com/Justin0504/ Verifiable_agent 
+
+## 1. Introduction 
+
+Despite rapid progress in LLM capabilities, hallucination remains a fundamental barrier to deploying agents in high-stakes domains such as finance, law, and healthcare (Min et al., 2023). Fact attribution verifiers — models that judge whether each claim in an agent’s output is supported by its source documents — have emerged as a critical safety layer (Gao et al., 2023; Tian et al., 2024). Systems like MiniCheck (Tang et al., 2024) and ClearCheck (Seo et al., 2025) achieve strong accuracy on this task, but they share a fundamental limitation: they produce only a binary label. This opacity creates two problems for agents in the wild. First, when a verifier flags a claim, the agent has no basis for self-correction — it knows something is wrong, but not whether a percentage was inflated, an entity swapped, or a qualifier fabricated. Second, no human operator can mean-ingfully audit the decision, because the reasoning behind the label is invisible. In safety-critical deployments, an un-interpretable verifier undermines the very trust it is meant to provide. We introduce S EVA (Self-Evolving Verification Agent), which addresses both problems by producing structured veri-fication output: evidence alignment spans that ground every judgment in specific text, reasoning chains that trace the logic step by step, and error diagnoses from a six-category taxonomy with actionable fix suggestions. This structured output serves a dual purpose: it makes verification auditable for deployment, and it provides a diagnostic interface for training. How should such an agent be trained? SFT on teacher-annotated data provides a reasonable starting point, but re-inforcement learning — which has driven substantial gains for mathematical reasoning (Shao et al., 2024; Zha et al., 2025) and hallucination reduction (Li et al., 2026) — does not straightforwardly transfer. Applying GRPO (Shao et al., 2024) with binary reward (1 if the label matches, 0 other-wise) to our structured verifier, we find that training stalls entirely: the policy makes no progress beyond SFT across all 350 steps. The culprit is that binary reward compresses all verification quality into a single bit. A response with correct reasoning but the wrong label receives the same 1
+
+> arXiv:2606.29713v1 [cs.CL] 29 Jun 2026 SEVA: Self-Evolving Verification Agent with Process Reward
+
+score — zero — as one that produces unparseable garbage. In a GRPO group of G=8 responses, most therefore score 0, advantage spread contracts to ±0.05 , and the gradient vanishes. Our response is a process reward function R : V × Y → 
+
+[−0.10 , 1.28] mapping each structured response v (against gold y∗) to a continuous score over five independent com-ponents plus a calibration term:              
+
+> R=wfRf+waRa+wcRc
+> |{z }
+> process (70%)
+> +wlRl+wdRd
+> |{z }
+> outcome (30%)
+> +Rcal (1)
+
+with weights wf =0 .10 , wa=wc=0 .30 , wl=wd=0 .15 , and an asymmetric calibration Rcal = +ˆ γ·0.15 if ˆy=y∗ else 
+
+−ˆγ·0.10 , which rewards calibrated correctness more than it penalizes calibrated error. Each Rx ∈ [0 , 1] is computed independently from a different region of v (App. C), so the components are weakly correlated; this independence is what creates the smooth four-level reward landscape (Fig. 6, Tab. 1) that resolves the collapse. A response with sound reasoning but the wrong label scores ∼ 0.63 rather than 0.0,restoring σ > 0 in Eq. 2. The results confirm that process reward unlocks what binary reward cannot. GRPO lifts alignment quality to 0.997, for-mat compliance to 100%, and F1 to 69.0 (+4.1 over SFT). An implicit curriculum emerges in the training dynamics: the agent masters verification behavior within 150 steps, then spends the remaining 200 steps refining verification 
+
+outcomes — without any explicit scheduling. Structured output confers a further advantage: it makes the agent’s failures transparent . When S EVA misclassifies a claim, its evidence alignments and error diagnoses pin-point which error category was missed and where ground-ing broke down. We channel this diagnostic signal into a 
+
+Verify →Reflect →Probe →Refine self-evolution loop that generates targeted adversarial data for the agent’s weakest error categories, and iterate it four times on the 7B model. A surprising empirical finding emerges: each round yields a 
+
+benchmark-specialist rather than a strictly better generalist, and the asymmetric trade-off persists at 4× training-data scale ( 7,787 samples in Round 4) — confirming that the ef-fect is data-distribution-induced rather than overfitting. This finding is itself only visible because the structured output exposes per-category error dynamics that aggregate accu-racy would hide, and it sits uneasily with the monotonic-improvement assumption implicit in Self-Refine / STaR-style self-evolution literature. Our contributions are threefold. 1. SEVA : a structured verifier that’s also auditable. A3B agent whose output — alignments, reasoning chain, calibrated confidence, six-category error diagnosis with fixes — matches GPT-4o-mini’s accuracy ( 69 .0 vs. 69 .8
+
+F1) while producing the substrate every downstream operator needs (§2.2, §3). 2. A process reward that turns RL on structured output from impossible to possible. We formalize advantage collapse (Prop. 1) as the failure mode of binary reward on multi-component generation, then resolve it with a five-component decomposition (Prop. 2); the resulting reward landscape yields an implicit curriculum — behav-ior before outcomes — without any explicit scheduling (§2.3, §3.5). 3. A self-evolution loop that reveals a struc-tural property of iterative refinement. 
+
+Verify →Reflect →Probe →Refine, iterated four rounds on a 7B model, surfaces a finding that contradicts the monotone-improvement assumption of Self-Refine / STaR: each round produces a benchmark-specialist ,not a generalist — +15 pp HaluEval, −10 to −14 pp TruthfulQA in the same model, robust at 4× training data, visible only because structured output exposes per-category dynamics (§2.5). 
+
+## 2. Method 
+
+2.1. Problem Formulation and Overview 
+
+Given a claim c and source document d, a fact attribution verifier produces a judgment about whether c is supported by d. Existing verifiers output a single binary label (Tang et al., 2024; Seo et al., 2025). We instead require the agent to produce structured output v = ( A, C, y, γ, e, s ) that makes verification auditable and failures diagnosable (Figure 1). Building such an agent via SFT is straightforward, but push-ing it further with RL is not. We show that GRPO with binary reward fails entirely on this output format (§2.3), and design a process reward that resolves this failure (§2.3). The structured output further enables a self-evolution loop for iterative improvement (§2.5). 
+
+2.2. Structured Verification Schema 
+
+The output v comprises four complementary components: 
+
+Evidence alignment A: a list of (ci, d i, status i) triples map-ping claim spans to source spans, with status ∈ { match, mis-match, not found }. Each entry forces the agent to anchor its judgment in specific text rather than forming a holistic impression. 
+
+Reasoning chain C: step-by-step verification where each step examines a claim part against source evidence, pro-ducing a judgment ∈ { supported, not supported, par-tially supported } and a natural language explanation. 
+
+Label and confidence : a binary label y paired with cali-brated confidence γ ∈ [0 , 1] .2SEVA: Self-Evolving Verification Agent with Process Reward          
+
+> Figure 1. SEVA overview. Top: Given a claim-source pair, the verifier produces structured output — evidence alignments, reasoning chains, calibrated confidence, and error diagnosis. Bottom: Self-evolution loop. Structured errors reveal why the model fails (not just that
+> it fails), enabling targeted adversarial data generation focused on the weakest error types.
+
+Error diagnosis : when y=Not Attributable, an error type e
+
+drawn from a six-category taxonomy (numerical exagger-ation, negation flip, scope inflation, temporal shift, entity substitution, fabrication) together with a fix suggestion s.This schema serves two purposes relevant to agents in the wild. First, it makes verification auditable : a human opera-tor can inspect alignments and reasoning to judge whether the verdict is trustworthy. Second, it makes failures diag-nosable : when the agent errs, the structured output pin-points which evidence was mishandled, feeding the self-improvement loop in §2.5. 
+
+2.3. From Binary Reward Failure to Process Reward The failure of binary reward. Binary reward assigns 1.0 when the predicted label matches the gold label and 0.0 otherwise. For structured output, this produces a degener-ate training signal. In a GRPO group of G=8 responses: (1) 28% fail JSON parsing — the SFT model produces valid JSON only 72% of the time, and all of these score 0; (2) among valid responses, ∼35% predict the wrong label, also scoring 0; (3) in a typical group, 5–7 of 8 responses receive zero reward. GRPO computes advantages relative to the group mean. For a group of G responses with rewards 
+
+{r1, . . . , r G}, the normalized advantage of response i is: 
+
+ˆAi = ri − μσ + ϵ , μ = 1
+
+G
+
+X
+
+> j
+
+rj , σ = std ({rj }) (2) When binary reward produces rj ∈ { 0, 1} with most rj = 0 ,both μ and σ are near zero, and ˆAi ≈ 0 for all i — the policy gradient ∇θ J ∝ P 
+
+> i
+
+ˆAi∇θ log πθ vanishes regardless of model parameters. This failure is structural , not incidental. Increasing group size does not help — the problem is near-uniform scores, not insufficient sampling. And the failure is not specific to verification: any RL task whose output has multiple re-quired components will exhibit advantage collapse under binary reward whenever the model cannot reliably produce all components simultaneously. We formalize the mecha-nism below; a proof sketch is given in Appendix C.7. 
+
+Proposition 1 (Binary-Reward Advantage Collapse) . Let 
+
+r1, . . . , r G ∈ { 0, 1} be i.i.d. Bernoulli rewards in a GRPO group of size G with success probability q = Pr[ rj =1] . The expected within-group variance is 
+
+E[σ2] = GG−1 q (1 − q), (3) 
+
+and as q → 0+ or q → 1−, σ a.s. 
+
+−−→ 0, hence 
+
+ˆAi = ri − μσ + ϵ
+
+> a.s.
+
+−−→ 0 ∀ i, (4) 3SEVA: Self-Evolving Verification Agent with Process Reward            
+
+> Table 1. Reward landscape. Process reward produces four distinct quality levels where binary reward sees only two, enabling fine-grained advantage estimation within each GRPO group.
+> Response quality Process Binary
+> Correct label + good reasoning ∼1.13 1.0 Good reasoning, wrong label ∼0.63 0.0 Correct label, poor reasoning ∼0.28 1.0 Unparseable output 0.0 0.0
+
+and the expected policy gradient 
+
+∇θ J = E
+
+" GX
+
+> i=1
+
+ˆAi ∇θ log πθ (vi)
+
+#
+
+→ 0 (5) regardless of model parameters θ or group size G.
+
+Proposition 2 (Process-Reward Variance Lower Bound) .
+
+Let R = PKk=1 wkRk be the aggregate process reward with components Rk ∈ [0 , 1] and positive weights wk > 0. By the variance identity for linear combinations, 
+
+σ2(R) = 
+
+> K
+
+X
+
+> k=1
+
+w2 
+
+> k
+
+σ2 
+
+> k
+
++ 2 X
+
+> k<ℓ
+
+wk wℓ Cov( Rk, R ℓ). (6) 
+
+Unless the components are perfectly anti-correlated, the cross-terms cannot drive σ2(R) to zero unless every σk=0 .In particular, if any single component k∗ has σ2 
+
+> k∗
+
+> 0 and is uncorrelated with the rest, 
+
+σ2(R) ≥ w2 
+
+> k∗
+
+σ2 
+
+> k∗
+
+> 0, (7) 
+
+and the GRPO gradient is non-vanishing. 
+
+Why these matter. Prop. 1 pinpoints the failure mode of binary reward on structured output, and Prop. 2 guarantees that process reward escapes it by construction. Empirically, 
+
+q ≈ 0.37 at SFT-init gives E[σ2] ≲ 0.27 (Eq. 3) and shrinks to σ ≈ 0.05 by step 350 (Tab. 18) — the gradient effectively dies under binary reward. Under process reward, format errors at ∼ 28% keep σf > 0 at every step we observe, so Eq. 7 delivers σ2(R) > 0 throughout training; the smooth four-level landscape of Tab. 1 is the geometric consequence. The argument is task-agnostic: any RL setting whose output has K required components inherits the same dichotomy, so a process-style decomposition is the structural fix wherever it applies. The reward landscape (Tab. 1) inverts the binary ranking: “good reasoning, wrong label” scores 0.63 (vs. 0) and “cor-rect label, poor reasoning” only 0.28 (vs. 1) — binary re-ward effectively pays for lucky guesses; process reward pays for genuine verification work. 
+
+Why 70/30, and how each component scores. The split forces the agent to do substantive verification before the 
+
+Algorithm 1 Process Reward Computation                                                                             
+
+> Require: Response r, gold label y∗
+> Ensure: Reward R∈[−0.10 ,1.28]
+> 1: Parse ras JSON →ˆv
+> 2: if parse fails then
+> 3: return R= 0 .0
+> 4: end if
+> 5: Rf←ScoreFormat (ˆ v){0 / 0.2 / 0.5 / 1.0 }
+> 6: Ra←1
+> |A|
+> P
+> a∈AScoreAlign (a)
+> 7: Rc←1
+> |C|
+> P
+> s∈CScoreStep (s) + LenBonus 8: Rl←1[normalize (ˆ y) = y∗]
+> 9: Rd←ScoreDiagnosis (ˆ e, ˆs, y ∗)
+> 10: R←0.10 Rf+ 0 .30 Ra+ 0 .30 Rc+ 0 .15 Rl+ 0 .15 Rd
+> 11: if ˆy=y∗then
+> 12: R←R+ ˆ γ×0.15 {calibration bonus }
+> 13: else
+> 14: R←R−ˆγ×0.10 {overconfidence penalty }
+> 15: end if
+> 16: return R
+
+label becomes the easy lever: with outcome dominating, the model would learn to guess labels and produce inco-herent reasoning around them. Each Rx scores indepen-dently — Rf on JSON validity, Ra on per-span grounding, 
+
+Rc on per-step judgment and citation, Rl on label match, 
+
+Rd on error type and fix; an asymmetric calibration term 
+
+Rcal ∈ { +γ·0.15 , −γ·0.10 } rewards confident correctness and penalizes overconfident error. Algorithm 1 gives the full computation; per-component rubrics are in Appendix C. 
+
+2.4. Training Pipeline 
+
+SEVA is trained in two phases. SFT: GPT-4o-mini anno-tates 4,992 ANLI examples with structured output ( 92% 
+
+format-valid); Qwen2.5-3B-Instruct (Qwen Team, 2025) is fine-tuned for 3 epochs at lr = 2 ×10 −5. GRPO: the SFT checkpoint seeds 5 epochs ( ∼350 steps) of process-reward GRPO with G=8 , T =1 .2, β=0 .001 , lr = 2 ×10 −6,on veRL (Sheng et al., 2025) with FSDP on 2 ×RTX 6000 Ada ( ∼28 GPU-hours total). The low GRPO lr and small 
+
+β jointly preserve the SFT-established format while leav-ing room for the policy to explore; we found this balance via a small sweep ( β=0 .01 over-regularized; β=0 admitted format-gaming). We additionally train a 7B variant via two-stage SFT (binary NLI → structured) with LoRA-128 (Hu et al., 2022); full hyperparameters in Appendix A. 
+
+2.5. Self-Evolution via Structured Diagnostics 
+
+Structured output exposes which aspect of verification failed when the agent misclassifies; we channel this signal through a Verify →Reflect →Probe →Refine loop (Fig. 1, bottom), borrowing the principle of functional separation 
+
+from MARCH (Li et al., 2026) but applying it across loop stages rather than agents. Reflect aggregates error diagnoses into a 6-bin weakness profile; Probe allocates adversarial 4SEVA: Self-Evolving Verification Agent with Process Reward 
+
+Figure 2. Process reward scoring. Each structured output component (left) maps to an independently scored reward term (right). A response with correct reasoning but the wrong label scores 0.63 under process reward vs. 0.0 under binary — this gap is what provides GRPO with meaningful gradients. 
+
+generation budget proportional to per-category weakness, giving weak bins ∼3× the budget of strong ones (e.g., en-tity sub at 42% acc gets ∼3× fabrication’s at 78% ). GRPO training itself constitutes Round 0: the process reward continuously assesses structural quality, and roll-out sampling explores the agent’s decision boundary. We then iterate four additional rounds on the 7B Step150 seed: 
+
+Round 1 injects extracted verification rules into the prompt (no parameter update); Round 2 performs LoRA SFT on 
+
+1,122 adversarial probes; Round 3 performs full FT on 
+
+2,013 mixed samples (adversarial + replay); Round 4 
+
+(“mega-FT”) extends Round 3 with 7,787 mixed samples to test whether more diverse adversarial data closes any remaining gap. Pseudocode for the four-stage loop is in App. L (Algorithm 2). 
+
+Specialists, not generalists. We expected four refinement rounds to yield a monotonically improving generalist; we observe a sharper specialization fingerprint instead (Table 2). Round 2 lifts HaluEval by +10 .9 pp but drops TruthfulQA by −10 .2; Round 3 sharpens to +14 .3/ − 13 .8; Round 4 holds at +14 .9/ − 12 .4 despite 4× more data. Persistence at 4× scale rules out trivial overfitting and identifies the effect as data-distribution-induced : probes drawn from a ClearFacts-style weakness profile push the model toward those failure modes and away from TruthfulQA’s distribu-tion. When probes come from a single source distribution, ClearFacts FEVER TruthfulQA HaluEval 
+
+> 15
+> 10
+> 5
+> 0
+> 5
+> 10
+> 15
+> 20
+> F1 delta vs. Step150 (pp)
+> Specialization trade-off:
+> R2/R3/R4 boost HaluEval
+> but hurt TruthfulQA
+> Self-Evolution Produces Specialists, Not Generalists
+> Round 1 (rules)
+> Round 2 (LoRA, 1.1K)
+> Round 3 (Full FT, 2.0K)
+> Round 4 (mega-FT, 7.8K)
+
+Figure 3. Self-evolution produces specialists, not generalists. F1 deltas vs. the Step150 GRPO seed across four benchmarks and four refinement rounds. The asymmetric trade-off on TruthfulQA vs. HaluEval (Rounds 2–4) sharpens with each round and persists at 
+
+4× training-data scale (Round 4, 7,787 samples), confirming the effect is data-distribution-induced rather than overfitting. Absolute F1 numbers in Appendix L, Table 22. 
+
+specialization is the dominant mode of iterative refinement. 
+
+Does the loop actually work? Three properties make the data-volume reading hard to sustain: (i) the trade-off is monotone in both directions ( +10 .9→ + 14 .9 HaluEval, 
+
+−10 .2→− 12 .4 TruthfulQA — a non-functional loop would sign-flip); (ii) per-benchmark gains track Probe-stage bud-get allocation, not raw sample count; (iii) Round 4 has 7×
+
+Round 2’s data but adds only +4 pp on HaluEval, exhibiting saturation rather than the unbounded growth of data-volume 5SEVA: Self-Evolving Verification Agent with Process Reward                        
+
+> Table 2. Self-evolution produces specialists , not generalists. Each row shows macro-F1 deltas vs. Step150 across four benchmarks. The opposite-sign gains on TruthfulQA vs. HaluEval (rows 2–4) persist at 4×training-data scale (Round 4), confirming the effect is data-distribution-induced.
+> ClearF. FEVER TrQA HaluE.
+> Round 1 (rules) −0.7 −0.5 +1.1 +0.6 Round 2 (LoRA) +1.3 +1.6 −10.2 +10.9 Round 3 (FT) 0.0 +1.2 −13.8 +14.3 Round 4 (mega-FT) −0.1 +1.5 −12.4 +14.9
+
+overfitting. The clean isolation ablation — swapping the weakness-guided Probe for a same-budget random sampler — is out of scope for this submission (§4.3); the loop’s re-sponse to its signal is consistent with a working mechanism (full analysis in App. L). This specialization fingerprint is itself only visible because structured output exposes per-category dynamics; the same asymmetry would be invisible in aggregate accuracy, motivating downstream architectural responses (e.g., per-domain routing across rounds) we ex-plore in follow-up work. 
+
+## 3. Experiments 
+
+Having laid out the architecture (§2.2), the reward (§2.3), and the self-evolution loop (§2.5), we now stress-test S EVA 
+
+on four axes that any deployed verifier must clear: accu-racy against established binary baselines, generalization 
+
+across benchmarks with different failure modes, structural reliability of the produced output, and training dynamics 
+
+under both reward designs. 
+
+3.1. Setup 
+
+We evaluate on ClearFacts (Seo et al., 2025) (1,590 samples; our primary metric), FEVER (Thorne et al., 2018) (200), TruthfulQA (Lin et al., 2022) (400), and HaluEval (Li et al., 2023) (200). Together these cover claim-source attribu-tion, encyclopedic verification, common misconceptions, and LLM-generated hallucinations — four distinct distribu-tions chosen to probe whether S EVA ’s structural advantages survive across error types. Baselines include binary verifiers reported by Seo et al. (2025): MiniCheck-7B (81.2 F1), ClearCheck-8B ( ∼84 F1), and Llama-3.1-8B zero-shot (67.2 F1). For structured comparison we evaluate GPT-4o-mini with zero-shot SEVA prompting and MiniCheck-Flan-T5-Large (770M). We re-port macro F1, accuracy, and structural quality (alignment quality Ra, chain quality Rc, format compliance rate). 
+
+3.2. Main Results 
+
+Table 3 presents ClearFacts results. With process reward, GRPO lifts S EVA -3B from 64.9 to 69.0 F1 (+4.1), narrow-                                                           
+
+> Table 3. ClearFacts results. S EVA models produce full structured output; binary baselines from Seo et al. (2025). The gap with MiniCheck reflects training data scale (5K structured vs. 57K binary) rather than a limitation of the approach.
+> Model Size Output Acc F1
+> Binary-label verifiers
+> Llama-3.1 (0-shot) 8B binary –67.2 MiniCheck 7B binary –81.2 ClearCheck 8B binary –∼84
+> Structured verifiers
+> GPT-4o-mini (0-shot) –struct 69.9 69.8 MiniCheck-Flan-T5 770M binary 68.3 68.3
+> Ours
+> SEVA -SFT 3B struct 65.2 64.9 SEVA -GRPO 3B struct 69.6 69.0
+> SEVA -SFT (LoRA-128) 7B struct 68.6 68.5
+> Table 4. Macro F1 across four benchmarks. GRPO yields large gains on balanced benchmarks but introduces a negative-prediction bias on skewed ones (§4).
+> Out. ClearF. FEVER TrQA HaluE.
+> GPT-4o-mini struct 69.8 91.0 48.6 34.0 MiniCheck-FT5 binary 68.3 87.1 59.5 42.4
+> SEVA -SFT (3B) struct 64.9 76.3 72.1 42.0 SEVA -GRPO (3B) struct 69.0 84.9 82.7 39.4
+
+ing the gap with GPT-4o-mini (69.8) to under one point. Importantly, S EVA produces substantially richer output — grounded evidence spans, multi-step reasoning, and a six-category error taxonomy — that zero-shot prompting of GPT-4o-mini captures only partially. At 7B scale, SFT with LoRA-128 reaches 68.5 F1 with-out any RL, nearly matching 3B GRPO. Model scale and process-reward RL appear partially substitutable for this task, motivating their combination; 7B full fine-tuning with GRPO is ongoing. The gap to MiniCheck-7B (81.2 F1) is real but reflects a data asymmetry rather than an architectural limitation: MiniCheck trains on 57K binary annotations with full 7B fine-tuning and provides only a label, while our 3B agent learns from 5K structured annotations and produces inter-pretable, auditable verification output. 
+
+3.3. Generalization Across Benchmarks 
+
+GRPO’s gains are largest on class-balanced benchmarks (+8 .6 FEVER, +10 .6 TruthfulQA). The 34 -point Truth-fulQA gap over GPT-4o-mini ( 82 .7 vs. 48 .6) traces directly to Rc’s per-step source-citation requirement: GPT-4o-mini falls back on parametric knowledge when claims “sound right,” while S EVA is forced to ground every step in the 6SEVA: Self-Evolving Verification Agent with Process Reward 
+
+Table 5. Structural quality on ClearFacts. After GRPO, alignment and chain quality approach 1.0 and every response is valid JSON — the reliability needed for safety-critical deployment. 
+
+Align Chain Format ∆ F1 
+
+SEVA -SFT 0.917 0.917 72% –SEVA -GRPO 0.997 0.995 100% +4.1 
+
+Claim: “60% of participants significantly improved” 
+
+Source: “60% of subjects showed improvement” 
+
+Binary verifier: Not Attributable (no explanation) SEVA -GRPO structured output: 
+
+Align: “60% of participants” → “60% of subjects” [ match ]; “significantly im-proved” → NOT FOUND 
+
+Chain: Step 1: supported (percentage matches); Step 2: not supported 
+
+(qualifier absent) 
+
+Label: Not Attributable, confidence 0.85 
+
+Diag: scope inflation ; fix: remove “sig-nificantly” 
+
+Figure 4. Binary vs. structured verification. The binary verifier is correct but uninformative. S EVA identifies the exact mismatch (“significantly” absent from source), traces the reasoning, and suggests a fix. 
+
+document. HaluEval ( −2.6 vs. SFT) is the exception — the agent over-predicts “Not Attributable,” a reward-induced bias we trace in §4. 
+
+3.4. Structural Quality 
+
+Process reward drives structural quality to near-perfect lev-els (alignment 0.997 , chain 0.995 , format 100% — Tab. 5); a verifier whose output fails to parse 28% of the time under SFT cannot serve as a dependable safety component, so this reliability is itself load-bearing for deployment. 
+
+Qualitative gap. Fig. 4 makes the deployment-relevance concrete: on the same input, the binary verifier returns “Not Attributable” with no explanation, while S EVA pinpoints the exact mismatch (“significantly” absent from source), traces step-by-step reasoning, names the error category, and sug-gests a fix — everything a downstream correction module or human reviewer needs to act, packaged in ∼120 tokens of JSON. 
+
+3.5. Training Dynamics and Implicit Curriculum 
+
+Binary reward’s advantage spread decays from ±0.12 to 
+
+±0.04 over 350 steps while its mean barely moves ( 0.38 →
+
+0.41 ); process reward sustains spread above ±1.6 through-out, with mean climbing from 1.01 to 1.12 (full trajectory in App. E). A training-time ordering we did not design for 0 50 100 150 200 250 300 350      
+
+> Training Steps
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> Structural Quality
+> Phase I: learn HOW |Phase II: learn WHAT
+> 0.63
+> 0.64
+> 0.65
+> 0.66
+> 0.67
+> 0.68
+> 0.69
+> 0.70
+> Macro F1
+> Implicit Curriculum: Behavior Before Outcome
+> Alignment Quality Chain Quality Format Compliance ClearFacts F1
+
+Figure 5. Implicit curriculum. Alignment, chain, and format quality saturate by step ∼150 while F1 continues climbing through step 350 — the agent learns how to verify before what to predict. Reward trajectories and advantage-spread plots in App. E (Fig. 6, Tab. 18). 
+
+emerges from this contrast (Fig. 5): alignment and format saturate by step ∼150 ( 0.917 → 0.997 , 72% → 100% ) while F1 continues climbing through step 350 ( 64 .9 → 69 .0). The agent masters verification behavior before outcomes — a natural difficulty asymmetry between pattern-level skills and semantic reasoning, amplified by the 70/30 weighting. Mathematical PRMs (Lightman et al., 2024) show a par-allel effect on sequential steps; we extend the principle to 
+
+parallel components. 
+
+## 4. Ablation and Analysis 
+
+The headline numbers establish that S EVA works; we now ask why . Two questions matter: is process reward genuinely the load-bearing design choice (vs. just “GRPO with extra steps”), and where does S EVA still fail systematically? The ablation isolates the first, the error analysis surfaces the second — together they motivate the deployment caveats in §4.3. 
+
+4.1. Ablation Study 
+
+Table 6 isolates the design choice that matters. Replacing process reward with binary reward (every other GRPO set-ting identical: G=8 , T =1 .2, β=0 .001 , 350 steps) yields 
+
+< 65 F1 and no structural improvement over SFT — 350 
+
+steps of policy optimization producing zero gain because the advantage signal is too weak to learn from. The structural metrics are diagnostic: binary GRPO leaves alignment qual-ity at < 0.92 and format compliance at ∼ 72% , exactly the SFT levels, confirming that the policy never updates. Pro-cess GRPO simultaneously drives alignment to 0.997 and format to 100% while improving F1 — a tri-directional gain only possible when the gradient is non-degenerate (Prop. 2). Process reward is therefore not an incremental enhance-7SEVA: Self-Evolving Verification Agent with Process Reward               
+
+> Table 6. Ablation on ClearFacts. Binary reward with GRPO performs no better than SFT; process reward is the key enabler.
+> Configuration F1 Align Format
+> SEVA -GRPO (process reward) 69.0 0.997 100% SEVA -GRPO (binary reward) <65 <0.92 ∼72% SEVA -SFT (no RL) 64.9 0.917 72%
+
+ment; it is a prerequisite for applying GRPO to structured output, and the three-row contrast in Tab. 6 is the empirical realization of the theoretical dichotomy in Eq. 4–7. 
+
+4.2. Reward Asymmetry and Negative-Prediction Bias 
+
+GRPO with process reward over-predicts “Not Attributable” (35 .9% false positives on ClearFacts; confusion matrix and error-type distribution in App. D). The cause is structural: 
+
+Rd gives negative predictions a two-part signal (error type 
+
++ fix) while positive ones collapse to a scalar ( 1.0 for cor-rect omission), exposing more “reward surface” to negative predictions and biasing the policy under uncertainty. This helps on balanced benchmarks (FEVER, TruthfulQA) and hurts on positively skewed ones (HaluEval); the catch-all 
+
+fabrication diagnosis at 36 .7% of negative predictions is its empirical signature. Label-conditional reward normal-ization is the natural fix; we leave it to future work. 
+
+4.3. Limitations 
+
+Four caveats bound the claims. (i) Two ablations would strengthen the self-evolution evidence and are out of scope: a Probe-distribution control (random vs. weakness-guided) and a cross-distribution probe mix. (ii) GRPO is applied only at 3B; the 7B variant uses LoRA, so the scale–RL combination in Table 3 remains untested at full 7B FT. 
+
+(iii) The 70/30 split was chosen on principled grounds (App. I reports a coarse sweep); a finer-grained search and non-uniform training schedules are future work. (iv) The negative-prediction bias induced by Rd’s asymmetric re-ward surface (§4) should be addressed before deployment; label-conditional reward normalization is the natural starting point. 
+
+## 5. Related Work 
+
+SEVA sits at the intersection of three previously-uncombined lines. Fact attribution verification via NLI transfer (Tang et al., 2024), unified alignment (Zha et al., 2023), and refined benchmarks (Seo et al., 2025) is accurate but unstructured and SFT-only; we retain the benchmarks, add structured out-put + RL. RL for reasoning with GRPO (Shao et al., 2024; Zha et al., 2025) and hallucination detection (MARCH (Li et al., 2026), Dr. Zero (Yue et al., 2026)) assumes single-answer output where correctness reward suffices; that as-sumption breaks for multi-component generation. Process reward models for math (Lightman et al., 2024; Wang et al., 2024) score sequential step dependencies; we score paral-lel components, an independence that lets us weight and normalize each separately to produce the smooth landscape GRPO needs. 
+
+## 6. Discussion 
+
+Scale and process-reward RL are complementary, not redun-dant: 7B-SFT-LoRA-128 ( 68 .5 F1) and 3B-GRPO ( 69 .0 F1) reach the same accuracy through different routes, and their combination should close the gap to MiniCheck-7B’s 81 .2
+
+— a hypothesis we are actively testing. Beyond accuracy, the five-component decomposition is itself dual-use: it extracts five gradients per response where binary reward extracts one, and exposes the per-category dynamics under which the specialization fingerprint becomes visible at all. For deployment, an unparseable response is functionally indis-tinguishable from a wrong one, so the 28% → < 1% format-error drop is as load-bearing as the F1 gain; safety-critical pipelines can early-stop at step 150 (already format-reliable, not yet F1-saturated) and route the structured diagnosis — taxonomy, alignment, fix — to an auditor as a contract 
+
+between upstream generator and downstream judge, the substrate any trustworthy agent pipeline ultimately needs. 
+
+## 7. Conclusion 
+
+A 3B S EVA matches GPT-4o-mini on ClearFacts ( 69 .0 vs. 
+
+69 .8 F1) at 100% format compliance while producing au-ditable structured output — alignments, reasoning chains, calibrated confidence, six-category error diagnosis with fixes. The enabler is a process reward that resolves binary reward’s advantage collapse on multi-component generation (Prop. 1–2); the surprise is a monotone, signed special-ization fingerprint under iterative refinement, visible only because per-category dynamics are exposed by structured output. Three principles should transfer wherever agents must explain, justify, and improve under audit — reward granularity matches output granularity , structured output is a dual-use asset , iterative self-improvement drifts toward specialization under single-sourced probes — favoring ar-chitectural responses over more training rounds. 
+
+## References 
+
+Gao, L., Dai, Z., Pasupat, P., Chen, A., Chaganty, A. T., Fan, Y., Zhao, V., Lao, N., Lee, H., Juan, D.-C., and Guu, K. RARR: Researching and revising what language models say, using language models. In Proceedings of ACL , 2023. Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, 8SEVA: Self-Evolving Verification Agent with Process Reward 
+
+S., Wang, L., and Chen, W. LoRA: Low-rank adaptation of large language models. In Proceedings of ICLR , 2022. Lacoste, A., Luccioni, A., Schmidt, V., and Dandres, T. Quantifying the carbon emissions of machine learning. 
+
+arXiv preprint arXiv:1910.09700 , 2019. Li, J., Cheng, X., Zhao, W. X., Nie, J.-Y., and Wen, J.-R. HaluEval: A large-scale hallucination evaluation benchmark for large language models. In Proceedings of EMNLP , 2023. Li, Z., Zhang, Y., Cheng, P., Song, J., Zhou, M., Li, H., Hu, S., Qin, Y., Zhao, E., Jiang, X., and Jiang, G. MARCH: Multi-agent reinforced self-check for LLM hallucination. 
+
+arXiv preprint arXiv:2603.24579 , 2026. Lightman, H., Kosaraju, V., Burda, Y., Edwards, H., Baker, B., Lee, T., Leike, J., Schulman, J., Sutskever, I., and Cobbe, K. Let’s verify step by step. In Proceedings of ICLR , 2024. Lin, S., Hilton, J., and Evans, O. TruthfulQA: Measuring how models mimic human falsehoods. In Proceedings of ACL , 2022. Min, S., Krishna, K., Lyu, X., Lewis, M., Yih, W.-t., Koh, P. W., Iyyer, M., Zettlemoyer, L., and Hajishirzi, H. FActScore: Fine-grained atomic evaluation of factual precision in long form text generation. In Proceedings of EMNLP , 2023. Nie, Y., Williams, A., Dinan, E., Bansal, M., Weston, J., and Kiela, D. Adversarial NLI: A new benchmark for natural language understanding. In Proceedings of ACL , 2020. Qwen Team. Qwen2.5 technical report. arXiv preprint arXiv:2412.15115 , 2025. Seo, W., Han, S., Jung, J., Newman, B., Lim, S., Lee, S., Lu, X., Choi, Y., and Yu, Y. Verifying the verifiers: Unveiling pitfalls and potentials in fact verifiers. In Proceedings of COLM , 2025. arXiv preprint arXiv:2506.13342. Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y., Wu, Y., and Guo, D. DeepSeek-Math: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 ,2024. Sheng, G., Zhang, C., Ye, Z., Wu, X., Zhang, W., Zhang, R., Peng, Y., Lin, H., and Wu, C. HybridFlow: A flexible and efficient RLHF framework. In Proceedings of EuroSys ,2025. arXiv preprint arXiv:2409.19256. Strubell, E., Ganesh, A., and McCallum, A. Energy and policy considerations for deep learning in NLP. In Pro-ceedings of ACL , 2019. Tang, L., Laban, P., and Durrett, G. MiniCheck: Effi-cient fact-checking of LLMs on grounding documents. In Proceedings of EMNLP , 2024. arXiv preprint arXiv:2404.10774. Thorne, J., Vlachos, A., Christodoulopoulos, C., and Mittal, A. FEVER: A large-scale dataset for fact extraction and VERification. In Proceedings of NAACL-HLT , 2018. Tian, K., Mitchell, E., Yao, H., Manning, C. D., and Finn, C. Fine-tuning language models for factuality. In Proceed-ings of ICLR , 2024. Wang, P., Li, L., Shao, Z., Xu, R., Dai, D., Li, Y., Chen, D., Wu, Y., and Sui, Z. Math-shepherd: Verify and reinforce LLMs step-by-step without human annotations. In Proceedings of ACL , 2024. Yue, Z., Upasani, K., Yang, X., Ge, S., Nie, S., Mao, Y., Liu, Z., and Wang, D. Dr. Zero: Self-evolving search agents without training data. arXiv preprint arXiv:2601.07055 ,2026. Zha, K., Gao, Z., Shen, M., Hong, Z.-W., Boning, D. S., and Katabi, D. RL tango: Reinforcing generator and verifier together for language reasoning. In Proceedings of NeurIPS , 2025. arXiv preprint arXiv:2505.15034. Zha, Y., Yang, Y., Li, R., and Hu, Z. AlignScore: Evaluating factual consistency with a unified alignment function. In 
+
+Proceedings of ACL , 2023. 9SEVA: Self-Evolving Verification Agent with Process Reward 
+
+## A. Implementation Details 
+
+A.1. Hardware and Compute 
+
+Experiments were conducted on a local server with 2×NVIDIA RTX 6000 Ada (48 GB each), plus 1 ×A100 80G for 7B variants and self-evolution rounds. Table 7 summarizes the compute budget for the full pipeline (3B SFT +GRPO, 7B SFT, and the four self-evolution rounds reported in §2.5); the carbon footprint estimate is in Ap-pendix N. 
+
+Table 7. Compute budget for the full pipeline. The 3B-only subset (∼28 GPU-hr) is reproducible on a single multi-GPU workstation; the full pipeline including four self-evolution rounds on 7B re-quires ∼130 GPU-hr. 
+
+Experiment GPUs Time Hrs 
+
+3B SFT (full FT) 2×Ada 2h 43B GRPO (350 steps) 2×Ada 8h 16 7B SFT (LoRA-64) 1×A100 80G 3h 37B SFT (LoRA-128) 1×A100 80G 4h 4
+
+Self-evolution rounds (7B, §2.5) 
+
+SE Round 1 (rules, no update) – – 0SE Round 2 (LoRA-64, 1.1K) 1×A100 80G 5h 5SE Round 3 (Full FT, 2.0K) 1×A100 80G 21h 21 SE Round 4 (mega-FT, 7.8K) 1×A100 80G 72h 72 Eval (per benchmark) 1×Ada 20m 0.3 Adversarial probe generation GPT-4o-mini API – –
+
+3B-only subtotal ∼28 
+
+Full pipeline total ∼130 
+
+A.2. SFT Hyperparameters 
+
+Table 8. SFT hyperparameters. 
+
+Parameter 3B (full) 7B (LoRA) 
+
+Base model Qwen2.5-3B Qwen2.5-7B Epochs 3 3Batch (per GPU) 4 4Grad. accum. 4 4Eff. batch 16 16 Learning rate 2e-5 2e-5 / 5e-5 Scheduler Cosine Cosine Warmup ratio 0.05 0.05 Weight decay 0.01 0.01 Max seq. len 1280 1280 Precision bf16 bf16 Grad. ckpt. ✓ ✓
+
+LoRA-specific (7B only) 
+
+LoRA rank – 64 / 128 LoRA alpha – 128 LoRA dropout – 0.05 Target mods – q,k,v,o,gate,up,dn Trainable (%) 100% 2.1% / 4.1% 
+
+Table 9. GRPO training hyperparameters. 
+
+Parameter Value 
+
+Framework veRL 0.3 (Sheng et al., 2025) Algorithm GRPO Base model SEVA -SFT (3B) Group size ( G) 8Temperature 1.2 Top-p 0.95 Max prompt length 768 tokens Max response length 512 tokens Train batch size 64 Learning rate 2e-6 KL coefficient ( β) 0.001 Epochs 5 ( ∼350 steps) Parallelism FSDP (tp=1, dp=2) Reward function seva reward.py 
+
+A.3. GRPO Hyperparameters A.4. Inference Configuration 
+
+Table 10. Inference parameters for evaluation. 
+
+Parameter Value 
+
+Inference engine vLLM Temperature 0.0 (greedy) Max output tokens 1024 Tensor parallelism 1GPU memory utilization 0.9 
+
+## B. Dataset Statistics 
+
+B.1. Training Data 
+
+Table 11. Training data composition. 
+
+Dataset Samples Attr.% Format 
+
+Structured SEVA data (5K) 
+
+ANLI (annotated) 4,992 50.8% structured 
+
+GRPO prompts 
+
+ANLI (prompts) 4,500 51.0% prompt-only 
+
+Structured annotations are generated using GPT-4o-mini with a detailed system prompt. Each response is validated for: (1) valid JSON with all required fields ( evidence alignment , reasoning chain ,
+
+label , confidence ); (2) valid status ∈ { match, mis-match, not found }; (3) valid judgment ∈ { supported, not supported, partially supported }; (4) confidence ∈ [0 , 1] .Samples failing validation are re-generated (up to 3 at-tempts) or discarded. The acceptance rate is ∼92%. 
+
+B.2. Evaluation Benchmarks 
+
+Auxiliary benchmarks are stratified-sampled to 200 samples each (400 for TruthfulQA), preserving label distribution. 10 SEVA: Self-Evolving Verification Agent with Process Reward                      
+
+> Table 12. Evaluation benchmark statistics.
+> Benchmark Size Eval Attr.% Domain
+> ClearFacts 1,590 full 53.8% General FEVER 19,998 200 50.0% Wikipedia TruthfulQA 817 400 49.5% Misc. HaluEval 10,000 200 50.0% LLM-gen.
+
+ClearFacts is evaluated in full (1,590 samples) following Seo et al. (2025). 
+
+## C. Process Reward Scoring Rubrics 
+
+This appendix grounds the headline formula R = wf Rf +
+
+waRa + wcRc + wlRl + wdRd + Rcal at the per-component level: how each Rx is computed from the structured re-sponse, how labels are normalized across teacher dialects, and what reward range each scenario admits. The propo-sitions in §2.3 are proved at the end of this appendix; we read the rubrics here as the operational definitions that make those propositions empirically tight. 
+
+C.1. Label Normalization 
+
+The reward function supports extensive label aliasing:      
+
+> Table 13. Label normalization aliases.
+> Alias Canonical label
+> yes, true, entailment, supported Attributable no, false, contradiction, neutral Not Attributable not supported, not attributable Not Attributable
+
+C.2. Ra: Alignment Scoring Detail 
+
+For each alignment entry ai, the per-entry score is:                       
+
+> Ra(ai) = 0 .3·1[|claim span |>0] + 0 .3·1[|source span |>0∨NOT FOUND ]+ 0 .2·1[status ∈VALID ]+ 0 .1·1[3 ≤ | claim span | ≤ 200] + 0 .1·1[3 ≤ | source span | ≤ 500]
+> (8)
+
+Final alignment score: mean across entries, capped at 1.0. 
+
+C.3. Rc: Chain Scoring Detail 
+
+For each reasoning step sj :               
+
+> Rc(sj) = 0 .3·1[judgment ∈VALID ]+ 0 .3·1[|explanation | ≥ 10] + 0 .2·1[|source evidence | ≥ 5] + 0 .2·1[|claim part |>0]
+> (9)
+
+Length bonus: min( |C|/3, 1) × 0.2 rewards multi-step chains. 
+
+C.4. Rd: Diagnosis Scoring Detail       
+
+> Rd=
+> 
+> 1.0y∗=A,no err.
+> 0.3y∗=A,err. present
+> 0.6·1[e∈T ]+0 .4·1[|s|≥ 10] y∗=NA (10)
+
+where A = Attributable, NA = Not Attributable, T is the six-category error taxonomy. 
+
+C.5. Rcal : Calibration Term 
+
+The calibration term rewards a model that is confident when correct and penalizes overconfidence when wrong:              
+
+> Rcal =
+> (
+> +γ×0.15 ˆy=y∗(reward calibrated confidence)
+> −γ×0.10 ˆy̸=y∗(penalize overconfident errors) (11)
+
+where γ ∈ [0 , 1] is the model’s predicted confidence. The asymmetry ( 0.15 vs. −0.10 ) is deliberate: in safety-critical deployment the cost of an overconfident wrong answer ex-ceeds the value of an overconfident correct one, so the cali-bration term is biased toward rewarding correct calibration more than it punishes wrong calibration. This term is the source of the residual negative-prediction bias documented in §4; the asymmetric reward surface induces a small but systematic preference for predictions whose error pathways carry richer diagnostic structure. 
+
+C.6. Reward Range Analysis              
+
+> Table 14. Theoretical reward range by response quality.
+> Scenario Min Max
+> Unparseable (no JSON) 0.0 0.0 JSON only, no fields 0.02 0.02 All fields, all wrong 0.10 0.25 Perfect process, wrong label 0.55 0.70 Everything perfect 1.00 1.28
+
+C.7. Proof Sketches for Propositions 1–2 Proposition 1 (Binary-Reward Advantage Collapse). 
+
+Let rj ∈ { 0, 1} be i.i.d. Bernoulli (q) rewards in a GRPO group of size G. The unbiased sample-variance estima-tor σ2 = 1
+
+> G−1
+
+P 
+
+> j
+
+(rj − μ)2 has expectation E[σ2] = 
+
+> GG−1
+
+q(1 − q). For q ∈ { 0, 1} this quantity is exactly 0;by continuity, σ → 0 almost surely as q approaches ei-ther endpoint. In our SFT setting, q ≈ 0.37 (only 37% of rollouts predict the gold label and parse as valid JSON), so 
+
+E[σ2] ≤ 87 ·0.37 ·0.63 ≈ 0.27 , giving σ ≲ 0.5. The normal-ized advantage ˆAi = ( ri − μ)/(σ + ϵ) is therefore bounded in magnitude by 1/(σ + ϵ) · max i |ri − μ| ≤ 1/(σ + ϵ), and the policy gradient ∇θ J = E
+
+hP 
+
+> i
+
+ˆAi∇θ log πθ
+
+i
+
+inherits 11 SEVA: Self-Evolving Verification Agent with Process Reward 
+
+this bound. Empirically, after 350 GRPO steps σ shrinks further to ∼0.05 (Table 18), and the gradient is effectively zero. The argument does not depend on the specifics of bi-nary reward — any reward with low intra-group dispersion at training start triggers the same collapse, which is why we identify it as a structural rather than incidental failure. 
+
+Proposition 2 (Process-Reward Variance Lower Bound). 
+
+Let R = PKk=1 wkRk with Rk ∈ [0 , 1] and wk > 0.By the standard variance identity for linear combinations, 
+
+σ2(R) = P 
+
+> k
+
+w2
+
+> k
+
+σ2 
+
+> k
+
++ 2 P 
+
+> k<ℓ
+
+wkwℓ Cov( Rk, R ℓ). Pro-vided the components are not all perfectly anti-correlated — which would require contrived correlation structure across format, alignment, chain, label, and diagnosis — the cross-terms cannot drive σ2(R) to zero unless every σk = 0 . In particular, if even a single component k∗ has σ2 
+
+> k∗
+
+> 0 and is uncorrelated with the rest, then σ2(R) ≥ w2 
+
+> k∗
+
+σ2 
+
+> k∗
+
+> 0. In our training data, Rf (format) and Ra (alignment) almost always have positive variance early in training (the SFT policy produces format errors 28% of the time and ground-ing errors at varying rates), so R inherits a strictly positive variance from these components alone. The GRPO gradient is therefore non-vanishing under process reward at any train-ing step where any single component shows within-group disagreement — which is the empirical regime we observe in Table 18. These two propositions together explain the empirical con-trast in Table 18 and Figure 6: process reward inherits vari-ance from its decomposition, while binary reward exposes a single thin bottleneck (label correctness) whose marginal distribution determines whether GRPO can learn at all. 
+
+## D. Per-Benchmark Error Analysis 
+
+D.1. ClearFacts Confusion Matrices                
+
+> Table 15. Confusion matrices on ClearFacts (1,590 samples).
+> SFT GRPO
+> Pred A Pred NA Pred A Pred NA Gold Attr. 68.2% 31.8% 64.1% 35.9% Gold Not Attr. 38.5% 61.5% 25.4% 74.6% Format errors 28% <1%
+
+GRPO dramatically reduces false negatives (38.5% →
+
+25.4%) and format errors (28% → <1%), but slightly in-creases false positives (31.8% → 35.9%). The net effect is +4.1 F1. 
+
+D.2. Multi-Benchmark Analysis 
+
+GRPO’s negative-prediction bias helps on balanced bench-marks (FEVER, TruthfulQA) but hurts when the agent over-predicts “Not Attributable” relative to the true distribution.              
+
+> Table 16. Per-benchmark label distribution and GRPO behavior.
+> Benchmark Attr.% GRPO Pred NA% Effect
+> FEVER 50.0% 48.5% +8.6 F1 TruthfulQA 49.5% 52.0% +10.6 F1 HaluEval 50.0% 55.5% −2.6 F1
+
+D.3. Error Type Distribution                 
+
+> Table 17. Error types predicted by S EVA -GRPO on ClearFacts (“Not Attributable” predictions, n=812 ).
+> Error type Count %
+> fabrication 298 36.7% scope inflation 187 23.0% entity substitution 124 15.3% numerical exaggeration 89 11.0% negation flip 68 8.4% temporal shift 46 5.7%
+
+The agent most frequently diagnoses fabrication 
+
+(36.7%), the catch-all category for information absent from the source. This is consistent with the false-positive bias: when uncertain, the agent defaults to “fabrication” rather than accepting a paraphrase as attributable. 
+
+## E. GRPO Training Dynamics                                      
+
+> Table 18. GRPO training metrics over steps. Process reward shows steady improvement; binary reward stagnates.
+> Step Reward Entropy Adv. min Adv. max
+> Process reward
+> 01.01 0.21 −2.47 +2.47 100 1.06 0.15 −2.10 +2.30 200 1.09 0.10 −1.85 +2.15 350 1.12 0.06 −1.60 +2.05
+> Binary reward
+> 00.38 0.20 −0.15 +0.12 100 0.40 0.18 −0.10 +0.08 200 0.39 0.16 −0.08 +0.06 350 0.41 0.14 −0.05 +0.04
+
+The advantage spread under binary reward collapses toward zero, meaning all responses in a group receive nearly iden-tical reward. Under process reward, the advantage spread remains >1.0 throughout training, providing effective learn-ing signal. Figure 6 visualizes the topology directly: process reward defines a smooth, multi-level terrain over response space (alignment quality × reasoning quality), and a GRPO group of 8 rollouts spreads across reward levels from 0.00 to 1.13 
+
+— a gradient is available everywhere. Binary reward col-lapses the same space into two flat plateaus separated by a single cliff edge; the same 8 rollouts collapse to {0, 1} (6 12 SEVA: Self-Evolving Verification Agent with Process Reward 
+
+at 0, 2 at 1), driving within-group μ, σ → 0 in Eq. 2. The contrast is geometric: process reward is climbable, binary reward is a constant punctuated by a cliff. 
+
+## F. Adversarial Data Generation 
+
+The self-evolution loop (§2.5) uses six targeted perturba-tion strategies to generate adversarial examples. Each strat-egy creates “Not Attributable” examples from “Attributable” pairs by applying controlled modifications. 
+
+Table 19. Six adversarial perturbation strategies with examples. 
+
+Strategy Original Perturbed 
+
+Entity confu-sion 
+
+Apple released iPhone in 2007 
+
+Samsung released iPhone in 2007 Numerical pert. Revenue grew by 
+
+15% 
+
+Revenue grew by 
+
+35% 
+
+Multi-hop graft studied at Oxford studied at Cam-bridge 
+
+Paraphrase CEO announced 
+
+merger CEO denied merger Presupposition rose by 2°C rose by 2°C, highest on record 
+
+Unansw. wrap positive results results significant at 
+
+p< 0.001 
+
+Generated examples are filtered using three criteria: (1) the perturbation must be detectable by a human; (2) the per-turbed claim must remain grammatically fluent; (3) the perturbation must target the intended error type (validated by GPT-4o-mini cross-check). Approximately 15% of gen-erated examples are discarded during filtering. 
+
+## G. Structured Output Examples 
+
+We provide three examples of S EVA -GRPO structured out-put on ClearFacts: a correct positive, a correct negative with error diagnosis, and a false positive failure case. 
+
+## H. Error Taxonomy 
+
+Table 20 defines the six-category error taxonomy used for error diagnosis. Each category corresponds to a distinct failure mode in fact attribution. 
+
+Table 20. Six-category error taxonomy for attribution failures. 
+
+Error type Description 
+
+Numerical exag. Number inflated or deflated Negation flip Negation added or removed Scope inflation Specific claim overgeneralized Temporal shift Time qualifier altered Entity substitution Entity swapped for a different one Fabrication Information absent from source 
+
+The taxonomy is designed to be mutually exclusive and collectively exhaustive for the error types observed in fact attribution benchmarks. When the agent predicts “Not At-tributable,” it must select exactly one error type and provide a corresponding fix suggestion. For “Attributable” predic-tions, no error type is produced. 
+
+## I. Reward Weight Sensitivity 
+
+Our process reward uses a 70/30 process-outcome split. Ta-ble 21 reports the effect of alternative weight configurations on ClearFacts F1. 
+
+Table 21. Effect of process-outcome weight split on ClearFacts F1. The 70/30 split balances structural quality and label accuracy. 
+
+Weight split F1 Align Format 
+
+90/10 (process-heavy) 67.2 0.998 100% 
+
+70/30 (ours) 69.0 0.997 100% 50/50 (balanced) 68.1 0.985 98% 30/70 (outcome-heavy) 66.8 0.945 85% 0/100 (binary reward) <65 <0.92 ∼72% 
+
+The 70/30 split achieves the best F1 while maintaining near-perfect structural quality. Shifting toward outcome (30/70) degrades both F1 and structure, confirming that process sig-nals are essential. Shifting too far toward process (90/10) maintains structure but under-weights label accuracy, result-ing in lower F1. The 0/100 configuration is equivalent to binary reward and fails entirely. 
+
+## J. SFT vs. GRPO: Qualitative Comparison 
+
+To illustrate the qualitative difference between SFT and GRPO outputs, we show the same claim-source pair pro-cessed by both models. 
+
+SFT output (format error) Claim: “The drug reduced mortality by 30%.” 
+
+Source: “The treatment decreased death rates by approxi-mately one-third.”    
+
+> {"label": "Attributable", "confidence": 0.7 }
+
+Issues: Missing evidence alignment , missing 
+
+reasoning chain , no error diagnosis. Counted as format error (28% of SFT outputs). 
+
+13 SEVA: Self-Evolving Verification Agent with Process Reward 
+
+Figure 6. Reward landscape topology under process vs. binary reward. The same response space (alignment quality × reasoning quality) and the same 8-rollout GRPO group viewed under two reward functions. (Left) Process reward defines a smooth four-level terrain centered near (0 .85 , 0.85) , with rollouts spreading across {1.13 , 0.95 , 0.71 , 0.63 , 0.42 , 0.28 , 0.15 , 0.00 } — advantage spread 
+
+≈ ± 1.6, GRPO gradient lives across the entire surface. (Right) Binary reward defines two flat plateaus separated by a single cliff at alignment ≈ 0.6; the same 8 rollouts collapse to {0, 1} (6 at 0, 2 at 1) — advantage spread ≈ ± 0.04 , the GRPO gradient vanishes almost everywhere. 
+
+GRPO output (complete structured) Same input as above. 
+
+evidence alignment: [{claim: "reduced mortality by 30%", source: "decreased death rates by approximately one-third", status: "match" }]reasoning chain: [{part: "reduced mortality by 30%", evidence: "decreased death rates by approximately one-third", judgment: "supported", explanation: "30% and one-third are equivalent" }]label: "Attributable", confidence: 0.92 
+
+Improvement: Complete structured output with grounded evidence, step-by-step reasoning, and calibrated confidence. 
+
+## K. Prompt Templates 
+
+K.1. SFT System Prompt 
+
+The following system prompt is used during SFT training and evaluation: 
+
+System prompt for structured verification 
+
+You are a fact attribution verifier. Given a claim and a source document, determine whether the claim is fully supported by the source. Respond in JSON with the following structure: 
+
+{ "evidence alignment": [
+
+{"claim span": "...", "source span": "...", "status": "match|mismatch|not found" }], "reasoning chain": [
+
+{"claim part": "...", "source evidence": "...", "judgment": "supported|not supported |partially supported", "explanation": "..." }], "label": "Attributable|Not Attributable", "confidence": 0.0--1.0, "error type": "(if Not Attributable) numerical exaggeration|negation flip| scope inflation|temporal shift| entity substitution|fabrication", "fix suggestion": "(if NA) correction" }
+
+K.2. User Prompt Template 
+
+User prompt template 
+
+Claim: {claim }
+
+Source: {source }
+
+Is this claim attributable to the source? Provide your analysis in structured JSON format. 
+
+14 SEVA: Self-Evolving Verification Agent with Process Reward Ex. 1: Correct “Attributable” Claim: “The company was founded in 2004 and is headquar-tered in San Francisco.” 
+
+Source: “Founded in 2004, the technology firm operates from its main office in San Francisco, CA.” 
+
+Output (abbreviated):                            
+
+> evidence alignment: [
+> {claim: "founded in 2004", source: "Founded in 2004", status: match },
+> {claim: "headquartered in SF", source: "main office in SF", status: match }]reasoning chain: [
+> {part: "founded in 2004", judgment: supported },
+> {part: "headquartered in SF", judgment: supported }]label: "Attributable", conf: 0.95
+
+Gold: Attributable ✓ Correct 
+
+Ex. 2: Correct “Not Attributable” Claim: “The study involved 500 participants from 12 countries.” 
+
+Source: “The research included 500 volunteers from 8 different nations.” 
+
+Output (abbreviated):                           
+
+> evidence alignment: [
+> {claim: "500 participants", source: "500 volunteers", status: match },
+> {claim: "12 countries", source: "8 different nations", status: mismatch }]reasoning chain: [
+> {part: "500 participants", judgment: supported },
+> {part: "12 countries", judgment: not supported }]label: "Not Attributable", error type: numerical exaggeration, fix: "Change 12 to 8."
+
+Gold: Not Attributable ✓ Correct 
+
+Ex. 3: False positive — over-sensitive to paraphrase Claim: “The policy was implemented to reduce emissions.” Source: “The new regulation was enacted with the goal of lowering greenhouse gas output.”                                          
+
+> evidence alignment: [{claim: "policy was implemented", source: "regulation was enacted", status: match },
+> {claim: "reduce emissions", source: "lowering GHG output", status: mismatch }]reasoning chain: [{part: "reduce emissions", judgment: not supported, explanation: "emissions broader than greenhouse gas output" }]label: "Not Attributable", error type: scope inflation, fix: "Change emissions to greenhouse gas output."
+
+Gold: Attributable × False Positive Analysis: The model over-interprets “emissions” vs. “greenhouse gas output” as scope mismatch. This illustrates the false-positive bias (§4). 
+
+K.3. Teacher Annotation Prompt (GPT-4o-mini) 
+
+For generating structured training data, we use a more de-tailed prompt with few-shot examples: 
+
+Teacher annotation prompt (abbreviated)                             
+
+> You are an expert fact-checker creating training data for averification model. For each claim-source pair, produce adetailed analysis.
+> Requirements: •evidence alignment: ALL claim spans, even if not found in source •reasoning chain: ¿= 2 steps •Each step must reference specific source text •confidence: reflect genuine uncertainty •error type: match the actual error pattern •fix suggestion: actionable and minimal
+> [2 few-shot examples omitted for brevity]
+
+## L. Self-Evolution: Per-Round, Per-Benchmark Results 
+
+We first formalize the four-stage loop in Algorithm 2, then report absolute macro-F1 per round to back the relative deltas in Table 2. Table 22 reports absolute macro-F1 for every round of the self-evolution loop (§2.5) on the four-benchmark suite, us-ing the 7B Step150 GRPO checkpoint as the Round 0 seed. This extends Table 2 (which reports only ∆F1 vs. Step150) with the full numbers needed to reproduce the specialization fingerprint, and shows that the average F1 across bench-marks is essentially flat from Round 0 through Round 4 (70.5–71.4): the specialization is a redistribution of mass, not an aggregate gain. 
+
+Table 22. Per-round, per-benchmark macro-F1 for the four self-evolution rounds on the 7B model. “Step150” is the GRPO seed checkpoint (Round 0). Averages span the four benchmarks (CF, FEVER, TQA, HE) at equal weight. The asymmetric specialization on TQA vs. HE (§2.5) is visible from Round 2 onward; aggregate F1 stays within a ∼1 pp band, confirming that the per-bench dynamics — not the average — carry the structural finding. 
+
+Round CF FEVER TQA HE Avg 
+
+Step150 (seed) 65.2 90.7 68.8 57.1 70.5 Round 1 (rules) 64.5 90.2 69.9 57.7 70.6 Round 2 (LoRA, 1.1K) 66.5 92.3 58.6 68.0 71.4 Round 3 (Full FT, 2.0K) 65.2 91.9 55.0 71.4 70.9 Round 4 (mega-FT, 7.8K) 65.1 92.2 56.4 72.0 71.4 Step150 → R4 ∆ −0.1 +1.5 −12.4 +14.9 +0.9 
+
+Two observations strengthen the structural reading. First, the TQA → HE swap appears at Round 2 (where LoRA training on 1,122 probes is light) and sharpens at Round 3 / Round 4 15 SEVA: Self-Evolving Verification Agent with Process Reward R0 (Step150) R1 (rules) R2 (LoRA, 1.1K) R3 (Full FT, 2.0K) R4 (mega-FT, 7.8K)        
+
+> Self-Evolution round
+> 50
+> 55
+> 60
+> 65
+> 70
+> 75
+> 80
+> 85
+> 90
+> 95
+> macro F1
+> HaluEval: monotone +10.9 + 14.9 pp
+> TruthfulQA: monotone 10.2 12.4 pp
+> specialization regime
+> FEVER
+> HaluEval
+> TruthfulQA
+> ClearFacts
+> Self-evolution drives a signed, monotone specialization not a uniform improvement.
+
+Figure 7. Per-round, per-benchmark F1 trajectory across self-evolution rounds. The same data as Table 22, plotted as four trajectories. HaluEval rises monotonically ( +10 .9 → +14 .3 → +14 .9 pp); TruthfulQA falls monotonically ( −10 .2 → − 13 .8 → − 12 .4 pp); ClearFacts and FEVER stay essentially flat. The sign-consistency and monotonicity of the divergence — not aggregate accuracy — is the structural fingerprint we read as evidence that the loop responds systematically to its Probe-stage signal (§2.5). The shaded “specialization regime” (Rounds 2–4) is where targeted adversarial training is applied; Round 1 (rule injection only, no parameter update) sits outside this regime and shows near-flat trajectories on all benchmarks, consistent with no parameter update. 
+
+despite the dataset growing ∼7× between Round 2 and Round 4. The asymmetry is therefore not a calibration drift that more data corrects; it is a stable property of the probe distribution itself. Second, the per-round winners differ: Round 2 dominates CF and FEVER, Round 4 dominates HE, while Step150 (no specialization) wins TQA. No single round Pareto-dominates the others on every benchmark — a precondition for any downstream specialist-routing strategy. 
+
+What this evidence does and does not establish. We are explicit about scope. What the per-round data does estab-lish: (i) four rounds of the Verify →Reflect →Probe →Refine loop produce a stable, signed, monotone specialization fin-gerprint (Table 22, Fig. 3); (ii) the fingerprint matches the Probe stage’s target weakness profile in direction; (iii) the magnitude saturates by Round 2–3 and is not driven by raw sample count, ruling out the data-volume-overfitting read-ing. What it does not yet establish: (a) that the weakness-guided Probe distribution is strictly necessary for special-ization — a same-budget random-probe control is the nat-ural ablation and is out of scope for this submission (§4); (b) that mixing probes from heterogeneous source distri-butions would recover a generalist rather than reproduce the specialization fingerprint at a different center of mass; (c) that the effect transfers to the 3B GRPO model, where we have not run the self-evolution loop. We treat (a)–(c) as the most informative follow-up experiments and frame the current results as the within-distribution finding that motivates them. 
+
+## M. Failure Case Studies 
+
+Beyond aggregate confusion matrices (Appendix D), we study three qualitative failure modes that surface in S EVA -GRPO’s output and that future work should target. Each case is taken verbatim from ClearFacts evaluation traces. 
+
+Case F1 — Paraphrase mistaken for scope inflation. 
+
+Claim: “The policy was implemented to reduce emissions.” Source: “The new regulation was enacted with the goal of lowering greenhouse gas output.” Gold: Attributable. S EVA -GRPO predicts Not Attributable with scope inflation ,arguing that “emissions” is broader than “greenhouse gas output.” This is a textbook false positive driven by the asymmetric reward surface on Rd (§4): the agent receives more reward signal for naming a specific error type than for declaring the claim attributable, so under genuine ambiguity it leans toward Not Attributable. The case is also typical of how the six-category taxonomy is mildly over-fitted to claim-level word substitution: any plausible word-level map-ping the agent can name will count as a “diagnosis,” even when the underlying semantic relation is a valid hyponym. 16 SEVA: Self-Evolving Verification Agent with Process Reward 
+
+Algorithm 2 Self-Evolution Loop                                                                                  
+
+> Require: Seed verifier π0, held-out claim set Deval , error taxon-omy Twith |T | =6 , probe budget schedule {Bk}, max rounds
+> K
+> Ensure: Refined verifier πK
+> 1: for k= 1 , . . . , K do
+> 2: // Verify
+> 3: Vk← { (ˆ v, y ∗) : ˆ v∼πk−1(· | c, d ),(c, d, y ∗)∈ D eval }
+> 4: // Reflect
+> 5: Per-category accuracy αt←acc t(Vk)for t∈ T
+> 6: Weakness weights wt←(1 −αt)/P
+> t′(1 −αt′)
+> 7: // Probe
+> 8: Generate Pkwith |P k|=Bkadversarial probes 9: Allocate per-category counts nt=⌈wt·Bk⌉
+> 10: Filter: discard probes failing GPT-4o-mini cross-check (∼15% drop) 11: // Refine
+> 12: if k= 1 then
+> 13: πk←πk−1with extracted rules in system prompt {no parameter update }
+> 14: else
+> 15: πk←FT( πk−1,Pk∪ R k){R k: replay set }
+> 16: end if
+> 17: end for
+> 18: return πK
+
+Case F2 — HaluEval over-attribution under negative skew. Claim: “Penicillin was discovered in 1928 by Marie Curie.” Source (LLM-generated answer): “Penicillin was discovered by Alexander Fleming in 1928.” Gold: Not At-tributable (entity substitution). S EVA -GRPO correctly pre-dicts Not Attributable, but on a separate HaluEval item with subtler entity drift (“the Nobel Prize was awarded in 1921 to Einstein for the photoelectric effect” vs. source “Einstein re-ceived the 1921 Nobel for the photoelectric law”), the agent accepts the paraphrase as Attributable. HaluEval skews pos-itive ( ∼50% Attributable in our 200-sample slice, but with a long tail of near-paraphrase items the model treats as se-mantically equivalent), and S EVA -GRPO’s −2.6 F1 on this benchmark traces almost entirely to such near-paraphrase “Attributable but should be NA” calls. A deployment-time fix would tighten the alignment threshold for proper-noun substitutions, where word-level token mismatch should be weighted more heavily than for descriptive phrases. 
+
+Case F3 — Self-evolution-induced regression on Truth-fulQA. Claim: “Eating carrots significantly improves night vision in healthy adults.” Source: “Carrots contain vitamin A, which is necessary for normal vision; deficiency causes night blindness, but supplementation in adults with adequate intake does not measurably improve night vision.” Gold: Not Attributable. SEVA -7B Step150 predicts Not Attributable (correct), citing the qualifier “significantly im-proves” is not supported. After Round 3 self-evolution, the same model predicts Attributable on this item: the adversar-ial probes from the Probe stage train the agent to attend to entity- and number-level perturbations, which makes it more permissive on qualifier-level claims like “significantly im-proves.” This is the per-claim manifestation of the structural specialization finding: training pressure pushes the decision boundary toward ClearFacts/HaluEval-style failures and away from TruthfulQA-style qualifier scrutiny. The case argues that any future Probe stage should explicitly mix qual-ifier perturbations to preserve TruthfulQA-side competence, rather than concentrate on the four entity/number/temporal axes that the current six-category taxonomy already covers well. 
+
+Failure-mode summary. The three cases share a common shape: the agent’s reward surface, taxonomy, and probe distribution all pull in the same direction (more negative predictions, more entity-style diagnoses), and each case is a manifestation of that joint pressure at a different point in the pipeline. This makes the fixes coupled — a fairer 
+
+Rd, a less entity-biased taxonomy, and probe distributions that span qualifier-style errors — rather than independently composable. 
+
+## N. Compute Budget and Estimated Carbon Footprint 
+
+Table 23 extends Table 7 with an order-of-magnitude carbon-footprint estimate, following the methodology of Lacoste et al. (2019) and Strubell et al. (2019) (TDP × hours ×
+
+PUE × regional grid intensity). We use TDP Ada =300 W, TDP A100 =400 W, PUE = 1 .4 (typical academic cluster), and a US-grid carbon intensity of 0.41 kg CO 2e / kWh (eGRID 2023 US-average, U.S. EPA). We do not include adversarial-probe generation via the GPT-4o-mini API, whose carbon attribution depends on opaque hyperscaler accounting; we report it separately as “API-side, not estimated.”                                         
+
+> Table 23. Estimated energy use and CO 2e for the full pipeline. The 3B-only path (rows 1–2) is reproducible at ∼1.9 kg CO 2e — about one passenger-km of long-haul aviation; the full pipeline including four 7B self-evolution rounds is ∼12 kg CO 2e. Numbers are order-of-magnitude and intentionally do not amortize idle / setup / failed runs.
+> Stage GPU GPU-hr kWh kg CO 2e
+> 3B SFT 2×Ada 41.7 0.7 3B GRPO (350 steps) 2×Ada 16 6.7 2.8 7B SFT (LoRA) A100 80G 73.9 1.6 SE R2 (LoRA) A100 80G 52.8 1.1 SE R3 (Full FT) A100 80G 21 11.8 4.8 SE R4 (mega-FT) A100 80G 72 40.3 16.5 Evaluation (all bench) Ada 20.8 0.3
+> 3B-only 28 11.7 4.8
+> Full pipeline 130 68 28 API (probe generation) GPT-4o-mini not estimated
+
+The full-pipeline estimate ( ∼28 kg CO 2e) is well below the carbon cost of training a single 7B base model from 17 SEVA: Self-Evolving Verification Agent with Process Reward 
+
+scratch ( ∼1−10 t CO 2e for comparable scales (Strubell et al., 2019)); our cost is dominated by Round 4 mega-FT, which provides the strongest evidence for the persistence of the specialization effect at 4× data scale. For practitioners primarily interested in the process-reward GRPO contribu-tion (§2.3), the 3B-only path ( ∼4.8 kg CO 2e) is a sufficient reproduction target. 
+
+## O. Statistical Significance and Variance 
+
+We quantify the noise floor under which our claims should be read. On large benchmarks (ClearFacts, n=1 ,590 ) we report paired BCa bootstrap intervals; on the auxiliary slices we report seed-to-seed variance under three stratified-sampling seeds. Effect sizes that survive both tests carry the load-bearing weight of the paper; numbers in the noise band are flagged as trends. 
+
+Bootstrap confidence intervals. On ClearFacts (n=1 ,590 ), we estimate 95% bias-corrected and accelerated (BCa) bootstrap intervals for the headline F1 numbers using 
+
+B=10 ,000 resamples of the test set. SEVA -SFT reaches 
+
+64 .9 F1 with a 95% CI of [62 .4, 67 .3] ; S EVA -GRPO reaches 
+
+69 .0 F1 with 95% CI [66 .5, 71 .4] . The paired bootstrap (resampling claim-level predictions in tandem so that the same items contribute to both estimates) gives a ∆F1 of 
+
++4 .10 with a 95% CI of [+1 .95 , +6 .21] , well clear of zero. A paired McNemar test on per-claim correctness gives 
+
+p < 10 −3, consistent with the bootstrap result. 
+
+Per-benchmark variance. For the auxiliary benchmarks where we evaluate stratified 200 - or 400 -sample slices (Ap-pendix B), we re-run evaluation with three different seeds for stratified sampling. The seed-to-seed standard deviation of F1 is 0.6 on FEVER, 0.8 on TruthfulQA, and 1.2 on HaluE-val — comfortably below the +8 .6 / +10 .6 / −2.6 effect sizes reported in Table 4. The HaluEval regression ( −2.6)does not survive a 95% paired-bootstrap test ( p ≈ 0.08 ); we therefore interpret it as a trend rather than a significant degra-dation, but its direction is corroborated by the systematic negative-prediction bias documented in §4. 
+
+Self-evolution result stability. The per-round F1 values in Appendix L are computed on the same 200 - or 400 -sample stratified slices and inherit the same seed variance. The TQA → HE swap ( −12 .4 / +14 .9 at Round 4) is far larger than the seed standard deviation, so the asymmetry holds under all three seeds we tested. Round-to-round movement on CF/FEVER (within ±2 pp) sits closer to the seed noise band and should be read as “flat” rather than “small win.” 
+
+## P. Ethics, Bias, and Broader Impact 
+
+A verifier is, by construction, a power that decides which model outputs the world sees as “correct.” That power has to be exercised with explicit limits: a clear intended use, a documented bias profile, a stated misuse vector, and a concrete handover protocol to human reviewers. This appendix states each in turn. 
+
+Intended use. SEVA is designed as a tool that flags unsup-ported claims and surfaces structured diagnoses to a down-stream consumer — another agent that can self-correct, or a human reviewer who can audit. It is not a stand-alone arbiter of factual truth; it judges whether a claim is supported by a specific source document, which is a narrower question than “is this claim true.” Deployments that conflate these two questions (e.g. using S EVA to label public statements as “true” or “false” without reference to a specific source) misuse the system and risk false-confidence harms. 
+
+Bias and asymmetric error costs. The negative-prediction bias documented in §4 (false positives dominate; agent over-predicts Not Attributable) has direct fairness im-plications. If S EVA is deployed downstream of a generative agent whose outputs are routed to different audiences, the bias can disproportionately suppress responses to user pop-ulations whose factual claims paraphrase a source rather than copy it verbatim — a population that includes non-native English speakers and users from domains where the canonical source documents are stylistically distant from common phrasing. Mitigations include: (i) reporting both la-bel and structured diagnosis so that downstream systems can re-examine borderline negatives; (ii) calibrating the asym-metric component Rd with label-conditional reward nor-malization; (iii) auditing deployment logs for false-positive rate disparities across writing styles before promoting the verifier to a blocking position in the agent pipeline. 
+
+Dual-use considerations. A high-quality structured ver-ifier with named error types and fix suggestions could be repurposed for adversarial use: generating fact-perturbed claims that defeat existing verifiers (the same Probe-stage machinery in §2.5). We mitigate this by keeping the adver-sarial probe-generation prompt focused on six well-defined error types — which an attacker would already have to enu-merate manually — and releasing only the trained check-points and probe data , not the adversarial-generation LLM weights. The release decision was made jointly with the host institution’s research-compliance reviewer. 
+
+Privacy. All training data is derived from public NLP benchmarks (ANLI, FEVER, TruthfulQA, HaluEval, Clear-Facts) and does not contain user-identifiable information. Adversarial probes generated via GPT-4o-mini are operated 18 SEVA: Self-Evolving Verification Agent with Process Reward 
+
+on these public claims; no PII is transmitted to the API. 
+
+Environmental cost. Pipeline carbon footprint is re-ported in Appendix N: ∼28 kg CO 2e for the full pipeline, 
+
+∼4.8 kg CO 2e for the 3B-only path. Both are small relative to base-model pre-training but non-zero; the per-iteration cost of self-evolution is the primary driver, and any future work that adds rounds should weigh the carbon cost against the specialization-vs-generalization trade-off that §2.5 sur-faces. 
+
+Limits we cannot mitigate. SEVA inherits the parametric biases of its Qwen2.5 base, the annotation biases of GPT-4o-mini (the teacher used to generate 4,992 structured training samples), and the topic distribution of its training bench-marks. We do not claim universal verification competence, and users should evaluate S EVA on representative samples from their target domain before deployment. 
+
+## Q. ICML Reproducibility Checklist 
+
+We present a structured reproducibility checklist following the ICML 2026 template. • Claims: All main claims are supported by experiments in §3 (Tables 3–5) and the ablations in §4 (Tables 6, 21). The self-evolution specialization finding is supported by Tables 2, 22 and is robust under three random seeds (Ap-pendix O). • Datasets: All four evaluation benchmarks are publicly released (ClearFacts (Seo et al., 2025), FEVER (Thorne et al., 2018), TruthfulQA (Lin et al., 2022), HaluEval (Li et al., 2023)). Statistics in Table 12; stratified-sampling protocol in Appendix B. Training data is built from ANLI (Nie et al., 2020); structured annotations are re-leased alongside code. • Model: Base models (Qwen2.5-3B-Instruct, Qwen2.5-7B-Instruct) are publicly released under the Apache 2.0 license; fine-tuned checkpoints will be released on publi-cation. • Training details: Full hyperparameters for SFT (Table 8), GRPO (Table 9), inference (Table 10), and the four self-evolution rounds (Appendix L). • Reward function: Algorithm 1 provides the full process-reward computation; Appendix C gives per-component scoring rubrics. • Evaluation: Macro-F1 and accuracy computed against ground-truth labels with greedy decoding (temperature 0); confidence intervals via paired BCa bootstrap with 
+
+B=10 ,000 (Appendix O). • Compute: 3B-only pipeline reproducible in ∼28 GPU-hr on commodity 48 GB GPUs; full pipeline (4 self-evolution rounds on 7B) in ∼130 GPU-hr on a mixed Ada/A100 setup (Tables 7, 23). • Random seeds: Seed-to-seed standard deviation reported in Appendix O ( ≤ 1.2 F1 on auxiliary benchmarks). • Licenses: All released artifacts are licensed Apache 2.0 (code) and CC-BY-4.0 (data), consistent with the up-stream benchmark licenses. • Ethics and broader impact: Discussed in Appendix P; carbon footprint in Appendix N. 
+
+## Reproducibility Statement 
+
+To ensure reproducibility: • Code: Full training and evaluation code — including re-ward functions, GRPO configuration, and data-processing pipelines — is publicly available at https://github. com/Justin0504/Verifiable_agent .• Data: The structured S EVA training data ( 4,992 sam-ples), GRPO prompts ( 4,500 samples), adversarial probes from the self-evolution loop ( 1,122 /2,013 /7,787 for Rounds 2/3/4), and evaluation splits are released along-side the code. • Models: We use publicly available base models (Qwen2.5-3B-Instruct and Qwen2.5-7B-Instruct). • Hyperparameters: All hyperparameters are listed in Appendix A. • Compute: Experiments require ∼28 GPU-hours total (Table 7), accessible to academic labs. • Evaluation: We report macro F1 and accuracy on stan-dard benchmarks with fixed random seeds. Evaluation uses greedy decoding (temperature 0) for deterministic results. 19

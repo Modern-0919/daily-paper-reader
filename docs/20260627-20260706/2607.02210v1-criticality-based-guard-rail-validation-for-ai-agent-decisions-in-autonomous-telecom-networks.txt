@@ -1,0 +1,569 @@
+Title: Criticality-Based Guard Rail Validation for AI Agent Decisions in Autonomous Telecom Networks
+
+URL Source: https://arxiv.org/pdf/2607.02210v1
+
+Published Time: Fri, 03 Jul 2026 01:10:33 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+> 1
+
+# Criticality-Based Guard Rail Validation for AI Agent Decisions in Autonomous Telecom Networks 
+
+Ravi Kant Sharma Ericsson ravi.k.kant.sharma@ericsson.com 
+
+Abstract —The evolution toward fully autonomous telecommu-nications networks (Autonomous Network Levels 4–5) requires AI/ML agents to make real-time network decisions without hu-man intervention. However, no standardized runtime mechanism exists to intercept and validate individual inference outputs before they trigger live network state changes, creating risks of erroneous autonomous decisions. This paper proposes the Guard Rail Validation (GRV) framework, a standardizable runtime architecture for intercepting and validating AI-driven decisions before execution. The framework evaluates decisions across multiple weighted dimensions—including action scope, action type, service criticality, agent autonomy level, reversibility, and temporal behavioral patterns—to determine a criticality level. Based on this level, graduated validation mechanisms are ap-plied: execute-with-logging, bounds checking, independent agent validation, or multi-agent consensus. The framework additionally provides cross-agent conflict detection with criticality-weighted priority resolution and runtime conformance logging for regu-latory compliance (e.g., EU AI Act Article 14). We present the architecture, algorithmic procedures, O-RAN deployment model, and evaluate threat coverage against known AI/ML attacks in telecommunications. 
+
+Index Terms —autonomous networks, AI safety, guard rails, network management, 5G/6G, O-RAN, multi-agent systems, EU AI Act, 3GPP, inference validation 
+
+I. I NTRODUCTION 
+
+Modern telecommunications networks increasingly employ Artificial Intelligence (AI) and Machine Learning (ML) agents to monitor network conditions—such as traffic load, inter-ference, and performance metrics—and to generate corre-sponding control decisions [1]–[3]. These agents—ranging from task-specific ML models to emerging Foundation Models capable of generalizing across diverse network scenarios [4]— operate within network management and control architectures to optimize parameters, allocate resources, and adjust config-urations in near real time. The telecommunications industry is evolving toward fully autonomous networks through phases of increasing auton-omy: from AI-assisted data access, through AI-driven anal-ysis and recommendations, to fully autonomous AI-driven operations [5]. The TM Forum defines Autonomous Net-works Levels 0–5, with 3GPP SA5 studying autonomous management for 6G [6], O-RAN embedding AI/ML in the RAN Intelligent Controller (RIC) architecture [2], and ETSI Zero Touch Service Management (ZSM) defining zero-touch closed-loop automation. In this landscape, AI decisions become network actions through a pipeline: (1) an AIMLInferenceFunction runs a trained ML model analyzing network data; (2) the model produces an inference output (e.g., “reduce transmit power on cell gNB-DU-7/NRCellDU-12 by 3dB”); (3) this output is consumed by a network management function which translates it into an O1 configuration change, A1 policy, or E2 control message; and (4) the network action executes on the live network, affecting real users and services. However, there is no standardized step between step (2) and step (3). If a model is poisoned, compromised, or simply produces an erroneous output, the unsafe decision executes immediately with no safety check [1]. This gap creates five critical problems: 1) No pre-action validation : The AIMLInferenceEmula-tionFunction provides pre-deployment sandboxing but no runtime protection once deployed. 2) No criticality awareness : Not all decisions carry equal risk—reading a PM counter versus shutting down a cell serving emergency services requires fundamentally different handling. No standard defines criticality clas-sification for AI/ML agent decisions. 3) No graduated response : The only option is binary activate/deactivate of the entire inference function (activationStatus = DEACTIVATED ), which blocks all inference from that function rather than a single unsafe decision. 4) No conflict resolution : In multi-agent deployments, multiple agents may produce contradictory decisions for the same network entity with no standardized detection or resolution mechanism [7], [8]. 5) No regulatory compliance : Emerging AI regulations— such as the EU AI Act [9] Article 14(4)—require human oversight capabilities for high-risk AI systems, a re-quirement that current telecom standards do not natively fulfill via automated workflows. O-RAN WG11 identifies “Output Integrity Attack” (ML09:2023) as a HIGH-impact threat [2] but leaves the func-tional architecture and interface specifications for application-layer mitigation undefined. Existing approaches [10], [11] ad-dress related but distinct problems without providing runtime decision safety for individual inference outputs. In this paper, we propose a Guard Rail Validation (GRV) 
+
+framework that addresses all five gaps. The key contributions are:  
+
+> •
+
+A multi-dimensional criticality evaluation with tem-poral pattern detection for agent behavioral anomalies 
+
+> arXiv:2607.02210v1 [cs.AI] 2 Jul 2026 2
+
+(Section IV-A);  
+
+> •
+
+Criticality-based graduated validation applying qual-itatively different mechanisms per criticality level (Sec-tion IV-B);  
+
+> •
+
+Slice-type-aware consensus thresholds varying valida-tion requirements by affected service criticality (Sec-tion IV-B);  
+
+> •
+
+Cross-agent conflict detection with criticality-weighted priority resolution (Section IV-C);  
+
+> •
+
+Runtime conformance logging satisfying regulatory transparency requirements (e.g., EU AI Act, NIST AI RMF) (Section IV-D);  
+
+> •
+
+A Near-RT RIC variant for latency-constrained deploy-ments with escalation to full validation (Section V);  
+
+> •
+
+Protocol-level message flows defining standardizable interfaces (Section VI). The remainder of this paper is organized as follows: Sec-tion II reviews related work. Section III presents the system architecture. Section IV details the GRV procedure with algo-rithmic descriptions. Section V describes O-RAN integration. Section VI defines protocol-level message flows. Section VII describes policy configuration. Section VIII evaluates threat coverage and regulatory compliance. Section IX presents an end-to-end walkthrough. Section X discusses limitations. Sec-tion XI concludes. 
+
+A. Motivating Example 
+
+Consider an energy-saving rApp that autonomously de-activates underutilized cells to reduce power consumption. The rApp correctly identifies NRCellDU-12 as having zero traffic load and issues a deactivation command. However, NRCellDU-12 is the sole cell providing EMERGENCY slice coverage in its geographic area. Without runtime validation, this individually rational decision would immediately drop emergency service capability—a catastrophic outcome from a seemingly valid optimization. This scenario motivates the need for a validation layer that considers not just whether an action is operationally valid, but whether it is safe given the broader service context. We revisit this example in detail in Section IX. 
+
+B. Research Questions 
+
+This paper addresses two core research questions: 
+
+RQ1 : How can risk-proportional runtime validation of AI/ML agent decisions be enforced in telecommunications networks while respecting heterogeneous latency con-straints across deployment tiers? 
+
+RQ2 : Can a single, standardizable criticality model simul-taneously satisfy operational safety requirements and regulatory transparency mandates (e.g., EU AI Act, NIST AI RMF) without imposing prohibitive overhead on routine network operations? C. Scope and Non-Goals 
+
+The GRV framework is a runtime safety layer that gates inference outputs before execution. It explicitly does not aim to:  
+
+> •
+
+Verify model correctness : GRV does not certify that an AI model is correct or unbiased. It validates individual outputs at runtime, regardless of model quality.  
+
+> •
+
+Replace offline validation : Pre-deployment testing (AIMLInferenceEmulationFunction) and model certifi-cation remain necessary. GRV complements these by providing runtime protection after deployment.  
+
+> •
+
+Provide formal safety guarantees : Unlike control-theoretic safety filters or formal verification, GRV is a configurable, policy-based mechanism. It reduces risk pragmatically rather than proving safety mathematically.  
+
+> •
+
+Perform post-hoc anomaly detection : GRV operates 
+
+before action execution (proactive), not after degradation is observed (reactive). It complements—but does not replace—post-deployment monitoring. II. R ELATED WORK 
+
+A. 3GPP AI/ML Management Framework 
+
+3GPP TS 28.105 [1] defines the AI/ML manage-ment framework with a dedicated set of Information Ob-ject Classes (IOCs) for the ML model lifecycle. Key entities include: AIMLInferenceFunction (runs inference, has activationStatus ); AIMLInferenceReport (reports model performance with decisionConfidenceScore ); 
+
+AIMLInferenceEmulationFunction (pre-deployment sandbox-ing); and AIMLManagementPolicy (defines thresholds for ML management). However, the AIMLInferenceReport is a model performance metric—not a safety mechanism. It provides no pre-action validation, no decision blocking capability, and records no information about whether the decision was safe for the network. Once deployed, model outputs are assumed safe to consume directly. 
+
+B. O-RAN Security Analysis 
+
+O-RAN WG11 [2] identifies “Output Integrity Attack” (ML09:2023) as a HIGH-impact threat where an adversary manipulates AI/ML model output to force incorrect decisions. Model outputs in O-RAN become A1 policies, E2 control messages, or O1 configurations. The analysis recommends “Monitoring” as a security control but provides no specifica-tion of: what to monitor, how to evaluate output safety, what action to take on unsafe detection, or how to log decisions for audit. 
+
+C. Regulatory Requirements 
+
+The EU AI Act (Regulation 2024/1689) [9] categorizes AI systems by risk level. Telecommunications AI managing critical infrastructure is likely high-risk under Annex III, requiring: risk management systems (Article 9), human over-sight mechanisms (Article 14), transparency and logging of decisions (Article 12), and technical robustness (Article 15). Article 14(4) specifically requires that high-risk AI systems provide the ability to “correctly interpret the system’s output,” “decide not to use the system or to override its output,” and “interrupt the system through a stop button or similar procedure.” No existing telecom standard provides mecha-nisms satisfying these requirements for autonomous network management decisions. 3                                                
+
+> TABLE I COMPARISON OF EXISTING APPROACHES WITH GRV F RAMEWORK
+> Approach Mechanism Criticality Conflict Regulatory Audit Std.
+> 3GPP TS 28.105 [1] Model lifecycle mgmt. ×××✓
+> O-RAN WG11 [2] Threat identification ×××✓
+> O-RAN WG2/WG3 [12] Parameter conflict detection ×Platform ×✓
+> GB2640186A [10] Trust-building, single validator Uniform ×××EP4677817A1 [11] Agent exploration control Cell-level ×××EP4595478A1 [8] Post-deployment rate limiting ××××US12309027B2 [13] Conflict coordination ×Basic ××
+> GRV (ours) Graduated validation Multi-dim. Crit.-weighted ✓×
+
+D. Existing Patent Approaches 
+
+Table I summarizes existing approaches and their limita-tions. EP4677817A1 [11] controls which agents can perform ex-ploratory actions based on cell criticality. However, it operates at agent-level permissioning rather than individual decision validation—it does not intercept and evaluate each inference output at runtime. EP4595478A1 [8] detects performance degradation post-deployment and modifies action rates. This is a reactive approach—by the time degradation is detected, unsafe actions have already executed. Our framework provides proactive pre-action validation. US12309027B2 [13] and GB2628888B [7] provide conflict resolution mechanisms but lack criticality-based graduated val-idation, temporal pattern detection, and regulatory compliance logging. 
+
+E. Runtime Safety in Adjacent Domains 
+
+Runtime intervention on autonomous decisions has been studied in adjacent domains: shielded RL [14] pre-computes safe action sets from formal specifications and restricts agent choices at runtime; control barrier functions [15] enforce forward invariance of safe sets via minimally invasive control corrections; runtime verification [16] monitors execution traces against safety predicates, flagging violations for enforcement layers; and LLM guardrails [17] constrain generative AI outputs via programmable rule systems. These approaches share the runtime intervention principle with GRV but address fundamentally different operational contexts. First, they target individual agent–environment loops rather than concurrent multi-vendor agents with conflicting optimization objectives over shared infrastructure. Second, their safety criteria are system-intrinsic (physical constraints, logical specifications, or content policies) rather than de-rived from operational context that changes with time-of-day, subscriber density, and regulatory classification. Third, none provide the combination of graduated response (qualitatively different validation mechanisms per criticality level), cross-agent consensus, and auditable decision logging required by telecom regulatory frameworks. III. S YSTEM ARCHITECTURE 
+
+A. Overview 
+
+The GRV framework operates as a mandatory validation layer within the AI/ML management pipeline, positioned between inference output production and network action ex-ecution. Fig. 1 illustrates the high-level architecture within the 3GPP/O-RAN management context. The management system—which may be part of the Service Management and Orchestration (SMO) or non-RT RIC—performs validation of inference outputs before any consumption by targeted network management functions. The GRV procedure is triggered by one of two mechanisms:  
+
+> •
+
+Transparent interception : The management system au-tomatically captures inference outputs within the man-agement pipeline without requiring modification of the agent.  
+
+> •
+
+Explicit invocation : The AIMLInferenceFunction sends a guardRailValidationRequest to the manage-ment system before releasing its output. Transparent interception requires no change to AIMLInfer-enceFunction behavior—only the management system’s output handling path is modified. All inference outputs resulting in network state changes are subject to the GRV procedure. Read-only operations (telemetry queries, PM counter reads) are excluded via a formal rule: if actionType = READ , the criticality level is set to LOW regardless of other dimension scores. 
+
+B. Entity Roles 1) Primary Agents: AIMLInferenceFunction instances with 
+
+inferenceRole=PRIMARY produce inference outputs specifying network actions. These are the standard inference-producing agents (rApps in the non-RT RIC, xApps in the Near-RT RIC, or standalone management functions). 
+
+2) Validator Agents: AIMLInferenceFunction instances with inferenceRole=VALIDATOR evaluate the safety of inference outputs produced by primary agents. A valida-tor evaluates the inference output against its own indepen-dent knowledge—using a different ML model, a rule-based safety constraint engine, a network state lookup, or any combination—and returns a standardized three-value response:  
+
+> •
+
+AGREE : The action is assessed as safe to execute.  
+
+> •
+
+DISAGREE : The action is assessed as unsafe (mandatory rationale field). 4
+
+Agent Decision 
+
+Criticality Evaluation 
+
+Graduated Validation Enforcement                             
+
+> Agents (rApps, xApps, ML Functions) Multi-Dimensional Scoring Proportional to Risk + Conflict Resolution Execute — Block — Escalate
+> Fig. 1. GRV framework overview. Agent inference outputs are evaluated across multiple weighted dimensions, subjected to graduated validation proportional to the assessed criticality, and enforced with one of three outcomes. TABLE II CRITICALITY EVALUATION DIMENSIONS
+> Dimension Categories Range Weight
+> Action Scope Single →Network-wide 1–4 1.0 Action Type Read →Shutdown 0–4 1.0 Service Criticality mMTC →Emergency 1–4 1.5 Autonomy Level Advisory →Autonomous 0–2 1.0 Reversibility Immediate →Irreversible 0–2 1.0 Temporal Pattern Normal →Oscillating/Burst 0–2 1.5
+> •
+
+UNCERTAIN : Cannot determine safety with sufficient confidence. Validator outputs are consumed exclusively by the GRV procedure and are never forwarded to network management functions for execution. Outputs from VALIDATOR instances are exempt from guard-rail validation (preventing recursive loops). The VALIDATOR role is operator-provisioned only—it cannot be self-declared by an agent. 
+
+Validator bootstrapping : In single-vendor or resource-constrained deployments where diverse ML-based validators are unavailable, operators may deploy lightweight rule-based validators encoding domain constraints (e.g., “never deactivate the last cell serving an EMERGENCY slice”) or reuse existing network management functions as validators (e.g., a coverage verification function). When no validators are available, the safety invariants apply: HIGH and CRITICAL actions without validator consensus MUST be ESCALATED with mandatory operator notification. IV. G UARD RAIL VALIDATION PROCEDURE 
+
+The GRV procedure comprises four sub-procedures ex-ecuted sequentially for each intercepted inference output: (1) Decision Criticality Evaluation, (2) Graduated Validation, (3) Conflict Resolution, and (4) Runtime Conformance Log-ging. Fig. 2 shows the overall flow. 
+
+A. Sub-procedure 1: Decision Criticality Evaluation 
+
+Each inference output is evaluated across multiple weighted dimensions to determine a criticality level (LOW, MEDIUM, HIGH, or CRITICAL). The framework is domain-agnostic— dimensions are pluggable—but for autonomous telecom net-works, we define the six dimensions in Table II. 
+
+Inference Output Intercepted 
+
+Sub-proc 1: Criticality Evaluation 
+
+Sub-proc 2: Graduated Validation 
+
+Sub-proc 3: Conflict Resolution 
+
+Sub-proc 4: Conformance Logging 
+
+EXECUTE / BLOCK / ESCALATE  
+
+> criticality level
+> validation result
+> resolution
+> Fig. 2. GRV procedure overview: four sequential sub-procedures applied to each intercepted inference output.
+
+1) Dimension Details: Action Scope assesses breadth: SINGLE ELEMENT (1); MULTI ELEMENT (2); SLICE (3); NETWORK WIDE (4). 
+
+Action Type classifies severity: READ (0); CONFIG-URE (1); ACTIVATE (2); DEACTIVATE (3); SHUT-DOWN (4). The action type is determined by the management system via schema-based lookup against the NRM’s attribute access types—not by the agent’s self-declared type. This pre-vents a malicious agent from disguising state-changing actions as READ. Unknown targets default to CONFIGURE (1). 
+
+Service Criticality maps from slice type: mMTC (1); eMBB (2); URLLC (3); EMERGENCY (4). When a target entity serves multiple slice types, the highest-scoring type is used. In non-sliced deployments, defaults to eMBB (2). 
+
+Autonomy Level reflects operational mode: ADVI-SORY (0); SUPERVISED (1); AUTONOMOUS (2). This is an operator-configured attribute that may change during the 5
+
+agent’s lifecycle. 
+
+Reversibility assesses recoverability: IMMEDIATE (0); DELAYED (1); IRREVERSIBLE (2). 
+
+Temporal Pattern evaluates the decision against a slid-ing window of recent outputs: NORMAL (0), first de-cision of this type in window; FREQUENT (1), out-puts from same agent targeting same parameter exceed 
+
+frequencyThreshold within evaluationWindow ;OSCILLATING (2), outputs modify same parameter in oppo-site directions within oscillationWindow ; BURST (2), outputs from ≥burstThreshold distinct agents target same entity within evaluationWindow . When multiple patterns are detected simultaneously, the highest score is used. 
+
+2) Temporal State Management: The sliding window state is maintained in-memory per (agent, parameter, target) tuple. Algorithm 1 formalizes the temporal pattern detection logic. 
+
+Algorithm 1 Temporal Pattern Detection 
+
+Require: Output O, Temporal state T , Policy P
+
+Ensure: Temporal score d6 ∈ { 0, 1, 2} 
+
+> 1:
+
+key ← (O. agentDN , O. parameterName , O. targetDN ) 
+
+> 2:
+
+window ← T. getRecent (key, P. evaluationWindow ) 
+
+> 3:
+
+score ← 0
+
+{FREQUENT: same agent, same param, same target } 
+
+> 4:
+
+if |window | + 1 > P. frequencyThreshold then  
+
+> 5:
+
+score ← max( score, 1)  
+
+> 6:
+
+end if 
+
+{OSCILLATING: contradictory action within oscillation window } 
+
+> 7:
+
+recent ← T. getRecent (key, P. oscillationWindow ) 
+
+> 8:
+
+if ∃ o ∈ recent s.t. contradicts (o, O ) then  
+
+> 9:
+
+score ← max( score, 2)  
+
+> 10:
+
+end if 
+
+{BURST: distinct agents targeting same parameter on same entity } 
+
+> 11:
+
+agents ← T. getDistinctAgents (O. targetDN , 
+
+> 12:
+
+O. parameterName , P. evaluationWindow ) 
+
+> 13:
+
+if |agents | ≥ P. burstThreshold then  
+
+> 14:
+
+score ← max( score, 2)  
+
+> 15:
+
+end if  
+
+> 16:
+
+T. append (key, O ) {Update sliding window } 
+
+> 17:
+
+return score 
+
+Complexity : The temporal state maintains a bounded slid-ing window per (agent, parameter, target) tuple. Each evalu-ation requires O(W ) operations where W is the maximum number of decisions retained per window. Legitimate coordinated operations (e.g., planned load bal-ancing across agents) may be whitelisted in the policy to exempt them from BURST scoring. 
+
+3) Criticality Calculation: Algorithm 2 presents the com-plete evaluation procedure. The weighted score S = P6 
+
+> i=1
+
+wi · di has a maximum value of 21 with the default weights from Table II. Thresholds are operator-configurable via GuardRailPolicy. The MEDIUM boundary ensures that even a moderate single-element action on a critical slice triggers bounds checking; the CRITICAL boundary requires multiple high-scoring dimensions to align simultaneously. 
+
+Algorithm 2 Decision Criticality Evaluation 
+
+Require: Inference output O, Policy P , Temporal state T
+
+Ensure: Criticality level L ∈{LOW, MEDIUM, HIGH, CRITICAL } 
+
+> 1:
+
+{Safety invariant: READ actions always LOW } 
+
+> 2:
+
+if O. actionType = READ then  
+
+> 3:
+
+L ← LOW; return L 
+
+> 4:
+
+end if  
+
+> 5:
+
+d1 ← evaluateScope (O. targetDN ) 
+
+> 6:
+
+d2 ← evaluateActionType (O, NRM schema ) 
+
+> 7:
+
+d3 ← evaluateSliceType (O. targetDN ) 
+
+> 8:
+
+d4 ← getAutonomyLevel (O. agentDN ) 
+
+> 9:
+
+d5 ← evaluateReversibility (O. actionType , O. targetDN ) 
+
+> 10:
+
+d6 ← evaluateTemporalPattern (O, T ) 
+
+> 11:
+
+w ← P. weights  
+
+> 12:
+
+S ← P6 
+
+> i=1
+
+wi · di 
+
+> 13:
+
+if S ≥ P. criticalMin then  
+
+> 14:
+
+L ← CRITICAL  
+
+> 15:
+
+else if S ≥ P. highMin then  
+
+> 16:
+
+L ← HIGH  
+
+> 17:
+
+else if S ≥ P. mediumMin then  
+
+> 18:
+
+L ← MEDIUM  
+
+> 19:
+
+else  
+
+> 20:
+
+L ← LOW  
+
+> 21:
+
+end if  
+
+> 22:
+
+return L
+
+B. Sub-procedure 2: Graduated Validation 
+
+Based on the criticality level, qualitatively different vali-dation mechanisms are applied. Fig. 3 summarizes the four levels.  
+
+> LOW (Score 0–4)
+> No validation Outcome: EXECUTED + Log
+> MEDIUM (Score 5–8)
+> Bounds check Outcome: EXECUTED or BLOCKED
+> HIGH (Score 9–12)
+> Independent validator Outcome: EXECUTED, BLOCKED, or Fallback
+> CRITICAL (Score 13+)
+> M-of-N consensus Outcome: EXECUTED or ESCA-LATED
+> Low risk
+> High risk
+> Fig. 3. Graduated validation: each criticality level triggers a qualitatively different validation mechanism.
+
+1) LOW (Score 0–4): Execute with Logging: The decision executes immediately. No additional validation is required. The conformance log records the decision for audit purposes. 
+
+2) MEDIUM (Score 5–8): Bounds Check: The management system checks the inference output against operator-defined 6
+
+safe ranges:  
+
+> •
+
+Is the parameter value within the allowed range? (e.g., transmit power 0–46 dBm)  
+
+> •
+
+Is the rate of change within limits? (e.g., max 5 handover policy changes per minute)  
+
+> •
+
+Does the action violate any hard constraints? (e.g., min-imum cells per coverage area) Bounds are defined per action type and per network entity type in the GuardRailPolicy. If no bounds definition exists for the target parameter, the check is treated as PASS with a conformance log note. 
+
+3) HIGH (Score 9–12): Independent Validation: The infer-ence output is routed to a Validator AIMLInferenceFunction— an independent instance with different model architecture, different training data, or rule-based logic. On AGREE, ex-ecute. On DISAGREE, block with notification and recorded rationale. On UNCERTAIN, apply fallback policy (config-urable: DELAY, REDUCE SCOPE, or ESCALATE). If the validator does not respond within timeout, the result is treated as UNCERTAIN. Validators must differ in at least one of model architecture, training data provenance, or validation approach. If insufficient diverse validators are available, the procedure falls back to MEDIUM bounds check. 
+
+4) CRITICAL (Score 13+): Multi-Agent Consensus: The decision is routed to N validators (configurable, default 
+
+N = 3 ). Each independently returns AGREE, DISAGREE, or UNCERTAIN. The consensus rule requires M -of-N AGREE (default 2-of-3). For EMERGENCY slice actions, unanimous consensus is required. The agent that produced the output is excluded from serving as its own validator. If fewer than M validators respond within timeout, the procedure falls back to HIGH-level single validation. If no validators respond, the decision is BLOCKED and escalated. 
+
+C. Sub-procedure 3: Conflict Resolution 
+
+After validation, the management system checks for con-flicts with other pending decisions targeting the same network entity before execution. 
+
+1) Conflict Detection: The management system maintains a short-lived decision queue. Before executing any validated output, it checks whether another pending decision targets the same ManagedElement/NetworkSlice with contradictory intent. Two decisions conflict if they: (a) modify the same pa-rameter in opposite directions, or (b) have mutually exclusive outcomes (activate vs. deactivate same function). 
+
+2) Priority Evaluation and Resolution: When conflict is detected, priority is evaluated based on the ordered criteria in Table III. The higher-priority decision executes; the lower-priority decision is either deferred, blocked, or escalated to the operator per policy. Current conflict detection is limited to direct conflicts (same entity, same parameter). Topology-aware detection for indirect conflicts is future work.                          
+
+> TABLE III CONFLICT PRIORITY EVALUATION CRITERIA (O RDERED )
+> Rank Criterion Rule
+> 1Slice Criticality EMERGENCY >URLLC >eMBB >
+> mMTC 2Action Urgency Time-sensitive (fault recovery) wins 3Agent Trust Historical reliability score 4Operator Rules Configurable per rApp/use case 5Temporal First-submitted wins (tie-breaker)
+> Non-RT RIC / SMO
+> rApp 1 rApp 2
+> GRV Framework
+> Near-RT RIC
+> xApp 1 xApp 2
+> GRV (latency-constrained)
+> A1 escalate
+> Fig. 4. O-RAN deployment model. Full GRV operates in the Non-RT RIC/SMO for rApps. A latency-constrained variant in the Near-RT RIC performs bounds checking and escalates to the full GRV on violation.
+
+D. Sub-procedure 4: Runtime Conformance Logging 
+
+Every decision passing through the GRV procedure gen-erates a structured conformance log entry containing: agent identity, proposed action, criticality evaluation (dimension scores and level), validation result (validator responses and consensus outcome), conflict resolution if applicable, and final outcome with rationale. This satisfies regulatory transparency requirements (e.g., EU AI Act Article 14) by documenting what the system decided, how it was evaluated, and why. V. O-RAN I NTEGRATION 
+
+The GRV framework supports two deployment modes within the O-RAN architecture, differentiated by latency con-straints. Fig. 4 illustrates the deployment model. 
+
+A. Non-RT RIC: Full Validation 
+
+Within the SMO, the full GRV procedure applies to rApp inference outputs before they become A1 policies or O1 configuration changes. All dimensions are evaluated, all vali-dation levels are available, temporal pattern detection operates synchronously, and conflict detection spans all rApps managed by the SMO. 
+
+B. Near-RT RIC: Latency-Constrained Variant 
+
+The Near-RT RIC operates under strict latency constraints. This prevents full GRV evaluation (which requires external validator calls for HIGH/CRITICAL actions). The lightweight 7Agent GRV Validators (1..N)       
+
+> inferenceOutput
+> Evaluate
+> →CRITICAL
+> validationRequest
+> evaluate
+> AGREE / DISAGREE
+> Consensus: M-of-N AGREE?
+> outcome + log
+> Fig. 5. CRITICAL-level consensus flow. GRV routes the inference output to
+> Nvalidators, evaluates M-of-Nconsensus, and returns the outcome.
+
+variant is a deliberate trade-off: reduced safety coverage in exchange for latency compliance.  
+
+> •
+
+Bounds check only : Actions are validated against a pre-computed local policy cache. No external validator calls.  
+
+> •
+
+Escalation : Actions exceeding bounds or matching no whitelist entry are escalated to the Non-RT RIC for full GRV evaluation via the A1 interface.  
+
+> •
+
+Asynchronous temporal monitoring : Pattern detection runs post-execution. This is a compensating control—it cannot prevent unsafe actions but can detect patterns and trigger operator alerts for follow-up action. This variant does not provide equivalent safety to the full GRV. It provides best-effort pre-execution bounds checking within latency constraints, with post-execution monitoring as a safety net. VI. P ROTOCOL -L EVEL MESSAGE FLOWS 
+
+Fig. 5 illustrates the CRITICAL-level flow as the most comprehensive example. 
+
+A. Flow Summary 
+
+Four protocol flows cover the GRV operating modes: 
+
+MEDIUM (Bounds Check): Agent produces output; GRV evaluates criticality; performs bounds check against policy; forwards if within bounds, blocks if exceeded. No external calls. 
+
+HIGH (Independent Validation): GRV routes output to a single diverse validator; validator returns AGREE/DISAGREE/UNCERTAIN; GRV acts accordingly. 
+
+CRITICAL (Multi-Agent Consensus): GRV routes output to N validators (excluding the producing agent); collects responses; evaluates M -of-N consensus; forwards or blocks with escalation. 
+
+Explicit Invocation: For guard-rail-aware agents that send a validation request before releasing their output. Identical eval-uation logic; supports agents designed for GRV integration. VII. P OLICY CONFIGURATION 
+
+All GRV parameters—criticality thresholds, dimension weights, consensus requirements, temporal windows, and conflict resolution rules—are operator-configurable via aGuardRailPolicy. Policies can be scoped globally, per slice type, per agent, or per action type, with the most specific scope taking precedence. Policy modifications require operator authentication and are themselves logged in the conformance record, preventing unauthorized weakening of safety thresholds. VIII. E VALUATION 
+
+We evaluate the GRV framework against two criteria: (1) coverage of known AI/ML security threats in telecommu-nications, and (2) alignment with EU AI Act requirements for high-risk AI systems. 
+
+A. Threat Coverage Analysis 
+
+Table IV maps known AI/ML threats in telecommunications (from O-RAN WG11 [2]) to GRV framework defense mech-anisms. 
+
+B. EU AI Act Compliance Mapping 
+
+Table V maps EU AI Act requirements for high-risk AI systems to GRV framework features. IX. E ND -TO -E ND WALKTHROUGH 
+
+We trace an energy-saving rApp (autonomyLevel=AUTONOMOUS ) proposing: “Deactivate NRCellDU-12 on gNB-DU-7 to save energy.”  
+
+> •
+
+Criticality Evaluation : Schema lookup reveals NRCellDU-12 serves an EMERGENCY slice. Dimension scores: Scope=1, Type(DEACTIVATE)=3, Service(EMERGENCY)=4, Autonomy=2, Reversibility(DELAYED)=1, Temporal(NORMAL)=0. Weighted total exceeds CRITICAL threshold.  
+
+> •
+
+Multi-Agent Consensus : CRITICAL level with EMER-GENCY slice requires unanimous consensus. Validator-1 (rule-based): AGREE—cell load is zero. Validator-2 (ML-based): DISAGREE—sole EMERGENCY coverage in area. Validator-3 (constraint checker): DISAGREE— minimum coverage SLA violated.  
+
+> •
+
+Outcome : 1-of-3 AGREE (required: 3-of-3). Decision BLOCKED. Operator notified. Conformance log written. The EMERGENCY slice remains operational. Without GRV, the cell would have been deactivated immediately. The graduated approach ensures routine energy-saving actions proceed unimpeded while high-impact decisions receive pro-portionate scrutiny. X. D ISCUSSION 
+
+A. Enabling Autonomous Network Levels 4–5 
+
+The GRV framework provides a technical mechanism for transitioning from AN Level 3 (human-approved) to Level 4 (autonomous with guard rails) [5]. Operators can delegate de-cisions to AI/ML agents with assurance that unsafe decisions are intercepted before execution. 8
+
+B. Limitations and Future Work  
+
+> •
+
+No empirical evaluation : The framework is presented as an architecture. Performance claims (latency, distribution) require implementation and measurement against live network traffic.  
+
+> •
+
+False positives : Lower thresholds increase safety but may block operationally valid actions. Threshold calibration against real operational patterns is required before de-ployment.  
+
+> •
+
+Direct conflicts only : Current detection covers same entity, same parameter. Topology-aware detection for indirect conflicts (e.g., interference coupling) is future work.  
+
+> •
+
+Validator availability : HIGH/CRITICAL levels require deployed validators. In their absence, the framework falls back to lower validation levels.  
+
+> •
+
+Threshold sensitivity : Small weight changes can shift decisions between adjacent levels. Logging-only deploy-ment for calibration is recommended before enforcement. XI. C ONCLUSION 
+
+We have presented the Guard Rail Validation (GRV) frame-work for runtime validation of autonomous AI/ML agent decisions in telecommunications networks. The framework provides multi-dimensional criticality evaluation, graduated validation proportional to risk, temporal pattern detection, cross-agent conflict resolution, and conformance logging for regulatory compliance. The architecture is domain-agnostic in its evaluation model, with telecom-specific dimensions demonstrated as one instantiation. Future work includes proto-type implementation, empirical evaluation against live network traffic, and formal standardization through 3GPP SA5. REFERENCES [1] 3GPP SA5, “3GPP TS 28.105 V19.5.0: Management and orchestration; AI/ML management,” 3rd Generation Partnership Project, Tech. Rep., 2026, release 19. [2] O-RAN WG11, “O-RAN.WG11.TR.AIML-Security-Analysis.0-R005-v05.00,” O-RAN Alliance, Tech. Rep., 2024. [3] Ericsson, “Talk to your network: Igniting the AI revolution in autonomous networks,” https://www.ericsson.com/en/blog/2025/ talk-to-your-network, 2025, ericsson Blog. [4] A. Maatouk et al. , “Foundation models for telecom: Opportunities and challenges,” IEEE Communications Magazine , 2024. [5] TM Forum, “Autonomous networks framework,” https://www.tmforum. org/autonomous-networks, 2025. [6] Huawei and HiSilicon, “S2-2507223r1: [WT#3.1] AI for 6G architec-ture,” 3GPP SA2, Tech. Rep., 2025, SA2 Meeting #170, Aug 2025. [7] “GB2628888B: Conflict management of AI/ML operations in commu-nications networks,” 2024, UK Patent. [8] “WO2024069208A1: Managing Conflicts between Radio Access Net-work Automation Applications in a Communication Network,” 2024, PCT International Publication. TABLE IV THREAT COVERAGE : GRV D EFENSE MECHANISMS AGAINST KNOWN AI/ML A TTACKS IN TELECOMMUNICATIONS 
+
+Threat Attack Vector GRV Defense Mechanism 
+
+Output Integrity Attack Adversary manipulates model out-put to force incorrect decisions Bounds checking catches out-of-range values; independent validation catches semantically unsafe outputs MEDIUM: bounds; HIGH: validator Model Poisoning Corrupted training data causes sys-tematically bad outputs Temporal pattern detection catches col-lectively destructive sequences Temporal: FREQUENT, OS-CILLATING Coordinated Multi-Agent Attack Multiple compromised agents si-multaneously target same entity BURST detection triggers when distinct agents target same parameter within window Temporal: BURST Action Type Spoofing Malicious agent declares state-changing action as READ Schema-based action type classification ignores agent’s self-declared type Criticality evaluation Oscillation Attack Agent alternates contradictory ac-tions to degrade network OSCILLATING pattern detection catches parameter reversals Temporal: OSCILLATING Privilege Escalation via Self-Validation Agent validates its own outputs Producing agent excluded from valida-tor pool for its own outputs Consensus: conflict-of-interest rule TABLE V EU AI A CT REQUIREMENT MAPPING TO GRV F RAMEWORK FEATURES 
+
+Article Requirement GRV Feature Mechanism 
+
+Art. 9 Risk management system Multi-dimensional criticality evaluation with operator-configurable thresholds Continuous risk assessment per de-cision Art. 12 Record-keeping and logging Conformance log capturing full decision chain Automated logging for every deci-sion Art. 14(4)(a) Correctly interpret output Criticality scores, dimension breakdown, and validator rationales Structured decision metadata Art. 14(4)(b) Decide not to use / override output Graduated validation: BLOCK, ESCALATE, op-erator notification Autonomous override of unsafe outputs Art. 14(4)(c) Interrupt via stop button Failsafe modes; operator notification with rec-ommended action Halt capability Art. 15 Accuracy, robustness, cyberse-curity Anti-bypass classification, validator diversity, temporal pattern detection Defense-in-depth 9
+
+[9] European Parliament, “Regulation (EU) 2024/1689 of the European Parliament and of the Council (EU AI Act),” Official Journal of the European Union, 2024. [10] “GB2640186A: Robust AI/ML based network control with trust build-ing,” 2024, UK Patent Application. [11] M. Bouton, A. Palaios, P. Geuer, C. Watermann, J. Jeong, and K. Vandikas, “WO2024183933A1: Operation of Agents in a Com-munication Network,” 2024, PCT International Publication, Applicant: Telefonaktiebolaget LM Ericsson. [12] O-RAN WG2, “O-RAN.WG2.TS.AIML-Workflow,” O-RAN Alliance, Tech. Rep., 2024, AI/ML workflow for RIC. [13] A. Banerjee and S. S. Mwanje, “US12309027B2: Coordination and Control Mechanism for Conflict Resolution for Network Automation Functions,” 2025, US Patent, Assignee: Nokia Technologies Oy. [14] M. Alshiekh, R. Bloem, R. Ehlers, B. K¨ onighofer, S. Niekum, and U. Topcu, “Safe reinforcement learning via shielding,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 32, no. 1, 2018. [15] A. D. Ames, S. Coogan, M. Egerstedt, G. Notomista, K. Sreenath, and P. Tabuada, “Control barrier functions: Theory and applications,” 
+
+European Control Conference (ECC) , 2019. [16] M. Leucker and C. Schallhart, “A brief account of runtime verification,” 
+
+The Journal of Logic and Algebraic Programming , vol. 78, no. 5, pp. 293–303, 2009. [17] T. Rebedea, R. Dinu, M. N. Sreedhar, C. Parisien, and J. Cohen, “NeMo Guardrails: A toolkit for controllable and safe LLM applications with programmable rails,” in Proceedings of EMNLP 2023: System Demonstrations , 2023.
