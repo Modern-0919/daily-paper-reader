@@ -1,0 +1,228 @@
+Title: Design and Implementation of Agentic Orchestrations and Orchestration of Agents
+
+URL Source: https://arxiv.org/pdf/2606.31518v1
+
+Published Time: Wed, 01 Jul 2026 01:00:36 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Design and Implementation of Agentic Orchestrations and Orchestration of Agents 
+
+Stefanie Rinderle-Ma, Juergen Mangler, Johannes Loebbecke, Dominik Voigt, Nataliia Klievtsova, Matthias Ehrendorfer 
+
+Technical University of Munich, TUM School of Computation, Information and Technology, Garching, Germany, firstname.lastname@tum.de 
+
+Abstract. Agentic Business Process Management has gained momen-tum recently. The prospect is that the autonomy of AI agents, i.e., pre-dominantly LLM-based agents, can be balanced with a certain level of robustness, tractability, and traceability through a combination with pro-cess technology. In this paper, we provide a classification framework for agentic orchestration options along properties such as task specificity, traceability and tractability, autonomy and reactivity, and correctness assurance and present qualitative decision criteria for realizations of dif-ferent scenarios. We also provide metrics for the quantitative assessment of realization properties and show them through different agentic imple-mentations of a predictive light sensing scenario. Altogether, this work aims at providing properties, criteria, and metrics for the design and implementation of agentic orchestrations and orchestration of agents. 
+
+Keywords: Agentic Orchestration · Agentic Workflow · Orchestration of Agents · Process-Awareness · Agentic BPM · LLM Agents 
+
+## 1 Introduction 
+
+Recently, the concept of Agentic Business Process Management (ABPM) has gained increased attention, resulting in manifestos and perspectives [3,4,21]. While these works provide important and necessary definitions and research agendas, the question of how to realize and implement ABPM scenarios of vary-ing complexity is still open. To approach this question, at first, we have to distinguish different scenarios of how agents are defined and employed in process scenarios. [3] distinguishes between i) human agents such as a clerk in a loan application process, ii) soft-ware agents, being based on code “without deliberation” , iii) physical agents such as machines, and iv) AI agents “that accomplish tasks by means of deliber-ation via AI algorithms and models, for example, using generative AI techniques such as LLMs” . The definition of iv) is in accordance with other and more gen-eral definitions of AI agents as provided by, for example, Gartner: “AI agents are autonomous or semi-autonomous software entities that use AI techniques to perceive, make decisions, take actions and achieve goals in their digital or physical environments. Breakthroughs in AI technology (e.g. evolving GenAI,  
+
+> arXiv:2606.31518v1 [cs.AI] 30 Jun 2026 2S. Rinderle-Ma et al.
+
+multimodal understanding and composite AI) have enabled organizations to use AI agents for complex tasks.” 1. i), ii), and iii) have been used and invoked in process orchestrations. In this work, we will focus on AI agents .When talking about AI agents, the term AI can also be interpreted in different ways, ranging from machine learning methods to generative AI such as Large Language Models (LLMs). As the latter has gained high traction lately and in current literature AI agents mostly refer to LLMs, we will focus on LLM-based agents in this work (referred to as agents for brevity). Another question next to the definition of agents is their usage for orches-tration. The BPM community has shown that agents can be employed for the design and redesign of process orchestrations, [7,12,13]. First works address the automation of the created process models. In [15], for example, executable python code can be created based on process models and services. Approaches on cre-ating executable process models including data flow and endpoint specification is currently still missing. Realizing real-world (process) scenarios using agents requires to decide on the specificity or granularity of the tasks that are realized by agents [18]. This is an open question in BPM, as well [2]. The solutions might range from one agent realizing and orchestrating the entire scenario ( agentic orchestration ) to mul-tiple agents being invoked in a process orchestration ( orchestration of agents ). Especially scenarios that are realized by multiple agents, i.e., agentic systems, 
+
+“represent a paradigm shift from isolated AI Agents to collaborative, multi-agent ecosystems capable of decomposing and executing complex goals” , “consist of or-chestrated or communicating agents” , and raise “amplified and novel challenges that compound existing limitations of individual LLM-based agents” [18]. Con-sidering task specificity of agents [18] combined with the considerations of framed autonomy in [3], culminates in the following Orchestration Options (OO) for realizing scenarios by agents and their orchestrations: 
+
+OO1 Process-agnostic Agentic Orchestration: One agent orchestrates mul-tiple work steps, using, for example, protocols such as MCP (Model Context Protocol) 2 for tool connection and A2A (Agent-to-Agent) 3 for agent collab-oration. The agent is not aware of any explicit process frame or logic. 
+
+OO2 Process-Aware Agentic Orchestration: An agent executes a process orchestration and is (partly) aware of a frame for the execution, stem-ming from, e.g., regulatory documents or process descriptions. No additional frame, “outside the agent” is provided. 
+
+OO3 Orchestration of Process Agnostic Agents: A (partial) process spec-ification serves as frame in which AI agents are invoked. The agents them-selves are process-agnostic. 
+
+OO4 Orchestration of Process-Aware Agents: An explicitly defined pro-cess orchestrates agents that autonomously execute tasks or sub processes. The agents themselves can be also aware of a frame or process.     
+
+> 1https://www.gartner.com/en/articles/hype-cycle-for-artificial-intelligence
+> 2https://modelcontextprotocol.io/docs/getting-started/intro
+> 3https://a2aprotocol.ai/ Agentic Orchestration 3
+
+The transition between the OOs is fluid, especially if the process is declar-ative and hence consists of a set of rules, resulting in a solution similar to [8]. This work proposes a classification based on orchestration options OO1–OO4 in Sect. 2 and discusses them along desirable properties collected from literature on agents and agentic BPM [18,3,4,21], i.e., i) autonomy, ii) task specificity, iii) reactivity, iv) correctness assurance, and v) traceability and tractability. Based on an illustration of OO1–OO4 for a predictive light sensing scenario [9], we har-vest qualitative criteria for selecting and implementing an OO. Implementations of OO1–OO4 for the predictive light sensing scenario are provided in Sect. 3 and metrics for their quantitative assessment in Sect. 4. Section 5 sketches OO1–OO4 for a more complex blood donation process scenario. Section 6 discusses related work and Sect. 7 closes with a summary. 
+
+## 2 Classification of Agentic Orchestration Options 
+
+The classification framework depicted in Fig. 1 summarizes options OO1–OO4 described in the introduction and augments them with the foundational charac-teristics of AI agents as mentioned in [18], i.e., i) autonomy, ii) task specificity, and iii) reactivity. We add characteristics iv) correctness assurance and v) trace-and tractability as typical properties supported by frames and processes [3]. i Autonomy is one of three foundational properties of agents and refers to the ability take decisions with minimal human intervention [18]. ii Task Specificity is another foundational property of agents and refers to the granularity an agent is operating on [18]: for agentic support, the granularity tends to well-defined, specific tasks. The specificity is also influenced by the decision space of an agent which refers to the different decisions an AI agent can take and consequently defines the action space of an agent [18]. iii Reactivity is another foundational property of agents and refers to ability to respond to changes [18]. iv Correctness assurance refers to the ability to give guarantees for an achieved state or outcome. v1 Traceability refers to the ability to understand why a decision in the agentic orchestration was taken and how a certain state or outcome was achieved. This contributes i.a. to “Explainability" and “C4: Liability and accountabil-ity” mentioned in [3] as well as “Emergent Behavior and Predictability”, “Trust, Explainability, and Verification”, and “Ethical and Governance Chal-lenges” mentioned in [18]. v2 Tractability refers to the ability to influence how a decision, state, or outcome is achieved. It can contribute to challenges “Amplified Causality Challenges”, “Debugging Complexity”, and “Trust, Explainability, and Verification” [18] as well as “M2: How to evaluate the success or failure of modifications?” [3]. In the following, we discuss and illustrate each OO based on a light sensing scenario similar to the scenarios described in [1,18]. Further examples can be found in [5]. The description of the basic scenario is as follows: 4 S. Rinderle-Ma et al. Services / Agents / Human Tasks Regu atory Documents D {} Process Descriptions System /Too     
+
+> Documentations Agent User Input MCP Agent User Input MCP Agents Services Human Tasks User Task Service Agent A
+
+X XAgent B Input {} System Documentation User Task Service Agent A X XAgent B Input Regu atory Documents DProcess Descriptions 
+
+> i) Autonomy iv) Correctness Assurance ii) Task Specificity v) Trace- and Tractabi ity iii) Reactivity
+> OO1: Process-agnostic Agentic Orchestration OO2: Process-Aware Agentic Orchestration OO3: Orchestration of Process Agnostic Agents OO4: Orchestration of Process-Aware Agents
+
+Fig. 1. Classification of Options for Orchestration and Agentic Orchestration 
+
+BASIC 
+
+User preferences regarding the lighting in the building are collected. The outside light conditions are constantly measured by light sensors. Depending on the light intensity and the user preferences, the light in the room switched on, switched off, or maintained. 
+
+ Properties: BASIC can be realized by OO1, i.e., by process-agnostic agen-tic orchestration where the agent orchestrates and executes services and other agents, possibly via protocols such as MCP, and can take input from users. No process logic or frame is defined. As the agent in OO1 acts independently of any frame or processes, its autonomy and reactivity are high, and the task specificity might be medium too low. As the agent behavior is black box, OO1 is low in traceability, tractability, and correctness assurance, i.e., we can neither provide information on how an outcome was achieved nor give any assurances on the outcome correctness or quality. In BASIC, this means that we can observe the outcome, i.e., light on or off, but not reproduce why. 
+
+ Selection Criteria: OO1 could be desirable for scenarios that 1) have a clearly defined, simple goal or outcome (light on or off), 2) do not require human over-sight of internal steps, 3) do not adhere to requirements or constraints, 4) do not involve human work/actions, 5) include a (non-restricted) decision space for the agent functionality, 6) require low initial effort for realization, and 7) have low requirements regarding maintenance. Note that 5) is connected to the specificity of the task and can be used as differentiation to realizing the functionality as a service instead of an agent. The lighting scenario, for example, could be also Agentic Orchestration 5
+
+realized by a service orchestration, especially if the rules for switching the light on/off are fixed. Assume now that a condition is added to BASIC, resulting in FRAME: FRAME <BASIC>. If the light has been on for 10 hours, it should be switched off. FRAME could be realized by using OO2 where the agent is aware of a frame given by, e.g., process descriptions, regulatory documents, or systems and tool documentations. The frame can be directly included in the prompt or extracted from additional sources by the agent. Figure 2 depicts FRAME processed by using autobpnm.ai as agent into a frame represented as process model. Co  ect User Preferences Measure Outside Light Conditions Switch Light On Check Light Duration Switch Light Off On for 10 hours Not on for 10 hours Low Light Maintain Light Check Light Duration Switch Light Off   
+
+> On for 10 hours Not on for 10 hours Medium Light Switch Light Off High Light
+> E|T|G
+
+User preferences regarding the lighting in the building are collected . The outside light conditions are constantly measured by light sensors .
+
+Depending on the light intensity the light in the room switched on ,
+
+switched o ff , or maintained . If the light has been on for 10 hours , it should be switched o ff .
+
+Success 
+
+Fig. 2. FRAME processed by agent autobpmn.ai as OO2 
+
+ Properties: As OO2 is aware of a frame, this results in higher traceability and tractability while the autonomy of the agent is still high. The frame might result in reduced reactivity, especially if it restricts the action space to react on changes in the environment. For FRAME, this might be the case if the outside light conditions become suddenly very dark, e.g., due to a thunderstorm, but the lighting has been on for 10 hours. Correctness assurance might be the same or a bit higher than for OO1, depending on the influence of the frame on the outcome of the agentic orchestration. 
+
+ Selection Criteria: OO2 could be desirable for scenarios that 1) have a clearly defined, simple goal or outcome (light on or off), 2) do not include human over-sight of internal steps and/or human interaction, 3) adhere to requirements or constraints, 4) do not involve human work/actions, 5) include a (restricted) de-cision space for the agent functionality, 6) require initial effort for realization, and 7) require low maintenance effort. 6 S. Rinderle-Ma et al. Contro  Lighting Check 10 Hours Thresho dSwitch Light Off yes        
+
+> Fig. 3. FRAME using agent invoked by process orchestration in cpee.org (OO3)
+
+We can realize FRAME also by using OO3, i.e., an agent that is process-agnostic itself, handles the user preferences and switches the light on/off. The frame, i.e., the condition to switch off the light after 10 hours, is realized by embedding the agent into a (process) orchestration. Take Fig. 3 that adapts the scenario in Fig. 2 by invoking Control lighting as sub-process and realizing the condition as part of the orchestration. 
+
+ Properties: For OO3, the frame realized by the orchestration of the agent can provide increased correctness assurance. In the example, it can be ensured that the light is switched off for sure after 10 hours. Deciding which parts of the frame are realized “outside” the agent is related to deciding on the decision space of the agent and hence on its autonomy, reactivity, and task speci-ficity. As the agent itself is process-agnostic and rather black box, the behavior realized by the agent lacks traceability and tractability. 
+
+ Selection Criteria: OO3 could be desirable for scenarios that are 1) have a clearly defined goal or outcome (light on or off), 2) do not require human over-sight of certain steps, 3) adhere to requirements or constraints, partly requiring guarantees, 4) involve human work/actions, 5) include a restricted decision space for the agent functionality, 6) require low initial effort for realization, and 7) re-quire low maintenance effort. We now extend the light sensing example to a smart building example by additionally collecting user preferences regarding the temperature and turning the heating on/off accordingly: ORCHESTRATE <BASIC>. In parallel, the room temperature is measured and the heater is turned on/off based on collected user preferences. ORCHESTRATE can be realized by OO4 where (multiple) agents are in-voked by a process orchestration (frame) and are process-aware themselves. 
+
+ Properties: OO4 refers to the (framed) orchestration of process-aware AI agents, resulting in lower autonomy and flexibility of the agents, higher correct-ness assurance, and higher traceability and tractability. 
+
+ Selection Criteria: OO4 could be desirable for scenarios that 1) have a complex goal or outcome (light on/off, user satisfied with lighting and temperature) 2) include human oversight of internal steps and/or human interaction, 3) adhere to multiple requirements or constraints, partly requiring guarantees, 4) might involve human work/actions, 5) provide actions spaces of varying autonomy to Agentic Orchestration 7
+
+multiple agents, 6) require initial effort for realization, and 7) require very low maintenance effort. Note that the options for realizing the different scenario variants BASIC, FRAME, and ORCHESTRATE are fluid, i.e., different options can be chosen for the different scenarios. It would be also possible to realize the scenario entirely without an agent, i.e., by a process orchestration. Table 1 summarizes possible selection criteria for orchestration options OO1– OO4, illustrated by the realization of the lighting scenario above. 
+
+Table 1. Qualitative Criteria for Selecting Orchestration Options 
+
+Criterion OO1 OO2 OO3 OO4 
+
+1) Goal simple complex 2) Human oversight not required required 3) Constrained no yes 4) Human action no yes 5) Decision space unrestricted constrained unrestricted constrained 6) Initial effort low high low high 7) Maintenance eff. high low low 
+
+## 3 Design and Implementation of Agentic Light Sensing 
+
+This section designs, implements, and simulates OO1–OO4 (cf. Fig. 1) for the predictive light sensing scenario introduced in Sect. 2: we consider a cyber-physical scenario which measures lighting based on lux ( Lumens Area ), movement, and occupancy count inside a room and adjusts the lumen according to the sen-sor values, user inputs and/or specifications using an LLM agent. We create an artificial dataset consisting of x measurement events, for which occupancy count and movement is assumed minimal during night hours. For each measurement we calculate a range of ground truth lumen values according to the set of rules in Tab. 2 using the assumption of a single lamp that can produce any lumen value between 0 and 5000 and is positioned at 3 meters above the floor with a circu-lar beam angle of 60 ◦ that uniformly covers the entire room 4. To simulate real sensors, the measurement events and a lamp endpoint are provided via REST interfaces, which are connected to an LLM agent via MCP. We experimented with the following LLMs, i.e., mistralai/Ministral-3-14B-Reasoning-2512 ,
+
+google/gemma-4-31B-it , Qwen/Qwen3.6-35B-A3B , and qwen-35-35b-coding .Details on the implementation can be found on GitHub 5. 
+
+> 4
+
+Lux formula: Lux = Lumens  
+
+> 2π(3) 2(1 −cos(30 ◦))
+
+= Lumens  
+
+> 18 π
+> 
+> 1−
+> √32
+> 
+
+≈ Lumens  
+
+> 7.5761
+> 5
+
+https://github.com/JohannesLbck/SimpleAgenticScenario 8 S. Rinderle-Ma et al.                                                  
+
+> Prio Condition Consequence
+> 0User input present React to user input request 1Occupancy <1and current lumen == 0 Do not change lamp lumen 2Occupancy <1and current lumen =! 0 Set lumen to 0
+> 3Night ( 23 –6) and movement detected Target 50 lux 4Night ( 23 –6) and no movement Set lumen to 0
+> 5Morning ( 6–9) and occupancy ≥1Target 100 –200 lux 6Midday ( 9–14 ) and occupancy ≥1Target 300 –500 lux 7Afternoon ( 14 –18 ) and occupancy ≥1Target 200 –300 lux 8Evening ( 18 –23 ) and occupancy ≥1Target 200 –300 lux 9Else: (default deny) Do not change lamp lumen
+> Table 2. Rules considered as the ground truth for the lighting scenario using default deny semantics. User-input rule 0 is only applicable in the LLM-based variants.
+
+For implementing OO1, the agent is not framed and contains minimal context information through the following prompt which refines BASIC in Sect. 2: PROMPT OO1 ( → BASIC) Adjust the lighting based on standard guidelines for brightness during day/night and sleep/being awake. Also consider that the light should be turned on whenever it is dark and I want to go somewhere! Make sure this is done for the next 72 seconds (check for the conditions every second)! Log the tools you use along with their parameters (apart from the logging tool itself)! For OO2, the agent is not framed by a process, but aware of a frame provided to the agent via context information through the following prompt: PROMPT OO2 ( → FRAME) Adjust the lighting based on the following rules: Do not change the lumen of the lamp unless any of the following rules hold: (1) If there is user input react to user input, (2) If the occupancy is less than 1 then lower lumen to 0, (3) In the night (23-6) if there is movement aim for 50 lux, (4) In the night (23-6) if there is no movement lower lumen to 0, (5) In the morning (6-9) if occupancy is greater or equal 1 then aim for 100-200 lux, (6) during midday (9-14) if occupancy is greater or equal 1 then aim for 300-500 lux, (7) In the afternoon (14-18) if occupancy is greater or equal 1 aim for 200-300 lux, and (8) In the evening (18-23) if occupancy is greater or equal 1 then aim for 200-300 lux! Make sure this is done for the next 72 seconds (check for the conditions every second)! Log the tools you use along with their parameters (apart from the logging tool itself)! Agentic Orchestration 9 
+
+> Fig. 4. Orchestration of agents for lighting scenario implementation (OO3 and OO4)
+
+For the implementation of OO3 and OO4, the agent is framed by a process illustrated in Fig. 4 that ensures some rules are deterministically enforced, either provided a simple prompt for OO3 or a complex prompt for OO4 (without the deterministically enforced rule). Note that here the scenario partly deviates from the simplistic descriptions in Sect. 2. PROMPT OO3 It is currently #data.time, the lamp is currently at #data.current and the current lux is at #data.ambient. Set the lumen value to a value you think makes sense! PROMPT OO4 It is currently #data.time, the lamp is currently at #data.current and the current lux is at #data.ambient and the lamp is currently at #data.current lumen. Do not change the lumen of the lamp unless any of the following rules hold: (1) If it is night, turn of the Light if it is running. (2) If it is morning aim for 100-200 lux, (3) If it is midday aim for 300-500 lux, (4) If it is afternoon aim for 200-300 lux, and (5) If it is evening aim for 200-300 lux! Use the logging tool! Finally, to provide a better comparison we create a purely deterministic (man-ually modeled) version of OO2 denoted as OO5 , which correctly enforces rules 10 S. Rinderle-Ma et al. 
+
+1→9 (cf. 6). Finally, OO6 (cf. 7) is used to illustrate how rules 1 →9 can be enforced deterministically, while user inputs are forwarded to an agent. (1) Higher autonomy is often assumed for agent solutions, but the actual in-formation and action space of agents is clearly restricted through the connected tools, which have to be connected like in a traditional workflow orchestration. (2) Any temporal constraints are challenging to enforce, as the reasoning times of LLMs are unpredictable, so they require frames/tools to enforce temporal relationships. (3) Relying on agents for logging is generally not recommended, even when logging tools are provided. (4) It is challenging to control the LLM context window for long workflows. (5) The less framed the orchestration the more challenging it is to debug, due to the different software layers which re-quire extensive boilerplate code to ensure messages are correctly propagated (i.e., LLM-Agent calls MCP tool, which calls a REST service, which connects to a MQTT server, which connects to a sensor). (6) The less framed the orchestra-tion, the more confounding variables via textual descriptions are added. (7) An unframed orchestration does not require translating textual requirements into a formal language. 
+
+## 4 Metrics for Orchestration Option Assessment 
+
+Table 1 offers qualitative criteria for selecting options OO1–OO4. To additionally enable their quantitative assessment along the properties depicted in Fig. 1, we propose first metrics to capture task specificity, correctness, reactivity, and traceability, whereas autonomy and tractability are subject to future work. 
+
+Task Specificity: We propose two measures for task specificity of agent or-chestrations based on well-established software complexity measures, i.e., the Cyclomatic complexity M [14] and the ABC Complexity < ABC > [6]. The in-tuition is to consider a (potentially imagined) process that surrounds the agent orchestration: In the case of orchestrations in OO1, the agent(s) are not included in a surrounding process, and as such the task specificity is minimal, while if the agents are included in a workflow (such as in a process orchestration of style OO3/OO4), the task specificity increases depending on how much agent logic is moved to the process logic. As the amount of logic in the process can be cap-tured using software complexity metrics, they can be used to compare the task specificity of different agent orchestrations for a process/workflow. An overview of different example orchestrations with the respective measures is in Tab. 3 and example calculation scripts are provided on GitHub 5.The Cyclomatic complexity of a process is defined as M := E −N +2 P where 
+
+E refers to the number of edges and N to the number of nodes on the longest path resp., and P refers to the number of connected components. For M it is irrelevant whether the start/end nodes as well as its connectors are considered for the process model as they add a single node/edge each and thus cancel out. The same applies regarding whether every decision/parallel leads back to    
+
+> 6https://cpee.org/hub/server/Papers.dir/AgenticFundamentals.dir/005.xml/open?stage=view
+> 7https://cpee.org/hub/server/Papers.dir/AgenticFundamentals.dir/006.xml/open?stage=view Agentic Orchestration 11
+
+a decision/parallel (i.e., block structuredness) or directly to the next node. For OO1 and OO2, i.e., a single agent without any process frame, the agent is the only connected component; thus: M = 0 − 0 + 2 ∗ 1 = 2 . For OO3 and OO4, the task specificity increases depending on how much logic is explicitly included in the process model vs how much logic is implicitly left to the agent. ABC complexity has been proposed as a metric that can be calculated in a single pass over the data structure ( O(N )) while presenting better insights and being more adaptable than other simple metrics such as lines of code. ABC metric is defined as the vector ⟨A, B, C ⟩ where |A| is the amount of Assign-ments, |B| the amount of Branches, and |C| is the amount of Conditionals, with the associated ABC score defined as its scalar |ABC | = √A2 + B2 + C2. As branches in this context are explicit forward program branches out of scope of the original program, we can interpret B as the set of activities and subpro-cesses (including agents), while C refers to the set of exclusive, parallel, and loop operators. Regarding assignments A, we consider only script tasks, which contain (usually short) data object computations, as part of A. This also enables proposing different weights for the final metric. For example, it can make sense to consider activities/subprocesses as making the orchestration less task specific than moving logic into the process model by including it via operators. In this case a weighted |ABC w| score such as |ABC w| = √A2 + 0 .8 ∗ B2 + C2 could be appropriate. Similarly the metric can also be extended to enable different weights depending on the type of activity. For example a ABCD metric, where 
+
+D contains all agent tasks can help highlight the degree of autonomy in addition to comparing task specificity. Both measures can be applied analogously to compare the task specificity as defined in current agent orchestration frameworks like crewAI flows or AgentSDK workflow-patterns. However, it is important to note that both M and ABC 
+
+provide only a comparative measure between flows/orchestrations of the same 
+
+process/workflow, and do not have any semantic meaning when considering a single orchestration in isolation or when comparing two orchestrations of different processes/workflows. 
+
+Correctness: For correctness, we consider a true positive (TP) as an event that was executed and required according to some set of rules R, a false positive (FP) as an event that was executed, but not required according to R, and a false negative (FN) as an event that was not executed, but required according to R. Accordingly, we evaluate correctness using precision P , recall R, and the combined F 1 score calculated as: P = T P T P +F P , R = T P T P +F N ,F 1 = 2 ∗ P ∗RP +R .
+
+Reactivity: We capture reactivity using the False Negative Rate F N R defined as F N R = F N F N +T P and the reactivity-speed Rs, defined as the average time between an event that requires a consequence event, according to R.
+
+Traceability: We consider traceability as the correctness of the log created by the orchestrators Lo, i.e., if log created by the AI Agent in OO1/OO2 or the execution engine in OO3/OO4 actually captures all events that were actually executed Lt. As such, for traceability, we consider a TP any event e which is part of both Lo and Lt, a FP any e ∈ Lo ∧ e / ∈ Lt, and a FN any e / ∈ Lo ∧ e ∈ Lt.12 S. Rinderle-Ma et al.                                                                      
+
+> M⟨A, B, C ⟩|ABC |PRF1F N R Rs
+> OO1 2⟨0,1,0⟩1.00 0.67 0.33 0.40 0.67 12.10 OO2 2⟨0,1,0⟩1.00 0.63 1.00 0.77 0.00 0.10 OO3 13 ⟨0,4,2⟩4.47 0.50 1.00 0.67 0.00 10.18 OO4 13 ⟨1,5,2⟩5.48 0.95 1.00 0.97 0.00 22.10 OO5 17 ⟨8,4,5⟩10.25 1.00 1.00 1.00 0.00 0.08 OO6 20 ⟨8,5,5⟩10.67 1.00 1.00 1.00 0.00 0.08
+> Table 3. Metric comparison of OO1–OO6 (cf. Sect. 3). User Input is not considered; hence the deterministic OO5/6 reflect the ground truth.
+
+Results: Analyzing the results in Tab. 3, we identify that both M and ABC cor-rectly capture task specificity as expected, i.e., an orchestration where the agent is only responsible for more specific cases has higher M and ABC scores. Com-paring the two metrics we find the ABC metric more useful and adaptable and 
+
+M can capture the basic relationship in a single value. Regarding correctness, we can see how context information always improves P and R, while including a frame also requires additional context information to improve correctness. Re-garding reactivity, we cannot identify any relevant information from the F N R ,as the LLM reacts to inputs as long as either context information was provided or the frame was added, while Rs depends on too many other factors such as the model load, which are not accounted for. 
+
+Threats to validity: We only present the results of initial experiments to il-lustrate our proposed metrics which are subject to several glaring threats of validity such as the lack of a comparison of different prompts, potential overfit-ting in prompt engineering, confounding factors such as model load and network delays, and the chosen models. It is especially important to highlight that for the ground truth values we did not consider user inputs, which is the primary reason for including an agent in this scenario. 
+
+## 5 Complex Real World Scenario: Blood Donation 
+
+We finally illustrate a complex real world scenario, based on guidelines for the use and quality assurance of blood components given in the European Blood Guide 8.In this guide, the donor registration process is strictly regulated and consists both of activities that can be automated, such as the identify verification and the provision of relevant information, as well as human tasks where the physician in charge of the blood donation has to make the final eligibility decision in specific cases identified through a questionnaire. An OO4 framed/aware agent orchestration of this process is illustrated in Fig. 5. A naive orchestration of this scenario would be a single agent with connected tools and the task to complete the registration of a blood donor . In this  
+
+> 8https://www.edqm.eu/en/blood-guide
+
+Agentic Orchestration 13 Stop Donation Process           
+
+> Verify Identity
+> Provide Information
+> Answer Use rQueries Obtain Consent
+> Direct Acceptance Direct Rejection Physician
+> New Potentia Donor
+> Present Consent Options
+> Digita Signatur eVoca Consen tSignatur eUnsuccessfu 
+> Obtain Consent
+> Offer Verification Options
+> FaceScan ID Digita ID Verification Fai ed  Verify Identity
+> AI Agent
+> Agentic Subprocess
+> Human Task
+> Service
+
+Legend :
+
+> Conduct Interview and Questionnaire
+
+Donor Registration Process 
+
+Fig. 5. Process-framed Agentic Blood Donor Registration based on the Blood Directive (2002/98/EC) & Blood Guide 6, May 21. 2026). 
+
+scenario, such an unframed/unaware orchestration is unacceptable as there are strict execution and documentation requirements enforced by the blood directive. Providing context information, by e.g., uploading the Blood Guide to a vector database for a Retrieval Augmented Generation Agent orchestration would likely improve the behavior, but still entails unacceptable risks. Specifically essential tasks such as a donor always having the opportunity to retract their consent and abort the donation should be deterministically enforced. As such a framed solu-tion (i.e., Fig. 5), where the stopping is enabled through a service in parallel with different agents orchestrated in a workflow is appropriate in this case. A further question then becomes which task specificity is appropriate for this solution. For example, the identity verification and the obtaining of consent, can be both pure single agents with connected tools, purely deterministic, agents with ad-ditional context information or agentic sub-processes, where a frame surrounds the agent to restrict which choices can actually be taken. However, there are also tasks where a purely deterministic solution is unsuited, as the constraints enforce that potential donors have the ability to ask questions regarding the nature of blood donations, which is suitable for a LLM agent. 
+
+## 6 Related Work 
+
+As stated in [21], agentic processes and orchestrations have a long history, in-cluding problem-solving agents [10] and agent-based auction processes [17]. Since then, service and agent concepts have evolved with AI. Agents realize specific more complex tasks such as machine learning and natural language processing and have become highly autonomous and intelligent entities that can take action (agentic AI) [18,16]. This work starts from the current understanding of (LLM) 14 S. Rinderle-Ma et al. 
+
+agents and addresses combined challenges and claims from agentic BPM and agent systems [3,21,4,18] taking a realization and implementation perspective. This perspective has only taken by few BPM approaches so far: in [8], the au-thors propose a chain instructor that creates a sequence of steps for a given task to be executed by an agent. This is related to OO2. [11] extract a set of rules from text to augment RPA tasks (OO2 or OO3). Complementary lines of re-search exist. In [15], we have created process code from text using agents. [19,20] are concerned with discovering agent systems from event data. The latter could be combined with logging concepts for OO1–OO4. 
+
+## 7 Conclusion 
+
+This work aims at supporting the design and implementation of (complex) real-world process scenarios using agents. One central question is task specificity, i.e., which task(s) are actually realized and implemented by an agent. To this end, we propose to utilize the properties of task specificity, correctness assurance, re-activity, and traceability and their quantitative assessment as well as qualitative criteria. We also provide an implementation of a lighting scenario with four dif-ferent orchestration options and an illustration for a blood donation process. The analysis conducted in this work leads to follow-up research questions: (1) How to handle data flow between agents invoked in orchestrations? (2) How to han-dle changes of agents and their behavior if they are invoked in orchestrations? (3) How to include human work with agent work in orchestrations? (4) How to ensure temporal constraints in agent orchestrations? 
+
+## References        
+
+> 1. An, T., Zhou, Y., Zou, H., Yang, J.: Iot-llm: A framework for enhancing large lan-guage model reasoning from real-world sensor data. Patterns 7(1), 101429 (2026) 2. Beerepoot, I., et al.: The biggest business process management problems to solve before we die. Comput. Ind. 146 , 103837 (2023) 3. Calvanese, D., et al.: Agentic Business Process Management: A research manifesto. Information Systems 140 , 102738 (2026) 4. Dumas, M., et al.: AI-augmented business process management systems: A research manifesto. ACM Trans. Manag. Inf. Syst. 14 (1), 11:1–11:19 (2023) 5. Fettke, P., Köpke, J., Fill, H.: Llm, lam, lxm agent: From talking to acting machines insights from the perspective of conceptual modeling. Enterp. Model. Inf. Syst. Archit. 20 (2025). https://doi.org/10.18417/EMISA.20.3
+> 6. Fitzpatrick, J.: Applying the abc metric to c, c++, and java. More c++ gems pp. 245–264 (1997) 7. Grohs, M., Abb, L., Elsayed, N., Rehse, J.: Large language models can accomplish business process management tasks. In: BPM Workshops. pp. 453–465 (2023) 8. Guan, Y., Wang, D., Chu, Z., Wang, S., Ni, F., Song, R., Zhuang, C.: Intelligent agents with llm-based process automation. In: Knowledge Discovery and Data Mining. pp. 5018–5027. ACM (2024)
+
+Agentic Orchestration 15 9. Hu, J., Jia, H., Hassan, M., Yao, L., Kusy, B., Hu, W.: Lightllm: A versatile large language model for predictive light sensing. In: Embedded Networked Sensor Systems. pp. 158–171 (2025) 10. Jennings, N.R., Norman, T.J., Faratin, P.: Adept: An agent-based approach to business process management. ACM Sigmod Record 27 (4), 32–39 (1998) 11. Kaltenpoth, S., Skolik, A., Müller, O., Beverungen, D.: A step towards cognitive automation: Integrating LLM agents with process rules. In: Business Process Man-agement. pp. 308–324 (2025) 12. Klievtsova, N., Kampik, T., Mangler, J., Rinderle-Ma, S.: Conversational process model redesign. Int. J. Cooperative Inf. Syst. 35 (1), 2650004:1–2650004:37 (2026) 13. Kourani, H., Berti, A., Schuster, D., van der Aalst, W.M.P.: Promoai: Process modeling with generative AI. In: Artificial Intelligence. pp. 8708–8712 (2024) 14. McCabe, T.J.: A complexity measure. IEEE Transactions on software Engineering (4), 308–320 (1976) 15. Monti, F., Leotta, F., Mangler, J., Mecella, M., Rinderle-Ma, S.: Nl2processops: Towards llm-guided code generation for process execution. In: Business Process Management Forum. pp. 127–143 (2024) 16. Nisa, U., Shirazi, M., Saip, M.A., Pozi, M.S.M.: Agentic ai: The age of reasoning—a review. Journal of Automation and Intelligence 5(1), 69–89 (2026) 17. Pascalau, E., Giurca, A., Wagner, G.: Validating auction business processes using agent-based simulations. In: Business Process, Services Computing and Intelligent Service Management. pp. 95–109 (2009) 18. Sapkota, R., Roumeliotis, K.I., Karkee, M.: AI agents vs. agentic AI: A conceptual taxonomy, applications and challenges. Inf. Fusion 126 , 103599 (2026) 19. Shen, Q., Polyvyanyy, A., Lipovetzky, N., Kampik, T.: Agent system event data: Concepts, dimensions, applications. In: Conceptual Modeling. pp. 56–72 (2024) 20. Tour, A., Polyvyanyy, A., Kalenkova, A.A., Senderovich, A.: Agent miner: An algorithm for discovering agent systems from event data. In: Business Process Management. pp. 284–302 (2023) 21. Vu, H., Klievtsova, N., Leopold, H., Rinderle-Ma, S., Kampik, T.: Agentic business process management: Practitioner perspectives on agent governance in business processes. In: Responsible BPM Forum. pp. 29–43 (2026)

@@ -1,0 +1,892 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-07-06T20:41:40.213057+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 2,
+    "deep_divecandidates": 18,
+    "deep_cap": 7,
+    "deep_selected": 7,
+    "quick_candidates": 29,
+    "quick_skim_target": 12,
+    "quick_selected": 12
+  },
+  "deep_dive": [
+    {
+      "id": "2606.30573v1",
+      "source": "arxiv",
+      "title": "SWE-INTERACT: Reimagining SWE Benchmarks as User-Driven Long-Horizon Coding Sessions",
+      "abstract": "We introduce SWE-Interact, a new testbed for evaluating coding agents on multi-turn, interactive, user-driven software engineering tasks. Existing frontier SWE benchmarks typically provide complete requirements upfront and evaluate agents on autonomous implementation. In contrast, SWE-Interact places agents in a realistic developer workflow: a carefully designed user simulator starts with vague or incomplete instructions, progressively reveals requirements, inspects the agent's workspace, and provides targeted feedback, revisions, and new constraints until the full task goal has been handed off. Grounded in large-scale studies of real coding-agent interactions, this setup tests whether agents can discover user intent, adapt to evolving requirements, and build on their own prior work. Across a suite of frontier and open-weight models, we find that strong performance on single-turn SWE tasks does not reliably transfer to multi-turn, user-driven workflows: the best-performing models solve roughly 50% of single-turn baseline tasks but only 25% of the corresponding SWE-Interact tasks. The strongest models in our evaluation, including Opus 4.8 and GPT 5.5, start strong even in the face of vague initial instructions, persevere until all the requirements are surfaced by the user, integrate them better and write clean code. However, they still suffer from over-agentic coding, forgetting requirements and technical mistakes. Weaker models start poorly under ambiguity, give up early, forget or ignore instructions and rework their code more. Overall, SWE-Interact measures an orthogonal, real-world capability axis for frontier model development: interactive goal discovery and iterative refinement with a user in the loop.",
+      "authors": [
+        "Mohit Raghavendra",
+        "Anisha Gunjal",
+        "Aakash Sabharwal",
+        "Yunzhong He"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-06-29T17:17:45+00:00",
+      "link": "https://arxiv.org/pdf/2606.30573v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "new benchmark for interactive multi-turn coding agent evaluation",
+      "llm_evidence_cn": "面向交互式多轮编码智能体评估的新基准",
+      "llm_evidence": "面向交互式多轮编码智能体评估的新基准",
+      "canonical_evidence": "面向交互式多轮编码智能体评估的新基准",
+      "llm_tldr_en": "Introduces SWE-Interact, a testbed with user simulator for interactive coding agent evaluation, testing trajectory adaptation to evolving requirements.",
+      "llm_tldr_cn": "本文提出SWE-Interact测试床，通过用户模拟器逐步揭示需求，评估编码智能体在多轮交互中的轨迹适应性，为智能体轨迹测试提供了更贴近真实开发流程的基准。",
+      "llm_tldr": "本文提出SWE-Interact测试床，通过用户模拟器逐步揭示需求，评估编码智能体在多轮交互中的轨迹适应性，为智能体轨迹测试提供了更贴近真实开发流程的基准。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.00627v1",
+      "source": "arxiv",
+      "title": "AGI Maze as a Benchmark Framework for World-Modeling Agents",
+      "abstract": "Large language models (LLMs) are powerful pattern-completion systems, but their default operating mode - predicting the next token from a static context - does not reliably produce persistent, manipulable representations of an external world. Many tasks that look like \"reasoning\" in text become substantially harder once the environment is partially observable, stateful, and requires memory and structured hypotheses about hidden state. AGI Maze is a lightweight framework for building such environments without requiring high-dimensional sensory inputs. It provides a family of grid-based maze tasks with a clean API and multiple difficulty regimes. The goal is to create benchmarks where agents must learn and use world state representations, not just infer a local rule over readily provided observations. We provide an initial evaluation of several vanilla LLMs on simple mazes showing that they fail to represent mazes internally at LLM inference time. We also introduce a baseline agent, which is allowed to use its message history as a working memory to construct descriptions of observations at agentic runtime. Although this can improve performance, it is still insufficient for an LLM agent to reliably solve even small mazes within a step budget that is more than enough for humans.",
+      "authors": [
+        "Alexey Potapov"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-01T08:43:08+00:00",
+      "link": "https://arxiv.org/pdf/2607.00627v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "lightweight benchmark framework for testing world-modeling agents in maze environments",
+      "llm_evidence_cn": "用于在迷宫环境中测试世界建模智能体的轻量级基准框架",
+      "llm_evidence": "用于在迷宫环境中测试世界建模智能体的轻量级基准框架",
+      "canonical_evidence": "用于在迷宫环境中测试世界建模智能体的轻量级基准框架",
+      "llm_tldr_en": "AGI Maze provides a family of grid-based maze tasks with a clean API to benchmark agents on world state representation learning, requiring memory and structured hypotheses about hidden state.",
+      "llm_tldr_cn": "针对现有基准测试无法有效评估智能体世界建模能力的问题，提出AGI Maze框架，提供一系列基于网格的迷宫任务，要求智能体必须学习并使用世界状态表征而非仅依赖局部规则。该框架具有多难度等级和标准化API，可用于系统测试智能体的轨迹推理与隐藏状态建模能力。",
+      "llm_tldr": "针对现有基准测试无法有效评估智能体世界建模能力的问题，提出AGI Maze框架，提供一系列基于网格的迷宫任务，要求智能体必须学习并使用世界状态表征而非仅依赖局部规则。该框架具有多难度等级和标准化API，可用于系统测试智能体的轨迹推理与隐藏状态建模能力。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.01071v1",
+      "source": "arxiv",
+      "title": "MemSyco-Bench: Benchmarking Sycophancy in Agent Memory",
+      "abstract": "Memory has emerged as a cornerstone of modern LLM-based agents, supporting their evolution from single-turn assistants to long-term collaborators. However, memory is not always beneficial: retrieved memories often induce a critical issue of sycophancy, causing agents to over-align with the user at the cost of factual accuracy or objective reasoning. Despite this emerging risk, existing memory benchmarks primarily evaluate whether memories are correctly stored, retrieved, or updated, while overlooking how retrieved memories influence downstream reasoning and decision-making. To bridge this gap, we propose MemSyco-Bench, a comprehensive benchmark for evaluating memory-induced sycophancy in agent systems. MemSyco-Bench measures when memory should influence a decision and how valid memory should be used. Specifically, it covers five tasks that assess whether agents can reject memory as factual evidence, respect its applicable scope, resolve conflicts between memory and objective evidence, track memory updates, and use valid memory for personalization. All related resources are collected for the community at https://github.com/XMUDeepLIT/MemSyco-Bench.",
+      "authors": [
+        "Zhishang Xiang",
+        "Zerui Chen",
+        "Yunbo Tang",
+        "Zhimin Wei",
+        "Ruqin Ning",
+        "Yujie Lin",
+        "Qinggang Zhang",
+        "Jinsong Su"
+      ],
+      "primary_category": "cs.IR",
+      "categories": [
+        "cs.IR",
+        "cs.AI"
+      ],
+      "published": "2026-07-01T15:30:33+00:00",
+      "link": "https://arxiv.org/pdf/2607.01071v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "benchmark for detecting sycophancy (hallucination in agent memory)",
+      "llm_evidence_cn": "检测代理记忆中的谄媚（幻觉）基准",
+      "llm_evidence": "检测代理记忆中的谄媚（幻觉）基准",
+      "canonical_evidence": "检测代理记忆中的谄媚（幻觉）基准",
+      "llm_tldr_en": "MemSyco-Bench evaluates memory-induced sycophancy in agents, measuring when memory should influence decisions vs. when it causes over-alignment and factual errors.",
+      "llm_tldr_cn": "现有记忆基准仅评估存储和检索正确性，忽略了记忆对下游推理的负面影响。本文提出MemSyco-Bench，专门衡量代理记忆引发的谄媚效应，即代理过度依赖记忆导致事实错误。该基准通过多场景测试，揭示了记忆如何扭曲输出，为检测代理输出中的幻觉提供了重要评估工具。",
+      "llm_tldr": "现有记忆基准仅评估存储和检索正确性，忽略了记忆对下游推理的负面影响。本文提出MemSyco-Bench，专门衡量代理记忆引发的谄媚效应，即代理过度依赖记忆导致事实错误。该基准通过多场景测试，揭示了记忆如何扭曲输出，为检测代理输出中的幻觉提供了重要评估工具。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detecting hallucinations in agent outputs",
+      "matched_requirement_id": "req-12",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.01874v1",
+      "source": "arxiv",
+      "title": "SkillCoach: Self-Evolving Rubrics for Evaluating and Enhancing Agentic Skill-Use",
+      "abstract": "Skills are becoming a reusable operational layer for LLM agents, encoding SOPs, domain rules, tool workflows, scripts, and validation routines. In realistic skill repositories, overlapping skills make reliable skill-use difficult. Final verifier success is too coarse for both evaluation and training, since an agent may pass through trial and error while selecting distractor skills, skipping required steps, composing workflows incorrectly or omitting final checks. We introduce SkillCoach, a self-evolving rubric framework for evaluating and enhancing agentic skill-use. SkillCoach derives skill-grounded process rubrics from real rollouts and evaluates trajectories along four dimensions: skill selection, skill following, skill composition, and skill-grounded reflection. It keeps the external verifier as a separate outcome signal, allowing process quality to be distinguished from accidental task success. The evolved rubrics further serve as process supervision for selecting high-quality training trajectories. Experiments show that evolved rubrics substantially improve evaluation quality, expose failures hidden by final accuracy, and provide stronger supervision signals than outcome-only filtering for enhancing agentic skill-use.",
+      "authors": [
+        "Jiayin Zhu",
+        "Kelong Mao",
+        "Yudong Guo",
+        "Dengbo He",
+        "Sulong Xu",
+        "Simiu Gu",
+        "Yutao Yue"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-07-02T08:28:51+00:00",
+      "link": "https://arxiv.org/pdf/2607.01874v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "evaluates agent trajectories along four dimensions using self-evolving rubrics",
+      "llm_evidence_cn": "使用自进化评分标准从四个维度评估智能体轨迹",
+      "llm_evidence": "使用自进化评分标准从四个维度评估智能体轨迹",
+      "canonical_evidence": "使用自进化评分标准从四个维度评估智能体轨迹",
+      "llm_tldr_en": "SkillCoach introduces self-evolving process rubrics for evaluating agentic skill-use trajectories, assessing skill selection, following, composition, and final checks.",
+      "llm_tldr_cn": "针对智能体技能使用评估中终点验证过于粗糙的问题，SkillCoach提出自进化评分标准框架，从实际轨迹中推导技能级过程评分标准，沿技能选择、技能遵循、技能组成和最终检查四个维度评估轨迹。实验证明该方法能提供更细粒度的轨迹评估信号，有效提升技能库中的可靠技能使用。",
+      "llm_tldr": "针对智能体技能使用评估中终点验证过于粗糙的问题，SkillCoach提出自进化评分标准框架，从实际轨迹中推导技能级过程评分标准，沿技能选择、技能遵循、技能组成和最终检查四个维度评估轨迹。实验证明该方法能提供更细粒度的轨迹评估信号，有效提升技能库中的可靠技能使用。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.02186v1",
+      "source": "arxiv",
+      "title": "UA-ChatDev: Uncertainty-Aware Multi-Agent Collaboration for Reliable Software Development",
+      "abstract": "Software development is a complex task that demands cooperation among agents with diverse roles. Large language models (LLMs) have enabled autonomous multi-agent software development frameworks that leverage role-based collaboration to automate requirements analysis, coding, testing, and refinement. However, existing approaches typically assume that intermediate agent outputs are equally reliable, leaving them vulnerable to hallucination propagation, where incorrect decisions generated in early development phases are transferred to downstream agents and negatively impact final software quality. To address this challenge, we propose UA-ChatDev, an uncertainty-aware multi-agent software development framework that integrates uncertainty quantification into agent interactions. It introduces a lightweight uncertainty estimation mechanism based on token-level log probabilities to assess the confidence of agent responses and employs phase-aware threshold calibration to selectively trigger retrieval-based verification when uncertainty exceeds acceptable levels. Extensive experiments on the SRDD benchmark demonstrate that UA-ChatDev consistently outperforms existing single-agent and multi-agent software development frameworks across completeness, executability, consistency, and overall quality metrics. Further ablation studies and communication analyses verify that uncertainty-aware interactions enhance code execution reliability.",
+      "authors": [
+        "Temitayo Olamilekan Ogunsusi",
+        "Lijun Qian",
+        "Xishuang Dong"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-02T13:56:57+00:00",
+      "link": "https://arxiv.org/pdf/2607.02186v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "detects and mitigates hallucination propagation in multi-agent outputs",
+      "llm_evidence_cn": "检测并缓解多代理输出中的幻觉传播",
+      "llm_evidence": "检测并缓解多代理输出中的幻觉传播",
+      "canonical_evidence": "检测并缓解多代理输出中的幻觉传播",
+      "llm_tldr_en": "UA-ChatDev integrates uncertainty estimation to detect hallucination propagation in multi-agent software development, pruning unreliable intermediate outputs before they affect downstream agents.",
+      "llm_tldr_cn": "多代理软件开发中，早期阶段的错误输出（幻觉）会传播到下游，影响最终质量。本文提出UA-ChatDev，通过不确定性感知机制识别并修剪不可靠的中间输出，阻止幻觉传播。实验表明该方法显著提升最终软件质量，为代理输出检测提供了可操作的方案。",
+      "llm_tldr": "多代理软件开发中，早期阶段的错误输出（幻觉）会传播到下游，影响最终质量。本文提出UA-ChatDev，通过不确定性感知机制识别并修剪不可靠的中间输出，阻止幻觉传播。实验表明该方法显著提升最终软件质量，为代理输出检测提供了可操作的方案。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detecting hallucinations in agent outputs",
+      "matched_requirement_id": "req-12",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.02255v1",
+      "source": "arxiv",
+      "title": "AgenticSTS: A Bounded-Memory Testbed for Long-Horizon LLM Agents",
+      "abstract": "Memory for a long-horizon LLM agent is a contract about what each future decision is allowed to see. The simplest contract appends past observations, tool calls, and reflections to every prompt, which makes prior context easy to access but also turns it into a jumbled mixture in which the effect of any single memory component is hard to isolate. We introduce and instrument an alternative bounded contract: every decision is made from a fresh user message assembled by typed retrieval, with no raw cross-decision transcript appended. The prompt thus stays bounded across runs of any length, and any single layer can be ablated in isolation. We instantiate the contract in Slay the Spire 2, a closed-rule stochastic deck-building game whose runs require hundreds of tactical and strategic decisions. A public online benchmark of frontier LLMs on the same game reports zero wins at the lowest difficulty across five configurations, and the developer-reported human win rate at the same difficulty is 16%; the task is hard but not saturated. Within our harness, a fixed-A0 ablation shows the largest observed difference when triggered strategic skills are enabled: the no-store baseline wins 3/10 games and adding the skill layer 6/10. At this sample size the comparison is directional rather than statistically decisive (Fisher exact p\\approx0.37); a cross-backbone probe and public accumulating-context baselines are reported as operational comparisons rather than controlled tests of the contract variable itself. We release a reproducible testbed: 298 completed trajectories with condition tags, frozen memory/skill snapshots, prompt records, and analysis scripts -- an agent design and a validated, reusable methodology for studying how explicit memory layers shape long-horizon LLM-agent decisions.",
+      "authors": [
+        "Xiangchen Cheng",
+        "Yunwei Jiang",
+        "Jianwen Sun",
+        "Zizhen Li",
+        "Chuanhao Li",
+        "Xiangcheng Cao",
+        "Yihao Liu",
+        "Fanrui Zhang",
+        "Li Jin",
+        "Kaipeng Zhang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-07-02T14:44:32+00:00",
+      "link": "https://arxiv.org/pdf/2607.02255v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "provides a testbed for long-horizon LLM agent trajectories",
+      "llm_evidence_cn": "为长程智能体提供有界内存测试平台",
+      "llm_evidence": "为长程智能体提供有界内存测试平台",
+      "canonical_evidence": "为长程智能体提供有界内存测试平台",
+      "llm_tldr_en": "AgenticSTS introduces a bounded-memory testbed for long-horizon LLM agents, using typed retrieval to isolate memory effects in Slay the Spire 2.",
+      "llm_tldr_cn": "该论文提出AgenticSTS，一个有界内存的测试平台，用于长程LLM智能体。通过类型化检索避免跨决策原始记录混合，使得每层记忆可单独消融。在Slay the Spire 2游戏中实例化，每次运行需数百步，验证了有界内存合约对智能体轨迹评估的有效性。该测试床为智能体轨迹测试提供了可标准化、可重复的基准。",
+      "llm_tldr": "该论文提出AgenticSTS，一个有界内存的测试平台，用于长程LLM智能体。通过类型化检索避免跨决策原始记录混合，使得每层记忆可单独消融。在Slay the Spire 2游戏中实例化，每次运行需数百步，验证了有界内存合约对智能体轨迹评估的有效性。该测试床为智能体轨迹测试提供了可标准化、可重复的基准。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.02440v1",
+      "source": "arxiv",
+      "title": "EvoPolicyGym: Evaluating Autonomous Policy Evolution in Interactive Environments",
+      "abstract": "Autonomous agents are increasingly expected to improve executable policies through feedback, yet existing evaluations often collapse this process into a final score or confound it with open-ended software-engineering progress. We introduce Autonomous Policy Evolution, a controlled evaluation setting in which a harness-model agent repeatedly edits an executable policy system under a fixed interaction budget. We instantiate this setting in EvoPolicyGym, a benchmark built from compact interactive RL environments that evaluates how agents iteratively improve explored policies. On the EvoPolicyGym suite, GPT-5.5 achieves the strongest aggregate rank score and top-two performance on all 16 environments. Beyond leaderboard results, EvoPolicyGym also provides trajectory-level diagnostics that distinguish how agents allocate budget, convert feedback into parametric tuning. These analyses show that strong autonomous policy evolution depends not only on isolated task wins, but on discovering task-appropriate mechanisms and refining policies under bounded feedback.",
+      "authors": [
+        "Zhilin Wang",
+        "Han Song",
+        "Runzhe Zhan",
+        "Jusen Du",
+        "Jiacheng Chen",
+        "Tianle Li",
+        "Qingyu Yin",
+        "Yulun Wu",
+        "Zhennan Shen",
+        "Tong Zhu",
+        "Yanshu Li",
+        "Guanjie Chen",
+        "Derek F. Wong",
+        "Yafu Li",
+        "Yu Cheng",
+        "Yang Yang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-07-02T17:10:13+00:00",
+      "link": "https://arxiv.org/pdf/2607.02440v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "evaluation of agent trajectories via policy evolution benchmark",
+      "llm_evidence_cn": "通过策略演化基准评估智能体轨迹",
+      "llm_evidence": "通过策略演化基准评估智能体轨迹",
+      "canonical_evidence": "通过策略演化基准评估智能体轨迹",
+      "llm_tldr_en": "Introduces EvoPolicyGym, a benchmark for evaluating how agents iteratively improve policies in interactive RL environments.",
+      "llm_tldr_cn": "针对现有评估将策略演化过程压缩为最终分数的不足，提出了EvoPolicyGym基准，在交互式RL环境中可控地评估智能体如何迭代改进探索策略。实验表明GPT-5.5在所有16个环境中获得最强聚合排名。该工作为智能体轨迹评估提供了标准化框架。",
+      "llm_tldr": "针对现有评估将策略演化过程压缩为最终分数的不足，提出了EvoPolicyGym基准，在交互式RL环境中可控地评估智能体如何迭代改进探索策略。实验表明GPT-5.5在所有16个环境中获得最强聚合排名。该工作为智能体轨迹评估提供了标准化框架。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2606.29823v1",
+      "source": "arxiv",
+      "title": "Experience Graphs: The Data Foundation for Self-Improving Agents",
+      "abstract": "The database community has repeatedly advanced the state of the art by recognizing that new workloads demand new system architectures. We argue that long-horizon agentic tasks -- code generation, scientific discovery, hardware design -- are such a workload. These agents explore: they generate artifacts, execute tools, observe failures, branch, and repair over hundreds of steps. This search produces a structured object we call an experience graph: executable artifacts, tool outputs, rewards, sibling comparisons, and causal lineage. Yet existing agent frameworks treat this experience as disposable state -- JSON checkpoints and session logs that cannot be recovered after a crash, queried across users, or materialized into training data. We propose Trellis: a data foundation that treats the experience graph as first-class, governed, queryable database state. The core insight is that search over experience graphs is a database access pattern. Frontier selection is a query, cross-session reuse is vector-seeded graph retrieval, training-data extraction is a materialized view, and reconstructing what an agent knew at any past step is a time-travel query. When the database owns the experience graph, agents become stateless compute, and crash recovery, horizontal scaling, and a closed-loop training flywheel emerge as architectural byproducts. We ground the design in KernelEvolve, a production accelerator-kernel optimizer at Meta, where cross-session reuse reaches a target speedup roughly 10x faster at 52% lower token cost. More broadly, Trellis turns inference-time search from disposable computation into a durable institutional asset: logs made databases reliable; experience graphs may make agents cumulative.",
+      "authors": [
+        "Gang Liao",
+        "Yujia He",
+        "Abdullah Ozturk",
+        "Zhouyang Li",
+        "Ying Wang",
+        "Zhitong Guo",
+        "Hongsen Qin",
+        "Yaobin Qin",
+        "Tao Yang",
+        "Zewei Jiang",
+        "Dianshi Li",
+        "Jort Gemmeke",
+        "Jiangyuan Li",
+        "Liyuan Li",
+        "Nathan Yan",
+        "Masha Basmanova",
+        "Uladzimir Pashkevich",
+        "Matt Steiner",
+        "Pedro Pedreira",
+        "Rob Fergus",
+        "Anirudh Goyal",
+        "Carole-Jean Wu",
+        "Gaoxiang Liu",
+        "Andrew Witten",
+        "Daniel J. Abadi"
+      ],
+      "primary_category": "cs.DB",
+      "categories": [
+        "cs.DB",
+        "cs.AI",
+        "cs.MA"
+      ],
+      "published": "2026-06-29T06:02:20+00:00",
+      "link": "https://arxiv.org/pdf/2606.29823v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "proposes experience graphs to structure agent trajectories for self-improving agents",
+      "llm_evidence_cn": "提出经验图结构化代理轨迹以支持自改善",
+      "llm_evidence": "提出经验图结构化代理轨迹以支持自改善",
+      "canonical_evidence": "提出经验图结构化代理轨迹以支持自改善",
+      "llm_tldr_en": "Experience Graphs capture agent trajectories (artifacts, tool outputs, rewards, lineage) and propose Trellis for persistent storage and query, directly supporting trajectory testing and analysis.",
+      "llm_tldr_cn": "长期代理任务产生复杂的探索轨迹，但现有框架将其视为可丢弃的状态。本文提出经验图概念，记录可执行产物、工具输出、奖励和因果路径，并提供Trellis系统持久化存储。这使得代理轨迹可以被回放、查询和分析，为代理轨迹的测试和评估提供了数据基础。",
+      "llm_tldr": "长期代理任务产生复杂的探索轨迹，但现有框架将其视为可丢弃的状态。本文提出经验图概念，记录可执行产物、工具输出、奖励和因果路径，并提供Trellis系统持久化存储。这使得代理轨迹可以被回放、查询和分析，为代理轨迹的测试和评估提供了数据基础。",
+      "llm_tags": [
+        "query:agent-traj:composite"
+      ],
+      "matched_query_tag": "query:agent-traj:composite",
+      "matched_query_text": "Papers central to agent轨迹测试相关论文参考, especially work that connects or combines: methods for testing agent trajectories; evaluation of agent trajectories; testing the behavior of autonomous agents; analysis of trajectories in reinforcement learning; recent papers on testing trajectories of intelligent agents; benchmarks for agent trajectory testing; trajectory testing methods for autonomous agents.",
+      "matched_requirement_id": "req-composite-agent-traj",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.29863v1",
+      "source": "arxiv",
+      "title": "KbSD: Knowledge Boundary aware Self-Distillation for Behavioral Calibration in Agentic Search",
+      "abstract": "Agentic search equips large language models with dynamic retrieval abilities, but existing reinforcement learning methods remain limited by reward sparsity in knowledge boundary calibration -- deciding when to trust parametric memory, when to rely on retrieved evidence, and when to abstain. Binary rewards can penalize undesirable outcomes, but provide little guidance on the reasoning process required to make calibrated decisions across different knowledge states. To address this, we propose KbSD (Knowledge boundary Self-Distillation), a framework that tackles this limitation through dense token-level supervision, outcome-level sparse rewards, and quadrant-adaptive optimization. KbSD constructs a hint-augmented teacher, architecturally identical to the student, that receives explicit knowledge boundary signals -- including parametric certainty, retrieval quality, and ground-truth answers -- to generate calibrated reasoning demonstrations. This information-asymmetric self-distillation enables dense supervision without requiring a larger external model. To further account for the heterogeneous reasoning distributions across knowledge states, we introduce a quadrant-adaptive distillation objective: reverse KL for concentrated integration, forward KL for diverse refusal, and Pareto-optimal bidirectional KL for asymmetric quadrants requiring both precision and coverage. Experiments on multiple benchmarks show that KbSD consistently improves both task accuracy and hallucination mitigation over strong baselines, with the largest gains appearing in the challenging quadrants where sparse rewards are least informative.",
+      "authors": [
+        "Tao Feng",
+        "Xinke Jiang",
+        "Chao Wu"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-06-29T06:56:18+00:00",
+      "link": "https://arxiv.org/pdf/2606.29863v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "knowledge boundary calibration for verifying agent responses in search",
+      "llm_evidence_cn": "知识边界校准用于验证搜索代理的响应",
+      "llm_evidence": "知识边界校准用于验证搜索代理的响应",
+      "canonical_evidence": "知识边界校准用于验证搜索代理的响应",
+      "llm_tldr_en": "KbSD introduces self-distillation with dense token-level supervision to calibrate when agentic search should trust memory, retrieve, or abstain, improving response correctness.",
+      "llm_tldr_cn": "代理搜索任务中，校准知识边界（何时信任记忆、检索或弃权）至关重要。现有强化学习奖励稀疏。本文提出KbSD，通过密集令牌级监督、稀疏结果奖励和象限自适应优化，构建教师模型提供细粒度指导，有效提升代理响应的正确性和可靠性，减少幻觉输出。",
+      "llm_tldr": "代理搜索任务中，校准知识边界（何时信任记忆、检索或弃权）至关重要。现有强化学习奖励稀疏。本文提出KbSD，通过密集令牌级监督、稀疏结果奖励和象限自适应优化，构建教师模型提供细粒度指导，有效提升代理响应的正确性和可靠性，减少幻觉输出。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "methods to verify correctness of agent responses",
+      "matched_requirement_id": "req-15",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.29315v1",
+      "source": "arxiv",
+      "title": "Hierarchical Experimentalist Agents",
+      "abstract": "Large language models (LLMs) are increasingly used to take actions in the real world and support human decision-making, yet most agents rely on parametric knowledge, fixed post-training data, retrieval, or search. This paradigm breaks down in novel domains and for sophisticated queries that cannot be answered from prior knowledge alone. Knowing the laws of physics, for instance, does not by itself enable LLMs to answer queries or complete long-horizon tasks in a complex physical system. To address this, we introduce Hierarchical Experimentalist Agents (HExA), an in-context self-improvement framework to learn from active experimentation. HExA iteratively designs and refines query-relevant experiments, learns a reusable library of composable skills from experience, and integrates experimental evidence to answer queries or take actions. HExA is training-free, compatible with any black-box model, and does not require external supervision, oracles, or offline data. To evaluate active experimentation, we introduce Interphyre, a tool-calling benchmark built on the PHYRE 2D procedural physics environment, where agents propose interventions and test hypotheses through simulation APIs. Experiments show that current LLM agents struggle in these settings, especially on the hardest levels of Interphyre. Claude Sonnet 4.6 achieves only 2% success, while HExA improves the same model to up to 77% success. HExA also improves open-weight models and outperforms agentic baselines such as ReAct and Reflexion. Moreover, using only skills learned from easier levels and transferred without active experimentation, HExA achieves 44% success, demonstrating the reusability and generalization of its learned skills. Overall, HExA shows that learning through active experimentation can help agents discover useful knowledge, acquire reusable skills, and make efficient progress on novel long-horizon tasks.",
+      "authors": [
+        "Abhranil Chandra",
+        "Sankaran Vaidyanathan",
+        "Utsav Dhanuka",
+        "Varun Gandhi",
+        "Scott Niekum"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-06-28T10:21:55+00:00",
+      "link": "https://arxiv.org/pdf/2606.29315v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "framework for testing and improving agent behavior through active experimentation",
+      "llm_evidence_cn": "通过主动实验测试和改进智能体行为的框架",
+      "llm_evidence": "通过主动实验测试和改进智能体行为的框架",
+      "canonical_evidence": "通过主动实验测试和改进智能体行为的框架",
+      "llm_tldr_en": "Hierarchical Experimentalist Agents (HExA) enables LLM agents to learn from active experimentation by designing experiments, building skill libraries, and integrating experience, addressing limitations in novel domains.",
+      "llm_tldr_cn": "针对大语言模型在未知领域无法仅靠先验知识完成复杂任务的问题，提出层级实验智能体（HExA），通过迭代设计实验、从经验中学习可复用技能库并整合实验结果，使智能体能够自主改进行为。实验表明该方法能有效提升智能体在全新环境中的任务完成能力。",
+      "llm_tldr": "针对大语言模型在未知领域无法仅靠先验知识完成复杂任务的问题，提出层级实验智能体（HExA），通过迭代设计实验、从经验中学习可复用技能库并整合实验结果，使智能体能够自主改进行为。实验表明该方法能有效提升智能体在全新环境中的任务完成能力。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2606.30616v1",
+      "source": "arxiv",
+      "title": "Scaling the Horizon, Not the Parameters: Reaching Trillion-Parameter Performance with a 35B Agent",
+      "abstract": "We introduce Agents-A1, a 35B Mixture-of-Experts Agentic Model that reaches trillion-parameter-level performance by scaling the agent horizon. We investigate agent-horizon scaling from two perspectives: scaling long-horizon trajectories and scaling heterogeneous agent abilities. To support this goal, we build a long-horizon knowledge-action infrastructure that connects external knowledge, actions, observations, and verifier outcomes, producing agentic trajectories with an average length of 45K tokens. Based on this, we train Agents-A1 with a three-stage recipe. First, we perform full-domain supervised fine-tuning to align the base model with broad agentic behaviors. Second, we train domain-level teacher models to capture specialized expertise in each domain. Third, we propose a multi-teacher domain-routed on-policy distillation with salient vocabulary alignment to improve knowledge transfer efficiency across different domains, unifying six heterogeneous domains into one deployable student model. Agents-A1 achieves strong and broad performance for long-horizon agent benchmarks. Compared with 1T-parameter model such as Kimi-K2.6 and DeepSeek-V4-pro, Agents-A1 achieves leading results on SEAL-0 (56.4), IFBench (80.6), HiPhO (46.4), FrontierScience-Olympiad (79.0), and MolBench-Bind (56.8), and remains highly competitive on SciCode (44.3), HLE (47.6) and BrowseComp (75.5). We hope this work provides the community with a practical path for scaling the horizon using a 35B agent that can reach or match the performance of 1T models on long-horizon tasks.",
+      "authors": [
+        "Lei Bai",
+        "Zongsheng Cao",
+        "Yang Chen",
+        "Zhiyao Cui",
+        "Shangheng Du",
+        "Yue Fan",
+        "Shiyang Feng",
+        "Zijie Guo",
+        "Haonan He",
+        "Liang He",
+        "Xiaohan He",
+        "Shuyue Hu",
+        "Yusong Hu",
+        "Songtao Huang",
+        "Yichen Jiang",
+        "Hao Li",
+        "Xin Li",
+        "Dahua Lin",
+        "Weihao Lin",
+        "Fenghua Ling",
+        "Dongrui Liu",
+        "Zhuo Liu",
+        "Runmin Ma",
+        "Chunjiang Mu",
+        "Haoyang Peng",
+        "Tianshuo Peng",
+        "Jinxin Shi",
+        "Luohe Shi",
+        "Boyuan Sun",
+        "Zelin Tan",
+        "Shengji Tang",
+        "Qianyi Wang",
+        "Yiming Wu",
+        "Yi Xie",
+        "Xiangchao Yan",
+        "Jingqi Ye",
+        "Peng Ye",
+        "Fangchen Yu",
+        "Jiakang Yuan",
+        "Bihao Zhan",
+        "Bo Zhang",
+        "Chen Zhang",
+        "Shufei Zhang",
+        "Shuaiyu Zhang",
+        "Wenlong Zhang",
+        "Yiqun Zhang",
+        "Junpeng Zhao",
+        "Zhijie Zhong",
+        "Bowen Zhou",
+        "Yuhao Zhou"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-06-29T17:50:54+00:00",
+      "link": "https://arxiv.org/pdf/2606.30616v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "constructs long-horizon agent trajectories for testing",
+      "llm_evidence_cn": "构建长程agent轨迹用于测试",
+      "llm_evidence": "构建长程agent轨迹用于测试",
+      "canonical_evidence": "构建长程agent轨迹用于测试",
+      "llm_tldr_en": "Agents-A1 builds a long-horizon knowledge-action infrastructure producing 45K-token trajectories, directly supporting agent trajectory testing methods.",
+      "llm_tldr_cn": "该论文提出Agents-A1模型，通过构建长程知识-行动基础设施生成平均45K token的agent轨迹，并用于训练和评估。该基础设施连接外部知识、动作、观察和验证器输出，可直接用于agent轨迹测试方法的开发和基准测试，为轨迹评估提供了规模化数据生成方案。",
+      "llm_tldr": "该论文提出Agents-A1模型，通过构建长程知识-行动基础设施生成平均45K token的agent轨迹，并用于训练和评估。该基础设施连接外部知识、动作、观察和验证器输出，可直接用于agent轨迹测试方法的开发和基准测试，为轨迹评估提供了规模化数据生成方案。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.29955v1",
+      "source": "arxiv",
+      "title": "SpreadsheetBench 2: Evaluating Agents on End-to-End Business Spreadsheet Workflows",
+      "abstract": "Spreadsheets are widely used for business analysis, financial modeling, reporting, and decision-making. However, most existing spreadsheet benchmarks evaluate isolated operations such as single-formula generation or local cell edits, and therefore fail to capture end-to-end workflows in realistic business settings. We introduce \\textsc{SpreadsheetBench 2}, a workflow-level benchmark for spreadsheet agents that covers three task categories: generation, debugging, and visualization. The benchmark is constructed from authentic business data, including financial reports and corporate filings, and is annotated and validated by domain experts. The benchmark contains 321 tasks; each instance averages 11.8 worksheets and requires 593.5 cell modifications, reflecting large multi-sheet workbooks with cross-sheet dependencies. We evaluate eight frontier large language models under a unified multi-turn agent scaffold, and additionally include several LLM-based spreadsheet products as complementary baselines. Results show that current systems remain far from reliable on real-world workflows: the best model achieves 34.89\\% overall task accuracy, and debugging accuracy is as low as 12.00\\%. Trajectory analysis and a failure taxonomy further indicate that insufficient spreadsheet inspection and incorrect target-cell selection are the dominant bottlenecks. Together, these findings position \\textsc{SpreadsheetBench 2} as a challenging testbed for advancing reliable spreadsheet automation. Project page: https://spreadsheetbench.github.io/",
+      "authors": [
+        "Jian Zhu",
+        "Yuzheng Zhang",
+        "Zeyao Ma",
+        "Bohan Zhang",
+        "Armin Schoepf",
+        "Daniel Woloch",
+        "Peter Yiliu Wang",
+        "Guangyu Robert Yang",
+        "Samuel Jacob",
+        "Siddharth Nagisetty",
+        "Abhiram Chundru",
+        "Jean Lin",
+        "Spencer Mateega",
+        "Jing Zhang"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI"
+      ],
+      "published": "2026-06-29T08:33:52+00:00",
+      "link": "https://arxiv.org/pdf/2606.29955v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "workflow-level benchmark for spreadsheet agents covering generation, debugging, and visualization tasks",
+      "llm_evidence_cn": "工作流级基准，涵盖生成、调试和可视化任务，用于评估电子表格智能体",
+      "llm_evidence": "工作流级基准，涵盖生成、调试和可视化任务，用于评估电子表格智能体",
+      "canonical_evidence": "工作流级基准，涵盖生成、调试和可视化任务，用于评估电子表格智能体",
+      "llm_tldr_en": "SpreadsheetBench 2 is a workflow-level benchmark for spreadsheet agents using real business data, covering generation, debugging, and visualization across 321 multi-sheet tasks.",
+      "llm_tldr_cn": "现有电子表格基准评估孤立操作，无法反映端到端工作流。本文提出SpreadsheetBench 2，基于真实商业数据构建工作流级基准，包含生成、调试和可视化三类任务。每个任务平均涉及11.8个工作表和593.5次单元格修改。该基准为电子表格智能体的多步轨迹测试提供了标准，弥补了现有评估的不足。",
+      "llm_tldr": "现有电子表格基准评估孤立操作，无法反映端到端工作流。本文提出SpreadsheetBench 2，基于真实商业数据构建工作流级基准，包含生成、调试和可视化三类任务。每个任务平均涉及11.8个工作表和593.5次单元格修改。该基准为电子表格智能体的多步轨迹测试提供了标准，弥补了现有评估的不足。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.29648v1",
+      "source": "arxiv",
+      "title": "Hybrid Retriever Evolution for Multimodal Document Reasoning Agents",
+      "abstract": "Different retrievers, including lexical, semantic, and multimodal approaches, provide highly complementary strengths for multimodal document understanding, yet most systems combine them through fixed pipelines that cannot adapt to the demands of individual reasoning steps. In this work, we ask whether retrieval orchestration itself can be learned as part of the reasoning process. We introduce a failure-driven evolution framework in which a meta-agent autonomously discovers how a tool-using task agent should coordinate diverse retrievers during multi-step document question answering. The meta-agent analyzes incorrect reasoning trajectories, actively probes the same tool environment to diagnose root causes, and iteratively rewrites the task agent's instructions, turning retrieval from a fixed front-end stage into an adaptive, step-wise reasoning decision. The evolved agent learns when to invoke each retriever, how to combine them, and how to compose evidence across modalities and pages. On MMLongBench-Doc and DocBench, the evolved agent achieves gains of up to +19.6 points over the unevolved baseline and consistently outperforms recent systems including MACT, MDocAgent, and SimpleDoc. Detailed retrieval analyses confirm that these improvements arise from adaptive routing and evidence composition rather than reliance on any hard coded retrieval mode, and evolution dynamics reveal a progressive shift from narrow lexical behavior to rich multi-tool coordination. These findings establish autonomous multi-agent coordination as a promising paradigm for multimodal document reasoning.",
+      "authors": [
+        "Bohan Yao",
+        "Shruthan Radhakrishna",
+        "Vikas Yadav"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI",
+        "cs.LG",
+        "cs.MA"
+      ],
+      "published": "2026-06-28T23:36:34+00:00",
+      "link": "https://arxiv.org/pdf/2606.29648v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "failure-driven evolution framework that analyzes incorrect reasoning trajectories to improve agent behavior",
+      "llm_evidence_cn": "分析错误推理轨迹以改进智能体行为的失败驱动演化框架",
+      "llm_evidence": "分析错误推理轨迹以改进智能体行为的失败驱动演化框架",
+      "canonical_evidence": "分析错误推理轨迹以改进智能体行为的失败驱动演化框架",
+      "llm_tldr_en": "A meta-agent framework that autonomously discovers how to coordinate diverse retrievers by analyzing incorrect reasoning trajectories and rewriting task agent instructions, improving multimodal document reasoning.",
+      "llm_tldr_cn": "针对多模态文档推理中固定检索流水线无法适应推理步骤需求的问题，提出失败驱动演化框架。元智能体通过分析错误推理轨迹、主动探测工具环境诊断根因，并迭代重写任务智能体的指令，实现检索协调的自主学习。实验证明该方法有效提升了多步文档问答的准确性。",
+      "llm_tldr": "针对多模态文档推理中固定检索流水线无法适应推理步骤需求的问题，提出失败驱动演化框架。元智能体通过分析错误推理轨迹、主动探测工具环境诊断根因，并迭代重写任务智能体的指令，实现检索协调的自主学习。实验证明该方法有效提升了多步文档问答的准确性。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2606.31307v1",
+      "source": "arxiv",
+      "title": "When the Database Fails: Prompting LLM Dialogue Agents for Safe Recovery in Task-Oriented Dialogue",
+      "abstract": "Large language models used in task-oriented dialogue often produce fluent but unsafe responses when backend database calls fail, return empty results, or surface mismatched information, inventing venues, confirmations, or booking details not grounded in the database. We study a lightweight prompting-based recovery approach that improves robustness without retraining or additional model calls. We compare three response strategies, including a guided recovery prompt conditioned on structured database status, across six open-weight model families (DeepSeek-R1, Gemma-2, Llama-3, Mistral, Phi-3, and Qwen-2.5) and four database conditions: empty result, wrong-domain retrieval, API error, and clean retrieval. Using fault-injected benchmarks built on two structurally different datasets, MultiWOZ 2.2 (5 domains) and SGD (20 domains), we find that naive agents hallucinate on 30.5% of failure turns on MultiWOZ and 20.9% on SGD. Our Guided-Retry strategy reduces hallucination by 50% on MultiWOZ (30.5 to 15.3%) and by 42% on SGD (20.9 to 12.2%) without retraining. However, residual hallucination remains substantial (6-37% across models), with wrong-domain failures the hardest case. Results are consistent across both datasets and all six model families, and human annotation shows substantial agreement while supporting the validity of the automatic commitment-safety metric.",
+      "authors": [
+        "Mohammad Alijanpour Shalmani",
+        "Alale Rezvani Boroujeni",
+        "Jiann Shiun Yuan"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-06-30T08:18:11+00:00",
+      "link": "https://arxiv.org/pdf/2606.31307v1",
+      "tags": [
+        "keyword:agent-output",
+        "query:agent-output"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "safe recovery method for monitoring and handling errors in LLM dialogue agent outputs",
+      "llm_evidence_cn": "用于监控和处理LLM对话agent输出错误的安全恢复方法",
+      "llm_evidence": "用于监控和处理LLM对话agent输出错误的安全恢复方法",
+      "canonical_evidence": "用于监控和处理LLM对话agent输出错误的安全恢复方法",
+      "llm_tldr_en": "Proposes a prompting-based recovery approach for task-oriented dialogue agents to detect and safely recover from database failures, ensuring output safety.",
+      "llm_tldr_cn": "面向任务的对话agent在后端数据库失败时易生成不安全输出（如虚构结果）。本文提出轻量级提示恢复方法，无需重训练或额外模型调用，仅通过结构化数据库状态提示引导agent安全恢复。实验在六种模型与四种故障条件下验证，表明方法能有效减少不安全输出，为agent输出错误监控提供实用方案。",
+      "llm_tldr": "面向任务的对话agent在后端数据库失败时易生成不安全输出（如虚构结果）。本文提出轻量级提示恢复方法，无需重训练或额外模型调用，仅通过结构化数据库状态提示引导agent安全恢复。实验在六种模型与四种故障条件下验证，表明方法能有效减少不安全输出，为agent输出错误监控提供实用方案。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "monitoring agent outputs for errors",
+      "matched_requirement_id": "req-2",
+      "selection_source": "carryover_cache",
+      "paper_id": "2606.31307v1",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.30449v1",
+      "source": "arxiv",
+      "title": "Internal-State Probes Read the Situation, Not the Action: Three Negative Results for Pre-Action Misalignment Monitoring",
+      "abstract": "Probes on model internals could help monitor agentic systems if they identify harmful text or tool actions before those actions are generated. We ask when an internal readout supports this stronger pre-action claim, rather than merely describing the prompt, construction contrast, or current trajectory. We test three methods across three model families: a Qwen2.5-Coder-32B-Instruct fine-tune/base direction, Llama-3.1-8B-Instruct probes at the last token of unsafe prefills, and Gemma-3-27B-IT emotion-concept vectors used for projection and steering in a blackmail tool-action scenario. Across these cases, construction validity, semantic legibility, and steering effects do not become robust pre-action monitors: each is undercut by a generalization or specificity check. The Qwen direction separates fine-tune from base at AUC 1.000, yet crosses its threshold on 0/143 audited pre-assistant turn contexts and on 0/342 Qwen prefill rows where the model continues the unsafe trajectory. The Llama features decode prompt domain almost perfectly (AUC 0.999), while the best future-behavior probe reaches AUC 0.801 and only +5.1 pp accuracy lift over majority; single-source cross-domain transfer is non-positive on five of six ordered pairs. Gemma emotion projections are semantically meaningful, but a shared-prefix minimal pair has indistinguishable states before the first differing input, and steering specificity weakens against unrelated learned directions such as cats}, weather, sports, and geography. We contribute a methodology for converting internal-readout claims into pre-action tests, and report scoped negative results: monitor claims must survive both scenario/action generalization and concept-specificity controls. Code is released at https://github.com/maxf-zn/misalignment_monitoring",
+      "authors": [
+        "Max Fomin",
+        "Elad David",
+        "Amit LeVi"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-06-29T15:18:36+00:00",
+      "link": "https://arxiv.org/pdf/2606.30449v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "pre-action misalignment monitoring for agentic systems",
+      "llm_evidence_cn": "智能体系统行动前微调监测方法",
+      "llm_evidence": "智能体系统行动前微调监测方法",
+      "canonical_evidence": "智能体系统行动前微调监测方法",
+      "llm_tldr_en": "Probes on model internals for pre-action monitoring; three negative results across model families show that construction validity, semantic legibility, and steering effects do not become robust pre-action monitors.",
+      "llm_tldr_cn": "该论文探究了基于模型内部探针实现行动前监测的可能性，在三个模型族上测试了三种方法，发现构造有效性、语义可读性和引导效应都无法成为稳健的事前监测手段，为智能体输出安全评估提供了重要反面案例。",
+      "llm_tldr": "该论文探究了基于模型内部探针实现行动前监测的可能性，在三个模型族上测试了三种方法，发现构造有效性、语义可读性和引导效应都无法成为稳健的事前监测手段，为智能体输出安全评估提供了重要反面案例。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "monitoring agent outputs for errors",
+      "matched_requirement_id": "req-9",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.30755v1",
+      "source": "arxiv",
+      "title": "Understanding and Evaluating Claw-like Agent Security Through a Computer-Systems Lens",
+      "abstract": "Claw-like AI agents (e.g., OpenClaw) are always-on processes with persistent access to credentials, files, tools, and external services. They take on system-level responsibilities -- installing packages, maintaining state, scheduling subtasks, and mediating I/O -- making security failures far more severe than in other agents. Yet existing benchmarks focus on model responses and tool calls, leaving cross-component failure modes largely unmeasured. We adopt a computer-system analogy: treating a Claw-like agent as an agentic computer system whose gateway runtime plays an OS-like mediation role, whose Skills resemble user-installed applications, and whose Plugins resemble loadable extensions with runtime privileges. Each component has a classical counterpart whose protection mechanisms -- refined over decades of cybersecurity research -- are absent on the agent side. From this perspective, we develop SafeClawArena, a benchmark of 406 adversarial tasks across four attack surfaces (Skill Supply-Chain Integrity, Persistent State Exploitation, Cross-Boundary Data Flow, and Indirect Prompt Injection), executed in containerized replicas of real agent platforms with canary-marked credentials and evaluated via automated taint tracking across nine output channels. We evaluate three platforms (OpenClaw, NemoClaw, SeClaw) and five frontier LLMs. The highest attack success rate reaches 70%; malicious Plugins succeed in 100% of cases regardless of the LLM. SeClaw cuts GPT-5.4's attack success rate from 70% to 22%, partly through utility-security tradeoffs rather than active defenses, while Claude-Opus-4.6 already sits near a 22% floor on every platform. These results expose the inadequacy of current defenses and suggest directions for future hardening. Code and data: https://github.com/sunblaze-ucb/SafeClawArena.",
+      "authors": [
+        "Peizhi Niu",
+        "Wenjie Qu",
+        "Shangding Gu",
+        "Tianneng Shi",
+        "Yuankai Li",
+        "Ahmad Tawaha",
+        "Hend Alzahrani",
+        "Vincent Siu",
+        "Boyi Li",
+        "Chenguang Wang",
+        "Jiaheng Zhang",
+        "Basel Alomair",
+        "Ming Jin",
+        "Muhao Chen",
+        "Chi Wang",
+        "Costas Spanos",
+        "Dawn Song"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR",
+        "cs.AI"
+      ],
+      "published": "2026-06-29T18:00:45+00:00",
+      "link": "https://arxiv.org/pdf/2606.30755v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "evaluating Claw-like agent security focusing on cross-component failures",
+      "llm_evidence_cn": "评估类爪代理安全性，关注跨组件故障",
+      "llm_evidence": "评估类爪代理安全性，关注跨组件故障",
+      "canonical_evidence": "评估类爪代理安全性，关注跨组件故障",
+      "llm_tldr_en": "Analyzes Claw-like AI agent security through a computer-systems lens, highlighting cross-component failure modes not captured by existing benchmarks.",
+      "llm_tldr_cn": "通过计算机系统视角分析类爪AI代理安全，指出现有基准未测量的跨组件故障模式。提出需要更全面的评估方法。",
+      "llm_tldr": "通过计算机系统视角分析类爪AI代理安全，指出现有基准未测量的跨组件故障模式。提出需要更全面的评估方法。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2606.31339v1",
+      "source": "arxiv",
+      "title": "Verification-Gated Agentic Mission-State Governance for Intelligent Industrial Multi-Robot Systems",
+      "abstract": "Agentic artificial intelligence is increasingly used to decompose industrial tasks, propose robot actions, and adapt execution plans in dynamic cyber-physical environments. However, autonomous proposal generation alone does not guarantee that multi-robot industrial systems preserve task dependencies, resource ownership, safety holds, or repair boundaries during long-horizon execution. This paper introduces a verification-gated agentic mission-state governance framework for intelligent industrial multi-robot systems. The framework maintains two synchronized state objects: an evolving task forest for persistent hierarchy, delayed grounding, and repairable substructures; and a governed blackboard for online execution state, robot traces, resource locks, world beliefs, proposals, verification records, and scene-temporary constraints. From each forest--blackboard snapshot, a derived execution coupling topology exposes cross-branch dependencies for proposal verification, parallel-commit eligibility, and bounded repair. Candidate assignments, repairs, deferrals, and constraint updates may be generated by heuristic, optimization, or agentic reasoning modules, but they can update the committed mission state only after deterministic verification and atomic commit. We evaluate the framework in an indoor factory multi-robot scenario, 30-seed remote-construction stress benchmarks, structural ablations, and scalability probes. The results show improved verified and safety-audited mission-state progress with fewer invalid commitments, lock conflicts, duplicate assignments, abandoned nodes, and disruptive repairs under modeled mission predicates. The study positions agentic AI as a proposal-generating layer governed by inspectable mission-state verification rather than as an unchecked execution authority.",
+      "authors": [
+        "Guoqin Tang",
+        "Qingxuan Jia",
+        "Yichen Tan",
+        "Zeyuan Huang",
+        "Ning Ji",
+        "Gang Chen"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-06-30T08:41:00+00:00",
+      "link": "https://arxiv.org/pdf/2606.31339v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "verification-gated governance for safety and error monitoring in multi-robot agent systems",
+      "llm_evidence_cn": "多机器人智能体系统中用于安全监控和错误检测的验证门控治理",
+      "llm_evidence": "多机器人智能体系统中用于安全监控和错误检测的验证门控治理",
+      "canonical_evidence": "多机器人智能体系统中用于安全监控和错误检测的验证门控治理",
+      "llm_tldr_en": "A verification-gated framework for intelligent industrial multi-robot systems that maintains two synchronized state objects to ensure task dependencies, safety holds, and repair boundaries during long-horizon execution.",
+      "llm_tldr_cn": "针对工业多机器人系统中自主行为生成可能违反任务依赖、资源所有权和安全约束的问题，提出验证门控智能体任务状态治理框架。该框架维护任务森林和黑板两种同步状态对象，通过验证门控确保长期执行中的安全约束和可修复性。实验证明其能有效降低违规执行风险。",
+      "llm_tldr": "针对工业多机器人系统中自主行为生成可能违反任务依赖、资源所有权和安全约束的问题，提出验证门控智能体任务状态治理框架。该框架维护任务森林和黑板两种同步状态对象，通过验证门控确保长期执行中的安全约束和可修复性。实验证明其能有效降低违规执行风险。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "safety of agent system outputs",
+      "matched_requirement_id": "req-13",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2606.30970v2",
+      "source": "arxiv",
+      "title": "Behavioral Governance for Autonomous AI Agents: The AgentBound Framework",
+      "abstract": "Autonomous AI agents increasingly perform consequential actions on behalf of human principals, including financial transactions, external communications, and enterprise workflows. Existing agent infrastructure relies on identity federation and delegated authorization to authenticate workloads and control resource access, but it cannot determine whether an authorized action should be executed under the current behavioral and operational context.   We present AgentBound, a runtime governance framework that provides verifiable behavioral oversight for autonomous AI agents. AgentBound evaluates each proposed action using three independent authorities: delegated authorization, owner-signed behavioral constitutions, and site action contracts. Their judgments are conservatively composed through a formal decision model to determine whether an action should be permitted, reviewed, or denied before execution.   To provide accountability, AgentBound generates cryptographically verifiable governance receipts that bind every action to the exact delegation, policy, and semantic artifacts governing the decision, enabling independent replay verification and policy provenance. The framework also introduces standing delegation for long-running agents, allowing periodic workloads to operate under continuously refreshed governance policies while preserving revocability and bounded authority.   We present the formal foundation, system architecture, governance receipt protocol, and AgentBound-Bench, a benchmark framework for evaluating governance correctness, authority composition, and accountability. Rather than replacing model alignment, AgentBound complements it by providing a deterministic governance layer between authorization and execution, transforming governance from a process that must be trusted into one that can be independently verified.",
+      "authors": [
+        "Anuj Kaul",
+        "Qianlong Lan",
+        "Pranay Gupta"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-29T23:12:06+00:00",
+      "link": "https://arxiv.org/pdf/2606.30970v2",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "runtime governance framework for verifying and validating autonomous agent actions",
+      "llm_evidence_cn": "一个运行时治理框架，用于验证和确认自主智能体的行动",
+      "llm_evidence": "一个运行时治理框架，用于验证和确认自主智能体的行动",
+      "canonical_evidence": "一个运行时治理框架，用于验证和确认自主智能体的行动",
+      "llm_tldr_en": "AgentBound provides verifiable behavioral oversight for autonomous AI agents by evaluating actions through delegated authorization, behavioral constitutions, and site action contracts.",
+      "llm_tldr_cn": "自主AI智能体代人类进行金融交易等关键操作，现有基础设施无法判断授权行为在操作上下文中是否应执行。本文提出AgentBound运行时治理框架，通过委托授权、所有者签署的行为宪法和站点行动合同三重评估机制，提供可验证的行为监督。该方法确保智能体输出符合安全和合规要求，是智能体输出验证的重要方法。",
+      "llm_tldr": "自主AI智能体代人类进行金融交易等关键操作，现有基础设施无法判断授权行为在操作上下文中是否应执行。本文提出AgentBound运行时治理框架，通过委托授权、所有者签署的行为宪法和站点行动合同三重评估机制，提供可验证的行为监督。该方法确保智能体输出符合安全和合规要求，是智能体输出验证的重要方法。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "verification of agent generated responses",
+      "matched_requirement_id": "req-10",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2606.31518v1",
+      "source": "arxiv",
+      "title": "Design and Implementation of Agentic Orchestrations and Orchestration of Agents",
+      "abstract": "Agentic Business Process Management has gained momentum recently. The prospect is that the autonomy of AI agents, i.e., predominantly LLM-based agents, can be balanced with a certain level of robustness, tractability, and traceability through a combination with process technology. In this paper, we provide a classification framework for agentic orchestration options along properties such as task specificity, traceability and tractability, autonomy and reactivity, and correctness assurance and present qualitative decision criteria for realizations of different scenarios. We also provide metrics for the quantitative assessment of realization properties and show them through different agentic implementations of a predictive light sensing scenario. Altogether, this work aims at providing properties, criteria, and metrics for the design and implementation of agentic orchestrations and orchestration of agents.",
+      "authors": [
+        "Stefanie Rinderle-Ma",
+        "Juergen Mangler",
+        "Johannes Loebbecke",
+        "Dominik Voigt",
+        "Nataliia Klievtsova",
+        "Matthias Ehrendorfer"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-06-30T11:31:49+00:00",
+      "link": "https://arxiv.org/pdf/2606.31518v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "framework for correctness assurance in agent orchestrations",
+      "llm_evidence_cn": "代理编排中的正确性保证框架",
+      "llm_evidence": "代理编排中的正确性保证框架",
+      "canonical_evidence": "代理编排中的正确性保证框架",
+      "llm_tldr_en": "A classification framework and metrics for agentic orchestrations, with qualitative criteria for correctness assurance and quantitative assessment.",
+      "llm_tldr_cn": "提出代理编排的分类框架，包括任务特异性、可追溯性、自主性等属性，并提供正确性保证的定性决策准则和量化评估指标。通过预测光感应场景展示了不同实现方案的权衡。",
+      "llm_tldr": "提出代理编排的分类框架，包括任务特异性、可追溯性、自主性等属性，并提供正确性保证的定性决策准则和量化评估指标。通过预测光感应场景展示了不同实现方案的权衡。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "methods to verify correctness of agent responses",
+      "matched_requirement_id": "req-15",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    }
+  ]
+}
