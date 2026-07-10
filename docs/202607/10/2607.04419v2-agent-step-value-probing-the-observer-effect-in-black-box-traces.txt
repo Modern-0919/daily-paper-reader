@@ -1,0 +1,311 @@
+Title: Agent Step Value: Probing the Observer Effect in Black-Box Traces
+
+URL Source: https://arxiv.org/pdf/2607.04419v2
+
+Published Time: Wed, 08 Jul 2026 01:22:11 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# Agent Step Value: Probing the Observer Effect in Black-Box Traces 
+
+Andrew Zhang 
+
+KTH Royal Institute of Technology 
+
+yibingz@kth.se 
+
+Chengzhan Li 
+
+University of Electronic Science and Technology of China 
+
+chengzhan.li@std.uestc.edu.cn 
+
+Abstract 
+
+Final-answer scores hide which agent transi-tions helped or harmed a trace. We intro-duce Agent Step Value (ASV), a replay frame-work that scores before/after states with a state-less LLM evaluator over a fixed candidate set. ASV reports entropy movement and Bayesian surprise measure belief movement, while of-fline gold-margin gain measures movement toward a reviewed target. It also quantifies evaluator-channel sensitivity by replaying the same frozen transitions under changed projec-tion, rationale, prompt, or scoring rules. In a 100-question open-QA study with live PubMed retrieval and DeepSeek log-probability scor-ing, ASV evaluates 1,100 transitions. Entropy movement is 0.000 while mean Bayesian sur-prise is 2.693, exposing near-one-hot belief piv-ots. Under a 128-token rationale-conditioned protocol, mean gold-margin gain is -2.335 (95% CI [-3.395, -1.272]); direct one-token scoring on the same traces gives +4.033. A100-transition component audit traces the re-versal to short generated rationales over full states. ASV turns prompt sensitivity into a mea-sured channel effect and localizes the largest rationale-conditioned losses to extraction and audit. 
+
+1 Introduction 
+
+Language-model agents act through traces. They classify requests, plan, retrieve evidence, call tools, draft answers, audit intermediate products, and re-vise. Final-answer evaluations can rank systems, but they rarely say which transition made the state better or worse. That gap matters for black-box analysis because a retrieval call can add useful ev-idence, a synthesis step can drop it, and an audit step can change the answer while weakening the state that supported it. We introduce Agent Step Value (ASV) to mea-sure this transition object. Given an observed transi-tion (xi−1, a i, x i), ASV asks how a specified evalu-ator’s belief over candidate outcomes changes from the before-state to the after-state. The actor can be a ReAct-style loop (Yao et al., 2023), a DSPy-like stateless module graph (Khattab et al., 2024), or a structured domain workflow. ASV only requires bounded state projections and a fixed candidate set. A state-grounded LLM evaluator scores every candidate in every state and stores raw log scores. ASV then separates three questions often col-lapsed into one score, whether uncertainty changed, whether the belief distribution moved, and whether that movement favored a reviewed target over its nearest competitor. This matters because a con-fident wrong-to-right pivot and a confident right-to-wrong pivot can both have near-zero entropy movement. Evaluator deliberation creates a measurement problem. If a judge reasons before answering, first-token log probabilities score the reasoning pream-ble. ASV therefore separates deliberation from scoring, i.e., the evaluator first writes a compact label-free rationale over stable candidate identifiers, then a second call appends the physical option map-ping and scores one option token. The rationale here is part of the measurement protocol. ASV values are indexed by the protocol that pro-duces them. The transition is the object, while the prompt, rationale policy, projection, label map-ping, and scoring call form the measurement chan-nel. ASV reports protocol sensitivity by replay-ing frozen states under alternative channels and measuring signed shift, absolute shift, and sign dis-agreement. In our study, a short generated rationale reverses the measured direction of the same tran-sitions, while longer or extractive buffers reduce the reversal, making prompt sensitivity a measured channel effect. Figure 1 summarizes the measure-ment flow. 1arXiv:2607.04419v2 [cs.AI] 7 Jul 2026 (A) Observed transition (B) Shared evaluator protocol (C) Belief update and diagnostics    
+
+> xi−1xi
+> ai
+> fixed candidate set
+> C={c1, c 2, c 3, c 4}
+> xi−1, x i, c
+
+# Eθ              
+
+> zx= Φ( x)rxℓ(c)
+> redacted projection
+> same protocol for both states
+> pi−1, p i
+> pbefore =pi−1
+> c1c2c3c4
+> pafter =pi
+> c1c2c3c4
+> update
+> ∆H
+> entropy
+> S
+> surprise
+> Gmargin
+> target dir.
+> goffline only
+> quality flags: floor / label leak / gold leak
+
+Figure 1: ASV measurement pipeline. Given an observed transition (xi−1, a i, x i) and a fixed candidate set C, ASV applies the same state-grounded evaluator protocol to the before-state and after-state. Each state is mapped through redacted projection, label-free rationale generation, and one-token candidate scoring, yielding before/after belief distributions over C. Their change is summarized by entropy movement, Bayesian surprise, and gold-margin gain, with the reviewed target g used only offline and evaluator quality flags recorded separately. 
+
+2 Related work 
+
+ASV connects tool-using agents, trajectory-level evaluation, process supervision, and LLM-as-judge evaluation. Tool-using and modular systems such as ReAct, Toolformer, ToolLLM, and DSPy orga-nize language-model applications as traces (Yao et al., 2023; Schick et al., 2023; Qin et al., 2024; Khattab et al., 2024). AgentBench, WebArena, Mind2Web, SWE-bench, AgentBoard, and Agent-ProcessBench evaluate behavior at the system or trajectory level (Liu et al., 2024; Zhou et al., 2024; Deng et al., 2023; Jimenez et al., 2024; Ma et al., 2024; Fan et al., 2026). ASV is therefore comple-mentary. When a workflow can export before/after states, it turns the trace into measurable evaluator belief updates without predefined progress labels. Process supervision gives the closest method-ological motivation. PRM800K labels intermediate reasoning steps (Lightman et al., 2024), and later process-reward or process-error benchmarks ex-tend step-level supervision to reward construction and error localization (Wang et al., 2024b; Zheng et al., 2025). Agent-as-a-Judge and AgentEval ex-tend step feedback to agentic workflows (Zhuge et al., 2025; Guo et al., 2026). ASV uses a smaller contract: a transition, a candidate set, and candidate log scores. Its damage/repair view also connects to Self-Refine and to evidence that intrinsic self-correction can degrade answers without external feedback (Madaan et al., 2023; Huang et al., 2024). LLM-as-judge work shows that language mod-els can approximate human preferences while re-maining sensitive to prompt format and option or-der (Liu et al., 2023; Zheng et al., 2023; Wang et al., 2024a); trained or rubric-conditioned judges further motivate evaluator reliability audits (Kim et al., 2024). Because ASV uses one-token op-tion log probabilities, it is also related to multiple-choice selection bias and first-token/text-answer mismatch (Zheng et al., 2024; Wang et al., 2024c). ASV treats the evaluator as a measurement instru-ment whose protocol must be specified and audited, recording raw scores, floor-score events, rationale leakage flags, and label mappings. Our retrieval-grounded open-QA setting relates to FEVER, KILT, PubMedQA, BioASQ, and RAG evaluation frame-works such as RAGAS and RAGChecker (Thorne et al., 2018; Petroni et al., 2021; Jin et al., 2019; Tsatsaronis et al., 2015; Es et al., 2024; Ru et al., 2024). ASV instead measures transition-level be-lief updates. The entropy and Bayesian-surprise diagnostics connect to calibration work (Yu et al., 2026) and accounts of surprise as belief change (Itti and Baldi, 2009). 
+
+3 Agent step value 
+
+ASV is a replay measurement procedure. It takes an observed trace, a fixed candidate set, and an eval-uator protocol, then computes how evaluator belief changes at each transition. It separates gold-free belief movement, offline target-directed movement, and evaluator quality flags, so the trace can be au-dited without treating the evaluator as ground truth. 
+
+3.1 Trace and protocol 
+
+Let a task be defined by an input q and a finite candidate set C = {c1, . . . , c K }. Each candidate has a stable identifier u(c) ∈ U that is indepen-dent of any visible option label. A trajectory is 
+
+T = (( x0, a 1, x 1), . . . , (xn−1, a n, x n)) , where ai
+
+2is the observed action and xi−1, x i are serialized states before and after the action. ASV is agnostic to how the actor produced the transition. It only assumes that a redacted projection zx = Φ( x, q, C )
+
+can be rendered for the evaluator. The projection removes physical option labels, gold labels, suc-cess flags, answer keys, final scores, raw provider responses, request identifiers, timestamps, trace identifiers, and secrets. Candidate texts may be in-cluded for open-QA tasks because identifiers such as answer-a have no semantics. The gold candi-date g is retained only for offline analysis. ASV measures the change in a specified evalua-tor’s state-conditioned belief over C. The measure-ment protocol is ρ = (Φ , E θ, R, Π, Ψ, N ), cover-ing state projection, evaluator model, rationale or buffer policy, label mapping, scored prompt, and score normalization. We omit the ρ superscript unless protocols are compared. 
+
+3.2 State scoring 
+
+The state scorer Eθ has two passes. First, it produces a compact rationale buffer rx =
+
+Rθ(zx, C ; IR). The instruction IR forbids phys-ical option labels, gold labels, answer keys, scores, and success metadata. It permits stable candidate identifiers and candidate texts. ASV records label leakage, gold leakage, and candidate coverage as operational checks. Second, ASV appends a physical label mapping at the prompt tail. Let L = {A, B, C, D, . . . } be the visible label set and let πb : C → L be the bth candidate-to-label mapping. The scored prompt 
+
+Ψx,b = zx ⊕ rx ⊕ Γπb contains the redacted state, rationale buffer, current option mapping, and an instruction to output one uppercase option label. For candidate c, let V(πb(c)) denote token variants that normalize to the same label. The raw score is 
+
+ℓ(b) 
+
+> x
+
+(c) = log X
+
+> t∈V (πb(c))
+
+Pθ(t | Ψx,b ). (1) If a label is absent from the returned top-log-probability list, ASV assigns a configured floor score and records a quality flag. The induced be-lief is p(b) 
+
+> x
+
+= softmax C (ℓ(b) 
+
+> x
+
+); with B > 1 map-pings, ASV uses ¯px(c) = B−1 P 
+
+> b
+
+p(b) 
+
+> x
+
+(c). Open-QA tasks are converted by freezing a candidate-answer specification before scoring: three concrete answers, one none-of-the-above candidate for insufficient evidence, and one reviewed target iden-tifier used only offline. Candidate generation traces are not shown to the evaluator. The main estimate uses B = 1 fixed-layout scores; the robustness audit uses B = 4 balanced label permutations. 
+
+3.3 Step diagnostics 
+
+For transition i, ASV reports a vector of diagnostics instead of a universal reward. Entropy movement is 
+
+∆Hi = 1
+
+B
+
+> B
+
+X
+
+> b=1
+
+h
+
+H(p(b) 
+
+> xi−1
+
+) − H(p(b) 
+
+> xi
+
+)
+
+i
+
+, (2) which measures uncertainty change, not correct-ness. When a reviewed target candidate g is avail-able offline, the primary validation metric is gold-margin gain. Define the state margin M (b) 
+
+> x
+
+(g) = 
+
+ℓ(b) 
+
+> x
+
+(g) − max c∈C,c ̸=g ℓ(b) 
+
+> x
+
+(c) and 
+
+Gmargin  
+
+> i
+
+= 1
+
+B
+
+> B
+
+X
+
+> b=1
+
+h
+
+M (b) 
+
+> xi
+
+(g) − M (b) 
+
+> xi−1
+
+(g)
+
+i
+
+. (3) Positive values mean the step made the evaluator prefer the target more strongly relative to its near-est competitor; negative values indicate movement away from the target. To detect belief pivots that entropy misses, ASV reports Bayesian surprise. With ϵ = 10 −6 and ¯pϵx
+
+denoting a lightly smoothed belief vector, 
+
+Si = DKL 
+
+
+
+¯pϵxi ∥ ¯pϵxi−1
+
+
+
+. (4) Surprise has no direction, so it is interpreted jointly with Gmargin  
+
+> i
+
+.
+
+3.4 Protocol sensitivity 
+
+For two evaluator protocols ρ and ρ′, ASV reports the signed channel effect ∆ρ,ρ ′ 
+
+> i
+
+= Gmargin  
+
+> i
+
+(ρ) −
+
+Gmargin  
+
+> i
+
+(ρ′), its absolute size, and sign disagree-ment over nonzero moves. Aggregate reports use the mean signed channel effect, mean absolute channel effect, and sign-disagreement rate. Compo-nent attribution changes one element of ρ at a time, such as the rationale budget or state projection, while holding the trace, candidates, and scorer fam-ily fixed. Large protocol sensitivity limits claims about protocol-independent agent quality, but it is itself a black-box evaluation result, that the evalua-tor channel is changing how the same transition is read. 34 Experimental setup 
+
+We use the experiment to answer two questions. First, can ASV localize which trace transitions change evaluator belief? Second, when the same frozen transition is replayed under different evalua-tor channels, which part of the channel carries the reversal? The study contains 100 open-QA tasks from intervention, risk, mechanism, diagnostic, and insufficient-evidence settings. Each task has four reviewed candidates. The source traces come from a PubMed evidence-retrieval workflow. We evaluated all 1,100 agent steps with a 128-token rationale-conditioned DeepSeek scorer, then re-played the same frozen states under label permu-tations and a direct one-token scorer. Appendix A gives the provider settings, actor coverage, storage format, and prompt details. For channel attribution, we replayed the 100 clean largest-gap transitions under alternate buffer policies and state slices. Clean excludes floor scores, fallback scores, missing option labels, and rationale leakage flags. 
+
+5 Results 
+
+5.1 The fixed protocol gives negative step values 
+
+Table 1 gives the fixed-protocol insight. Mean gold-margin gain is -2.335 with trajectory-bootstrap 95% CI [-3.395, -1.272]. The estimate stays negative under B = 4 label permutations, after removing floor-score steps, and after removing the one tra-jectory containing all 11 gold-leakage warnings. Leave-one-trajectory-out means range from -2.467 to -2.180. Under this candidate set, projection, actor stack, and rationale-conditioned evaluator, many transitions move evaluator belief away from the reviewed target. Label order does not explain the fixed-protocol result. Direct one-token scoring gives +4.033 on the same 1,100 transitions, while the 128-token rationale-conditioned protocol gives -2.335. The mean signed channel effect is -6.368, the mean ab-solute effect is 14.853, and signs disagree in 70.1% of nonzero paired moves. After quality filtering, direct scoring remains positive (+3.939), rationale scoring remains negative (-2.221), and sign dis-agreement remains 68.1%. 
+
+5.2 Entropy misses near-one-hot pivots 
+
+Entropy movement is zero for every step, but mean Bayesian surprise is 2.693 and the largest sur-prise reaches 15.194. A temperature-scaling probe shows that, at the native scale, the mean top can-didate probability is 1.000 before and after transi-tions. At τ = 5 , it drops to about 0.948 and 12.9% of steps show nonzero entropy movement. Gold-margin gain supplies the missing direction that 77 steps are positive, 179 are negative, and 844 are unchanged. 
+
+5.3 Loss localizes after evidence enters the trace 
+
+The most negative step-type means occur at extract (-7.790), audit (-7.392), validate-plan (-4.664), and retrieval (-3.096); post-audit (0.758) and finalize (0.394) are mildly positive. Because medians are zero and extrema reflect saturated flips, we treat these means as localization hints and inspect dam-age/repair events. Figure 2 preserves this ordering under both the fixed layout and the B = 4 label-permutation au-dit, so physical option order does not explain the pattern. Under the rationale-conditioned protocol, extraction damages initially target-directed states more often than it repairs them (24% versus 4%); audit shows the same imbalance (22% versus 3%). The largest measured loss appears after evidence has entered the workflow and the agent begins com-pressing or criticizing its intermediate state. 
+
+5.4 The reversal is carried by rationale compression 
+
+Table 2 asks which evaluator-channel component carries the reversal. On the top-gap clean transi-tions, full-state direct scoring is positive on average (+7.750), while the 128-token generated-rationale channel is sharply negative (-21.741). The re-versal shrinks with a 512-token rationale (-1.981) and largely disappears with an extractive evidence buffer (+1.160). Evidence-only direct scoring re-mains positive (+5.421), while evidence-only 128-token rationale scoring is only mildly negative (-2.333). Candidate coverage does not explain the full-trace reversal. Coverage averages 0.546 over-all and is slightly higher in sign-disagreement steps (0.590). A cue-retention pass points to the same mechanism, that 63 of 100 top-gap transitions are labeled as compression loss, compared with 3 la-beled as state damage. The audit does not identify 4Table 1: Main ASV results. Confidence intervals use trajectory bootstrap.                                           
+
+> Quantity Value Diagnostic Value 95% CI / note Questions 100 Mean margin gain -2.335 [-3.395, -1.272] Agent steps 1,100 B= 4 label permutations -2.420 [-3.534, -1.383] Evaluated states 2,200 No floor-score steps -2.279 [-3.306, -1.317] Candidates per task 4No gold-leak trajectory -2.445 [-3.541, -1.366]
+> none-of-the-above tasks 100 / 100 Leave-one-trajectory-out –[-2.467, -2.180] Label / gold / floor flags 0 / 11 / 15 Positive / zero / negative steps 77 / 844 / 179 Mean / max surprise 2.693 / 15.194 Layout spread 0.000 mean / median / max Mean entropy movement 0.000 10 8642024
+> Mean gold-margin gain (toward target > 0)
+> extract
+> audit
+> validate-plan
+> retrieve
+> classify
+> revise
+> advisory verify
+> draft
+> plan
+> finalize
+> post-audit
+> B=1 (fixed layout)
+> B=4 (label-permutation)
+
+Figure 2: Step-type localization of gold-margin movement. Points show mean gain and trajectory-bootstrap 95% confidence intervals. Step types are ordered by the B = 1 fixed-layout mean. Filled circles denote B = 1 fixed-layout estimates; open triangles denote B = 4 label-permutation estimates. Negative values indicate movement away from the reviewed target. 
+
+exact dropped tokens, but it localizes the failure to the rationale-compression channel. 
+
+6 Discussion and limitations 
+
+ASV is a replay diagnostic, and should not be treated as a causal reward estimator. Its claim is that a frozen trace, a fixed candidate set, and an explicit evaluator protocol are enough to measure local belief updates. The direct/rationale reversal is part of it, that a step value without its evalua-tor channel can mix actor behavior with artifacts introduced by projection, compression, option ren-dering, or scoring. The negative mean gold-margin gain is evidence about this measured stack under the rationale-conditioned protocol. The structural result is that extraction and audit have the strongest damage rates, and both occur after external evidence has entered the workflow. This resembles failures re-ported for intrinsic self-correction, where model-generated verification can destabilize answers with-out outside feedback (Huang et al., 2024). ASV gives a trace-level way to locate that destabilization. The entropy result gives a second lesson. When a black-box scorer is near one-hot, uncertainty reduc-tion can be blind to large belief pivots, so Bayesian surprise and gold-margin gain are needed together. The label-free rationale buffer should be treated as a measurement channel. It makes evaluator deliberation explicit while preserving one-token likelihood scoring, but it can also compress away the cue that made a state useful. The compo-nent audit shows how to use ASV in practice, that agreement across direct, longer-rationale, and extractive-buffer channels is a stronger signal; dis-agreement redirects inspection to state projection, rationale compression, option rendering, or scorer calibration. The scope remains limited to one 100-question open-QA run, one partly live actor stack, and one DeepSeek evaluator family. ASV logs raw scores, leakage and floor events, permutations, protocol comparisons, state-slice checks, and cue-retention labels, but those audits do not make the judge objective or reveal internal token-level mech-anisms. 
+
+7 Ethical considerations 
+
+ASV is a methodological tool for finding which parts of a long agent trace improve evidence-grounded correctness and which parts degrade it. 5Table 2: Evaluator-channel attribution audit on the 100 clean largest-gap transitions. Gap, absolute gap, and sign disagreement compare each row with full-state direct scoring on the same frozen transitions. Damage/repair reports the percentage of transitions where the target margin crosses from positive to non-positive, or the reverse.                                                          
+
+> State Protocol nMean GGap Abs. gap Flip Damage/repair Full direct 100 7.750 0.000 0.000 0.0% 17/18% Full gen-rationale-128 100 -21.741 -29.491 48.152 100.0% 64/8% Full gen-rationale-512 100 -1.981 -9.732 27.589 66.7% 14/9% Full extractive buffer 100 1.160 -6.590 19.869 40.9% 8/11% Full candidate-only 100 -0.775 -8.525 22.158 66.7% 4/2% Evidence only direct 100 5.421 -2.329 15.558 5.3% 3/15% Evidence only gen-rationale-128 100 -2.333 -10.083 23.684 64.3% 9/3%
+
+The main risk is overtrust: a numeric step value can look more objective than the evaluator protocol that produced it. In high-stakes settings, ASV should be used as a debugging and evaluation tool, reported with source evidence, evaluator details, candidate specifications, and protocol-sensitivity diagnostics. 
+
+Data and code availability 
+
+The standalone ASV Eval toolkit is pub-licly available at https://github.com/andyzpb/ asv-eval . The repository contains the standard ASV JSONL schema, metric implementation, eval-uator protocol, command-line interface, documen-tation, tests, and runnable offline examples. 
+
+References 
+
+Xiang Deng, Yu Gu, Boyuan Zheng, Shijie Chen, Samuel Stevens, Boshi Wang, Huan Sun, and Yu Su. 2023. Mind2Web: Towards a generalist agent for the web. In Advances in Neural Information Processing Systems .Shahul Es, Jithin James, Luis Espinosa Anke, and Steven Schockaert. 2024. RAGAs: Automated evalu-ation of retrieval augmented generation. In Proceed-ings of the 18th Conference of the European Chap-ter of the Association for Computational Linguistics: System Demonstrations , pages 150–158. Shengda Fan, Xuyan Ye, Yupeng Huo, Zhi-Yuan Chen, Yiju Guo, Shenzhi Yang, Wenkai Yang, Shuqi Ye, Jingwen Chen, Haotian Chen, Xin Cong, and Yankai Lin. 2026. AgentProcessBench: Diagnosing step-level process quality in tool-using agents. arXiv preprint arXiv:2603.14465 .Dongxin Guo, Jikun Wu, and Siu Ming Yiu. 2026. AgentEval: DAG-structured step-level evaluation for agentic workflows with error propagation tracking. 
+
+arXiv preprint arXiv:2604.23581 .Jie Huang, Xinyun Chen, Swaroop Mishra, Huaixiu Steven Zheng, Adams Wei Yu, Xiny-ing Song, and Denny Zhou. 2024. Large language models cannot self-correct reasoning yet. In The Twelfth International Conference on Learning Representations .Laurent Itti and Pierre Baldi. 2009. Bayesian sur-prise attracts human attention. Vision Research ,49(10):1295–1306. Carlos E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik R. Narasimhan. 2024. SWE-bench: Can language mod-els resolve real-world GitHub issues? In The Twelfth International Conference on Learning Representa-tions .Qiao Jin, Bhuwan Dhingra, Zhengping Liu, William W. Cohen, and Xinghua Lu. 2019. PubMedQA: A dataset for biomedical research question answering. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing , pages 2567–2577. Omar Khattab, Arnav Singhvi, Paridhi Maheshwari, Zhiyuan Zhang, Keshav Santhanam, Sri Vard-hamanan, Saiful Haq, Ashutosh Sharma, Thomas T. Joshi, Hanna Moazam, Heather Miller, Matei Zaharia, and Christopher Potts. 2024. DSPy: Compiling declarative language model calls into self-improving pipelines. In The Twelfth International Conference on Learning Representations .Seungone Kim, Jamin Shin, Yejin Cho, Joel Jang, Shayne Longpre, Hwaran Lee, Sangdoo Yun, Seongjin Shin, Sungdong Kim, James Thorne, and Minjoon Seo. 2024. Prometheus: Inducing fine-grained evaluation capability in language models. In 
+
+The Twelfth International Conference on Learning Representations .Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. 2024. Let’s verify step by step. In The Twelfth International Conference on Learning Representations .Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang, Shudan Zhang, Xiang Deng, Ao-han Zeng, Zhengxiao Du, Chenhui Zhang, Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun, and 3 others. 2024. AgentBench: Evaluating LLMs as agents. In 
+
+6The Twelfth International Conference on Learning Representations .Yang Liu, Dan Iter, Yichong Xu, Shuohang Wang, Ruochen Xu, and Chenguang Zhu. 2023. G-Eval: NLG evaluation using GPT-4 with better human alignment. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing ,pages 2511–2522. Chang Ma, Junlei Zhang, Zhihao Zhu, Cheng Yang, Yujiu Yang, Yaohui Jin, Zhenzhong Lan, Lingpeng Kong, and Junxian He. 2024. AgentBoard: An ana-lytical evaluation board of multi-turn LLM agents. In 
+
+Advances in Neural Information Processing Systems .Aman Madaan, Niket Tandon, Prakhar Gupta, Skyler Hallinan, Luyu Gao, Sarah Wiegreffe, Uri Alon, Nouha Dziri, Shrimai Prabhumoye, Yiming Yang, Shashank Gupta, Bodhisattwa Prasad Majumder, Katherine Hermann, Sean Welleck, Amir Yazdan-bakhsh, and Peter Clark. 2023. Self-refine: Iterative refinement with self-feedback. In Advances in Neu-ral Information Processing Systems .Fabio Petroni, Aleksandra Piktus, Angela Fan, Patrick Lewis, Majid Yazdani, Nicola De Cao, James Thorne, Yacine Jernite, Vladimir Karpukhin, Jean Maillard, Vassilis Plachouras, Tim Rocktäschel, and Sebastian Riedel. 2021. KILT: A benchmark for knowledge intensive language tasks. In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , pages 2523–2544. Yujia Qin, Shihao Liang, Yining Ye, Kunlun Zhu, Lan Yan, Yaxi Lu, Yankai Lin, Xin Cong, Xiangru Tang, Bill Qian, Sihan Zhao, Lauren Hong, Runchu Tian, Ruobing Xie, Jie Zhou, Mark Gerstein, Dahai Li, Zhiyuan Liu, and Maosong Sun. 2024. ToolLLM: Facilitating large language models to master 16000+ real-world APIs. In The Twelfth International Con-ference on Learning Representations .Dongyu Ru, Lin Qiu, Xiangkun Hu, Tianhang Zhang, Peng Shi, Shuaichen Chang, Cheng Jiayang, Cunxi-ang Wang, Shichao Sun, Huanyu Li, Zizhao Zhang, Binjie Wang, Jiarong Jiang, Tong He, Zhiguo Wang, Pengfei Liu, Yue Zhang, and Zheng Zhang. 2024. RAGChecker: A fine-grained framework for diagnos-ing retrieval-augmented generation. In Advances in Neural Information Processing Systems .Timo Schick, Jane Dwivedi-Yu, Roberto Dessì, Roberta Raileanu, Maria Lomeli, Eric Hambro, Luke Zettle-moyer, Nicola Cancedda, and Thomas Scialom. 2023. Toolformer: Language models can teach themselves to use tools. In Advances in Neural Information Pro-cessing Systems .James Thorne, Andreas Vlachos, Christos Christodoulopoulos, and Arpit Mittal. 2018. FEVER: A large-scale dataset for fact extraction and VERification. In Proceedings of the 2018 Conference of the North American Chapter of the Association for Computational Linguistics , pages 809–819. George Tsatsaronis, Georgios Balikas, Prodromos Malakasiotis, Ioannis Partalas, Matthias Zschunke, Michael R. Alvers, Dirk Weissenborn, Anastasia Krithara, Sergios Petridis, Dimitris Polychronopou-los, et al. 2015. An overview of the BIOASQ large-scale biomedical semantic indexing and question an-swering competition. BMC Bioinformatics , 16:138. Peiyi Wang, Lei Li, Liang Chen, Zefan Cai, Dawei Zhu, Binghuai Lin, Yunbo Cao, Lingpeng Kong, Qi Liu, Tianyu Liu, and Zhifang Sui. 2024a. Large language models are not fair evaluators. In Proceedings of the 62nd Annual Meeting of the Association for Compu-tational Linguistics (Volume 1: Long Papers) , pages 9440–9450. Peiyi Wang, Lei Li, Zhihong Shao, Runxin Xu, Damai Dai, Yifei Li, Deli Chen, Yu Wu, and Zhifang Sui. 2024b. Math-shepherd: Verify and reinforce LLMs step-by-step without human annotations. In Proceed-ings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Pa-pers) , pages 9426–9439. Xinpeng Wang, Bolei Ma, Chengzhi Hu, Leon Weber-Genzel, Paul Röttger, Frauke Kreuter, Dirk Hovy, and Barbara Plank. 2024c. “my answer is C”: First-token probabilities do not match text answers in instruction-tuned language models. In Findings of the Associa-tion for Computational Linguistics: ACL 2024 , pages 7407–7416. Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. 2023. ReAct: Synergizing reasoning and acting in language models. In The Eleventh International Conference on Learning Representations .Wenhao Yu, Shaohang Wei, Jiahong Liu, Yifan Li, Minda Hu, Aiwei Liu, Hao Zhang, and Irwin King. 2026. Probability-entropy calibration: An elastic indicator for adaptive fine-tuning. arXiv preprint arXiv:2602.01745 . Accepted by ICML 2026. Chujie Zheng, Zhenru Zhang, Beichen Zhang, Runji Lin, Keming Lu, Bowen Yu, Dayiheng Liu, Jingren Zhou, and Junyang Lin. 2025. ProcessBench: Iden-tifying process errors in mathematical reasoning. In 
+
+Proceedings of the 63rd Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 1009–1024. Chujie Zheng, Hao Zhou, Fandong Meng, Jie Zhou, and Minlie Huang. 2024. Large language models are not robust multiple choice selectors. In The Twelfth Inter-national Conference on Learning Representations .Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric P. Xing, Hao Zhang, Joseph E. Gonzalez, and Ion Stoica. 2023. Judging LLM-as-a-judge with MT-bench and chatbot arena. In Advances in Neural Information Processing Sys-tems .
+
+7Shuyan Zhou, Frank F. Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng, Tianyue Ou, Yonatan Bisk, Daniel Fried, Uri Alon, and Gra-ham Neubig. 2024. WebArena: A realistic web en-vironment for building autonomous agents. In The Twelfth International Conference on Learning Repre-sentations .Mingchen Zhuge, Changsheng Zhao, Dylan R. Ashley, Wenyi Wang, Dmitrii Khizbullin, Yunyang Xiong, Zechun Liu, Ernie Chang, Raghuraman Krishnamoor-thi, Yuandong Tian, Yangyang Shi, Vikas Chandra, and Jürgen Schmidhuber. 2025. Agent-as-a-judge: Evaluate agents with agents. In Proceedings of the 42nd International Conference on Machine Learn-ing , volume 267 of Proceedings of Machine Learning Research , pages 80569–80611. PMLR. 
+
+A Reproducibility details 
+
+The implementation stores trajectories as JSONL records containing task metadata, candidate speci-fications, and ordered state transitions. Each transi-tion contains an action name, a before-state projec-tion, an after-state projection, and optional cost and trace metadata. Evaluator outputs are stored sepa-rately as candidate log scores, normalized beliefs, rationale quality flags, permutation identifiers, and metric records. Gold candidate identifiers, success labels, final scores, and physical option labels are never rendered into the label-free state projection. This separation makes it possible to rerun evalua-tor protocols from preserved trajectories without rerunning the actor. The 100-question open-QA experiment used four candidates per task, including exactly one 
+
+none-of-the-above . ASV restricts scoring to a small option set because first-token top-log-probability APIs expose only a bounded set of candidate tokens. The source trajectories were col-lected with PubMed retrieval through NCBI Entrez. The actor used DeepSeek where configured: classi-fication used LLM mode for 97 of 100 trajectories, planning for 67, synthesis for 52, verification for 95, and revision for 50; the remaining substeps used deterministic or fallback paths recorded in the trace metadata. No model training was performed. The evaluator used deepseek-chat , a 128-token label-free rationale pass, temperature zero, one generated token for the scored pass, log probabilities enabled, and top-log-probabilities requested for the option labels. The main reported estimate uses a fixed option layout. The B = 4 robustness audit renders the same trajectories under four deterministic phys-ical label mappings and normalizes scores back to stable candidate identifiers before computing mar-gin gain. The protocol-sensitivity audit reuses the same frozen states with the rationale pass disabled and the same one-token option scoring rule. The attribution audit samples the 100 clean largest-gap transitions and replays them under alternate buffer policies and state slices, without rerunning the ac-tor. 
+
+B Evaluator prompt skeleton 
+
+ASV uses two evaluator prompts. The first prompt generates a compact rationale buffer without phys-ical labels. The implementation renders the task question, the redacted state projection, and a candi-date manifest using stable candidate identifiers and candidate texts. 
+
+> You are evaluating an agent state. Generate a com-pact label-free rationale buffer. Use stable can-didate identifiers only. Never mention physical option labels such as A/B/C/D, gold labels, an-swer keys, success flags, or scores. Compare the evidence against each candidate identifier and sep-arate supporting evidence, contradicting evidence, missing evidence, and unresolved ambiguity. Do not output a final option label.
+
+The second prompt appends the physical label mapping only at the tail and scores one token. 
+
+> [Redacted state projection.] [Candidate manifest with candidate identifiers and texts.] [Label-free rationale buffer.] Current physical option map-ping: A = candidate_id: [id]. B = candidate_id: [id]. C = candidate_id: [id]. D = candidate_id: [id]. Output exactly one uppercase option label.
+
+The scored call is read from the log probabilities of the first generated option token. Label tokens are normalized by stripping whitespace and simple punctuation, so variants such as A, leading-space 
+
+A, newline-prefixed A, and A. map to the same op-tion; when multiple returned token variants map to the same option, their scores are combined with log-sum-exp. The scored prompt is not allowed to emit free-form reasoning before the option label be-cause that would make first-token log probabilities measure reasoning preambles. 8
