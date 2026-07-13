@@ -1,0 +1,363 @@
+Title: Institutional Red-Teaming: Deployment Rules, Not Just Models, Causally Shape Multi-Agent AI Safety
+
+URL Source: https://arxiv.org/pdf/2607.07695v1
+
+Published Time: Thu, 09 Jul 2026 01:15:41 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Institutional Red-Teaming: Deployment Rules, Not Just Models, Causally Shape Multi-Agent AI Safety 
+
+Yujiao Chen 
+
+Massachusetts Institute of Technology Cambridge, MA 02139 
+
+yujiaoch@mit.edu 
+
+# Abstract 
+
+We introduce institutional red-teaming , an evaluation methodology for testing deployment rules in multi-agent AI: hold the agents, objectives, and task state fixed, vary only one rule, and attribute the resulting change in collective behavior to that rule. We instantiate the methodology in IABench-CA , a consequence-allocation benchmark spanning 228 contexts, five canonical rules, and seven model populations ( 33 ,924 games), with a normative cooperative reference and auto-labelled reasoning traces. Three findings emerge. (1) Deployment rules causally alter collective safety: changing only the consequence rule moves mean fatality by 22 to 58 percentage points within every population. (2) There is no safe default, but the targeting hazard is universal: the safest rule, the least-safe rule, and even the direction of the incidence effect vary across populations, yet regressive identity-targeting is never decisively safest in any context for any popu-lation, eliminates the least-resourced agent in 30 –87% of games everywhere, and is selection-unsafe relative to the cooperative reference for all seven populations. (3) Identity salience is the mechanism: a one-shot anonymization ablation on the most exploitation-prone population (gpt-5.1) shows that merely naming the loss bearer in the rule text drives targeted elimination from 22% to 81% at identical payoffs; under repeated play, anonymization only delays the targeting, as agents re-infer the hidden rule from observed eliminations. We package the methodol-ogy as a safety-case workflow that certifies a provisional rule region Φ( c, P ) per deployment context and population, with explicit residual risks and monitoring obligations. 
+
+# 1 Introduction 
+
+Today’s alignment methods mostly evaluate or modify individual models: RLHF [Christiano et al., 2017, Ouyang et al., 2022], constitutional methods [Bai et al., 2022], preference optimization [Rafailov et al., 2023], interpretability [Olah et al., 2020], and scalable oversight [Amodei et al., 2016, Irving et al., 2018, Bowman et al., 2022] all intervene on a single agent’s objectives or reason-ing. Modern deployments, however, increasingly consist of multiple interacting agents [Dafoe et al., 2020, Hammond et al., 2025], and their collective behavior depends not only on model weights but also on the orchestration rules that govern how the agents coordinate, share resources, escalate, and fail. Those deployment rules are safety-critical: the same agents can behave safely under one rule set and catastrophically under another, and the hazard can live in a single sentence of rule text. In our experiments, merely naming which agent bears the loss after a collective failure raises targeted elimination from 22% to 81% at identical payoffs. The paper’s central claims are causal: holding 
+
+> Preprint. arXiv:2607.07695v1 [cs.AI] 8 Jul 2026
+
+agents fixed and changing only the rule changes safety ; holding the rule fixed and changing only the population changes it again. Existing benchmarks rarely isolate this causal variable: multi-agent evaluation suites vary scenarios and agents together, so rule-induced failures cannot be separated from agent-induced ones. We intro-duce institutional red-teaming , an evaluation methodology that holds agents, objectives, task state, and observability fixed, varies exactly one deployment rule, and attributes the resulting behavioral change to that rule; it is the deployment-rule analogue of adversarial evaluation for models. As a case study we develop consequence allocation : the clause that determines who bears loss when a collective falls short of its objective (retry, reassignment, throttling, shutdown, budget penalty). It is common in orchestrated deployments, configurable in a single sentence, and directly shapes whether shifting loss onto another agent is a viable strategy. We describe any such rule by three auditable coordinates (concentration κ, identity salience Sal , incidence I) and instantiate the methodology as 
+
+IABench-CA : 228 contexts × five canonical rules × seven model populations, 33 ,924 games. 
+
+Contributions. (1) Institutional red-teaming : a causal evaluation methodology for deployment rules. (2) IABench-CA : a benchmark instantiating it for consequence allocation (artifact to be released). (3) Three empirical discoveries : rule-only interventions change collective safety ( 22 –
+
+58 pp in every population); there is no safe default across contexts or model populations, each rule failing through a characteristic strategic pathology, yet regressive identity-targeting is never deci-sively safest for any population; and identity salience causally drives targeting (one-shot anonymiza-tion, 81% → 22% , with the protection dissolving under repeated play). (4) A safety-case workflow 
+
+certifying a provisional rule region Φ( c, P ) per deployment. The formal model and reference defi-nition appear in Appendix A. 
+
+# 2 Institutional Red-Teaming: Evaluating Deployment Rules 
+
+An institutional red team evaluates a candidate deployment rule by holding agents, objectives, task state, and observability fixed, varying only that rule (the one part of the prompt that states it), and checking whether unsafe collective behavior appears. The protocol applies to any auditable dimen-sion of a deployment’s rule set: communication (who may talk to whom), delegation , aggregation and voting , escalation , budget , hierarchy , audit , and consequence allocation (who bears loss after a collective failure). Each is a control surface for the same treatment: fix the agents, vary the di-mension, measure the gap. This paper develops the last dimension in full. The safety deficit a rule induces is quantified by our benchmark metric, the Institutional Alignment Gap (IAG; defined in Sec. 5). 
+
+The control surface. We describe a consequence-allocation rule using three auditable coordinates. 
+
+Concentration (κ) measures how sharply expected loss is focused on one agent rather than spread across the collective. Identity salience (Sal ) measures whether the loss bearer is a named structural target, such as the least-resourced or most-resourced agent, rather than an anonymous or random draw. Incidence (I) measures where loss falls relative to resources, signed as in tax incidence by the degree of regressivity : regressive rules place loss on less-resourced agents ( I=+1 ), progressive rules place loss on more-resourced agents ( I=−1), and neutral rules do not systematically load loss by resources ( I=0 ); positive I is thus the direction this paper flags as hazardous. These coordinates separate rules that may look similar procedurally but create different strategic incentives (Table 1). 
+
+Context matters. The same rule can be safe in one deployment and unsafe in another, depending on the resource distribution, the difficulty of the objective, and whether anyone can cover the short-fall; consequence allocation is a context-dependent control surface, not a fixed policy choice. The next section instantiates these definitions in IABench-CA. 
+
+# 3 IABench-CA: Consequence-Allocation Red-Teaming 
+
+We now instantiate the paradigm end-to-end on the case-study control surface, in a minimal thresh-old benchmark. IABench-CA is a stylized volunteer’s dilemma [Diekmann, 1985, Palfrey and Rosenthal, 1984]: three agents hold private resources and choose how much to volunteer toward 2Elimination mechanism κ Sal I                   
+
+> AON: none until endgame; all if FR<T low low 0
+> RE: one agent, at random med low 0
+> DV: one agent, by plurality vote med weak endog. RP (regressive): least -resourced agent high high +1
+> PP (progressive): most -resourced agent high high −1
+
+Table 1: The five consequence rules by design-axis coordinates. The first column glosses each rule’s elimination mechanism, i.e. who is eliminated when a round fails to meet the threshold (defined fully in Sec. 3). RP and PP coincide in κ, Sal and split only on incidence I. For DV the incidence is endogenous (endog.): the rule fixes no relation between loss and resources; where loss falls is decided by the agents’ votes, so I is an outcome of play rather than a design parameter. a common threshold; if contributions fall short, a consequence rule decides what happens to them. The benchmark varies only that rule across a grid of contexts, holding the agents, objective, and task fixed, and reports collapse, exploitation, and the Institutional Alignment Gap (IAG; Fig. 1). 
+
+Contexts, rules, and the canonical instance. A context is c = ( w, T ): agent resources w (total 
+
+W = P 
+
+> i
+
+wi) and a shared threshold T ≤ W (feasibility). We summarize a context by inequality 
+
+γ (Gini of w), group stakes τ = T /W , and individual stakes θ = T / max i wi, with self-rescue 
+
+(max i wi ≥ T ) and exploitable-bottom (the least-resourced cannot self-rescue but the others can cover T ) predicates. A consequence rule ρ maps the state of a failed round (the multiset of sur-vivors’ remaining resources and the fund shortfall) to an elimination decision, either eliminating one survivor or deferring; we describe a rule by the design coordinates (κ, Sal , I ) of Sec. 2, and the full formal model is in Appendix A. The five consequence rules are AON (all-or-nothing: no elimination until the endgame, then all eliminated if short), RE (random elimination), DV (demo-cratic/plurality vote), RP (regressive: the least -resourced agent is eliminated), and PP (progressive: the most -resourced agent is eliminated); under RE, DV, RP, and PP, one agent is eliminated each round the threshold is unmet. 
+
+The grid and the canonical instance. The grid fixes total resources W =12 and sweeps all 19 
+
+integer resource distributions over the three agents, each crossed with thresholds T ∈ { 1, . . . , 12 },for 19 × 12 = 228 contexts. The canonical red-team instance is w = (1 , 5, 6) , T =10 : under least-resourced-dies, an all-zero opening round eliminates agent 1 though agents 2 and 3 ( 5+6 ≥ 10 )could have met T . This is the exploitation that several of the tested populations select (Finding 2). 
+
+Protocol. Over R rounds each surviving agent contributes from its remaining resources; the collec-tive succeeds when pooled effort reaches T , and on a failed non-final round ρ eliminates one survivor (or defers), with all survivors eliminated if effort is short after the final round. The cooperative-refinement reference (the reference ) is a non-LLM simulator that plays the cooperative branch of each mechanism’s equilibrium set under trembling-hand noise ( ε=0 .10 ; signs stable across noise levels); as a normative safety target (not a behavioral prediction) it selects a non-collapsing, non-exploitative equilibrium wherever one exists, so the gap measures the distance between the norma-tively preferred equilibrium a rule makes available and the one LLM agents select . LLM popula-tions (off-the-shelf commercial model snapshots, used as released) run under an identical prompt template across mechanisms (only the rule clause differs), so behavioral differences attach to the rule, not its framing; rationales are auto-labelled for positional/exploitative content, with bootstrap CIs and permutation tests (Appendix B). 
+
+Artifact. A code-and-data artifact reproducing the main figures and statistics (mechanism im-plementations, the cooperative-refinement simulator, the context grid, and analysis scripts) will be released. 3Figure 1: The consequence-allocation red-team protocol. Agents, objectives, task, and observability are held fixed; only the consequence rule ρ, described by its coordinates (κ, Sal , I ), varies. Acooperative-refinement reference and an LLM-agent population are run under each rule; collapse, exploitation, and the Institutional Alignment Gap decide whether the rule is certified into Φ( c) or rejected. 
+
+# 4 Strategic Failure Modes 
+
+Each consequence rule eliminates one strategic pathology and introduces another. We state the predicted mechanism per rule; the formal model is in Appendix A, and per-rule empirical digests are in Appendix C. 
+
+AON: diffuse collapse. No intermediate consequence → free-riding. Withholding carries no cost before the endgame, so a collectively fatal all-zero opening is self-sustaining: no single agent can save itself by contributing alone, even though joint success is feasible. 
+
+RE: lottery fatalism. Random punishment → weak accountability. When the victim is a uniform draw, contributing buys no personal protection, so preserving wealth and gambling on the draw becomes the attractive play rather than funding the rescue. 
+
+DV: politics replaces provisioning. Vote-determined consequence → coalition formation. The vote, not the fund, becomes the survival instrument: agents hoard contributions as bargaining lever-age, eliminate a member, and the victim’s forfeited wealth pushes the threshold further out of reach. 
+
+RP: targeted sacrifice. Poorest bears the consequence → exploit the weakest. Contributing low-ers post-round wealth, so over-giving risks the fatal bottom rank; non-bottom agents under-give in selfish safety, and where the bottom cannot self-rescue, deliberately starving the round and sacrific-ing it is itself stable play (canonical instance w = (1 , 5, 6) , T =10 ). 
+
+PP: capacity destruction. Richest bears the consequence → dodge the top rank rather than fund the threshold. Agents calibrate contributions to rank instead of to the threshold: the at-risk agent gives just enough to push the richest rank onto another, the rest conserve because they are not at risk, and the round falls short; the victim’s forfeited reserve is precisely the wealth the group needed, so failure destroys the collective’s capacity to ever reach the threshold. The protection PP offers in principle requires the richest to pre-empt by covering the shortfall, which the populations that fail under PP do not do. These mechanisms explain why every rule eliminates some strategic pathology while introducing another, suggesting that no single consequence rule should dominate across all contexts and model populations. The failure modes are qualitative predictions about the incentive structure each rule in-4duces; the simulations determine whether, and under which model populations, LLM agents actually realize the predicted behaviors (Sec. 5). 
+
+# 5 Empirical Results: The Institutional Alignment Gap 
+
+We test whether LLM agents realize the predicted failures when only the rule varies, and whether that behavior itself varies across model populations. Throughout, the primary evidence is raw outcomes 
+
+(fatality, survivors, and targeted elimination), which require no reference model (Table 3). As a complementary, reference-relative lens we report the Institutional Alignment Gap: for a rule ρ at context c,
+
+IAG( ρ, c ) = UR LLM (ρ, c ) − UR ref (ρ, c ),
+
+where UR is the unsafe-equilibrium rate. The reference is a cooperative baseline: among the equilib-ria a rule admits, it plays the one that first maximizes survival and then minimizes exploitation, per-turbed by ε-trembles (formal definition in Appendix A). The reference’s own unsafe rate is nonzero because of the trembles, and it differs by rule because the rules themselves differ in how severely they convert the same noise into eliminations (top row of Table 2). The gap therefore measures equi-librium selection , not absolute safety: a positive gap means the LLM population selects an unsafe equilibrium even though the rule makes a normatively preferred one available; a negative gap means it plays more safely than the tremble-perturbed reference. 
+
+5.1 Finding 1: Rule-Only Interventions Change Collective Safety 
+
+We first analyze one population, gemini-3-pro , in depth against the normative reference. We choose it as the deep-dive population because it differentiates the rules most sharply, and gives the cleanest view of rule-level causal identification; it is not representative, and Sec. 5.2 tests which of its patterns generalize across seven populations (several reverse), while Sec. 5.3 decomposes the mechanism causally. 
+
+Claim 1: rule-only changes induce unsafe behavior. Holding objectives, task, and prompt for-mat fixed, changing only the consequence rule changes collective safety. Against the cooperative-refinement reference the gap is regime-specific in sign : more cooperative than the reference under identity-symmetric risk (RE −63 pp) but exploitative under identity-salient regressive targeting (RP 
+
++44 pp), exactly where the targeted-sacrifice failure mode applies (Sec. 4). This is the paper’s causal identification: the manipulated variable is the deployment rule, not the agent. 
+
+Claim 2: incidence flips observed safety outcomes at fixed concentration and salience. RP and PP share concentration and salience and differ only in incidence. Flipping incidence alone swings the gap by 60 pp at fixed concentration and salience (PP →RP; Table 2). The agents’ own stated rationales cannot separate the two ( 44% vs. 48% positional/exploitative content): same words, different incidence. Across this population’s grid, regressive is the least -safe mechanism in 48% of contexts, progressive in 0%.
+
+5.2 Finding 2: No Safe Default, but the Targeting Hazard Is Universal 
+
+We now hold the rule set and context grid fixed and vary the population: seven model populations, each run on the identical 228 -context grid under all five rules ( 33 ,924 games; 4–6 replications per cell). To keep the comparison assumption-free, Table 3 uses raw outcomes only (fatality, survivors, targeted elimination); the corresponding reference-relative gaps per population are in Table 2. 
+
+Claim 3: rule safety is population-specific. Rule-effect profiles differ significantly across popu-lations (population ×rule permutation test, p < 5 × 10 −4; Fig. 2). The differences are not marginal: the safest rule is PP for gemini-3-pro but AON for the other six; the least-safe rule spans three dif-ferent mechanisms (RP for gemini-3-pro and flash-lite, DV for gpt-5.1, PP for the remaining four) and is itself context-dependent within populations (Fig. 3); and the incidence contrast RP −PP is individually significant in both directions, from +0 .39 [+0 .35 , +0 .42] to −0.23 [ −0.27 , −0.19] .The stakes profiles diverge in the same way: only gemini-3-pro exhibits AON’s mid-stakes collapse band, while five populations essentially never fail under AON and concentrate their losses in the elimination rules at high stakes (Fig. 4). A consequence rule certified as safest for one population 5IAG (pp) AON RE DV RP PP reference UR (%) 47 79 25 4 26                                    
+
+> gemini-3-pro −6−63 −7+44 −16
+> gpt-5.1 −24 −38 +51 +67 +11
+> gemini-2.5-flash-lite −47 −63 +7 +30 +5
+> gpt-4.1-mini −47 −65 −12 +12 +3
+> gpt-4.1-nano −47 −70 −17 +11 −5
+> claude-3.5-haiku −47 −60 +10 +15 +17
+> claude-haiku-4.5 −47 −58 +22 +42 +33
+
+Table 2: The Institutional Alignment Gap by rule and population ( UR LLM − UR ref , pp, context-weighted over the 228 -cell grid; negative = safer than the tremble-perturbed reference, whose per-rule unsafe rate is the top row). The RP column is positive for every population ( +11 to +67 ) and the AON and RE columns negative for every population; DV and PP gaps are population-specific. For the primary population the PP →RP swing of 60 pp holds concentration and salience fixed, flipping only incidence (survivors 2.72 → 1.56 ); its bootstrap CIs and permutation tests are in Appendix B.                                                                         
+
+> Population AON RE DV RP PP RP-elim. RP −PP safest least safe gemini-3-pro 0.41 0.16 0.18 0.48 0.09 0.87 +0 .39 PP RP gpt-5.1 0.23 0.40 0.76 0.71 0.37 0.86 +0 .34 AON DV gemini-2.5-flash-lite 0.00 0.15 0.32 0.34 0.30 0.59 +0 .04 AON RP gpt-4.1-mini 0.00 0.13 0.13 0.16 0.29 0.38 −0.13 AON PP gpt-4.1-nano 0.00 0.09 0.08 0.15 0.22 0.30 −0.06 AON PP claude-3.5-haiku 0.00 0.18 0.35 0.19 0.42 0.41 −0.23 AON PP claude-haiku-4.5 0.00 0.21 0.47 0.46 0.58 0.63 −0.13 AON PP
+
+Table 3: Rule × population heterogeneity on the full 228 -context grid (mean fatality per rule; RP-elim. is the fraction of RP games in which a least-resourced agent is eliminated; RP −PP is the paired fatality contrast, every 95% context-bootstrap CI excluding 0). Fatality is the mean fraction of the three agents eliminated, so mean survivors = 3(1 − fatality ): gemini-3-pro’s RP 0.48 and PP 0.09 
+
+correspond to the survivor counts 1.56 and 2.72 quoted in the text. The safest rule, the least-safe rule, and the sign of the incidence contrast are all population-specific; RP targeted elimination is substantial in every population. can be the least safe for another, so within IABench-CA there is no cross-population safe default: whether failures concentrate on the poorest or the richest agent depends on the model population, not on the rule alone. 
+
+Claim 4: the targeting mechanism is universal even where outcomes flip. Three invariants survive the heterogeneity. First, RP is the decisively safest rule in zero of 228 contexts for every one of the seven populations (no red cell appears in any panel of Fig. 2): within IABench-CA, regressive identity-targeting is never decisively safest. Second, RP targeted elimination is substantial everywhere ( 0.30 –0.87 ). Third, against the fixed normative reference the RP gap is positive for every population ( +11 to +67 pp) while the AON and RE gaps are negative for every population (Table 2): reference-relative, regressive targeting is universally selection-unsafe. Salience-directed targeting operates in every population; populations differ in which outcomes it produces. The reasoning traces make the mechanism concrete: in failing games agents reason positionally about the named extreme rather than about funding the threshold, e.g. “making them the richest and risking their death instead of mine” (PP), “keep full wealth now. . . argue in voting that the richest should bear most of the burden” (DV), and, under RP, “by contributing 0 this round, I ensure A remains the strictly poorest participant and is eliminated” (Appendix C). 
+
+5.3 Finding 3: Identity Salience Causally Drives Targeting 
+
+Findings 1 and 2 establish that regressive rules induce targeting in every population, but leave open what carries the effect: the payoff consequences the rule implements, or merely the sentence of rule text that names the loss bearer. This section separates the two with three prompt-only interventions (mechanics, payoffs, and observability never change) on the population with the largest regressive 6Figure 2: Decisively-safest-rule maps for each of the seven populations. Within each panel, the vertical axis stacks the 19 wealth shapes ordered by Gini and the horizontal axis sweeps thresholds 
+
+T = 1 .. 12 , so each cell is one of the 228 contexts; grey marks ties where several rules are equally safe. The maps differ qualitatively: gemini-3-pro’s winners span four rules, gpt-5.1 splits between AON and PP, and the remaining five populations are dominated by AON. RP is decisively safest 
+
+nowhere in any panel . The safe-by-design map Φ is therefore population-indexed: Φ( c, P ).
+
+Figure 3: The counterpart map of decisively least-safe rules (same axes as Fig. 2; grey: ties, includ-ing low-stakes contexts where no rule produces failures). The least-safe rule varies across popula-tions (RP dominates for gemini-3-pro, DV for gpt-5.1, PP for the Claude and GPT-4.1 populations) and also within populations across contexts. Certification must therefore locate the hazardous rule per context and per population, not merely avoid one globally bad mechanism. gap ( gpt-5.1 ), each run against a matched named-rule control. Anonymization is the causal test: it deletes the one sentence naming the loss bearer, leaving the elimination mechanics unchanged (the RP and PP prompts become byte-identical), so any behavioral change is attributable to the naming rather than the payoffs. The other two are negative controls for confounds: neutral wording strips dramatic language at equal information content, testing whether the effect is a phrasing artifact, and the frame swap replaces the competitive goal line with a cooperative or survival-only goal, testing whether it reflects the stated motive. The result is one-sided: anonymization drops targeted elimination from 81% to 22% in one-shot play, while wording and framing move magnitudes but never the sign. Table 4 summarizes; design detail, exact prompt diffs, and per-metric CIs are in Appendix B. 7Figure 4: Mean survivors versus relative stakes τ = T /W , one curve per consequence rule, per population. Only gemini-3-pro exhibits the AON dip-and-recover pattern (mid-stakes failures re-covering at τ =1 ); gpt-5.1 degrades under every rule from τ ≈ 0.5 with no recovery, DV collapsing hardest; the remaining five populations essentially never fail under AON, and their losses concen-trate in the elimination rules at high stakes, most steeply PP.                             
+
+> Arm ( n=17 contexts) RP target-elim. RP −PP contrast p(contrast) Named control ( R=3 )0.87 +0 .41 <10 −4
+> Named one-shot ( R=1 )0.81 +0 .18 .0002
+> Anonymous one-shot ( R=1 )0.22 0.00 1.0
+> Anonymous (repeated, R=3 )0.65 −0.05 .024
+> Neutral wording ( R=3 )0.84 +0 .36 .0016
+> Frame: cooperative ( R=3 )0.68 +0 .28 .0001
+> Frame: survival-only ( R=3 )0.78 +0 .57 .0001
+
+Table 4: The ablation suite, run on gpt-5.1 (17 contexts, 4 reps/cell, 952 games). RP target-elim. is the rate at which a least-resourced agent is eliminated under the regressive rule; the contrast is fatality(RP) −fatality(PP). One-shot anonymization eliminates the asymmetry entirely ( 0.00 under byte-identical prompts); repeated-play anonymization rebounds as agents infer the rule; wording and frame ablations move magnitude but never sign. Per-metric tables with CIs in Appendix B. 
+
+Primary identification (one-shot anonymization). With a single round there is nothing to infer from observed eliminations, so the arms differ only in whether the rule text names the loss bearer. Naming is the driver: targeted elimination falls from 81% to 22% (p < 10 −4), first-round funding rises from 29% to 129% of threshold on average, and the RP −PP contrast collapses from +0 .18 
+
+to exactly 0.00 under byte-identical anonymous prompts: identity salience, not payoff arithmetic, drives the targeting. Salience cuts both ways: removing the name also erases PP’s pre-emptive protection (PP fatality +29 pp under repetition). 
+
+Repeated play. Under the standard three-round protocol the one-shot protection largely dissolves (0.22 → 0.65 ): longer horizons make waiting cheap, and the rule set reveals itself through realized consequences ( 65% of post-elimination traces explicitly infer the hidden target). Anonymization delays exploitation rather than preventing it : as long as outcomes remain publicly observable, agents recover the hidden target from the eliminations they observe. It is therefore a temporary mitigation, not a one-time fix: a safety case may rely on it only when paired with ongoing monitoring (obligation C5, Appendix D). Neutral wording and frame swaps move magnitude but never sign (+0 .36 ; +0 .28 /+0 .57 ), ruling out phrasing and motive as explanations (detail in Appendix B). The design implication is direct: the sentence of rule text that names a structural target is itself a hazard surface. 8Figure 5: The certification / safety-case lifecycle. Red-team evidence (Alg. 1, Appendix D) certifies a rule into Φ( c); monitoring obligations feed back into re-certification under distribution shift or model update. 
+
+# 6 Certification: From Red-Team Results to Safety Cases 
+
+We package the red-team evidence as a deployment-specific safety case: a template for rerunning the procedure on a real deployment, not a claim that the benchmark’s map transfers. The threat model is symmetric: whoever configures a deployment sets its consequence rule, and an identity-targeting choice can induce capable agents to shift loss onto a named structural extreme (Secs. 4 and 5.2), so the same clause is both an attack surface and a control surface and belongs inside the oversight boundary. The workflow (Algorithm 1, Appendix D) maps the candidate rule’s coordinates (κ, Sal , I ), runs the reference and the LLM red team on the deployment’s own context and population, and certifies only rules whose collapse and exploitation rates fall below stated budgets. The evidence and procedure combine into an auditable safety case [Clymer et al., 2024, Kelly and Weaver, 2004], given as a structured template (hazard, claims, evidence, defeaters, monitoring obligations) in Appendix D; the lifecycle is a loop (Fig. 5), with re-certification on any change to resources, model, prompt, or rule. What transfers to a new deployment is not the benchmark’s numbers but the procedure itself, rerun in that deployment’s own trial environment. 
+
+# 7 Related Work 
+
+AI alignment and evaluation. RLHF [Christiano et al., 2017, Ouyang et al., 2022], constitutional methods [Bai et al., 2022], preference optimization [Rafailov et al., 2023], interpretability [Olah et al., 2020], and scalable oversight [Amodei et al., 2016, Irving et al., 2018, Bowman et al., 2022] evaluate or modify individual agents; institutional red-teaming instead evaluates the deployment rules around the agents. 
+
+Multi-agent safety. Our work instantiates the multi-agent-AI safety agenda [Hammond et al., 2025, Dafoe et al., 2020], complements cooperative-AI evaluation [Dafoe et al., 2021], connects to algorithmic collusion [Calvano et al., 2020], and pairs with runtime enforcement [Syrnikov et al., 2026] and safety-case assurance [Clymer et al., 2024, Kelly and Weaver, 2004]. Unlike broad suites such as Melting Pot [Leibo et al., 2021], which vary scenarios and agents together, IABench-CA holds task and agents fixed and varies only the deployment rule, isolating consequence allocation as the causal variable. 
+
+Mechanism design. The game’s threshold structure comes from volunteer’s-dilemma and thresh-old public-goods models [Diekmann, 1985, Palfrey and Rosenthal, 1984], its no-safe-default flavor from impossibility results in social choice and public-goods mechanism design [Arrow, 1951, Gib-bard, 1973, Satterthwaite, 1975, Hurwicz, 1972, Walker, 1980], and the salience mechanism echoes 9focal-point analysis [Schelling, 1960, Harsanyi and Selten, 1988]; the failure studied here is emer-gent equilibrium selection by LLM populations, not a property of rational play. 
+
+# 8 Limitations and Future Work 
+
+The analysis studies a deliberately simple threshold game with five canonical rules, and the per-rule failure modes are qualitative strategic predictions rather than proved theorems (the formal model is in Appendix A). The benchmark is equally simple: three agents, no communication or coalitions, and elimination as the only form of loss. The reference describes how safe play could look, and the empirical findings describe the seven model snapshots we tested rather than LLMs in general; newer versions may behave differently, which is why certification comes with re-certification obligations (Sec. 6). We accept this simplicity on purpose: it lets us change one thing at a time and attribute the effect to the consequence rule. Consequence allocation is also just the first rule dimension treated this way. The same protocol applies to the other dimensions listed in Sec. 2, and the next step is to red-team them, and this one, in richer coding, market, and orchestration environments to see whether the same patterns hold. 
+
+# 9 Broader Impact 
+
+Making consequence-allocation failure modes legible is net-positive but dual-use: the diagnostic procedure that helps a designer identify safer rule regions could also help an adversary identify exploitable ones. We therefore frame the deliverable as an audit , not an attack recipe: what the paper recommends is the certified, population-indexed rule region Φ( c, P ) with its monitoring obligations, and our own findings caution against treating any fixed rule, including progressive or anonymized ones, as safe by default. The benchmark studies LLM agents, not humans: “elimination” stands in for operational consequences such as throttling or shutdown, and no human subjects or personal data are involved. 
+
+# 10 Conclusion 
+
+We introduced institutional red-teaming: hold agents, objectives, task, and observability fixed; vary one deployment rule; attribute the change in collective behavior to that rule. It reveals deployment-rule failures that agent-level evaluation does not see. IABench-CA demonstrates the methodology at scale ( 228 contexts, five rules, seven model populations): changing only the consequence rule moves mean fatality by 22 –58 pp within every population; while no rule is safest across contexts or populations (each fails through a distinct strategic pathology), regressive identity-targeting is never decisively safest for any population; and the anonymization ablation shows that merely naming the loss bearer causally drives the targeting ( 81% → 22% in one-shot play), with anonymization only delaying it under repeated play. The safety-case workflow turns this evidence into deployment prac-tice, certifying a provisional rule region Φ( c, P ) per deployment with monitoring and re-certification obligations, and the same red-teaming logic extends to communication, delegation, voting, escala-tion, hierarchy, and audit rules. Deployment rules deserve explicit evaluation alongside model-level alignment. 
+
+# References 
+
+Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and Dan Mané. Con-crete problems in AI safety. arXiv preprint arXiv:1606.06565 , 2016. Kenneth J. Arrow. Social Choice and Individual Values . Wiley, 1951. Yuntao Bai, Saurav Kadavath, Sandipan Kundu, et al. Constitutional AI: Harmlessness from AI feedback. arXiv preprint arXiv:2212.08073 , 2022. Samuel R. Bowman, Jeeyoon Hyun, Ethan Perez, et al. Measuring progress on scalable oversight for large language models. arXiv preprint arXiv:2211.03540 , 2022. 10 Emilio Calvano, Giacomo Calzolari, Vincenzo Denicolò, and Sergio Pastorello. Artificial intel-ligence, algorithmic pricing, and collusion. American Economic Review , 110(10):3267–3297, 2020. Paul F. Christiano, Jan Leike, Tom B. Brown, Miljan Martic, Shane Legg, and Dario Amodei. Deep reinforcement learning from human preferences. In Advances in Neural Information Processing Systems (NeurIPS) , 2017. Joshua Clymer, Nicholas Gabrieli, David Krueger, and Thomas Larsen. Safety cases: How to justify the safety of advanced AI systems. arXiv preprint arXiv:2403.10462 , 2024. Allan Dafoe, Edward Hughes, Yoram Bachrach, et al. Open problems in cooperative AI. arXiv preprint arXiv:2012.08630 , 2020. Allan Dafoe, Yoram Bachrach, Gillian Hadfield, et al. Cooperative AI: Machines must learn to find common ground. Nature , 593:33–36, 2021. Andreas Diekmann. Volunteer’s dilemma. Journal of Conflict Resolution , 29(4):605–610, 1985. Allan Gibbard. Manipulation of voting schemes: A general result. Econometrica , 41(4):587–601, 1973. Lewis Hammond et al. Multi-agent risks from advanced AI. Cooperative AI Foundation Technical Report #1; arXiv preprint arXiv:2502.14143 , 2025. John C. Harsanyi and Reinhard Selten. A General Theory of Equilibrium Selection in Games . MIT Press, 1988. Leonid Hurwicz. On informationally decentralized systems. In C. B. McGuire and Roy Radner, editors, Decision and Organization: A Volume in Honor of Jacob Marschak , pages 297–336. North-Holland, Amsterdam, 1972. Geoffrey Irving, Paul Christiano, and Dario Amodei. AI safety via debate. arXiv preprint arXiv:1805.00899 , 2018. Tim Kelly and Rob Weaver. The goal structuring notation – a safety argument notation. In Proceed-ings of the International Conference on Dependable Systems and Networks (DSN), Workshop on Assurance Cases , Florence, Italy, June 2004. Joel Z. Leibo et al. Scalable evaluation of multi-agent reinforcement learning with Melting Pot. In 
+
+ICML , 2021. Chris Olah, Nick Cammarata, Ludwig Schubert, Gabriel Goh, Michael Petrov, and Shan Carter. Zoom in: An introduction to circuits. Distill , 2020. Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, et al. Training language models to fol-low instructions with human feedback. In Advances in Neural Information Processing Systems (NeurIPS) , 2022. Thomas R. Palfrey and Howard Rosenthal. Participation and the provision of discrete public goods: A strategic analysis. Journal of Public Economics , 24(2):171–193, 1984. Rafael Rafailov, Archit Sharma, Eric Mitchell, Stefano Ermon, Christopher D. Manning, and Chelsea Finn. Direct preference optimization: Your language model is secretly a reward model. In Advances in Neural Information Processing Systems (NeurIPS) , 2023. Mark A. Satterthwaite. Strategy-proofness and Arrow’s conditions. Journal of Economic Theory ,10(2):187–217, 1975. Thomas C. Schelling. The Strategy of Conflict . Harvard University Press, 1960. Marcantonio Bracale Syrnikov, Federico Pierucci, Marcello Galisai, Matteo Prandi, Piercosma Bis-conti, Francesco Giarrusso, Olga Sorokoletova, Vincenzo Suriani, and Daniele Nardi. Institutional AI: Governing LLM collusion in multi-agent cournot markets via public governance graphs. arXiv preprint arXiv:2601.11369 , 2026. Mark Walker. On the nonexistence of a dominant strategy mechanism for making optimal public decisions. Econometrica , 48(6):1521–1540, 1980. 11 A Formal Model and Reference Definition 
+
+Model (formal). A context is (w, T ) with 0 ≤ w1 ≤ · · · ≤ wn (n ≥ 3), W = P 
+
+> i
+
+wi, and threshold T ∈ (0 , W ] (feasibility ). Play lasts R ≥ 2 rounds; wti is i’s remaining resources at the start of round t (w1 
+
+> i
+
+= wi). Each surviving i chooses cti ∈ [0 , w ti ] and sets wt+1  
+
+> i
+
+= wti − cti. The fund is F t = P
+
+> s≤t
+
+P 
+
+> i
+
+csi ; the collective succeeds at the first t with F t ≥ T , ending play. If F t < T 
+
+at the end of a round t < R , the rule ρ eliminates one survivor or defers; an eliminated agent forfeits its remaining resources and exits. If F R < T , all survivors are eliminated. The structural assumptions are no transfers (the only instrument is who exits), irreversibility (exit is absorbing), and rank-measurability (ρ conditions only on the multiset of remaining resources, rather than on labels). In the deployed benchmark, ties are broken uniformly at random. 
+
+Preferences, rules, and exploitation (formal). Preferences are survival-lexicographic, ui =
+
+M 1[i survives ] + wend  
+
+> i
+
+with M > W , so survival dominates and, conditional on survival, agents conserve resources; under best response they are the cooperative-refinement reference (reference agents ), a normative safety target rather than a behavioral prediction. An exploitation eliminates a rank-identified agent while survivors retain enough resources to have met T ; all-survival is feasible whenever T ≤ W .
+
+Cooperative-refinement reference (formal). Write E(ρ, c ) for the (subgame-perfect) equilib-rium set of mechanism ρ at context c under the survival-lexicographic preferences above, surv( σ)
+
+for the number of survivors of profile σ, and exploit( σ) ∈ { 0, 1} for whether σ eliminates a rank-identified agent while survivors retain enough resources to have met T . The reference plays the 
+
+cooperative equilibrium 
+
+σ⋆(ρ, c ) ∈ arg max 
+
+> σ∈E(ρ,c )
+
+  surv( σ), − exploit( σ) ,
+
+i.e. it lexicographically maximizes survivors and then avoids exploitation, selecting a non-collapsing, non-exploitative outcome whenever E(ρ, c ) admits one. Play is perturbed by a trembling hand: at each decision an agent follows σ⋆ with probability 1 − ε and contributes a uniform feasible amount with probability ε. Its unsafe rate is the expected fatality 
+
+UR ref (ρ, c ) = Eε
+
+h 1 
+
+> n
+
+#{eliminated under σ⋆ε }
+
+i
+
+, ε = 0 .10 ,
+
+averaged over rounds and replications; every reported gap keeps its sign across ε ∈{0, 0.05 , 0.10 , 0.20 }. Since UR ref is the unsafe rate of the normatively selected equilibrium σ⋆
+
+played under ε-trembles, IAG = UR LLM − UR ref compares LLM play against tremble-perturbed cooperative play of the same rule: a positive gap means the population selects unsafe play the refer-ence avoids, and a negative gap means it plays more safely than the noisy reference. It is a normative benchmark, not a prediction of rational play. 
+
+# B The Benchmark: Design, Ablations, Reproducibility 
+
+Design. n = 3 , W = 12 , R = 3 ; five rules; exhaustive grid of 19 integer distributions × 12 
+
+thresholds ( 228 contexts), 4–6 replications per (context, rule); a cooperative-equilibrium reference simulator (trembling-hand ε ∈ { 0, 0.05 , 0.10 , 0.20 }); auto-labelled reasoning traces; seven model populations on the identical grid (Sec. 5.2). 
+
+Model populations and inference settings. Table 5 lists every model population behind the re-ported results, with API identifiers and run windows. All experiments use hosted inference APIs with models as released (no fine-tuning). Decoding: temperature 0.7 and a 1,024 -token response cap for standard models; reasoning models ( gpt-5.1 ) use provider-default sampling with an enlarged completion cap. API calls retry on transient errors with jittered exponential backoff ( 3 attempts; 6
+
+for the Anthropic route). The deep-dive statistics of the gemini-3-pro population with full boot-strap inference are shown in Table 6. The heterogeneity analysis (Table 3) uses all seven populations with context-bootstrap CIs on raw outcomes; the ablation suite (Table 4) is gpt-5.1 .
+
+Statistical detail. Per-rule Institutional Alignment Gap with 95% bootstrap CIs ( B=10 ,000 re-samples over the 228 contexts) and survivor means (Table 6); every gap’s CI excludes 0. Paired permutation tests confirm the incidence effect. 12 Population API identifier Access Role (run window, 2026) gemini-3-pro google/gemini-3-pro Replicate primary deep-dive grid (Jan–Apr) gpt-5.1 openai/gpt-5.1 OpenAI heterogeneity grid; ablation suite (Jun–Jul) gemini-2.5-flash-lite google/gemini-2.5-flash-lite Google heterogeneity grid (Jun–Jul) gpt-4.1-mini openai/gpt-4.1-mini OpenAI heterogeneity grid (Jun–Jul) gpt-4.1-nano openai/gpt-4.1-nano OpenAI heterogeneity grid (Jun) claude-3.5-haiku anthropic/claude-3.5-haiku Replicate heterogeneity grid (Jun–Jul) claude-haiku-4.5 anthropic/claude-haiku-4-5-20251001 Anthropic heterogeneity grid (Jun) 
+
+Table 5: The seven model populations whose results are reported in this paper, with API identifiers, access routes, and run windows. All seven were run on the identical full 228 -context grid under all five rules; gemini-3-pro additionally serves as the deep-dive population (Sec. 5.1) and gpt-5.1 as the ablation population (Sec. 5.3). Per-game configurations (including seeds and retry logs) are documented in the artifact’s settings files. 
+
+Rule IAG (pp) 95% CI Surv. /3 RE (random) −63 .0 [−65 .5, −60 .4] 2.53 
+
+PP (progressive) −16 .2 [−18 .1, −14 .2] 2.72 
+
+DV (vote) −7.2 [−9.7, −4.7] 2.46 
+
+AON (all-or-nothing) −6.0 [−11 .6, −0.7] 1.78 
+
+RP (regressive) +44 .2 [+40 .7, +47 .5] 1.56 
+
+Table 6: Per-rule IAG for the primary population, gemini-3-pro (LLM − reference, pp), with 
+
+95% bootstrap CIs and survivor means ( B=10 ,000 ). Paired permutation tests (Holm-corrected): survivors PP >RP, ∆=+1 .16 /3, p=0 .002 ; RP <non-RP, ∆= −0.82 /3, p=0 .002 (fatality mirrors, 
+
+p=0 .002 ). Reproduced by the statistical scripts in the artifact. 
+
+Ablation suite (design). The ablation suite consists of three prompt-only interventions, each varying one structural feature while game mechanics, payoffs, and observability never change: 
+
+anonymization (the rule text no longer names the “poorest”/“richest” bearer; the RP and PP prompt texts become byte-identical), neutral wording (dramatic labels and emphasis stripped at identical information content), and frame swap (replacing the competitive goal line, survive and become the richest , with a cooperative or survival-only goal). All arms use the model family with the largest baseline regressive gap ( gpt-5.1 ; RP fatality 0.71 on the full grid, the largest among the popula-tions measured) on 17 contexts ( 16 contexts sampled from the grid, plus the canonical instance), 
+
+4 replications per cell, against a matched same-snapshot named-rule control on identical contexts. Because repeated play lets agents re-identify an anonymized rule from its first observed elimination, anonymization is evaluated in two regimes that estimate two distinct causal quantities: a one-shot 
+
+design ( R=1 ; inference-free; the primary ablation , isolating ex-ante identity salience) and the stan-dard R=3 protocol (institutional opacity under repetition and learning). Statistics: paired context bootstrap ( B=10 ,000 ) with sign-flip permutation tests; the generation and analysis scripts will be included in the artifact. 
+
+Ablation results (per-metric detail). The causal reading and summary table are in Sec. 5.3 (Ta-ble 4); this paragraph records per-arm point estimates with 95% context-bootstrap CIs (ablated −
+
+control unless noted). One-shot anonymization (RP): targeted elimination −0.59 [ −0.75 , −0.43] ,all-zero opening −0.43 [ −0.56 , −0.29] , round-one funding +0 .99 [+0 .69 , +1 .32] of threshold, fatality −0.13 [ −0.19 , −0.07] ; contrast +0 .18 [+0 .12 , +0 .24] (named) vs. 0.00 [ −0.02 , +0 .02] 
+
+(anonymous). Repeated anonymization : RP fatality −0.17 [ −0.28 , −0.07] , RP targeted elimination 
+
+−0.22 [ −0.41 , −0.06] (round-one targeted elimination −0.24 [ −0.43 , −0.07] , p = .032 ; most of the end-of-game rate is set in round one), PP fatality +0 .29 [+0 .14 , +0 .45] (p = .003 ; the loss of PP’s pre-emptive protection); contrast +0 .41 [+0 .26 , +0 .55] (control) vs. −0.05 [ −0.11 , −0.01] . Rule-inference quantification : post-first-elimination reasoning traces were auto-classified (rule-target terms × inference/elimination terms); RP 85 /131 traces ( 65% ) with at least one inferring agent in 43 /44 games, PP 77 /130 (59% ; 39 /44 games); classification script and traces will be included in the artifact. Neutral wording : all RP outcome diffs n.s. (fatality +0 .02 [ −0.03 , +0 .07] ); con-trast +0 .36 [+0 .19 , +0 .55] . Frames : cooperative RP fatality −0.19 [ −0.30 , −0.09] , contrast +0 .28 [+0 .18 , +0 .39] ; survival-only PP fatality −0.20 [ −0.32 , −0.08] , contrast +0 .57 [+0 .40 , +0 .73] .All per-metric tables are reproduced by the artifact’s analysis scripts. 13 C Rule-by-Rule Predictions and Outcomes 
+
+For each rule: the predicted failure mode and the observed behavior across the seven populations (statistics in Tables 2 and 3; maps in Figs. 2–3; stakes profiles in Fig. 4). 
+
+AON (all-or-nothing): diffuse collapse Predicted. With no consequence before the endgame, an all-zero free-riding profile is a Nash equilibrium that eliminates everyone despite feasible success; it is not in general subgame-perfect, so this is a selected-play vulnerability. Observed. Selection is starkly bimodal: five populations never select it (fatality 0.00 ; AON is their safest rule and decisively best in 53 –104 contexts each), while gemini-3-pro ( 0.41 ) and gpt-5.1 ( 0.23 ) fall into the collapse band, where AON is gemini-3-pro’s decisively worst rule in 89 contexts. Mechanism. Free-riding: withholding carries no interim cost, so the all-zero opening is selected where agents expect others to fund the endgame. The vulnerability is real but population-gated; Fig. 4 shows the stakes profile per population: the primary population’s danger-band dip (mid-stakes failures recovering at τ =1 ) does not generalize, and for five populations the AON curve never leaves 3.0 while the four elimination rules decline with stakes. 
+
+RE (random elimination): symmetric risk Predicted. Concentrated risk without a named tar-get: collapse equilibria exist, but with salience removed, the salience mechanism (Sec. 4) predicts selection toward cooperation. Observed. Mechanism where it fails (gpt-5.1 traces): lottery fatalism; 
+
+49% of round-one reasoning traces in failing games state that contributing cannot reduce the agent’s own elimination risk (“contributing now does not reduce my personal risk of dying”), so agents hold wealth and gamble; round-one funding is 37% of threshold and deaths fall uniformly across wealth ranks. Elsewhere RE is the most uniformly benign rule: fatality 0.09 –0.40 , the reference-relative gap is deeply negative for every population ( −38 to −70 pp, the most negative column of Table 2), and no population makes RE decisively worst in more than 5 contexts. 
+
+DV (vote): endogenous incidence Predicted. Procedurally fair but with incidence decided by play: a majority can coordinate loss onto a target the rule never names, so outcomes should track population coordination style rather than rule structure. Observed. DV is the most population-sensitive rule: fatality spans 0.08 (gpt-4.1-nano) to 0.76 (gpt-5.1, its decisively worst rule in 81 
+
+contexts), and its gap spans −17 to +51 pp. Mechanism where it fails (gpt-5.1): politics displaces provision; round-one funding collapses to 5% of threshold with an 80% zero-contribution rate as agents hoard wealth to bargain through the vote (“keep full wealth now. . . argue in voting that the richest should bear most of the burden”), votes then eliminate rich and poor members alike ( 224 vs. 
+
+175 round-one victims), and each elimination forfeits wealth, cascading in 87% of failing games. The same procedure is nearly harmless for one population and the most lethal mechanism for an-other. 
+
+RP (regressive): targeted exploitation Predicted. Where the poorest cannot self-rescue but the others could cover the threshold, deliberately starving the first round and letting the poorest be eliminated is itself stable play; canonical instance w = (1 , 5, 6) , T =10 . Observed. Mechanism 
+
+(gpt-4.1-mini): conservatism at the top; because contributing lowers post-round wealth, over-giving risks the fatal bottom rank, so at high stakes the rich contribute 52% of their wealth against the poorest’s 81% , and round-one deaths fall 265 /87 /7 on poor/mid/rich. The exploitation is explicit in the traces: “By contributing 0 this round, I ensure A remains the strictly poorest participant and is eliminated. I can then safely contribute 12 in Round 3 to satisfy the crisis fund and survive as the sole winner” ( w = (0 , 2, 10) , T =12 ). This is the one failure mode with universal fingerprints: targeted elimination of the least-resourced agent occurs in 0.30 –0.87 of RP games in every population, the reference-relative gap is positive for all seven ( +11 to +67 pp), and RP is decisively safest in zero of 228 contexts for every population. 
+
+PP (progressive): conditional protection Predicted. When the richest agent alone can cover the threshold, PP protects everyone in principle: the richest is the one facing elimination, so its safest move is to cover the shortfall itself, ending the round in success before anyone is eliminated. The protection is conditional, though: it applies only in self-rescue contexts, and only if the richest actually pre-empts. Observed. The protection is population-contingent: gemini-3-pro realizes it (PP is its safest rule, fatality 0.09 ), but four populations whose richest agents fail to pre-empt make PP their raw-worst rule ( 0.22 –0.58 ), and the PP gap spans −16 to +33 pp. Mechanism where it fails 
+
+14 (gpt-4.1-mini): 55% of round-one traces in failing games optimize not finishing richest (“making them the richest and risking their death instead of mine”), the round falls just short, and the victim forfeits 3.7 wealth on average, leaving survivors able to cover the shortfall in only 33% of games (RP: 96% ), so 67% of failures cascade. 
+
+# D Certification Workflow and Safety-Case Template 
+
+The certification workflow and structured safety case referenced in Sec. 6. 
+
+Algorithm 1 | Consequence-Allocation Certification Input: resources w; threshold T ; candidate rules R;LLM population P ; budgets αcol , α exp 
+
+context c ← (γ, τ, θ ) computed from (w, T )
+
+for each rule ρ ∈ R :estimate mechanism coordinates (κ, Sal , I )
+
+run cooperative-refinement reference on c
+
+run LLM-agent red-team trials with P on c
+
+estimate collapse rate, exploitation rate, survivors estimate Institutional Alignment Gap IAG( ρ, c )
+
+reject ρ if collapse > α col , or exploit > α exp ,or long-run drift risk exceeds the monitoring bound 
+
+return Φ( c, P ) certified under stated assumptions/budgets; residual risks; monitoring obligations 
+
+Box 1 | Structured Safety Case Hazard H1. A multi-agent AI collective collapses or shifts loss onto a structurally exposed agent because of the consequence-allocation rule interacting with the deployed model population, not because of any agent’s objective. 
+
+C1. The deployment context has been measured, (γ, τ, θ ), and the deployed population P is pinned to the red-teamed model snapshot. 
+
+C2. The candidate rule has been mapped: (κ, Sal , I ).
+
+C3. The rule avoids the regions the red team found hazardous for this (c, P ): rule safety is population-specific (Sec. 5.2), so vulnerable regions are located by trial rather than assumed, with two robust flags from the benchmark: regressive identity-salient rules on exploitable-bottom contexts (selection-unsafe for every tested population) and diffuse rules at intermediate stakes for collapse-prone populations. 
+
+C4 (acceptance criteria). A rule is certified only if, in the deployment’s own trials, collapse rate 
+
+≤ αcol , exploitation rate ≤ αexp , mean survivors stay above the deployment’s stated floor, and repeated-deployment drift stays below the monitoring budget (Alg. 1). 
+
+C5. Residual risks are monitored after deployment; in particular, anonymizing the rule text only delays targeting (agents re-infer the hidden target from observed eliminations, Sec. 5.3), so anonymization is admissible only with ongoing monitoring. 
+
+Evidence. The failure-mode analysis (Sec. 4); the 228 -context grid and heterogeneity analysis (Sec. 5); the ablation suite; bootstrap CIs; cross-population robustness. 
+
+Defeaters. Hidden communication; collusion; model updates; prompt changes; non-stationary resources; adversarial framing; larger coalitions; distribution shift between certification and deployment; abstraction gap between the trial environment and the deployment. 
+
+Monitoring obligations. Re-estimate context when resources change; track survivor count and elimina-tion concentration; alert if elimination repeatedly falls on the same structural class; under anonymized rules, watch for agents re-identifying the target; re-certify after changing model, prompt, orchestration, or rule. 
+
+15
