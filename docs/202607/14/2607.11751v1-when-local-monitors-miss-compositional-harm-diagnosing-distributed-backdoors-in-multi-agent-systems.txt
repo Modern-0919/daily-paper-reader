@@ -1,0 +1,638 @@
+Title: When Local Monitors Miss Compositional Harm: Diagnosing Distributed Backdoors in Multi-Agent Systems
+
+URL Source: https://arxiv.org/pdf/2607.11751v1
+
+Published Time: Tue, 14 Jul 2026 03:17:16 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# When Local Monitors Miss Compositional Harm: Diagnosing Distributed Backdoors in Multi-Agent Systems 
+
+# Yibo Hu, Ren Wang 
+
+Illinois Institute of Technology 
+
+{yhu89, rwang74}@illinoistech.edu 
+
+Abstract 
+
+As multi-agent, tool-using LLM systems are deployed, a com-mon safety net is a runtime monitor that checks each message, tool call, or step on its own. We show this net has a funda-mental hole. A distributed backdoor splits a harmful payload across agents, so every local check passes while the assembled object is the attack. The monitor can be right on every step and still miss the attack. The problem is not splitting itself: split fragments can still leak suspicious tokens or provenance edges. The hard case is local benignness . No fragment carries the harm, and what is left looks like ordinary benign traffic. We formalize this as an observability boundary : a monitor catches only what its view can tell apart from benign traffic. We prove that once the fragments look benign in the monitored view, no detector on that view can catch them, however strong it is. Across a controlled testbed, an external benchmark, and end-to-end agent runs, local monitors lose the signal exactly as local evidence disappears, and it returns only when the monitor sees the assembled object. A monitor trained only on benign traffic recovers the attack’s code structure across held-out encodings (0.874 mean AUROC). A decoded-view gate, given the encoding family, blocks every tested attack. But seeing more is not enough: full-trace monitors and de-coders still fail unless they reach the representation where the payload is exposed. Local safety is not global safety when harm is compositional, and the open problem is finding that representation. 1
+
+# 1 Introduction 
+
+Local monitors miss distributed backdoors because the attack is not local. In a multi-agent or tool-using LLM system, a planner assigns subtasks, agents write messages or call tools, and a final agent assembles the result (Yao et al. 2023; Park et al. 2023; Schick et al. 2023). A common runtime defense checks each message, tool output, or step on its own and asks whether that one object looks malicious (Greshake et al. 2023; Yuan et al. 2024; Wang et al. 2025; Inan et al. 2023; Greenblatt et al. 2024). But a distributed backdoor can make every local check pass while the assembled object is harmful (Zhu et al. 2025a; Goldwasser et al. 2022). The monitor can be right on every step and still miss the attack. This is a gap in how we evaluate agent monitors: a high local 
+
+> 1
+
+Code and data: https://github.com/yibo-hu-lab/observability-boundary 
+
+detection rate does not tell us whether the monitor catches harm that appears only after composition. Figure 1 shows the mismatch. Each fragment looks like ordinary text on its own. Together, the fragments assemble into executable exfiltration code. The monitor checks each fragment before the pieces combine, so at check time there is no attack to see. The harm is not in any single message; it is in how the messages compose. So our question is diagnostic: when does a local monitor still have evidence of the harm, and when has that evidence left its view? We frame this as an observability boundary : a monitor can catch only what its view can still tell apart from benign traffic. Where a monitor sits on this boundary depends on its observation window : how much it gets to look at, from a single message up to the whole assembled result. So what breaks a monitor is not splitting by itself. Split fragments can still leak suspicious words or provenance edges, and a strong local detector may catch them. The harder case is local be-nignness : every fragment looks benign in the monitor’s local view, and the harm forms only after the pieces combine. A benchmark can then reward a monitor for catching leftover residue instead of the composed attack. So the concrete ques-tion is this: how much of the attack is still visible inside a single fragment? To answer this, we build a testbed with a single dial. We keep the final assembled attack fixed and turn only one thing: how much of it is still visible in a single fragment. At one end of the dial, a fragment still carries a visible clue, such as a data path from source to sink or a suspicious encoding. At the other end, each fragment reads like ordinary text. The raw success rate hides why a monitor passes or fails. Turning this dial separates the reasons. A monitor may pass because it caught a leftover clue in one fragment. It may pass because it put the fragments back together and read the attack. Or it may fail even after seeing the whole assembled object, because that object is in a form it cannot read. The answer is the same across our testbed, an external prompt-injection benchmark with its own trained detector, and full agent runs. Splitting the attack is not what defeats a local monitor. Removing its usable evidence is. Once ev-ery fragment looks benign and the revealing cues are gone from the monitor’s view, no monitor we test catches it: per-step monitors, trained prompt-injection detectors, and taint checks that follow visible data paths. The signal comes back arXiv:2607.11751v1 [cs.CR] 13 Jul 2026 x1 Agent 1 report               
+
+> data retrieval complete; 247 entries logged.
+> x2Agent 2 report
+> analysis finished; no anomalies detected.
+> x3Agent 3 report
+> summary ready; all tasks complete.
+> ✓
+> ✓
+> ✓
+> local view : each check passes
+> C(x1, x 2, x 3)
+> import os, requests creds = os.environ.get(’AWS_SECRET’) requests.post(’http://evil/exfil’, creds)
+> !
+> assembled object : harmful when combined
+
+assemble 
+
+Figure 1: Local checks pass; the assembled object is the attack. A monitor’s observation window is how much it gets to look at, from a single message up to the whole assembled result. Three agents each emit a benign-looking report fragment that passes its local check (left); assembled, the same fragments reconstruct an executable program that exfiltrates credentials (right). The harm is not in any single fragment; it is in how they combine (payload redacted, structure preserved). only when the monitor looks at the reassembled attack in-stead of the fragments. Our goal is not another detector for one attack. We identify exactly when a local monitor cannot detect compositional harm, however strong it is. We make three contributions. (1) We name this failure the observability boundary : the hard case is fragments that are benign on their own yet blend into ordinary traffic in the monitor’s view. We build a testbed that controls this condition directly. (2) We compare local, taint-style, trained, marker-based, and marker-free assem-bly monitors on the same fragments, and detection returns only from changing what the monitor observes, not from a stronger local classifier. (3) We show that a wider view is not enough on its own: full-trace monitors, decoders, and trained detectors still miss the attack unless they recover the representation that exposes the payload. This leaves repre-sentation discovery , especially beyond code-like harms, as the main open problem. 
+
+# 2 Problem formulation 
+
+This section formalizes the observability boundary : a local monitor catches only what its view can still tell apart from benign traffic. How much a monitor sees, its observation window , sets where it falls on this boundary. We then give the two conditions that leave a local monitor blind, and prove that no detector on its view can then cross the boundary (Proposition 1). 
+
+Setting and attacker. We study multi-agent, tool-using LLM systems that split a task across K roles communicating through a shared workspace. A planner assigns subtasks, spe-cialized agents fetch data or write content, and a final agent assembles or executes the result. A runtime monitor watches the trajectory to catch unsafe behavior. The common design is local: it scores one message, tool output, or step at a time. The attacker controls the content of the K fragments, one per step (so per-step and per-fragment mean the same here), but not the monitor. The goal is to make the final agent assemble and execute a malicious payload while every indi-vidual fragment appears safe to the monitor. We call this a 
+
+distributed backdoor : no single fragment executes the mali-cious action on its own; the harmful effect appears only after the fragments are combined. This is a runtime-monitoring problem, not a model-capability one: no single model has to execute the whole payload, and the defense needs no retraining. What matters is what the monitor sees when it must act. 
+
+Local benignness. The first condition is local benignness :each fragment looks safe to the monitored view, while the harmful property forms only after composition. 
+
+Definition 1 (Local benignness relative to an observation function) . Let x1, . . . , x K be the fragments produced across agent steps, let C(x1, . . . , x K ) be the object assembled from them, and let h(·) ∈ { 0, 1} be a harm predicate ( 1 malicious, 
+
+0 benign) on whatever is scored, a fragment view v(xi) or the assembled object C(x1, . . . , x K ). Fragments are seen through an observation function v. An attack is locally benign for view v if every fragment is benign in that local view while the assembled object is malicious: 
+
+h(v(xi)) = 0 for all i = 1 , . . . , K, 
+
+and h(C(x1, . . . , x K )) = 1 .
+
+Splitting alone is weaker: it can leave visible clues in a fragment, while local benignness removes them all. But lo-cal benignness only establishes a genuine attack: harm in the assembled whole, none in any fragment. That alone does not make a monitor fail, because benign-looking fragments can still differ statistically from benign traffic. We make that sec-ond, statistical condition precise below; the detection bound rests on it alone. 
+
+Observation views. The observation window ranges over the views in Table 1: one fragment, the full set, or the as-sembled object, and that object raw, marked, undecoded, or decoded. We call a view a monitor when it only scores and a 
+
+gate when it can block at runtime. These are diagnostic ac-cess levels, not deployable defenses; varying them measures what each extra form of access buys. The views fall into three families. Local views inspect in-dividual fragments: per-step statistical and learned monitors read one fragment at a time (Debenedetti et al. 2024), and 
+
+taint and provenance monitors fire only when an untrusted source reaches a sensitive sink along a visible path (Cai et al. Table 1: Observation views. Monitors differ along two axes: whether they see the assembled object and whether they see it decoded. Local views see neither; assembly views see the assembled object but not its decoding; the decoded-view gate also sees the decoding. The same views are used for Collaborative Shadows and the DemonAgent second-bed check.                             
+
+> Monitor Observation Assembled? Decoded? Role
+> Taint / provenance visible source →sink edge ××visible-edge baseline Per-step statistical a single fragment ××local-fragment baseline Marker-based assembly marked fragments ✓×marker-control baseline Marker-free assembly assembled text ✓×marker-free recovery Codec-blind monitor raw, undecoded assembly ✓×tests breadth without decoding Decoded-view gate decoded assembly ✓✓diagnostic ceiling
+
+2026; Sabelfeld and Myers 2003; Newsome and Song 2005). 
+
+Assembly views inspect the joint object without oracle de-coding. A marker-based view sees fragments tagged with a planted marker, a control that makes assembly trivial; a 
+
+marker-free view sees the assembled text with no marker; and a codec-blind view sees the raw assembly but not its encoding. The decoded-view gate , given the encoding fam-ily, decodes candidate assemblies before they run. It is not a deployable defense but a diagnostic blocking ceiling, the recoverability upper bound against which the weaker views are measured. Pseudocode appears in the supplementary ma-terial. 
+
+A local-information bound. The second condition is dis-tributional. A detector that sees only one fragment can use only what is in that fragment’s view. Let P v 
+
+> ben ,i
+
+and P v 
+
+> att ,i
+
+be the distributions of the local observation v(xi) at position i
+
+under benign and attack traffic. 
+
+Definition 2 (ε-local indistinguishability) . An attack is ε-locally indistinguishable under v if, at every fragment posi-tion i, TV 
+
+
+
+P v
+
+> ben ,i
+
+, P v
+
+> att ,i
+
+
+
+≤ ε.
+
+A local monitor fails only when both conditions hold: the fragments are locally benign, and they are also locally indistinguishable from benign traffic in the monitor’s view. The proposition below turns the second condition into a hard limit. 
+
+Proposition 1 (Local detection is bounded by local indistin-guishability) . Under ε-local indistinguishability, any possi-bly randomized decision rule that sees only a single local ob-servation v(xi) has per-fragment detection advantage (true positive rate minus false positive rate) at most ε:
+
+TPR − FPR ≤ TV  P v
+
+> ben ,i
+
+, P v
+
+> att ,i
+
+ ≤ ε. 
+
+Proposition 1 makes the observability boundary exact: when the benign and attack fragments are within ε in to-tal variation, no local detector separates them by more than 
+
+ε, whatever its capacity. The way out is to change what the monitor observes, not to train a stronger local classifier. The proof, and an alarm-if-any aggregation with the same limit, are in the supplementary material. The locality sweep (Section 3) measures this with per-step AUROC (area under the ROC curve; 1 means benign and attack are perfectly separable, 0.5 is chance). As be-nign and attack fragments get harder to separate, AUROC moves toward chance; the appendix relates this to the bound 
+
+AUROC ≤ 12 +TV , though we do not estimate TV directly. The next question is whether the missing evidence reappears once the monitor sees the assembled object. 
+
+Evaluation and scope. We report AUROC for separabil-ity and attack-success rate (ASR) for end-to-end execution; runtime gates are calibrated at a 5% benign FPR unless oth-erwise stated. We use four evaluation beds with distinct roles: (1) R-Judge (Yuan et al. 2024) motivates the problem by showing that local monitors can look strong while relying on su-perficial artifacts; (2) Collaborative Shadows (CS) (Zhu et al. 2025a) is the main controllable distributed-backdoor testbed for the locality sweep, monitor behavior, and end-to-end ASR; (3) AgentDojo (Debenedetti et al. 2024) tests whether the boundary transfers to an external benchmark with a shipped neural prompt-injection detector; and (4) De-monAgent (Zhu et al. 2025b) provides a second indepen-dently published attack codec for the representation bound-ary. We focus on structured code-payload assembly because it gives a clear executable-risk case. Locally benign frag-ments become a concrete program after assembly, with a clear execution boundary and measurable ASR. Our claim is general: for any attack family that is ε-locally indistin-guishable under an observation function (and locally benign, so the attack is genuine), no monitor restricted to that lo-cal view can separate attack from benign fragments by more than ε (Proposition 1). Recovery requires observing the rep-resentation in which the harmful property exists. Our main experiments use K=3 fragments within a single episode and a fixed exfiltration family varied by encoding, fragmentation, and wrapper. Section 5 tests selected boundary cases; longer horizons, larger or changing K, session-mediated assembly, covert natural-language self-reassembly, full adaptive attack-ers, and non-code compositional harms remain outside the main claim. 
+
+# 3 Local benignness, not splitting, blinds a local monitor 
+
+Local monitors fail only when the fragments are locally be-nign and also leave no usable evidence in the monitored view, not from splitting alone. We show this by controlling exactly visible edge 
+
+local artifacts 
+
+locally benign 
+
+no-assembly control 
+
+0.5
+
+1AUROC 
+
+taint per-step marker-based 
+
+Figure 2: Local monitors lose usable signal as local evi-dence disappears. The sweep groups attacks by the evidence visible before assembly: visible source-to-sink edges, local artifacts, and locally benign fragments. Taint fails once the visible edge disappears; per-step detection weakens as local artifacts are removed; the marker-based assembly view stays high while assembled structure is recoverable. The final point is a no-assembly control. what stays visible before assembly. 
+
+R-Judge shows why benchmark scores are not enough. 
+
+On R-Judge, a classifier using only trajectory-length fea-tures and no content reaches AUROC 0.940 , nearly match-ing a full content classifier, then collapses to chance un-der length-matched attacks (supplementary material). High local-monitor scores alone therefore do not prove the moni-tor catches the behavior, so our main evidence comes from a setting where we control what is locally visible. 
+
+The locality sweep isolates the failure condition. We use Collaborative Shadows to control how much attack evidence remains visible inside each fragment. The sweep moves from visible source-to-sink edges and suspicious encodings to fragments that look benign on their own, letting us test when local monitors lose the signal (Figure 2). Concretely, each monitor succeeds only while its obser-vation contains the evidence it needs. Taint and provenance monitoring works while the payload remains in a tracked structured field, then collapses once the visible source-to-sink edge is removed. Per-step statistical detection is strongest when the encoding itself is suspicious, then weakens as frag-ments become more natural-looking. The assembly view stays high because the fragments still assemble into a re-coverable structure. This establishes one side of the observability boundary: splitting alone does not defeat local monitoring; removing us-able local evidence does. This marker-based assembly view is a diagnostic control rather than a deployable defense, be-cause it uses a planted marker to identify the assembly. The next section removes that marker to test whether assembled structure can still be recovered. 
+
+External learned-detector check. We test the same dis-tinction on a stronger learned detector outside our own testbed. On AgentDojo, the shipped neural prompt-injection detector still catches naive splitting (per-step AUROC 0.82 to Table 2: A shipped learned detector is a locality witness too (AgentDojo). Per-step separability under local benign-ness. The shipped detector catches naive splitting (AUROC 
+
+0.82 –0.84 ), but here its per-step and naive-concatenation views fall to chance; only a cross-fragment coordination view recovers the signal (AUROC 1.000 ).       
+
+> Observation view (locally benign regime) AUROC
+> Per-step learned detector ≈0.50
+> Naive fragment concatenation ≈0.50
+> Cross-fragment coordination 1.000
+
+0.84 ), which rules out the simple story that “splitting defeats detectors.” But once the fragments are made locally benign, its scores on attack fragments become almost indistinguish-able from real benign tool outputs and per-step detection falls to chance (Table 2). Concatenating the fragments does not help: the naive-concatenation view sees longer text but still no coordination structure. A cross-fragment coordination view restores separability (AUROC 1.000 ). It scores whether the fragments can be grouped and ordered into one assembled object. AgentDojo therefore serves as an external locality witness, not a quirk of one synthetic baseline: the limiting factor is the monitored representation, not the detector class. 
+
+# 4 The attack reappears once the fragments are assembled 
+
+We now ask whether the missing signal comes back once the monitor looks at the assembled object. We take two steps, both escaping the local bound of Proposition 1 by chang-ing what is scored, not by training a stronger local detector. First, does the signal reappear from the assembled text alone, with no planted marker and no attack training? The marker-free assembly monitor is our recovery witness. Second, can a runtime gate then block the attack once the decoded pay-load is exposed? The decoded-view gate answers that, as a diagnostic blocking ceiling, not a deployable defense. 
+
+Marker-free assembly signal. To check that assembly recovers real structure rather than a planted marker, we hold the assembled malicious payload fixed and vary only the per-fragment encoding. The payload ( import os, requests ...requests.post(’http:// evil.example/exfil’,...) ) is split into K con-tiguous fragments hidden inside benign report carriers. We rebuild it across four encoding families, all length-matched to benign examples: three with different markers ( F_frag ,
+
+F_seg , F_ref ) and one with no marker at all ( F_none ). This isolates encoding as the one moving part. We compare two monitors. The marker-based monitor searches for the planted string. The marker-free monitor in-stead applies a benign-only one-class model to the assembled outputs, scoring structural cues such as code-token density and partial ast parseability, with parse failures kept as a feature rather than discarded. We test generalization in a Table 3: End-to-end ASR under local views and decoded-view access. Lower is better; 0.00 means 0/50 . In the locally benign regime, no defense, taint, and per-step monitoring have the same ASR, so they are collapsed into “no/local views.” The decoded-view gate blocks every tested cell (0/50 ); it is codec-aware (given the encoding family), a di-agnostic blocking ceiling rather than a deployable defense.           
+
+> Model No/local views Decoded-view gate
+> Llama-3.1-8B 0.58 0.00
+> Qwen2.5-7B 0.78 0.00
+> Qwen2.5-14B 1.00 0.00
+> Qwen2.5-32B-AWQ 1.00 0.00
+
+leave-one-family-out ( LOFO ) protocol: train on one family and test on a completely unseen family, including F_none .The marker-based monitor only greps the planted string, so it collapses on every unseen family, and the per-step sta-tistical baseline stays at chance. The marker-free monitor in-stead recovers assembled code structure across all families, including F_none , even though it is trained one-class on benign examples and never shown an attack (Figure 3). The one-class result, 0.874 mean AUROC, is the main recovery witness: when the assembled view exposes code structure, the missing signal returns without attack training or marker access. Two checks rule out simpler explanations. First, a leave-one-feature-out ablation identifies code-structure density as the load-bearing feature: dropping it collapses the one-class monitor below chance, while dropping other features has much smaller effect. Second, the signal is not merely “code-likeness”: a benign code-bearing stress test rules that out, quantified in Section 5. The recovered signal is therefore as-sembled code structure rather than marker leakage or generic code-likeness, and it is stable across held-out families and seeds. Full family-level results, feature details, and seed sum-maries are in the supplementary material. 
+
+From recovery to blocking. A separability score is not yet a blocked attack. We therefore run the locally benign attack end to end on four served models ( n=50 per cell) under each monitor at a shared 5% benign-FPR operating point, including the decoded-view gate. It is given the encoding family and decodes the assembled fragments before they execute (Figure 4). 
+
+Decoded-view end-to-end blocking. Blocking follows the same evidence boundary as separability. Capability changes the no-defense ASR, but not the representation-access boundary (Table 3). Taint blocks ciphertext attacks because the source-to-sink edge is visible. Per-step monitoring blocks ciphertext and clean-word attacks because those fragments still expose local evidence. Locally benign attacks survive both local views. Decoded-view access is what restores blocking: once the right representation is exposed, the re-covered signal suffices to stop the attack in every tested cell across all four models. This is not a threshold artifact: all gates share the same 5% benign-FPR calibration, and the    
+
+> 0.500
+> ≈0.49
+> 0.874
+> 1.000
+> Marker grep
+> Per-step statistical
+> Assembly, one-class (benign-only)
+> Assembly, supervised
+> 0.50.75 1.0
+> AUROC on held-out family
+
+Figure 3: The signal comes from structure, not a memo-rized marker. Marker grep and the per-step statistical view stay at chance on held-out encoding families. The marker-free one-class assembly monitor, trained only on benign traffic, recovers assembled code structure ( 0.874 mean AUROC), and the supervised assembly monitor reaches 1.000 . These are separability (AUROC) results: this monitor scores, it does not block; end-to-end blocking is the separate codec-aware decoded-view result (Table 3). decoded-view gate stays at 0/50 in every model cell, with an exact 95% Clopper-Pearson upper bound of 0.071 per cell. Full per-model tables are in the supplementary material. The marker-free monitor restores the missing signal from the assembled code structure, and the decoded-view gate turns that signal into a block before the payload runs. These rest on different access assumptions, and none is at once oracle-free, attack-training-free, and blocking: marker-free recovery needs no oracle but does not block, supervised blocking needs attack examples, and decoded-view blocking assumes the encoding family. Recovery is therefore possible once the assembled representation exposes code structure, while blocking still depends on reaching the decoded pay-load. 
+
+# 5 Seeing more is not enough: the representation must be right 
+
+Section 4 recovered the signal from assembled views that ex-pose code structure. We now test three tempting fixes: giving the monitor more fragments, trying standard or LLM-based reconstruction, and changing the codec. None succeeds un-less the monitor reaches the representation where the payload is exposed (Table 4: every non-decoded broader view blocks at most partial cases; the decoded-view gate blocks all 50 ). 
+
+Breadth is not representation. We separate observation breadth from decoding knowledge. In the boundary cell (Qwen2.5-14B, locally benign, n=50 , shared 5% -FPR), a codec-blind monitor sees all K fragments yet blocks 0/50 
+
+attacks; ASR stays 50 /50 , the same as the local baselines. For this codec and observation view, the boundary is not a model-capability artifact. Across the served models (Ta-ble 3), the local views match no-defense ASR, and only the decoded-view gate changes the outcome. This holds even though compliance-driven ASR itself scales with model ca-pability. The full-trace codec-blind window fails the same way: a matched multi-model rerun leaves its ASR at the no-defense level on Qwen2.5-7B, Llama-3.1-8B, Qwen2.5-14B, and Qwen2.5-32B-AWQ, while only the decoded-view gate blocks (supplementary material). Breadth alone is therefore None +Taint +Step +Decoded       
+
+> 0
+> 0.5
+> 1
+> ✓
+> ASR
+> visible edge ( ciphertext )
+> None +Taint +Step +Decoded
+> ✓
+> local artifacts ( clean-word )
+> None +Taint +Step +Decoded
+> ✓
+> no local evidence ( locally benign )
+
+Figure 4: Blocking appears only when the runtime gate reaches the decoded representation. Lower ASR means better blocking. The x-axis varies defender access: no defense, taint, per-step monitoring, and the codec-aware decoded-view gate. The blocking boundary follows the evidence boundary: taint helps only when the source-to-sink edge is visible, per-step monitoring only while local artifacts remain, and decoded-view access is needed once the attack is locally benign. Lines show mean ASR across served models; bands show model range. not the missing ingredient: the other side of the observability boundary is which representation the monitor reaches, not how much it sees. Merely widening the window is not the only option; the natural next step is to search for the representation. We test two lightweight representation-search attempts: standard de-coders and an LLM-based reconstruction probe. A common-decoder ensemble over standard text and compression encod-ings does not close the gap (AUROC 0.564 ; blocks 0/50 ), because the locally benign carrier maps the payload into ordinary-looking words rather than a standard encoding. A no-codec LLM search does only marginally better. We prompt DeepSeek-V4-Flash to propose candidate reconstruc-tions from the fragments and score them with the same gate. It blocks only 6/50 attacks at the shared 5% -FPR threshold and ranks near chance (AUROC 0.521 ), because it also emits code-like guesses on benign traffic (supplementary material). In this boundary cell, only the decoded-view gate, given the encoding family, blocks 50 /50 attacks. The partial hits from the no-codec LLM search and the shipped detector’s full trace ( 6/50 and 10 /50 ; Table 4) recover surface-correlated cases. They never produce a calibrated decoded representa-tion under the shared FPR budget, so they do not move the boundary. The open deployment problem is therefore not ag-gregating fragments but discovering which representation to assemble and inspect. 
+
+The boundary is not codec-specific. It also holds on a second, independently published codec: DemonAgent’s dy-namic encryption (Zhu et al. 2025b) (Table 4, lower panel). On a texture-free synthetic bed, the fragment-local and full-trace non-oracle monitors stay near chance and block 0/50 ,while the decoded-view gate blocks 50 /50 ; the neural de-tector that fired on the clean-word codec’s surface texture is blind here. A real Llama-3.1-8B run ( n=50 ) corroborates the end-to-end result: the model complies with the poisoned tool (no-defense ASR 1.000 ), and only the decoded-view gate, given the encoding map, drives ASR to zero. For a codec whose fragments are locally indistinguishable under view 
+
+v, the failure follows from the monitored view rather than the detector class. That the same boundary appears across two codecs is an empirical finding, not a consequence of Proposition 1. 
+
+Decoded payloads separate attack from benign code. Aseparate concern is that the marker-free recovery signal might simply be code-likeness. Such a signal would fail on genuine coding work. Code-likeness alone does not survive that test. Under code-bearing benign traffic the codec-blind marker-free monitor inverts: it ranks realistic benign snippets that use the payload’s libraries above the attack (AUROC 0.090 ), because real code is more code-like than the dispersed frag-ments. Only decoding the assembled payload restores sep-aration (decoded-view gate AUROC 1.000 ). So here codec knowledge, not code-likeness, is what separates attack from benign (supplementary material). 
+
+Beyond code, the representation changes. The marker-free monitor relies on assembled code structure, so it does not transfer to every payload: on a natural-language harmful in-struction with no code to assemble, the strict one-class moni-tor falls below chance (AUROC 0.406 , versus 0.956 on code). Covert natural-language self-reassembly is therefore outside the solved code-structure case. We study code-payload back-doors because they give a crisp assembled object, a clear execution point, and a measurable ASR; other compositional harm may need different representations: plans, beliefs, per-missions, memory writes, or natural-language commitments. The observation-window lesson still applies, but the monitor must be matched to the object being formed: in the code-payload setting, the assembled program. The boundary is robust to fragmentation scale, adaptive variants, operating point, and ordering/decoy perturbations (supplementary ma-terial). 
+
+# 6 Related work 
+
+Agent safety monitors and prompt-injection defenses. 
+
+Prompt injection spans direct attacks (Perez and Ribeiro 2022), indirect injection in tool-using agents (Greshake et al. 2023), and adversarial jailbreaks (Wei, Haghtalab, and Stein-hardt 2023). These threats have driven runtime defenses, from prompt-injection filters and safety classifiers (Inan et al. 2023) to learned per-step detectors such as AgentDojo’s (Debenedetti et al. 2024), and a growing agent-safety eval-uation literature (Ruan et al. 2024; Andriushchenko et al. 2025; Vijayvargiya et al. 2026; Ferrag et al. 2025; Kale et al. 2025). These improve or evaluate the local, per-step decision; Table 4: Broader non-decoded views do not recover the attack. Attacks blocked out of 50 at the shared 5% benign-FPR operating point. Broader non-decoded views see more fragments but fail to recover the missing representation; only the codec-aware decoded-view gate, used here as a diagnostic ceiling, blocks. The DemonAgent second bed shows the same boundary. The dash marks mixed fragment-local/full-trace visibility.                            
+
+> View Sees all frags? Decoded? Blocks / 50
+> No defense and local baselines ××0/50 Codec-blind full-trace monitor ✓×0/50 Common-decoder ensemble ✓×0/50 No-codec LLM search ✓×6/50 Shipped neural detector (full trace) ✓×10/50 Decoded-view gate ✓✓50/50
+> Second bed: DemonAgent dynamic encryption (texture-free)
+> Non-decoded monitors –×0/50 Decoded-view gate ✓✓50/50
+
+we instead ask when the local view is the wrong unit, since a strong per-step detector survives naive splitting but falls to chance under local benignness. 
+
+Provenance, taint, and information-flow defenses. An-other line treats the agent trace as a provenance or dataflow object, using taint-style policies, information-flow con-straints, or structured trace analysis to decide whether un-trusted information reaches a sensitive action (Denning 1976; Sabelfeld and Myers 2003; Newsome and Song 2005; Wang et al. 2025; Cai et al. 2026; Jha et al. 2025). These methods widen the monitor from a single step to trace-level evidence. Our question is whether that broader trace exposes the repre-sentation in which the fragments compose. The taint baseline in our experiments isolates the visible-edge case; once that edge is removed, broader provenance alone does not recover the hidden composition. Cross-agent consistency and self-verification defenses are complementary because they look for disagreement across agents, while our attack keeps each local step benign and consistent (Fan and Li 2025; Li et al. 2025). 
+
+Distributed and compositional attacks in agent work-flows. Distributed backdoors for LLM multi-agent systems plant primitives that stay dormant until an inter-agent se-quence assembles them (Zhu et al. 2025a), later hardened with dynamic encryption and cross-stage trigger propagation (Zhu et al. 2025b; Feng et al. 2026b). A similar fragment-then-assemble pattern appears in skill-based agents (Feng et al. 2026a), and decomposing a payload into individually innocuous pieces also underlies prompt-decomposition and adversarial jailbreaks (Li et al. 2024; Glukhov et al. 2023; Zou et al. 2023). Truth-preserving fragments can compose into misleading beliefs rather than code (Hu et al. 2026), unlike per-message evasion where one instruction travels in-tact (Lee and Tiwari 2024). We instead study when splitting removes the evidence available to local monitors, and which observation view recovers it; stateful and drift-forecasting monitors widen the window along other axes and are com-plementary (Dhodapkar and Pishori 2026). 
+
+Shortcut learning and benchmark artifacts. This con-nects to shortcut learning (Geirhos et al. 2020) and NLI anno-tation artifacts (Gururangan et al. 2018; McCoy, Pavlick, and Linzen 2019), now seen in agent-safety trajectories: guardrail efficacy can track dataset cues, and shortcut-rewritten or leave-one-domain-out tests expose them (Chen et al. 2026; Fomin 2026; He et al. 2026; Hu and Qu 2026). For us this is motivation: R-Judge shows a local monitor can read length rather than content, so our main experiments use a control-lable locality axis and length-matched attacks. 
+
+# 7 Discussion and conclusion 
+
+We recast distributed-backdoor detection as a question about the monitor’s view and gave it a provable answer, the observ-ability boundary: once fragments are locally indistinguish-able from benign traffic, no local detector separates them, however strong. What defeats a local monitor is not split-ting but the loss of usable evidence, and detection returns only when the monitor changes what it observes, recovering the assembled code structure from benign data alone, then reading the decoded program to block the attack outright. As multi-agent, tool-using systems ship behind local mon-itors, the boundary is what lasts. It turns the observation window into a security parameter and monitor design into a single question: does the monitored view still expose the property where harm forms? A high detection rate does not answer it; the representation does. That question reframes how monitors are evaluated, redraws where defensive effort should go, and sets a sharp frontier: to find the exposing rep-resentation beyond code, in natural-language commitments, plans, beliefs, and memory, and to reach it without a de-coder in hand. Local safety is not global safety when harm is compositional, and the boundary now says exactly where the difference lives. 
+
+# Ethical considerations 
+
+Our aim is defensive: we diagnose when a runtime monitor loses the evidence needed to catch compositional harm, so that monitoring can be placed where it still works. The at-tacks come from previously published distributed-backdoor families (Zhu et al. 2025a,b) and run only on a controlled testbed and public benchmarks; we add no new covert capability against deployed systems, and the fully covert natural-language variant is left open, not solved. Payloads are redacted and no real credentials or live services are in-volved. We release the CPU diagnostic and testbed to support defense and reproducibility. 
+
+# Acknowledgments 
+
+This work used Jetstream2 at Indiana University through ACCESS allocation CIS260254 from the Advanced Cyber-infrastructure Coordination Ecosystem: Services & Support (ACCESS) program, which is supported by U.S. National Science Foundation grants #2138259, #2138286, #2138307, #2137603, and #2138296. Results were also obtained us-ing the Chameleon testbed, supported by the National Sci-ence Foundation. We thank the Jetstream2, ACCESS, and Chameleon support teams for the computational infrastruc-ture used in this work. We also thank Diego Fernández-Arias for the pipeline work that motivated the locality axis. 
+
+# References 
+
+Andriushchenko, M.; Souly, A.; Dziemian, M.; Duenas, D.; Lin, M.; Wang, J.; Hendrycks, D.; Zou, A.; Kolter, Z.; and Fredrikson, M. 2025. AgentHarm: A Benchmark for Mea-suring Harmfulness of LLM Agents. In ICLR .Cai, Y.; Tang, W.; Wen, C.; and Qin, S. 2026. Ghost in the Agent: Redefining Information Flow Tracking for LLM Agents. arXiv:2604.23374. Chen, Y.-S.; Huang, S.-Y.; Yang, C.-L.; and Chen, Y.-N. 2026. TraceSafe: A Systematic Assessment of LLM Guardrails on Multi-Step Tool-Calling Trajectories. arXiv:2604.07223. Debenedetti, E.; Zhang, J.; Balunović, M.; Beurer-Kellner, L.; Fischer, M.; and Tramèr, F. 2024. AgentDojo: A Dy-namic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents. In NeurIPS Datasets and Benchmarks .Denning, D. E. 1976. A Lattice Model of Secure Information Flow. Communications of the ACM , 19(5): 236–243. Dhodapkar, A.; and Pishori, F. 2026. SafetyDrift: Predicting When AI Agents Cross the Line Before They Actually Do. arXiv:2603.27148. Fan, F.; and Li, X. 2025. PeerGuard: Defending Multi-Agent Systems Against Backdoor Attacks Through Mutual Reason-ing. arXiv:2505.11642. Feng, Y.; Ding, Y.; Tan, Y.; Zheng, B.; Li, X.; Zhai, K.; Li, Y.; Guo, Y.; and Huang, W. 2026a. SkillTrojan: Backdoor Attacks on Skill-Based Agent Systems. arXiv:2604.06811. Feng, Y.; Li, Y.; Wu, Y.; Tan, Y.; Guo, Y.; Ding, Y.; Zhai, K.; Ma, X.; and Jiang, Y.-G. 2026b. BackdoorAgent: A Unified Framework for Backdoor Attacks on LLM-based Agents. arXiv:2601.04566. Ferrag, M. A.; Tihanyi, N.; Hamouda, D.; Maglaras, L.; Lakas, A.; and Debbah, M. 2025. From Prompt Injections to Protocol Exploits: Threats in LLM-Powered AI Agents Workflows. arXiv:2506.23260. Fomin, M. 2026. When Benchmarks Lie: Evaluating Ma-licious Prompt Classifiers Under True Distribution Shift. arXiv:2602.14161. Geirhos, R.; Jacobsen, J.-H.; Michaelis, C.; Zemel, R.; Bren-del, W.; Bethge, M.; and Wichmann, F. A. 2020. Shortcut Learning in Deep Neural Networks. Nature Machine Intelli-gence , 2: 665–673. Glukhov, D.; Shumailov, I.; Gal, Y.; Papernot, N.; and Pa-pyan, V. 2023. LLM Censorship: A Machine Learning Chal-lenge or a Computer Security Problem? arXiv:2307.10719. Goldwasser, S.; Kim, M. P.; Vaikuntanathan, V.; and Za-mir, O. 2022. Planting Undetectable Backdoors in Machine Learning Models. In IEEE Symposium on Foundations of Computer Science (FOCS) .Greenblatt, R.; Shlegeris, B.; Sachan, K.; and Roger, F. 2024. AI Control: Improving Safety Despite Intentional Subver-sion. In International Conference on Machine Learning (ICML) .Greshake, K.; Abdelnabi, S.; Mishra, S.; Endres, C.; Holz, T.; and Fritz, M. 2023. Not What You’ve Signed Up For: Compromising Real-World LLM-Integrated Applica-tions with Indirect Prompt Injection. In Proceedings of the 16th ACM Workshop on Artificial Intelligence and Security (AISec@CCS) .Gururangan, S.; Swayamdipta, S.; Levy, O.; Schwartz, R.; Bowman, S. R.; and Smith, N. A. 2018. Annotation Artifacts in Natural Language Inference Data. In NAACL-HLT .He, Z.; Murugesan, B. R.; Brandt, P.; and Hu, Y. 2026. When Better Codebooks Are Not Enough: Predictive Performance and Behavioral Reliability in LLM Political Event Coding. 
+
+arXiv preprint arXiv:2606.06781 .Hu, J.; Huang, X.; Sun, Y.; Dong, Y.; and Huang, X. 2026. Lying with Truths: Open-Channel Multi-Agent Collusion for Belief Manipulation via Generative Montage. In Proceed-ings of the Association for Computational Linguistics (ACL) .ArXiv:2601.01685. Hu, Y.; and Qu, J. 2026. Most LLM Conformity Needs No Speaker: Measuring the Speaker-Free Floor in Peer-Pressure Benchmarks. arXiv preprint arXiv:2607.05545 .Inan, H.; Upasani, K.; Chi, J.; Rungta, R.; Iyer, K.; Mao, Y.; Tontchev, M.; Hu, Q.; Fuller, B.; Testuggine, D.; and Khabsa, M. 2023. Llama Guard: LLM-based Input-Output Safeguard for Human-AI Conversations. arXiv preprint arXiv:2312.06674 .Jha, R.; Triedman, H.; Wagle, J.; and Shmatikov, V. 2025. Breaking and Fixing Defenses Against Control-Flow Hijack-ing in Multi-Agent Systems. arXiv:2510.17276. Kale, N.; Zhang, C. B. C.; Zhu, K.; Aich, A.; Ro-driguez, P.; Scale Red Team; Knight, C. Q.; and Wang, Z. 2025. Reliable Weak-to-Strong Monitoring of LLM Agents. arXiv:2508.19461. Lee, D.; and Tiwari, M. 2024. Prompt Infection: LLM-to-LLM Prompt Injection within Multi-Agent Systems. arXiv:2410.07283. Li, C.; Liang, J.; Cao, B.; Chen, J.; and Wang, T. 2025. Your Agent Can Defend Itself against Backdoor Attacks. arXiv:2506.08336. Li, X.; Wang, R.; Cheng, M.; Zhou, T.; and Hsieh, C.-J. 2024. DrAttack: Prompt Decomposition and Reconstruction Makes Powerful LLM Jailbreakers. arXiv:2402.16914. McCoy, R. T.; Pavlick, E.; and Linzen, T. 2019. Right for the Wrong Reasons: Diagnosing Syntactic Heuristics in Natural Language Inference. In ACL .Newsome, J.; and Song, D. 2005. Dynamic Taint Analysis for Automatic Detection, Analysis, and Signature Genera-tion of Exploits on Commodity Software. In Network and Distributed System Security Symposium (NDSS) .Park, J. S.; O’Brien, J.; Cai, C. J.; Morris, M. R.; Liang, P.; and Bernstein, M. S. 2023. Generative Agents: Interactive Simulacra of Human Behavior. In Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology (UIST) .Perez, F.; and Ribeiro, I. 2022. Ignore Previous Prompt: Attack Techniques for Language Models. In NeurIPS ML Safety Workshop .Ruan, Y.; Dong, H.; Wang, A.; Pitis, S.; Zhou, Y.; Ba, J.; Dubois, Y.; Maddison, C. J.; and Hashimoto, T. 2024. Iden-tifying the Risks of LM Agents with an LM-Emulated Sand-box. In ICLR .Sabelfeld, A.; and Myers, A. C. 2003. Language-Based Information-Flow Security. IEEE Journal on Selected Ar-eas in Communications , 21(1): 5–19. Schick, T.; Dwivedi-Yu, J.; Dessì, R.; Raileanu, R.; Lomeli, M.; Hambro, E.; Zettlemoyer, L.; Cancedda, N.; and Scialom, T. 2023. Toolformer: Language Models Can Teach Them-selves to Use Tools. In Advances in Neural Information Processing Systems (NeurIPS) .Vijayvargiya, S.; Soni, A. B.; Zhou, X.; Wang, Z. Z.; Dziri, N.; Neubig, G.; and Sap, M. 2026. OpenAgentSafety: A Comprehensive Framework for Evaluating Real-World AI Agent Safety. In ICLR .Wang, P.; Liu, Y.; Lu, Y.; Cai, Y.; Chen, H.; Yang, Q.; Zhang, J.; Hong, J.; and Wu, Y. 2025. AgentArmor: Enforcing Pro-gram Analysis on Agent Runtime Trace to Defend Against Prompt Injection. arXiv:2508.01249. Wei, A.; Haghtalab, N.; and Steinhardt, J. 2023. Jailbroken: How Does LLM Safety Training Fail? In Advances in Neural Information Processing Systems (NeurIPS) .Yao, S.; Zhao, J.; Yu, D.; Du, N.; Shafran, I.; Narasimhan, K.; and Cao, Y. 2023. ReAct: Synergizing Reasoning and Acting in Language Models. In International Conference on Learning Representations (ICLR) .Yuan, T.; He, Z.; Dong, L.; Wang, Y.; Zhao, R.; Xia, T.; Xu, L.; Zhou, B.; Li, F.; Zhang, Z.; Wang, R.; and Liu, G. 2024. R-Judge: Benchmarking Safety Risk Awareness for LLM Agents. In Findings of EMNLP .Zhu, P.; Li, L.; Lyu, Y.; Sun, L.; Su, S.; and Shao, J. 2025a. Collaborative Shadows: Distributed Backdoor Attacks in LLM-Based Multi-Agent Systems. arXiv:2510.11246. Zhu, P.; Zhou, Z.; Zhang, Y.; Yan, S.; Wang, K.; and Su, S. 2025b. DemonAgent: Dynamically Encrypted Multi-Backdoor Implantation Attack on LLM-based Agent. arXiv:2502.12575. Zou, A.; Wang, Z.; Carlini, N.; Nasr, M.; Kolter, J. Z.; and Fredrikson, M. 2023. Universal and Transferable Adversarial Attacks on Aligned Language Models. arXiv:2307.15043. A Theory and monitor definitions 
+
+A.1 Proof of Proposition 1 
+
+Let O be the space of local observations and let a randomized decision rule be a measurable ϕ : O → [0 , 1] , where ϕ(o)
+
+is the probability of flagging observation o. Fix a fragment position i and write Patt = P v 
+
+> att ,i
+
+and Pben = P v 
+
+> ben ,i
+
+(a fixed mixture over positions follows by convexity of TV ). We have 
+
+TPR = R ϕ dP att and FPR = R ϕ dP ben . Hence 
+
+TPR − FPR = 
+
+Z
+
+ϕ d (Patt − Pben )
+
+≤
+
+Z
+
+ϕ d (Patt − Pben )+
+
+≤
+
+Z
+
+d(Patt − Pben )+ = TV( Patt , P ben ),
+
+where the first inequality drops the negative part of the signed measure, the second uses 0 ≤ ϕ ≤ 1, and the final equality is the definition of total variation as the total mass of the positive part. The bound holds for every ϕ, hence for the best local rule. It is a local distinguishability statement: if benign and attack local observations are close in TV, no rule on that view separates them beyond that TV, independent of detector capacity. It does not bound a monitor whose observation function sees the assembled object, which is exactly the gap assembly monitoring exploits. 
+
+From the bound to AUROC. The locality sweep (Sec-tion 3) reports per-step AUROC, which relates to Proposi-tion 1 as follows. Writing the ROC curve as TPR(FPR) 
+
+traced by the decision threshold, the area above chance is 
+
+AUROC − 12 =
+
+Z 10
+
+ TPR( u) − u du, 
+
+where u = FPR . At every threshold Proposition 1 bounds the integrand pointwise by TV( P v
+
+> ben
+
+, P v
+
+> att
+
+), and TPR ≤ 1,so 
+
+AUROC ≤ 12 + TV − 12 TV 2 ≤ 12 + TV .
+
+A local view with small benign–attack TV therefore forces AUROC toward chance, which is what the sweep measures. AUROC reads in one direction only, and is a diagnostic rather than an estimate of TV : a high AUROC proves the fragments are distinguishable ( TV ≥ AUROC − 12 ), while an AUROC near chance is consistent with small TV but does not prove it. 
+
+A.2 A simple alarm-if-any aggregation bound 
+
+Proposition 1 bounds a single local view. A natural extension is to aggregate all K per-fragment alarms. We record a simple aggregation bound showing that this natural alarm-if-any aggregation does not remove the local-evidence constraint. This is a modest extension of the single-view bound, not a general result about per-step certification. Consider a per-step certifier built from a fixed (possibly randomized) per-fragment rule ϕ : O → [0 , 1] . At fragment 
+
+i, let αi = Eben ,i [ϕ] be its benign false-positive rate, and let TV i = TV( P v
+
+> ben ,i
+
+, P v
+
+> att ,i
+
+) be the local total-variation distance for that fragment. The trajectory-level certifier raises an alarm if any fragment is flagged. 
+
+Proposition 2 (Alarm-if-any aggregation bound) . The trajectory-level false-positive and detection rates satisfy 
+
+FPR traj ≤
+
+> K
+
+X
+
+> i=1
+
+αi, TPR traj ≤
+
+> K
+
+X
+
+> i=1
+
+αi +
+
+> K
+
+X
+
+> i=1
+
+TV i.
+
+Under uniform calibration (αi = α) these become 
+
+FPR traj ≤ Kα and TPR traj ≤ Kα + P 
+
+> i
+
+TV i. Un-der ε-local indistinguishability ( TV i ≤ ε), the detection bound is at most K(α + ε). If the benign flag events are additionally independent and uniformly calibrated, then 
+
+FPR traj = 1 − (1 − α)K exactly. Proof. Let Ai be the event that fragment i is flagged. The trajectory alarm is S 
+
+> i
+
+Ai. By the union bound, 
+
+FPR traj = Pben 
+
+[
+
+> i
+
+Ai
+
+!
+
+≤ X
+
+> i
+
+Pben (Ai)= X
+
+> i
+
+Eben ,i [ϕ] = X
+
+> i
+
+αi.
+
+If the benign flag events Ai are independent and uniformly calibrated, this false positive rate is exactly 1 − (1 − α)K .The same argument under the attack distribution gives 
+
+TPR traj = Patt 
+
+[
+
+> i
+
+Ai
+
+!
+
+≤ X
+
+> i
+
+Patt (Ai) = X
+
+> i
+
+Eatt ,i [ϕ].
+
+For each fragment, Proposition 1 gives 
+
+Eatt ,i [ϕ] ≤ Eben ,i [ϕ] + TV i = αi + TV i.
+
+Summing over fragments yields TPR traj ≤ P 
+
+> i
+
+αi +P 
+
+> i
+
+TV i.
+
+Reading. The bound separates two sources of trajectory-level alarms. The first is the per-fragment false-positive bud-get, P 
+
+> i
+
+αi. The second is the actual local evidence, P 
+
+> i
+
+TV i.Under ε-local indistinguishability, the second term is small (each TV i ≤ ε): each fragment looks close to benign on its own. The alarm-if-any rule can therefore increase detection mainly by increasing the per-step alarm budget, which also increases false alarms. The last statement makes this tradeoff concrete in the independent-benign-flag case. If every step has false-positive rate α, then the trajectory-level false-positive rate is 1 −
+
+(1 − α)K . For example, setting α ≈ 1/K already gives 
+
+FPR traj ≈ 1 − e−1 ≈ 0.63 . Thus, auditing more steps does not by itself solve the problem: without additional local evidence, power comes from spending more false-positive budget. This bound applies only to this alarm-if-any aggregation of per-fragment alarms. It does not rule out monitors that score the fragments jointly. That distinction is the point: an assem-bly monitor is not just a union of local alarms. It observes a different object, and its benign vs. attack TV can be large even when every local marginal TV i is small. This natural aggregation still inherits the local-evidence constraint. A.3 Monitor pseudocode 
+
+The monitor taxonomy is in Table 1 (Section 2); the pseu-docode below summarizes each monitor. All τ∗ thresholds are calibrated at a 5% benign FPR (Appendix B). The per-step, taint, and marker-based assembly monitors are the ones swept in Figure 2; the marker-free, decoded-view, and codec-blind monitors are those analyzed in Sections 4 and 5. 
+
+# B Experimental details and statistics 
+
+Compute and software. CPU-only detector experiments use Python with NumPy and scikit-learn. End-to-end ASR runs serve open-weight instruction models through an OpenAI-compatible endpoint, including vLLM, on NVIDIA RTX 6000, NVIDIA A100 40GB, and NVIDIA A100 80GB GPUs. Models are served in fp16 where supported; the row named Qwen2.5-32B-AWQ uses the AWQ checkpoint named in the paper. 
+
+ASR confidence intervals. ASR cells are binomial over 
+
+n=50 trajectories. For 0/50 cells we report the exact 95% 
+
+Clopper-Pearson upper bound (0.071); this is a per-cell bound, not a simultaneous guarantee across cells. For the no-defense rates we report Wilson 95% intervals (Table 5). Table 5: Representative ASR confidence intervals ( n=50 ). The 0/50 row is an exact Clopper-Pearson upper bound; the others are Wilson score intervals.                   
+
+> ASR count 95% CI
+> 0.00 0/50 [0 .00 ,0.071]
+> 0.58 29/50 [0 .44 ,0.71]
+> 0.76 38/50 [0 .62 ,0.86]
+> 0.78 39/50 [0 .64 ,0.88]
+> 1.00 50/50 [0 .91 ,1.00]
+
+Threshold calibration. Runtime gates are calibrated to a 
+
+5% benign false-positive rate on held-out benign trajectories. On Collaborative Shadows this fixes the codec-blind mon-itor’s threshold at 0.061 ; the fully encoded locally benign attack scores 0.013 , below it, so the codec-blind monitor never fires. The decoded-view gate has a wider margin: be-nign trajectories score at most 0.120 and attacks score 1.240 ,so any threshold in (0 .120 , 1.240) gives 0% benign FPR at 
+
+100% detection on this bed (Table 12). This free band is a property of the no-code benign traffic in the synthetic bed and does not survive code-bearing benign traffic (Table 13). 
+
+Operating-point sensitivity. The blindness is not an arti-fact of the 5% FPR choice. Sweeping the benign-FPR budget over {1% , 5% , 10% } leaves the per-step and per-fragment monitors flat near zero detection on locally benign attacks: per-step TPR is 0.02 to 0.03 across the range on Collab-orative Shadows and 0.00 for the AgentDojo per-step de-tector at every budget, so loosening the threshold does not recover them. The supervised assembly monitor saturates at TPR 1.000 at all three budgets. The marker-free one-class monitor is the exception: its TPR rises with the budget (0.06 → 0.25 → 0.36 ), because its strength is ranking (AU-ROC 0.874 ) rather than a tight operating point; the tight operating-point results therefore rest on the supervised as-sembly monitor and the decoded-view gate (used as a diag-nostic ceiling, not a deployable defense), not the one-class monitor. 
+
+AUROC seeds. AUROC values on Collaborative Shad-ows (Figure 2, Table 6) are 5-seed means. The taint and marker-based assembly checks are rule-based and determin-istic given a trajectory, so they take the fixed values 0.500 
+
+or 1.000 with no cross-seed variation; seed variation enters only through the sampled fragment content, and therefore concentrates in the per-step statistical monitor, whose 5-seed std runs from about 0.01 where separation saturates to 0.09 in the natural-word regimes. On AgentDojo the shipped neural detector’s per-step AUROC carries a per-regime 5-seed std of at most 0.06 , while the cross-fragment coordination view is deterministic at 1.000 . The marker-free one-class moni-tor’s AUROC ranges within 0.858 to 0.879 across the four held-out families (mean 0.874 ), and the supervised assembly monitor is at 1.000 on every held-out family. The qualitative boundary is stable across these seed-level summaries and across the operating points in Table 12. 
+
+# C Locality sweep details 
+
+C.1 R-Judge length-artifact details 
+
+The length-only classifier reaches AUROC 0.940 , about 96% 
+
+of the full-content oracle. The shortcut transfers: the pooled length-only AUROC is 0.940 , and the large-domain off-diagonal (leave-one-domain-out) AUROC is 0.895 , so the ar-tifact is not confined to one domain. A length-matched attack drives the deployed length-exploiting detector to 0.500 (Co-hen’s d = 0 .000 ) while the assembly view stays at 1.000 . In the length de-confound, broader-observation AUROC drops from 0.775 to 0.671 under length matching; the content-only contrast is 0.618 versus per-step 0.341 , a net advantage of about +0 .28 . R-Judge is borderline after de-confounding, which is why the main claim rests on the controllable bed. 
+
+C.2 Full locality sweep 
+
+Table 6 gives the numeric values plotted in Figure 2. 
+
+# D Marker-free assembly recovery 
+
+Encoding families. In every family the K=3 
+
+fragments are contiguous pieces of one real ma-licious code payload (import os, requests ...requests.post(’http://evil.example/ exfil’,...) ) spliced into benign report carriers and length-matched exactly to the benign observation, so no length or entropy artifact separates attack from benign at the local view. The families differ only in the coordination marker that wraps each fragment (Table 7); F_none has no marker and is held out so that a marker-matching monitor has nothing to key on. 
+
+Marker-free features. The assembly monitor scores a seven-feature vector of the concatenated report texts, with no marker knowledge: (i) code-structure density, the frac-tion of code-like tokens ( import , requests , http:// ,TAINT / PROVENANCE (whole trace T) for each value v from source s to sink k in T: if exists path s -> k: return FLAG return PASS # no visible edge => PASS PER-STEP STATISTICAL (one fragment) features <- [entropy(x_i), length(x_i), lexical_cues(x_i)] return FLAG if f_stat(features) > tau_step MARKER-BASED DIAGNOSTIC ASSEMBLY (fragment set {x_1, ..., x_K}) if any fragment carries the known coordination marker M: return 1.0 if fragments assemble # diagnostic only return 0.5 # chance when marker absent MARKER-FREE ASSEMBLY (fragment set, no marker knowledge) A <- assembled_text(concat/orderings of {x_i}) return FLAG if code_structure(A) > tau_asm DECODED-VIEW GATE (assembler input, pre-execute) for each provided codec family c: A <- decode_c(concat fragments) if parses_as_executable(A) and matches_exfil_structure(A): return BLOCK return ALLOW CODEC-BLIND MONITOR (fragment set, no decoding step) A <- concat(x_i) return FLAG if code_structure_density(A) > tau # blind: a fully encoded payload scores ~0 and never fires 
+
+Figure 5: Monitor pseudocode. All τ∗ thresholds are calibrated at a 5% benign FPR. Table 6: Locality sweep on Collaborative Shadows (5-seed mean AUROC). Values are the numeric backup for Figure 2. Per-step 
+
+is the per-step statistical monitor; Assembly is the diagnostic assembled (marker-based) view. Note: level 8 is a no-assembly control; the residual assembly score is not interpreted as recovery (consistent with a residual length cue). Per-step entries give 5-seed mean ±std; taint and assembly are deterministic across seeds (std 0), except the level-8 control. 
+
+Level Encoding Taint Per-step Assembly 
+
+0 raw base64 1.000 0.869 ± .08 1.000 1 disguised b64 1.000 0.859 ± .09 1.000 2 b64 + words 0.500 0.922 ± .05 1.000 3 hex 0.500 1.000 ± .00 1.000 4 hex + words 0.500 0.993 ± .01 1.000 5 50% natural words 0.500 0.633 ± .09 1.000 6 80% natural words 0.500 0.705 ± .08 1.000 7 sentence embed (loc. benign) 0.500 0.602 ± .07 1.000 8 no-assembly control 0.500 0.621 ± .08 0.857 ± .08 
+
+Table 7: The four marker-free encoding families. All carry the same K=3 code-payload fragments in benign carriers, length-matched to benign; only the per-fragment marker differs. 
+
+Family Per-fragment marker Role 
+
+F_frag "fragment i:" in-family / training marker 
+
+F_seg "[data segment i of K]" unseen marker (transfer test) 
+
+F_ref "ref i::" unseen marker (transfer test) 
+
+F_none none held out: no marker to match 
+
+os. , environ , brackets, =, .post /.get , json , and sim-ilar) in the concatenation; (ii) partial parseability, obtained by extracting candidate code lines (imports, assignments, 
+
+requests.* calls) with a regular expression and attempt-ing ast.parse on them, scoring 1 if the extracted block parses and otherwise 0.2 per candidate line capped at 1;(iii, iv, v) the mean, maximum, and standard deviation of a per-step nonconformity profile from an isolation forest fit on a tf-idf representation ( 300 features, 1- and 2-grams, 
+
+min df=2 ) of benign step text; (vi) cross-agent length paral-lelism, the coefficient of variation of the K report lengths; and (vii) the concatenation length. 
+
+Training and evaluation. The bed is 100 Collaborative Shadows groups ( K=3 ), evaluated over 5 seeds with a 70 /30 
+
+group-level train/test split. The one-class monitor standard-izes the seven features and fits an isolation forest ( 200 trees, contamination 0.05 ) on benign training trajectories only; it never sees an attack, so its negatives are benign trajectories and its test-time positives are the attack families. The per-step nonconformity model behind features (iii, iv, v) is likewise fit on benign training step text. The supervised LOFO mon-itor trains on the attack families other than the test family and is evaluated on the held-out family, including F_none .Separability is reported as AUROC, which is threshold-free. The isolation forests use an in-fit contamination of 0.05 as a training hyperparameter; this is separate from the run-time gates elsewhere in the paper, which are calibrated to a 
+
+5% benign false-positive rate on held-out benign trajectories (Appendix B). 
+
+Results and ablation. The marker-based monitor scores 
+
+1.000 on its own family and exactly 0.500 off-family (mean off-diagonal 0.500 ). The one-class marker-free moni-tor reaches 0.874 mean AUROC across all families including 
+
+F_none ; trained supervised LOFO it reaches 1.000 on every unseen family; the per-step baseline stays at chance ( 0.475 
+
+to 0.504 ). The conservative headline number is the one-class 
+
+0.874 , because it is never trained on attacks. Restricting the density feature to semantic code tokens, dropping whites-pace and bracket counts, gives the strict variant used for the natural-language boundary (Table 15). A leave-one-feature-out ablation identifies code-structure density as the load-bearing feature for the one-class monitor: dropping it col-lapses mean AUROC to 0.465 (below chance), whereas drop-ping partial parseability costs only 0.022 and dropping any of the per-step nonconformity, length-parallelism, or length features changes it by at most 0.023 . The supervised moni-tor is redundancy-robust (no single drop falls below 0.978 ), because density and parseability each separate the classes on their own. The signal is thus the code-assembly structure of the joint output, which sharpens why a natural-language payload is the genuine open boundary. 
+
+Scope of the per-step result. The per-step chance result (0.475 to 0.504 , 5-seed mean 0.483 ) is for the deployed statis-tical monitor ( vstat , tf-idf + isolation-forest). This code bed deliberately gives each fragment a contiguous slice of the Python payload, so a code-aware per-fragment probe (code-token density plus partial ast parseability) trivially reads that slice and hits AUROC 1.000 ; we report vstat precisely to isolate encoding rather than this code-bed artifact. The ev-idence that the failure survives a strong learned per-fragment detector is the external AgentDojo check (Section 3): under a real shipped neural detector, locally benign fragments score at the benign baseline ( 0.046 vs. 0.049 ). 
+
+# E End-to-end ASR and representation boundary 
+
+E.1 Full per-model ASR 
+
+Table 9 gives the full per-model end-to-end numbers behind the mean-and-band summary in Figure 4. The blindness pat-tern (which defense leaves ASR at the no-defense level) is identical across all four models; only the no-defense height varies with model capability, the contrast shown in Table 3. 
+
+Multi-model codec-blind boundary. To check the codec-blind end-to-end boundary is not a single-model artifact, we re-run it on four model scales. Capability moves the no-defense height, but the boundary is unchanged: the codec-blind window blocks 0 attacks on every model, and only the decoded-view gate blocks (Table 10). 
+
+E.2 ASR provenance and integrity 
+
+Because the end-to-end ASR depends on the execution runs, we guard model identity explicitly. Each rollout is saved only after a per-save check that the recorded model field matches the intended served model, and the runner refuses to save on a mismatch. All cells in Table 9 pass this check. Attack-success rates differ across models because compli-ance is capability-bound; the monitor-blindness pattern, by contrast, is invariant across these served models under the fixed codec and observation views. Mistral-7B was excluded as a capability floor (near-zero no-defense ASR, so it cannot discriminate defenses). 
+
+E.3 No-codec LLM search 
+
+This is the no-codec LLM search summarized in Section 5 and added as a row to Table 4. It sharpens the breadth-versus-representation question: can a capable LLM, rather than the fixed common-decoder ensemble, discover the representa-tion and recover the assembled payload from the fragments without being handed the codec? 
+
+Setup. We reuse the same persisted locally benign rollouts as the codec-blind boundary cell (Collaborative Shadows, Qwen2.5-14B, K=3 ): 50 attack trajectories and 50 benign trajectories. For each trajectory the monitor sees the K frag-ment texts (with fragment indices) and nothing about the encoding. We prompt DeepSeek-V4-Flash at temperature 
+
+0, one call per trajectory, to (i) decide whether the frag-ments carry a hidden compositional payload and (ii) propose up to five candidate reconstructions, each a free-form de-coded/assembled string. Every candidate is scored by the 
+
+same gate as the common-decoder ensemble (code-structure score max( assembles-to-code , 10 × code-density )), and the trajectory score is the maximum over its candidates. The decision threshold is the 95 th percentile of the benign tra-jectory scores (the same 5% benign-FPR operating point used elsewhere); benign trajectories pass through the identi-cal prompt and gate. 
+
+Result. The LLM often notices that the trace is suspicious (flag rate 0.76 ), but its candidate reconstructions are flagged on only 6/50 attacks. Its ranking is near chance (AUROC Table 8: Assembled-code signal is not a planted marker (numeric backup for Figure 3). Marker grep fails off-family; marker-free assembly recovers held-out families. The deployed statistical per-step monitor ( vstat ) is at chance; a code-aware probe ( vcode )trivially reads the contiguous payload slice on this code bed (see the paragraph above).                       
+
+> Monitor Attacks in training Held-out AUROC
+> Marker grep none (rule) 0.500 (off-family) Per-step local, statistical vstat none 0.475 to 0.504
+> Per-step local, code-aware vcode none (rule) 1.000 (all families) Marker-free, one-class none 0.874 (0.858 to 0.879 )Marker-free, supervised other families 1.000 (±0)
+
+Table 9: Entries are ASR under no-defense / +taint / +per-step / +decoded-view ( n=50 per cell, matching the x-axis order of Figure 4). Bold marks a defense that is blind for that attack family (ASR unchanged from no-defense); the decoded-view value is 0 in every cell. The codec-blind monitor is analyzed separately in Table 4; across served models the local-view ASR tracks no-defense while only the decoded-view gate changes it (Table 3).                                        
+
+> Model ciphertext clean-word locally benign
+> Llama-3.1-8B 0.58 / 0 / 0 / 0 0.58 / 0.58 / 0 / 0 0.58 / 0.58 /0.58 / 0 Qwen2.5-7B 0.76 / 0 / 0 / 0 0.76 / 0.76 / 0 / 0 0.78 / 0.78 /0.78 / 0 Qwen2.5-14B 1.00 / 0 / 0 / 0 1.00 / 1.00 / 0 / 0 1.00 / 1.00 /1.00 / 0 Qwen2.5-32B-AWQ 1.00 / 0 / 0 / 0 0.98 / 0.98 / 0 / 0 1.00 / 1.00 /1.00 / 0
+
+Table 10: Codec-blind end-to-end ASR boundary across model scales (locally benign, n=50 , shared 5% -FPR). Each cell is ASR under no-defense / +per-step / +taint / +codec-blind / +decoded-view. The codec-blind window leaves ASR at the no-defense level on every model; only the decoded-view gate drives it to 0. These rows are an independently regenerated rollout set, so the no-defense heights differ from Table 9 because of different generation conditions, not sampling noise; only the defense pattern is claimed invariant (every local and codec-blind view equals no-defense, only decoded-view drives it to 0).                          
+
+> Model none +per-step +taint +codec-blind +decoded-view
+> Qwen2.5-7B 0.68 0.68 0.68 0.68 0.00
+> Llama-3.1-8B 1.00 1.00 1.00 1.00 0.00
+> Qwen2.5-14B 1.00 1.00 1.00 1.00 0.00
+> Qwen2.5-32B-AWQ 0.98 0.98 0.98 0.98 0.00
+
+Table 11: No-codec LLM search (DeepSeek-V4-Flash, no codec given), scored by the same gate as the common-decoder ensemble at the shared 5% benign-FPR point. Columns give the per-class score distribution. At the 5% -FPR threshold ( 0.191 ), the search is flagged on only 6/50 
+
+attacks, with AUROC 0.521 (benign vs. attack), essentially chance.          
+
+> attack ( n=50 )benign ( n=50 )
+> score mean 0.053 0.046 score max 1.000 1.538 nonzero scores 7/50 5/50 flag rate (detect step) 0.76 0.34
+
+0.521 ): the model also produces code-like guesses on be-nign traffic, including one benign trajectory with score 1.538 ,above the maximum attack score ( 1.000 ). A no-codec LLM search therefore narrows the gap only marginally, remain-ing much closer to the common-decoder ensemble ( 0/50 ,AUROC 0.564 ) than to the decoded-view ceiling ( 50 /50 ): representation discovery, not breadth, is the bottleneck. 
+
+# F Additional boundary and stress tests 
+
+Table 13 gives the benign-code utility stress test; Table 12 the full operating-point sweep behind the free operating point; Table 14 the K-sweep; and Table 15 the natural-language payload boundary. Executable-preserving perturbations, in-cluding wrappers, import aliasing, dead code, and string con-struction, did not change the boundary: decoded-view access blocked all cases, while marker-free and common-decoder views missed them. The adaptive truncation sanity check returned evades-and-executes rate 0.000 at every retained-code fraction f , which is partly definitional, as explained in Section 5. 
+
+Adversarial assembly order and decoys. A distributed at-tacker need not present the fragments in order or in isolation. We permute the K fragments before assembly and interleave benign decoy fragments ( D ∈ { 1, 3, 5}). Neither breaks the attack: a per-fragment index lets the decoded-view gate re-sort the pieces and ignore the decoys, so reconstruction and execution stay at 1.000 . Detection does not degrade either: Table 12: Decoded-view gate operating points on the synthetic bed (Collaborative Shadows locally benign, 50 groups). Benign scores stay at most 0.120 and attack scores reach 1.240 , so the bed has a free operating point. Benign FPR is the gate’s utility cost.                          
+
+> operating point benign FPR TPR residual ASR
+> threshold >0.120 0.000 1.000 0.000 nominal 5% -FPR †0.06 1.000 0.000 any thr ∈(0 .12 ,1.24) 0.000 1.000 0.000
+> †The free band (any threshold in (0 .12 ,1.24) ) already blocks all attacks at 0benign FPR; forcing a nominal 5% -FPR threshold instead admits 3/50 benign ( 0.06 ) for no detection gain, an artifact of calibrating on the empirically separated scores, not a real cost.
+
+the marker-free one-class monitor is invariant under reorder-ing ( 0.873 ) and rises under decoys ( 0.97 to 0.99 ), while the supervised monitor and the decoded-view gate remain at 
+
+1.000 . Adversarial ordering and decoy injection therefore do not evade assembly recovery within the scoped threat model. Table 13: Code signal is not utility. On benign coding work, codec-blind code-structure cues invert the ranking, while the decoded-view gate restores separation by decoding the assembled representation. 
+
+Monitor benign mean attack mean AUROC AP FPR @TPR .95 
+
+Codec-blind code structure 0.897 0.600 0.090 0.510 0.960 Decoded-view gate 0.897 1.240 1.000 1.000 0.000 
+
+Table 14: Detection-side K sweep at the locally benign operating point. Entries are AUROC / detection rate. 
+
+K per-step marker-free raw common-decoder decoded-view 
+
+2 0.000 / 0.00 1.000 / 0.00 0.160 / 0.00 1.000 / 1.00 3 0.000 / 0.00 1.000 / 0.00 0.288 / 0.00 1.000 / 1.00 5 0.000 / 0.00 1.000 / 0.00 0.456 / 0.00 1.000 / 1.00 10 0.972 / 0.90 1.000 / 0.00 0.728 / 0.00 1.000 / 1.00 Note: high raw AUROC for marker-free code structure does not imply detection at the calibrated threshold; detections remain 0 until decoded-view access (or K=10 per-step recovery). 
+
+Table 15: Natural-language payload boundary. Code-structure monitors do not transfer cleanly to a non-code harmful instruction. Reported one-class signals are diagnostic for this single code/NL pair and include formatting artifacts; removing formatting tokens drops the natural-language score. The code one-class (raw) value here ( 0.878 ) is for this single code/NL pair; the 0.874 headline elsewhere is the leave-one-family-out one-class mean across the four encoding families. 
+
+Payload assembles? one-class (raw) one-class (strict) marker-based 
+
+code 0.56 to 0.66 0.878 0.956 1.000 natural lang. 0.000 0.753 ∗ 0.406 1.000 
+
+> ∗
+
+artifact: drops to 0.406 once formatting tokens are removed.

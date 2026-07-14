@@ -1,0 +1,1084 @@
+Title: Verification of Adaptive Agentic Controllers through Finite Rule Revision
+
+URL Source: https://arxiv.org/pdf/2607.09770v1
+
+Published Time: Tue, 14 Jul 2026 00:03:54 GMT
+
+Number of Pages: 28
+
+Markdown Content:
+# Verification of Adaptive Agentic Controllers through Finite Rule Revision 
+
+Roberto Garrone Open University of Cyprus 
+
+roberto.garrone@st.ouc.ac.cy 
+
+Abstract 
+
+Industrial agentic AI systems increasingly exhibit a gap between prototype capability and production deployment. In particular, adaptive agents may generate plausible outputs while remaining difficult to verify under non-determinism, confidentiality constraints, limited con-text, and weak observability. This paper formulates a bounded verification protocol for adap-tive agentic controllers represented by finite symbolic rules, explicit diagnostic predicates, explanation logs, and held-out re-evaluation. The central research question is: when an adaptive agentic controller is represented through finite rules, explicit diagnostic predicates, explanation logs, and held-out re-evaluation, which classes of controller failure can be de-tected, locally repaired, or rejected without relying on unrestricted human-in-the-loop judg-ment? The proposed framework treats the controller as a finite revisable object. Diagnostic failures are mapped to predefined rule-level edits, including rule addition, rule deletion, and priority revision. Repaired controllers are then evaluated on held-out simulation seeds or cloned initial states. Experiments in a stylized financially constrained inventory-control benchmark show three outcomes: resource-induced failures that remain non-repairable by one rule edit, partial repairs that are rejected because they violate thresholds or guardrails, and a local one-step repair of an order-volatility failure induced by removing a smoothing rule. The contribution is methodological and provides a simulation-compatible procedure for testing whether specific controller-level failures can be made observable, explainable, locally revisable, and empirically re-tested under controlled conditions. 
+
+Keywords: agentic AI; adaptive controller; verification; agent-based simulation; symbolic con-troller; finite rules; contestability; explanation logs; held-out evaluation; machine coaching. 
+
+# 1 Introduction 
+
+Agentic AI systems are increasingly used to execute multi-step tasks, coordinate tool use, re-trieve contextual information, and adapt their actions to changing operational conditions. These capabilities make them relevant for enterprise automation, decision support, and workflow co-ordination. However, the transition from prototype demonstrations to production deployment remains limited by a verification problem. Recent empirical evidence on industrial agentic AI adoption identifies a capability-deployment verification gap: organizations may demonstrate higher-level agentic capabilities experimentally while being unable to integrate them into pro-duction workflows because adequate output-verification mechanisms are absent [6]. In enterprise settings, a common architectural response is to prevent the agent from be-coming the system of record. The agent may interpret tasks, retrieve approved context, select allowed tools, and recommend actions, but execution should remain mediated by governed APIs, workflow engines, RPA layers, enterprise systems, and approval gates. This design principle is necessary because it separates reasoning and coordination from authoritative execution. It is not sufficient, however, because it does not by itself verify the behavior of the agentic controller. 1arXiv:2607.09770v1 [cs.AI] 7 Jul 2026 Even when execution is routed through governed systems, the controller may still select inap-propriate actions, overreact to noisy signals, fail to respect diagnostic constraints, or produce decisions that cannot be explained and re-tested. 
+
+Deployment verification gap. In this paper, the deployment verification gap denotes the following technical condition. Let A be an adaptive agentic controller that produces actions 
+
+at from observed states st under stochastic or context-dependent conditions. A prototype demonstration establishes only that there exists at least one observed execution trace 
+
+τ = ( s0, a 0, . . . , s T )that satisfies an informal task objective. Production deployment, by contrast, requires evidence that a class of traces generated under admissible perturbations satisfies declared operational properties: Pr  
+
+> ω∼Ω
+
+[τA(ω) |= φ] ≥ 1 − α, 
+
+where Ω is the evaluation distribution, φ is a finite set of diagnostic and guardrail properties, and α is the tolerated failure probability. The verification gap arises when prototype capability is observed, but the mapping from controller logic to admissible behavior cannot be inspected, bounded, revised, or re-tested against φ. This formalization narrows the industrial verification problem identified by Apostolou et al. [6] to the controller level. Figure 1 positions this problem within a generic enterprise architecture for agentic automa-tion. The figure is not intended to define a complete deployment architecture. Its purpose is narrower: it shows that the paper addresses the controller-level verification problem located between orchestration, observability, and approval. Trusted data engineering, API governance, cybersecurity, legal review, and production integration remain outside the scope of the proposed method.       
+
+> Platform-Agnostic Strategy Layer
+> Business process decomposition +agentic use-case design +risk appetite +verification requirements
+> Agent Orchestration
+> planning, routing, task decomposition
+> Trusted Data Layer
+> RAG, knowledge base, semantic layer
+> Governed Tools/APIs
+> ERP, CRM, workflows, models, services
+> Human Approval
+> review, escalation, sign-off
+> Observability & Evaluation
+> logs, tests, metrics, monitoring
+> Controller-level verification
+> Finite rules, diagnostic predicates, explanation logs, held-out tests, bounded rule revision
+> Client-Stack-Specific Implementation Layer
+> Microsoft / AWS / Google / Salesforce / ServiceNow / Databricks / SAP / custom APIs / internal data platforms
+> Deployment Verification Gap
+> Prototype capability exists, but production approval lacks sufficient evidence
+
+Figure 1: Placement of the controller-level verification problem within a generic enterprise architecture for agentic AI. The paper does not address the full deployment stack. It focuses on the verification layer that connects orchestration, observability, and approval. This paper studies one restricted part of the deployment verification problem: controller-level verification for adaptive agentic systems. The focus is not on open-ended conversational agents, unrestricted autonomous systems, or full enterprise deployment. Instead, the paper considers adaptive controllers whose decisions can be represented through finite rules, diagnostic 2predicates, explanation logs, and controlled simulation experiments. This restricted formulation builds on prior work on adaptive, explainable, and contestable agent-based modeling [7], and more directly on finite controller revision and machine-coached policy repair [8, 9]. The primary research question is: 
+
+When an adaptive agentic controller is represented through finite rules, explicit di-agnostic predicates, explanation logs, and held-out re-evaluation, which classes of controller failure can be detected, locally repaired, or rejected without relying on un-restricted human-in-the-loop judgment? 
+
+The paper does not claim that all agentic failures can be detected or repaired. It asks whether specific controller-level failures can be made observable, classified, revised, and re-tested under a finite protocol. This position treats verification as an architectural property of the controller, not as an external audit applied only after deployment. The proposed method is based on four elements. First, the controller is represented as a finite symbolic rule base with explicit priorities and conflicts. Second, numerical simulation states are converted into diagnostic predicates. Third, each controller action generates an explanation log recording observed predicates, applicable rules, selected rules, blocked rules, conflicts, priorities, and the chosen action. Fourth, when a failure is diagnosed, a finite edit library is used to revise the controller, and the revised controller is evaluated on held-out simulation runs. The contribution is methodological. The paper provides a simulation-based verification pro-tocol for finite adaptive controllers and reports benchmark experiments that separate detectable failures, locally repairable failures, and rejected repairs. It does not propose a new optimal con-troller, a general safety guarantee, or a replacement for human governance. Its purpose is to clarify which controller failures can be addressed through bounded, auditable, and reproducible revision operations. Finally, this work is related to earlier research on adaptive, explainable, and contestable agent-based modeling [7], machine-coached policy revision [8], and one-step repairability of finite symbolic controllers [9]. Its distinct contribution is the application of controller-level verification to the industrial agentic-AI deployment gap, together with an inventory-control benchmark that reports negative cases, rejected repairs, baseline comparisons, and one local smoothing-rule repair. 
+
+# 2 Related Work 
+
+The proposed framework connects several technical literatures that are usually treated sepa-rately: verification of finite-state and agentic systems, rule-based decision systems, defeasible reasoning, controller synthesis and repair, simulation-based verification, and inventory-control modeling. Its contribution is not to replace these traditions, but to combine a restricted subset of them into a controller-level protocol for adaptive agentic systems whose decisions can be represented, logged, revised, and re-tested. 
+
+2.1 Verification, Monitoring, and Simulation Evidence 
+
+Formal verification provides the strongest reference point for claims about system correctness. Model checking studies whether an abstract finite-state model satisfies a formal specification, typically expressed in temporal logic [14]. This tradition is relevant because the present frame-work also treats verification as a relation between a system model and declared properties. However, the proposed protocol is weaker than full model checking. It does not exhaustively verify all reachable states. It evaluates controller behavior under declared simulation seeds, cloned initial states, or replicated stochastic conditions. 3Runtime verification and monitoring provide a closer analogue. Runtime verification eval-uates whether observed traces satisfy declared properties, rather than proving correctness over the full state space [11]. The explanation log used here has a similar function: it records pred-icates, applicable rules, selected rules, blocked rules, priorities, and actions so that controller behavior can be inspected after execution. The difference is that the present framework links monitoring to finite rule revision. A trace is not only checked; it may also identify an admissible edit to the controller rule base. Statistical model checking is also relevant because the proposed protocol relies on repeated stochastic simulation rather than exhaustive state exploration. Younes and Simmons [19] formu-late probabilistic verification through statistical hypothesis testing over simulated executions. The present framework adopts a related evidential status: acceptance criteria are empirical and bounded. A repaired controller is accepted only relative to the declared seeds, stochas-tic assumptions, metrics, thresholds, and guardrails. This supports simulation evidence, not unrestricted deployment validity. 
+
+2.2 Rule-Based Systems and Defeasible Reasoning 
+
+The controller representation builds on the production-system tradition in artificial intelligence. Production systems represent decision logic through condition-action rules, and efficient pattern matching has long been a central implementation problem. The RETE algorithm is a canonical reference for matching many rules against many facts in production-system interpreters [15]. The present framework does not depend on RETE specifically, but it shares the same basic assumption that explicit rule bodies can be matched against a current fact or predicate set. The use of conflicts and priorities connects the framework to defeasible reasoning. Defeasible logic represents conclusions that may be overridden by stronger rules or priority relations. Antoniou et al. [10] provide a formal treatment of defeasible logic as a rule-based nonmonotonic reasoning system with priorities and transformations. This literature is relevant because the proposed controller does not treat all applicable rules as jointly executable. Instead, applicable rules may conflict, and a deterministic resolution operator selects the rule or rule set that controls the action. The present framework remains narrower than general defeasible logic. It does not introduce a new nonmonotonic semantics. It uses a finite rule base, a finite predicate vocabulary, an explicit conflict relation, and a priority ordering as engineering objects for controller auditability and revision. The purpose is operational: to make controller decisions explainable, contestable, and locally revisable under simulation. 
+
+2.3 Controller Synthesis, Repair, and Bounded Revision 
+
+Controller synthesis studies how to construct a controller that enforces a desired behavioral specification. In discrete-event systems, Ramadge and Wonham [16] define supervisory control in terms of a plant, a language of admissible behavior, and a supervisor that restricts behavior to satisfy a specification. Reactive synthesis extends this idea to temporal-logic specifications and game-based construction of winning strategies; GR(1) synthesis is a tractable and widely used fragment for reactive designs [12]. The present paper is related to controller synthesis but does not solve a full synthesis prob-lem. It assumes an existing finite controller and asks whether diagnosed failures can be repaired through a small edit library. The edit operations are deliberately restricted: rule addition, rule deletion, and priority revision. This makes the protocol closer to bounded controller repair than to unrestricted synthesis. The repaired controller is accepted only if the target failure improves and guardrail metrics remain within declared thresholds on held-out simulation runs. This distinction is important for the scope of the contribution. A synthesis result would claim that a controller satisfying a specification can be constructed under formal assumptions. 4The present framework makes a weaker claim: when a failure is expressible in the predicate vocabulary, visible in explanation logs, and correctable by one admissible edit, the controller may be locally repairable under the declared simulation protocol. 
+
+2.4 Inventory-Control Benchmarks 
+
+The illustrative benchmark is positioned within inventory-control modeling, but it is not in-tended as a new inventory-optimization method. Classical inventory theory studies ordering policies under uncertain demand, cost, and replenishment constraints. Scarf’s work on ( s, S )policies provides a canonical reference for dynamic inventory control under uncertainty [17]. Clark and Scarf [13] extend inventory analysis to multi-echelon settings, where replenishment decisions propagate through linked inventory stages. Standard treatments of inventory man-agement further distinguish stockout risk, holding cost, service level, replenishment timing, and capacity constraints [18, 20]. The benchmark in this paper uses inventory control differently. It does not attempt to prove optimality of an ordering policy. Instead, inventory dynamics provide a transparent testbed for controller-level verification. Stockout, overstock, service-level loss, working-capital excess, order volatility, budget violation, and capacity violation are used as diagnostic properties. The purpose is to test whether a finite symbolic controller can make these failures observable, attribute them to rule-level decisions, revise the controller through finite edits, and re-evaluate the repair on held-out stochastic runs. 
+
+2.5 Causal and Transfer-Learning Boundaries 
+
+The framework also uses a limited causal vocabulary. Pearl’s intervention framework is relevant because controller revision can be interpreted as an intervention on the decision rule rather than as a passive observation of system trajectories [4]. However, the paper does not estimate causal effects from observational data. The causal claim is structural and methodological: rule edits define controlled changes to the controller mechanism, and before-after evaluation compares the resulting behavior under declared simulation conditions. Similarly, the framework should not be confused with transfer learning. Transfer learning studies how knowledge from one domain, task, or distribution can improve performance in an-other [5]. The present paper does not claim that simulation evidence transfers automatically to deployment. Instead, it treats simulation-to-deployment shift as a failure condition. A con-troller that passes the simulation protocol may still fail under deployment-domain conditions if the simulation distribution differs from the operational distribution. This is why the framework supports pre-deployment qualification, not production-domain validity. 
+
+# 3 Methodological Positioning and Scope 
+
+This paper is a computational and methodological contribution. It produces a verification protocol, not empirical evidence about industrial deployment. The experimental environment is used as a controlled simulation benchmark. It is not used as a validated representation of a real industrial sector. This use of simulation follows the broader methodological tradition in agent-based modeling, where computational models are used to generate, inspect, and test mechanisms under declared assumptions rather than to provide direct empirical proof of deployment validity [1, 2]. The reporting and reproducibility orientation is also consistent with the ODD tradition for describing agent-based and simulation models [3]. The paper produces four types of knowledge: (i) a formal representation of adaptive agentic controllers as finite revisable rule systems; 5(ii) a diagnostic classification of controller-level failure modes; (iii) a finite repair protocol based on predefined rule-level edits; (iv) an evaluation design based on held-out simulation seeds or cloned initial states. The paper does not address cybersecurity, enterprise integration, legal liability, data-governance workflows, procurement, latency, or deployment infrastructure. It also does not address un-restricted agent autonomy. The scope is limited to controllers whose decision logic can be represented, logged, revised, and re-tested. 
+
+Verification scope. The framework verifies only controller-level properties that satisfy four conditions: they are expressible in the declared predicate vocabulary, measurable through de-clared diagnostic metrics, attributable to logged controller decisions, and testable under the selected simulation protocol. It does not verify semantic truth of external information, cyberse-curity, legal compliance, human organizational adoption, enterprise integration, or production-domain validity. These exclusions are not implementation details; they define the validity boundary of the contribution. 
+
+# 4 Enterprise Deployment: From Barriers to Verification Re-quirements 
+
+The practical motivation for the framework is the gap between agentic AI prototypes and pro-duction deployment. In consulting and enterprise settings, the relevant question is not whether an agent can perform a task once under demonstration conditions. The relevant question is whether its behavior can be observed, constrained, audited, and revised under operational un-certainty. 
+
+4.1 Cross-Platform Automation Pattern 
+
+A practical agentic-AI architecture should be reusable across client contexts while remaining compatible with the specific technology stack used in each organization. For this reason, the relevant design pattern is not tied to a single platform. It can be implemented with cloud services, enterprise workflow systems, RPA tools, CRM and ERP APIs, document-management systems, or internal applications. The common structure is that the agent interprets the task, retrieves trusted context, selects an allowed tool or workflow, and routes execution through governed systems. The central architectural principle is that the agent should not become the system of record. It should reason, coordinate, retrieve, and recommend, but authoritative execution should re-main inside enterprise systems, APIs, workflow engines, RPA layers, or approval gates. This separation is important because it limits the operational authority of the agent and preserves existing governance boundaries. However, this pattern does not by itself solve the verification problem addressed in this paper. A governed execution layer can restrict what an agent is allowed to do, but it does not establish whether the controller’s decision logic is observable, diagnostically adequate, stable under perturbation, or repairable after failure. The proposed framework addresses this resid-ual problem by specifying a controller-level verification layer based on finite rules, diagnostic predicates, explanation logs, held-out evaluation, and bounded repair. This paper therefore translates common deployment barriers into controller-level verification requirements. The translation is not intended as a complete enterprise-AI governance frame-work. It is a technical narrowing of the deployment problem to the verification of adaptive controller behavior. 61. Business Event or User Request 
+
+> Client process trigger, user query, workflow event
+> 2. Agent Interprets the Task
+> Intent classification, task decomposition, routing
+> 3. Agent Retrieves Trusted Context
+> Approved knowledge base, RAG, semantic layer, policies
+> 4. Agent Selects Allowed Tool or Workflow
+> Only tools exposed through governed permissions
+> 5. Execution Through Governed Layer
+> API, workflow engine, RPA bot, ERP, CRM, ticketing system
+> 6. Human Approval for High-Risk Cases
+> Escalation, review, sign-off, exception handling
+> 7. Logging, Evaluation, and Improvement
+> Logs, metrics, audits, tests, monitoring, feedback
+> Controller-level verification
+> finite rules, diagnostic predicates, explanation logs, held-out evaluation, bounded repair
+> Deployment Verification Gap
+> The agent may appear capable, but its behavior may not be observable, bounded, or re-testable
+> System-of-Record Principle
+> The agent does not become the authoritative database or execution authority
+
+Figure 2: Cross-platform core design pattern for agent-enabled automation. The agent in-terprets, retrieves, coordinates, and recommends, while execution remains inside governed enterprise systems. The paper addresses the residual deployment verification gap by adding controller-level observability, diagnostics, held-out evaluation, and bounded repair. For practitioners, the value of the framework is therefore not that it replaces enterprise gov-ernance, model-risk management, cybersecurity review, legal review, or system integration. Its value is narrower: it provides a technical testbed for evaluating whether an adaptive controller is observable, diagnosable, boundedly revisable, and empirically re-testable before operational use. 
+
+# 5 Problem Formulation 
+
+5.1 Adaptive Agentic Controller 
+
+Let an adaptive agentic system operate in discrete time. At each time step t, the system has state 
+
+st ∈ S ,
+
+and the controller selects an action 
+
+at ∈ A .
+
+The environment then updates according to 
+
+st+1 = F (st, a t, ζ t),
+
+where ζt denotes exogenous stochastic variation. The controller is called agentic in the limited sense that it selects actions conditionally on observed state information, may update its intervention level over time, and can affect subsequent system states. The controller is called adaptive when its actions or internal decision conditions depend on previous observations, diagnostic states, or feedback variables. 7Deployment barrier Verification requirement Proposed mechanism Unobservable agent be-havior The system must expose why an ac-tion was selected Explanation logs recording pred-icates, applicable rules, blocked rules, priorities, and actions Non-deterministic out-puts The controller must be evaluated across repeated seeds or stochastic replications Held-out simulation seeds, cloned initial states, empirical quantile criteria Unsafe or unstable actions The controller must be checked against explicit guardrails Stockout rate, overstock rate, service-level loss, working-capital excess, and order-volatility thresholds Unrestricted human ap-proval bottleneck Human judgment should be con-strained to predefined review and revision operations where possible Finite edit library with rule ad-dition, rule deletion, and prior-ity revision Confidential or propri-etary data Testing should avoid unnecessary exposure of operational data Synthetic or simulated envi-ronments, predicate abstraction, and aggregate diagnostic out-puts Context-window and memory limits Operational decisions should not depend only on long implicit con-versational context Finite predicate vocabulary, fi-nite rule base, and bounded ex-planation objects Weak production qualifi-cation Prototype behavior must be com-pared against explicit acceptance criteria before deployment Before/after held-out evaluation and guardrail-preserving repair acceptance 
+
+Table 1: Translation of agentic AI deployment barriers into controller-level verification require-ments. 
+
+5.2 Finite Rule Representation 
+
+Let the controller be represented by a finite rule base 
+
+R = {r1, . . . , r k}.
+
+Each rule is a tuple 
+
+rj = ( Bj , h j , π j ),
+
+where Bj is a finite set of body predicates, hj is a rule head or conclusion, and πj is a priority score. At time t, a predicate abstraction function 
+
+A : S → 2P
+
+maps the numerical system state st into a finite set of predicates 
+
+Pt = A(st).
+
+A rule rj is applicable at time t when 
+
+Bj ⊆ Pt.
+
+The set of applicable rules is therefore 
+
+Rapp t = {rj ∈ R : Bj ⊆ Pt}.
+
+If rules conflict, the controller applies a deterministic resolution operator 
+
+Rsel t = Resolve( Rapp t , ⊥, π ),
+
+where ⊥ denotes the conflict relation among rule heads and π denotes the priority ordering. The selected rule set is then mapped to a controller action: 
+
+at = H(Rsel t ).
+
+85.3 Explanation Log 
+
+For each controller action, the system records an explanation object 
+
+Et = ( Pt, R app t , R sel t , R blk t , ⊥t, π t, a t),
+
+where Rblk t denotes rules blocked by conflict or priority resolution. The explanation log over a simulation run is 
+
+E0: T = ( E0, . . . , E T ).
+
+The explanation log is not treated as a natural-language justification. It is an operational trace of the controller’s decision procedure. Its function is to identify which predicates, rules, conflicts, and priorities produced the controller action. 
+
+# 6 Verification Taxonomy 
+
+The paper distinguishes five verification layers. The distinction is necessary because different deployment failures require different forms of evidence. A controller may produce acceptable outputs while still having unstable behavior, inconsistent rule resolution, or poor robustness under stochastic variation. 
+
+6.1 Output Verification 
+
+Output verification checks whether observed outcomes satisfy declared numerical or categorical criteria. In the inventory-control benchmark, examples include stockout rate, overstock rate, service-level loss, working-capital excess, tracking error, and order volatility. Formally, output verification evaluates whether 
+
+Mout (R, ω ) ≤ θout ,
+
+where Mout is an output metric, R is the controller rule base, ω is the simulation seed or stochastic condition, and θout is the acceptance threshold. Output verification is necessary but insufficient. It can detect that a controller failed, but it may not identify which rule, conflict, or priority relation generated the failure. 
+
+6.2 Behavioral Verification 
+
+Behavioral verification checks whether the controller follows acceptable trajectories, not only acceptable final or average outcomes. Let 
+
+τR(ω) = ( s0, a 0, s 1, a 1, . . . , s T )be the trajectory induced by controller R under condition ω. Behavioral verification evaluates trajectory-level properties such as stockout episodes, overstock episodes, recurrence of working-capital excess, unstable replenishment, and order-allocation volatility. This layer is relevant when two controllers have similar average performance but differ in operational risk. For example, one controller may keep average inventory close to its target while generating frequent stockouts; another may avoid stockouts by holding excessive inventory and consuming unnecessary working capital. 
+
+6.3 Rule-Consistency Verification 
+
+Rule-consistency verification checks whether the symbolic controller remains executable and auditable after revision. A candidate rule base R′ passes this layer only if: (i) every rule has a unique identifier; 9(ii) every body predicate belongs to the declared predicate vocabulary; (iii) every rule head belongs to the declared action vocabulary; (iv) the conflict relation is symmetric; (v) mutually exclusive actions are explicitly represented in the conflict relation; (vi) priorities are integer-valued or otherwise totally ordered; (vii) the resolution function returns a conflict-consistent selected set for all observed diagnostic states. Rule-consistency verification does not prove global correctness. It verifies that the revised controller remains syntactically valid, executable, and auditable. 
+
+6.4 Stochastic Robustness Verification 
+
+Stochastic robustness verification evaluates whether the controller satisfies acceptance criteria under repeated seeds or replications. Let M (R, ω b) be a diagnostic metric under seed ωb, for 
+
+b = 1 , . . . , B . A conservative empirical criterion is: 
+
+Wα,θ (R) = 1 ⇐⇒ ˆq1−α (M (R, ω 1), . . . , M (R, ω B )) ≤ θ. 
+
+This layer addresses non-determinism. A controller should not be classified as verified only because it passes under a favorable seed. 
+
+6.5 Confidentiality-Preserving Simulation 
+
+Confidentiality-preserving simulation evaluates controller behavior without requiring direct ex-posure of sensitive operational data. This can be done by replacing raw enterprise data with synthetic populations, simulated environments, aggregate constraints, or predicate-level ab-stractions. The relevant claim is limited: such simulation can support pre-production stress testing, but it does not eliminate the need for validation against deployment-domain evidence.              
+
+> Verification layer Main question Evidence generated Output verification Did the controller satisfy numerical thresholds? Scalar diagnostic metrics Behavioral verification Did the controller behave accept-ably over time? Trajectory motifs, episode lengths, transition patterns Rule-consistency verifica-tion Is the revised controller executable and auditable? Syntactic checks, conflict checks, priority checks Stochastic robustness ver-ification Does the result survive repeated seeds? Replicated metrics, empirical quantiles, confidence intervals Confidentiality-preserving simulation Can behavior be stress-tested with-out exposing raw data? Synthetic or abstracted simula-tion traces
+
+Table 2: Verification taxonomy for adaptive agentic controllers. 
+
+# 7 Controller-Level Failure Classes 
+
+Let M (R, ω ) denote the vector of diagnostic metrics obtained when rule base R is evaluated under simulation randomness or seed condition ω. A controller failure is defined by a diagnostic predicate 
+
+Dℓ(M (R, ω )) = 1 ,
+
+10 where Dℓ belongs to a finite failure vocabulary 
+
+F = {f1, . . . , f m}.
+
+The paper focuses on controller-level failures rather than all possible system failures. The following classes are considered. 
+
+7.1 Stockout Failure 
+
+A stockout failure occurs when the controller repeatedly allows inventory to fall below the declared lower threshold. For inventory unit i, with inventory level Ii,t and lower bound Li, the stockout indicator is 
+
+s− 
+
+> i,t
+
+= I(Ii,t < L i).
+
+The stockout rate is 
+
+SR = ( N T )−1
+
+> N
+
+X
+
+> i=1
+> T
+
+X
+
+> t=1
+
+s−
+
+> i,t
+
+.
+
+A stockout failure is diagnosed when 
+
+SR > θ SR .
+
+7.2 Overstock Failure 
+
+An overstock failure occurs when the controller repeatedly allows inventory to exceed the de-clared upper threshold. For upper bound Ui, the overstock indicator is 
+
+s+ 
+
+> i,t
+
+= I(Ii,t > U i).
+
+The overstock rate is 
+
+OR = ( N T )−1
+
+> N
+
+X
+
+> i=1
+> T
+
+X
+
+> t=1
+
+s+
+
+> i,t
+
+.
+
+An overstock failure is diagnosed when 
+
+OR > θ OR .
+
+7.3 Service-Level Failure 
+
+A service-level failure occurs when realized demand cannot be met by available inventory and replenishment. Let unmet demand be 
+
+Si,t = max {0, D i,t − (Ii,t + Qi,t )}.
+
+Service-level loss is 
+
+SL = T −1
+
+> T
+
+X
+
+> t=1
+> N
+
+X
+
+> i=1
+
+Si,t .
+
+A service-level failure is diagnosed when 
+
+SL > θ SL .
+
+7.4 Working-Capital Failure 
+
+A controller may avoid shortages by holding excessive inventory. Let working-capital excess be 
+
+W CE = T −1
+
+> T
+
+X
+
+> t=1
+> N
+
+X
+
+> i=1
+
+ci max(0 , I i,t − Ui),
+
+where ci is the unit replenishment cost. A working-capital failure is diagnosed when 
+
+W CE > θ W CE .
+
+11 7.5 Order-Volatility Failure 
+
+Let Qi,t denote the replenishment allocation for unit i. Order volatility is defined as 
+
+OV = ( N (T − 1)) −1
+
+> N
+
+X
+
+> i=1
+> T
+
+X
+
+> t=2
+
+|Qi,t − Qi,t −1|.
+
+A volatility failure is diagnosed when 
+
+OV > θ OV .
+
+7.6 Tracking Failure 
+
+If the controller is expected to maintain inventory near target level I∗ 
+
+> i
+
+, tracking error is defined as 
+
+T E = ( N T )−1
+
+> N
+
+X
+
+> i=1
+> T
+
+X
+
+> t=1
+
+|Ii,t − I∗ 
+
+> i
+
+|.
+
+A tracking failure is diagnosed when 
+
+T E > θ T E .
+
+7.7 Budget-Constraint Failure 
+
+A budget-constraint failure occurs when the replenishment allocation exceeds the available financial envelope. If Bt is the available budget or liquidity at time t, the budget violation rate is 
+
+BV R = T −1
+
+> T
+
+X
+
+> t=1
+
+I X
+
+> i
+
+ciQi,t > B t
+
+!
+
+.
+
+A budget-constraint failure is diagnosed when 
+
+BV R > θ BV R .
+
+7.8 Capacity-Constraint Failure 
+
+A capacity-constraint failure occurs when the replenishment allocation exceeds available oper-ational capacity. If Kt is the available replenishment capacity at time t, the capacity violation rate is 
+
+CV R = T −1
+
+> T
+
+X
+
+> t=1
+
+I X
+
+> i
+
+Qi,t > K t
+
+!
+
+.
+
+A capacity-constraint failure is diagnosed when 
+
+CV R > θ CV R .
+
+7.9 Conflict-Resolution Failure 
+
+A conflict-resolution failure occurs when the explanation log shows that a desirable corrective rule was applicable but repeatedly blocked by a higher-priority rule. Let bj denote the number of times rule rj is blocked while applicable. A conflict-resolution failure is diagnosed when 
+
+bj > θ B
+
+and the associated diagnostic metric remains outside the accepted range. 12 8 Finite Repair Protocol 
+
+8.1 Edit Library 
+
+A repair operation is a finite edit applied to the controller rule base. Let 
+
+E = Eadd ∪ E del ∪ E prio 
+
+be a predefined edit library. An addition edit adds a rule: 
+
+eadd (R) = R ∪ { r∗}.
+
+A deletion edit removes a rule: 
+
+edel (R) = R \ { rj }.
+
+A priority edit changes a priority value: 
+
+eprio (R) = ( R \ { rj }) ∪ { (Bj , h j , π ′ 
+
+> j
+
+)}.
+
+The one-step edit neighborhood of rule base R is Γ( R) = {e(R) : e ∈ E , R ∈ dom( e)}.
+
+8.2 Template-Constrained Coaching 
+
+A coaching function maps diagnostics and explanation logs to admissible edits: Γc(D, E 0: T , R ) → e ∈ E ∪ { ∅}.
+
+The function is template-constrained. It does not accept arbitrary natural-language advice. It may only return predefined edits. For example, if service-level loss is diagnosed and the explanation log shows that stockout-risk predicates are repeatedly observed without prioritizing replenishment, the coaching function may add the following rule: IF stockout risk AND budget available THEN prioritize stockout risk. 
+
+8.3 Working Predicate 
+
+Let W (R) denote whether the controller satisfies the accepted diagnostic and guardrail criteria. Under fixed seeds, W (R) may be defined deterministically: 
+
+W (R) = 1 ⇐⇒ M (R, ω 0) ≤ θ. 
+
+Under stochastic evaluation, a replicated version is preferable: 
+
+Wα,θ (R) = 1 ⇐⇒ Pr  
+
+> ω
+
+{M (R, ω ) ≤ θ} ≥ 1 − α. 
+
+With a finite replication set ω1, . . . , ω B , this may be implemented using an empirical quantile: 
+
+Wα,θ (R) = 1 ⇐⇒ ˆq1−α (M (R, ω 1), . . . , M (R, ω B )) ≤ θ. 
+
+8.4 One-Step Repairability 
+
+A controller failure is one-step repairable when the current controller fails but at least one admissible edit restores the working predicate: 
+
+W (R) = 0 and ∃R′ ∈ Γ( R) : W (R′) = 1 .
+
+This definition does not imply general repairability. It only states that one edit from the declared finite library is sufficient under the declared evaluation protocol. 13 9 Verification Protocol 
+
+The verification procedure is as follows. 
+
+Step 1. Declare the controller rule base R, predicate vocabulary P, conflict relation ⊥,and priority ordering π.
+
+Step 2. Declare the diagnostic metrics, failure thresholds, and guardrail constraints. 
+
+Step 3. Run the controller under training or diagnostic simulation seeds. 
+
+Step 4. Generate explanation logs for all controller actions. 
+
+Step 5. Diagnose failure classes using the finite failure vocabulary F.
+
+Step 6. Apply the template-constrained coaching function to select one admissible edit. 
+
+Step 7. Construct the revised rule base R′.
+
+Step 8. Evaluate R and R′ on held-out seeds or cloned initial states. 
+
+Step 9. Accept the repair only if the targeted failure improves and guardrail constraints remain satisfied. The protocol separates diagnosis from evaluation. A repair is proposed using diagnostic runs but assessed on held-out runs. This separation reduces the risk that the controller is merely tuned to the failure instance used to generate the edit. 
+
+# 10 Baselines 
+
+Repair results should be interpreted against explicit baselines. 
+
+10.1 No-Repair Baseline 
+
+The no-repair baseline evaluates the original failed controller without modification. It measures whether failure persists in held-out evaluation: 
+
+R′ = R. 
+
+10.2 Random-Edit Baseline 
+
+The random-edit baseline selects one admissible edit from Γ( R) according to a declared random-ization rule. This tests whether the coaching template performs better than arbitrary rule-base modification. 
+
+10.3 Original-Rule Restoration Baseline 
+
+If failures are generated by rule removal, an original-rule restoration baseline allows only one removed rule to be restored: 
+
+Erestore = {ej : R 7 → R ∪ { rj }, r j ∈ R0 \ R}.
+
+10.4 Numeric Controller Baseline 
+
+A numeric controller updates replenishment allocations directly through a fixed equation rather than explicit rules. This baseline tests whether symbolic contestability adds diagnostic value relative to a non-symbolic adaptive controller. 14 10.5 Manual-Tuning Proxy 
+
+A manual-tuning proxy applies a prespecified parameter adjustment without explanation-log-based rule revision. This baseline distinguishes auditable controller repair from ordinary pa-rameter tuning. 
+
+# 11 Illustrative Inventory-Control Benchmark 
+
+The experimental component uses a stylized inventory-control simulation. The purpose is not to forecast inventory investment or optimize supply-chain policy. The purpose is to provide a controlled environment in which controller-level failures can be generated, diagnosed, repaired, and re-tested. The benchmark is formulated as a financially constrained stock-adjustment problem with two-sided risk. There are N inventory units, indexed by i = 1 , . . . , N . These units may represent products, SKUs, stores, warehouses, business units, or demand nodes. At time t, unit i has inventory level Ii,t , demand Di,t , replenishment allocation Qi,t , lower inventory threshold Li,upper inventory threshold Ui, and target inventory level I∗ 
+
+> i
+
+.Inventory evolves according to: 
+
+Ii,t +1 = max {0, I i,t + Qi,t − Di,t }.
+
+Demand is stochastic: 
+
+Di,t = max {0, ¯Di + ϵi,t },
+
+where ¯Di is baseline demand and ϵi,t is an exogenous demand shock. The controller must allocate replenishment subject to a capacity constraint, 
+
+> N
+
+X
+
+> i=1
+
+Qi,t ≤ Kt,
+
+and a financial constraint, 
+
+> N
+
+X
+
+> i=1
+
+ciQi,t ≤ Bt,
+
+where Kt is available replenishment capacity, Bt is available budget or liquidity, and ci is the unit replenishment cost. The relevant operational risk is two-sided. A shortage failure occurs when inventory falls below the lower bound, 
+
+Ii,t < L i,
+
+whereas an overstock failure occurs when inventory exceeds the upper bound, 
+
+Ii,t > U i.
+
+The controller therefore must not simply increase or reduce replenishment. It must allo-cate limited capacity and budget across competing units while avoiding stockouts, overstock, excessive working-capital use, and unstable ordering behavior. The symbolic controller observes predicates such as: 
+
+Ii,t < L i ⇒ stockout risk (i),
+
+15 Ii,t > U i ⇒ overstock risk (i),
+
+X
+
+> i
+
+ciQi,t −1 ≥ κB Bt−1 ⇒ budget binding ,
+
+X
+
+> i
+
+Qi,t −1 ≥ κK Kt−1 ⇒ capacity binding ,
+
+|Qi,t −1 − Qi,t −2| > θ Q ⇒ order volatility high (i).
+
+The controller selects actions such as: 
+
+A = {increase order , reduce order , hold order ,
+
+prioritize stockout risk , smooth order , delay low priority order }.
+
+This environment is used as an agentic controller verification benchmark. It is not a cali-brated inventory model and is not intended to predict firm-level inventory investment. Its func-tion is to test whether specific controller-level failures can be detected, attributed to controller logic, repaired through finite edits, and re-evaluated under controlled stochastic variation. The benchmark has four design requirements. (i) Finite controller representation. The controller must be represented by a finite rule base, finite predicate vocabulary, finite action vocabulary, explicit conflict relation, and deterministic priority-resolution procedure. (ii) Two-sided failure classes. The benchmark must specify shortage and excess-inventory failures before evaluation, together with working-capital, capacity, volatility, tracking, and conflict-resolution failures. (iii) Explicit acceptance criteria. Each failure class must have a numerical threshold or logical condition that determines whether the controller is classified as working. (iv) Held-out repair evaluation. A repair may be proposed using diagnostic seeds, but it must be accepted only after comparison between the original and revised controller on held-out seeds or cloned initial states. The benchmark is therefore not designed to show that the controller is optimal. It is de-signed to test whether financially constrained stock-adjustment failures can be made observable, diagnosable, boundedly repairable, and empirically re-tested. 
+
+# 12 Evaluation Metrics 
+
+The main evaluation metrics are reported before interpretation. A repair is locally successful for a metric m only if the held-out evaluation statistic for that metric improves and falls below its declared threshold. A repair is globally accepted only if all target failures diagnosed for the repaired controller are restored below threshold, all guardrails remain within threshold, and the revised rule base remains syntactically valid. For example, a stockout repair is not accepted merely because SR or SL decreases. It is accepted only if the relevant target threshold is restored while OR , W CE , OV , BV R , CV R , and the conflict metric remain within accepted bounds. This distinction between local repair and global acceptance is used in the experiments below. 16 Demand Process 
+
+Di,t = ¯Di + ϵi,t 
+
+Financial Constraint 
+
+budget / liquidity Bt
+
+Capacity Constraint P 
+
+> i
+
+Qi,t ≤ Kt
+
+Observed Inventory State 
+
+Ii,t , target band [ Li, U i], demand signal, budget use, capacity use 
+
+Predicate Abstraction 
+
+stockout risk , overstock risk ,
+
+budget binding , capacity binding ,
+
+order volatility high 
+
+Finite Symbolic Controller 
+
+rules R, priorities π, conflicts ⊥
+
+select action at
+
+Allowed Actions 
+
+increase order, reduce order, hold order, prioritize high-risk items, smooth order, delay low-priority replenishment 
+
+Constrained Allocation 
+
+choose Qi,t subject to P 
+
+> i
+
+Qi,t ≤ Kt and P 
+
+> i
+
+ciQi,t ≤ Bt
+
+Stock Update 
+
+Ii,t +1 = max {0, I i,t + Qi,t − Di,t }
+
+Explanation Log 
+
+predicates, applicable rules, selected rules, blocked rules, priorities, action 
+
+Diagnostic Metrics 
+
+stockout rate, overstock rate, tracking error, service loss, working-capital excess, order volatility 
+
+Failure Diagnosis 
+
+two-sided risk: 
+
+Ii,t < L i or Ii,t > U i
+
+plus budget/capacity violations 
+
+Bounded Repair 
+
+rule addition, rule deletion, priority revision, held-out re-evaluation 
+
+Figure 3: Inventory benchmark implemented as a financially constrained stock-adjustment and allocation problem. The controller observes inventory, demand, budget, and capacity states; maps numerical states into diagnostic predicates; selects admissible replenishment actions through finite rules; allocates limited replenishment under capacity and financial constraints; and updates inventory dynamically. The verification layer records explanation logs, computes two-sided diagnostic metrics, diagnoses failures, and evaluates bounded rule repairs on held-out simulation seeds. 17 Metric Definition Failure Class Stockout rate SR = ( N T )−1 P
+
+> i
+
+P 
+
+> t
+
+I(Ii,t < L i) Shortage failure Overstock rate OR = ( N T )−1 P
+
+> i
+
+P 
+
+> t
+
+I(Ii,t > U i) Excess-inventory failure Service-level loss SL = T −1 P
+
+> t
+
+P 
+
+> i
+
+max(0 , D i,t − (Ii,t + Qi,t )) Unmet-demand failure Working-capital excess W CE = T −1 P
+
+> t
+
+P 
+
+> i
+
+ci max(0 , I i,t − Ui) Working-capital failure Tracking error T E = ( N T )−1 P
+
+> i
+
+P 
+
+> t
+
+|Ii,t − I∗ 
+
+> i
+
+| Target-tracking failure Order volatility OV = ( N (T − 1)) −1 P
+
+> i
+
+PTt=2 |Qi,t − Qi,t −1| Volatility failure Budget violation rate BV R = T −1 P 
+
+> t
+
+I(P 
+
+> i
+
+ciQi,t > B t) Budget-constraint failure Capacity violation rate CV R = T −1 P 
+
+> t
+
+I(P 
+
+> i
+
+Qi,t > K t) Capacity-constraint failure Blocked-rule count bj Conflict-resolution failure 
+
+Table 3: Inventory-control diagnostics and associated failure classes. 
+
+# 13 Failure Classes and Repair Expectations 
+
+Before reporting the experiments, Table 4 states the diagnostic expectations used to structure the benchmark. The expectation is not that all inventory-control failures are repairable. The expectation is that failures can be classified by whether they are detectable, whether they are plausibly one-step repairable under the finite edit library, and whether they require predicate redesign, template expansion, or domain-level changes. 
+
+Failure class Detectable? Repairable? Typical edit Stockout failure Yes Sometimes Add or prioritize replenish-ment rule Overstock failure Yes Sometimes Add or prioritize reduction rule Service-level loss Yes Sometimes Prioritize high-risk units Working-capital excess Yes Sometimes Add budget-conservation rule Order volatility Yes Sometimes Add smoothing rule or pri-ority edit Tracking failure Yes Sometimes Add target-band rule Budget-constraint failure Yes Often, if allocation is projected Revise feasibility rule Capacity-constraint fail-ure Yes Often, if allocation is projected Revise allocation rule Conflict-resolution failure Yes, via logs Often, if conflict is lo-cal Priority edit Missing predicate failure No, not di-rectly No, unless vocabulary expands Predicate redesign required Distribution-shift failure Partially Not guaranteed Re-evaluation or new tem-plates 
+
+Table 4: Diagnostic expectations for inventory-control failure classes before held-out evaluation. The two-sided nature of the benchmark is important. A repair that reduces stockouts may increase overstock or working-capital excess. Conversely, a repair that reduces overstock may increase service-level loss. The benchmark therefore requires guardrail-preserving repair rather than single-metric improvement. 18 14 Negative Results and Failure Conditions 
+
+A verification protocol is informative only if it identifies where it fails. The proposed architecture is expected to fail under at least five conditions. 
+
+14.1 Missing-Predicate Failure 
+
+A missing-predicate failure occurs when the controller’s predicate vocabulary cannot express the relevant diagnostic condition. Let P be the declared predicate vocabulary and let f ∗ be a failure condition. If no predicate composition over P can represent f ∗, then the controller cannot diagnose the failure through the symbolic layer. In this case, rule revision is insufficient. Adding a rule over the existing vocabulary cannot repair a failure that the vocabulary cannot represent. The required intervention is predicate redesign: 
+
+P → P ′.
+
+This is a structural limitation. The controller may be fully auditable with respect to its declared predicates while remaining blind to an undeclared failure mode. 
+
+14.2 Inadequate-Template Failure 
+
+An inadequate-template failure occurs when the failure is detectable, but the edit library lacks an appropriate correction. Formally, for a failing controller R:
+
+W (R) = 0 and ∀R′ ∈ Γ( R), W (R′) = 0 .
+
+The failure is visible but not one-step repairable. This case is important because it separates observability from repairability. A controller may explain why it failed without possessing a valid predefined edit for correction. 
+
+14.3 Rule-Conflict Failure 
+
+A rule-conflict failure occurs when a corrective rule is added but is blocked by existing higher-priority rules or by the conflict-resolution procedure. Let rc be a corrective rule and let bc be its blocked count while applicable. If 
+
+bc > θ B
+
+and the target failure persists, then the repair failed because the controller’s priority structure prevented the corrective action from being selected. This failure can sometimes be repaired through priority revision. However, if the conflict relation itself is misspecified, changing priorities may only move the failure from one rule to another. 
+
+14.4 Stochastic-Instability Failure 
+
+A stochastic-instability failure occurs when the repair succeeds under diagnostic seeds but fails under held-out seeds. Let R′ be the revised controller. The repair is unstable when: 
+
+W (R′) = 1 on diagnostic seeds but 
+
+Wα,θ (R′) = 0 on held-out seeds .
+
+This failure indicates that the repair may have overfit a local stochastic realization rather than corrected a stable controller defect. 19 14.5 Simulation-to-Deployment Shift Failure 
+
+A simulation-to-deployment shift failure occurs when the controller satisfies the verification protocol in simulation but fails under deployment-domain conditions. Let Dsim denote the simulation distribution and Ddep the deployment distribution. If 
+
+Dsim ̸ = Ddep ,
+
+then verification under Dsim does not imply verification under Ddep .The framework can reduce this risk through sensitivity analysis, scenario variation, synthetic populations, and held-out testing. It cannot eliminate the risk without deployment-domain validation.               
+
+> Failure condition What fails Required response Missing predicate The failure cannot be ex-pressed Redesign predicate vocabulary Inadequate template The failure is visible but not repairable Expand or revise edit library Rule conflict Corrective rule is blocked Revise priorities or conflict relation Stochastic instability Repair does not survive held-out seeds Increase replications, revise accep-tance criteria Simulation-to-deployment shift Simulation evidence does not transfer Validate on deployment-domain data
+
+Table 5: Negative cases and structural limits of the verification protocol. These negative cases are not ancillary limitations. They define the boundary of the contribu-tion. The framework supports bounded controller verification only when the relevant failure is expressible in the predicate vocabulary, diagnosable from logged controller behavior, correctable by the finite edit library, and stable under held-out evaluation. 
+
+# 15 Experimental Results: Detectability, Repairability, and Re-jection Cases 
+
+This section reports the results obtained with the inventory-control benchmark. The purpose of the experiments is not to show that the symbolic controller is optimal. The purpose is to test whether controller-level failures can be detected, mapped to finite edits, and evaluated on held-out stochastic seeds under declared diagnostic thresholds and guardrails. Across the experiments, the repair protocol follows the same structure. First, the controller is evaluated on diagnostic seeds. Second, diagnostic failures are identified from the empirical evaluation quantile. Third, the coaching function selects one admissible edit from the finite edit library. Fourth, the original and revised controllers are compared on held-out seeds. A repair is accepted only if the target metric improves, the target threshold is restored, all guardrails remain within threshold, and the revised rule base remains syntactically valid. 
+
+15.1 Constraint-Induced Failures 
+
+The first two experiments tested the controller under replenishment envelopes that were too restrictive relative to expected demand. With eight inventory units and baseline demand near 20 units per item, expected aggregate demand is approximately 160 units per period. In the first experiment, replenishment capacity was set to 80 and the budget to 900. In the second experiment, these values were relaxed to 130 and 1500. Both settings remained insufficient to eliminate shortage and tracking failures. 20 In the first experiment, the diagnostic run detected stockout, service-loss, and tracking failures. The coaching function selected a stockout-increase rule: 
+
+IF any stockout risk THEN increase order .
+
+The repair was rejected on held-out seeds. In the no-repair condition, the held-out evaluation statistics were 
+
+SR = 0 .9823 , SL = 77 .48 , T E = 73 .67 .
+
+The coached repair did not restore any of these target metrics: 
+
+SR = 0 .9823 , SL = 77 .48 , T E = 73 .67 .
+
+The conflict rate also increased from 0.1317 to 0.2307, although it remained below the declared conflict threshold. In the second experiment, the replenishment envelope was relaxed. Failure severity de-creased, but the same pattern remained. The no-repair condition produced 
+
+SR = 0 .9720 , SL = 28 .38 , T E = 71 .43 .
+
+The stockout-increase repair again failed to restore the target thresholds: 
+
+SR = 0 .9730 , SL = 28 .38 , T E = 71 .43 .
+
+The numeric controller and random-edit baselines reduced some metrics slightly, but they did not restore the declared stockout or tracking thresholds. These two experiments therefore pro-vide negative evidence. They show that a failure may be observable through the diagnostic vocabulary while remaining non-repairable by one finite rule edit because the feasible replen-ishment envelope is insufficient. 
+
+15.2 Damaged Stockout-Priority Rule 
+
+The third experiment deliberately removed the stockout-priority rule: 
+
+r stockout priority .
+
+This setting used the more permissive replenishment envelope, with capacity 160 and budget 1800. The diagnostic run detected stockout and tracking failures. The coaching function selected the same stockout-increase edit: 
+
+IF any stockout risk THEN increase order .
+
+The repair produced mixed effects on held-out seeds. Service loss improved from 
+
+SL = 0 .2400 to 
+
+SL = 0 .1360 ,
+
+and tracking error improved from 
+
+T E = 52 .71 to 
+
+T E = 50 .99 .
+
+However, stockout rate remained far above threshold and slightly worsened: 
+
+SR = 0 .8938 → 0.8981 .
+
+21 The conflict rate also increased from 0.1571 to 0.2780 ,
+
+which exceeded the declared conflict threshold of 0.25. The repair was therefore rejected. The original-rule restoration baseline restored r stockout priority . This reduced the conflict rate to 0.1074 and produced low service loss, but it did not restore the stockout or tracking thresholds: 
+
+SR = 0 .8724 , T E = 51 .73 .
+
+This result indicates that, under the tested setting, r stockout priority was not the sole or sufficient cause of the observed stockout and tracking failures. 
+
+15.3 Damaged Smoothing Rule 
+
+The fourth and fifth experiments removed the smoothing rule: 
+
+r smooth .
+
+This created a clearer rule-level damage condition. Without the smoothing rule, held-out order volatility was high: 
+
+OV = 20 .62 ,
+
+above the declared threshold 
+
+θOV = 12 .
+
+In the fourth experiment, the original coaching priority was retained. Because stockout and tracking failures were also present, the coaching function selected the stockout-increase edit rather than a smoothing edit. This was the wrong local repair target for the volatility failure. The coached repair reduced stockout rate from 0.7852 to 0.7473 and slightly reduced tracking error from 47.08 to 46.53, but it did not repair order volatility: 
+
+OV = 20 .62 → 21 .36 .
+
+The repair was rejected. The original-rule restoration baseline restored r smooth . This reduced held-out order volatil-ity to 
+
+OV = 11 .46 ,
+
+which is below the declared volatility threshold. This indicates, under the declared simulator intervention, that the removed smoothing rule was relevant to the observed volatility failure. The claim is limited to the tested rule base, stochastic seeds, thresholds, and inventory-control configuration; it is not a general causal claim about inventory systems. In the fifth experiment, the coaching priority was revised so that volatility failures select a smoothing edit before stockout-increase edits. The coaching function selected: 
+
+add r repair volatility smooth .
+
+This edit added the rule: 
+
+IF any order volatility high THEN smooth order .
+
+The coached repair produced the same volatility value as the original-rule restoration baseline: 
+
+OV = 11 .46 .
+
+22 Table 6: Held-out evaluation statistics for the smoothing-rule damage experiment with revised coaching priority.                         
+
+> Metric No repair Coached repair Threshold Outcome Stockout rate 0.7852 0.8724 0.1000 Failed Tracking error 47.08 51.73 30.00 Failed Order volatility 20.62 11.46 12.00 Repaired Service loss 0.0855 0.3948 5.00 Within threshold Conflict rate 0.1333 0.1074 0.2500 Within threshold
+
+Thus, the protocol locally repaired the volatility failure by one finite edit. However, the full controller was still not globally accepted. Stockout rate and tracking error remained above their thresholds: 
+
+SR = 0 .8724 , T E = 51 .73 .
+
+The correct interpretation is therefore local rather than global: the volatility failure was one-step repairable, but the controller as a whole remained non-working under the joint acceptance predicate. Table 6 reports the main held-out evaluation statistics for the fifth experiment. The table uses the empirical evaluation quantile reported by the simulation code. It shows that the smoothing edit restored the order-volatility threshold and preserved the conflict guardrail, but did not restore the stockout-rate or tracking-error thresholds. 
+
+15.4 Summary of Experimental Outcomes 
+
+Table 7 summarizes the five rerun experiments. The fifth experiment is the strongest positive case, but only under a local interpretation. It shows that a specific rule-level failure can be re-paired by a finite admissible edit when the failure is represented in the predicate vocabulary and the edit library contains an appropriate smoothing rule. The smoothing failure was detected, the coaching function selected the appropriate smoothing edit, and the held-out volatility met-ric was restored below threshold. At the same time, the experiment shows why the framework must distinguish local repair from global controller acceptance. Repairing volatility did not repair stockout and tracking failures. Table 7: Summary of inventory-control repair experiments based on rerun outputs.                            
+
+> Experiment Condition Selected edit Local result Global result 1Restrictive envelope Stockout increase No target repair Rejected 2Relaxed envelope Stockout increase No target repair Rejected 3Remove
+> r stockout priority Stockout increase Partial metric improve-ment Rejected 4Remove r smooth
+> stockout-first coach Stockout increase Wrong repair target Rejected 5Remove r smooth
+> volatility-first coach Smoothing rule Volatility repaired Rejected
+
+15.5 Interpretation 
+
+The experimental results support three conclusions. 23 First, detectability is weaker than repairability. Stockout, service-loss, tracking, and volatil-ity failures were detected by the diagnostic metrics, but not all detected failures were repairable by one admissible edit. Second, repairability depends on the source of failure and on the coaching selector. When the failure was induced by an insufficient replenishment envelope, rule edits did not restore the target metrics. When the smoothing rule was removed, restoring or adding a smoothing rule repaired the volatility metric. However, this local repair was obtained only after the coaching priority was changed to select volatility repair before stockout repair. Third, held-out evaluation prevents overclaiming. Several edits produced directional im-provements, but were rejected because they failed to restore thresholds or because they wors-ened guardrail metrics. This is the intended behavior of the protocol. The contribution is not an assertion that symbolic coaching always repairs adaptive controllers. The contribution is a bounded procedure for identifying which failures are observable, which are locally repairable, and which remain outside the declared repair capacity of the finite edit library. 
+
+# 16 Scope of Claims 
+
+The experiments support a limited interpretation. If a controller failure is expressed in the diagnostic vocabulary, if the relevant condition is visible in the explanation logs, if the edit library contains an appropriate correction, and if the coaching selector chooses that correction, then the failure may be one-step repairable. The smoothing-rule damage experiment provides one positive case. After r smooth was removed, order volatility exceeded its declared threshold. When the coaching selector prioritized volatility repair, a finite smoothing edit restored the held-out order-volatility metric below threshold. This supports the claim that some controller-level failures can be locally addressed without unrestricted human-in-the-loop judgment. The experiments do not support stronger claims. They do not show that all agentic failures are detectable. They do not show that all detected failures are repairable. They do not show that an available repair template will be selected under every coaching priority. They do not show that local repair implies global controller acceptance. They do not show that simulation results transfer directly to production. They do not prove that finite symbolic rules are sufficient for general agentic AI safety. The negative and rejected cases are part of the result. Resource-induced failures remained non-repairable by one rule edit. Removing r stockout priority produced failures that were not fully restored by either the coached stockout-increase edit or original-rule restoration. Re-moving r smooth produced a volatility failure that was repairable only when the coaching selector selected the smoothing edit. Even then, the controller was globally rejected because stockout and tracking failures remained above threshold. The supported claim is therefore narrower: a bounded class of controller failures can be made observable, locally revisable, and testable under controlled conditions, but local repair does not imply complete controller repair. 
+
+# 17 Conclusion 
+
+This paper formulates a simulation-based verification protocol for adaptive agentic controllers represented through finite rules, diagnostic predicates, explanation logs, and held-out re-evaluation. The central claim is bounded: some controller-level failures can be detected, locally repaired, or rejected without unrestricted human-in-the-loop judgment when the relevant failure is ex-pressible in the predicate vocabulary, traceable in the explanation log, and correctable through a finite edit library. For practitioner use, the framework should be read as a qualification layer rather than as an autonomy guarantee. It helps structure questions that enterprise users must ask before deploy-ment: what is observable, what is logged, what is bounded by guardrails, what can be revised 24 without free-form human intervention, what survives held-out testing, and what remains outside the verification envelope. This makes the method relevant to agentic-AI adoption programs, but only as one component of a broader operating model that also includes security, legal review, data governance, monitoring, and production integration. The inventory-control experiments show that this distinction matters. Resource-induced stockout and tracking failures were detectable but not one-step repairable under the tested envelopes. A stockout-increase edit produced partial effects but was rejected when thresholds or guardrails were not restored. By contrast, the removal of r smooth created an order-volatility failure that was locally repaired by adding a smoothing rule; the same repair did not globally accept the controller because stockout and tracking failures remained. The framework therefore reframes part of the agentic AI deployment problem as a controller-level verification problem. Instead of asking whether an agentic prototype is generally trustworthy, it asks which failures are observable, which are attributable to controller logic, which are repairable by finite edits, and which remain outside the architecture. This provides a disciplined basis for studying verification, contestability, and bounded repair in adaptive agentic systems. 
+
+# 18 Reproducibility Specification 
+
+The experimental results are intended to be reproducible from the released notebooks and exported output files. Each experiment is implemented as a self-contained Jupyter notebook containing the simulator, controller, diagnostic functions, finite edit library, coaching function, baseline comparison code, and export routines. The rerun package contains five notebooks and their corresponding JSON and CSV outputs: 
+
+inventory verification self contained.ipynb ,
+
+inventory verification self contained-2ndExperiment.ipynb ,
+
+inventory verification self contained-3ndExperiment.ipynb ,
+
+inventory verification self contained-4thExperiment.ipynb ,
+
+inventory verification self contained-5thExperiment.ipynb .
+
+Each notebook exports a repair-report JSON file and a baseline-metrics CSV file. The JSON file records the selected edit, diagnostic failures, target metrics, acceptance status, before/after held-out summaries, and rule-consistency status. The CSV file records the held-out evaluation met-rics for the no-repair, coached-repair, random-edit, manual-tuning-proxy, numeric-controller, and, where applicable, original-rule-restoration baselines. The experiments use the same core simulator and differ only in replenishment envelope, rule damage, and coaching priority. Across experiments, the number of inventory units is 
+
+N = 8 ,
+
+the horizon is 
+
+T = 120 ,
+
+initial inventory is 70 per unit, baseline demand is 20 per unit, demand standard deviation is 5, unit cost is 10, the lower inventory threshold is 35, the upper threshold is 110, and the target inventory is 75. Diagnostic seeds are 
+
+{1, 2, 3, 4, 5},
+
+held-out evaluation seeds are 
+
+{101 , . . . , 120 },
+
+and the stochastic tolerance is 
+
+α = 0 .05 .
+
+25 The reported evaluation statistic is the empirical (1 −α) quantile, denoted q eval in the exported files. Table 8 lists the minimum artifacts required to reproduce the reported experiments. 
+
+Artifact Required content Simulation notebooks Five self-contained Jupyter notebooks implementing the inventory-control simulator, stochastic demand process, capac-ity and budget constraints, finite symbolic controller, predicate abstraction, coaching function, diagnostics, baseline compar-isons, and export routines. Experiment configurations Declared configuration for each experiment: restrictive enve-lope ( K = 80 , B = 900); relaxed envelope ( K = 130 , B =1500); removal of r stockout priority under ( K = 160 , B =1800); removal of r smooth with stockout-first coaching under (K = 160 , B = 1800); and removal of r smooth with volatility-first coaching under ( K = 160 , B = 1800). Controller specification Initial rule base R, damaged rule base where applicable, predi-cate vocabulary P, action vocabulary A, conflict relation ⊥,priority ordering π, rule-resolution procedure, finite edit li-brary, and coaching-priority rule used in each notebook. Randomness Diagnostic seed list {1, . . . , 5}, held-out seed list {101 , . . . , 120 },random seed for the random-edit baseline, number of stochastic replications, and the random-number generator used by the notebook runtime. Model parameters Number of inventory units N = 8, horizon T = 120, initial inventories Ii, 0 = 70, baseline demands ¯Di = 20, demand stan-dard deviation 5, lower threshold Li = 35, upper threshold 
+
+Ui = 110, target inventory I∗ 
+
+> i
+
+= 75, unit costs ci = 10, replen-ishment capacity K, budget B, and allocation parameters. Diagnostic thresholds Declared thresholds for stockout rate, overstock rate, service loss, working-capital excess, tracking error, order volatility, budget-violation rate, capacity-violation rate, conflict rate, stochastic tolerance α = 0 .05, and the empirical evaluation quantile rule. Baselines No-repair, coached-repair, random-edit, manual-tuning-proxy, numeric-controller, and, for damaged-rule experiments, original-rule-restoration baselines. Each baseline must use the same held-out seed list and diagnostic thresholds. Exported outputs For each notebook, a repair-report JSON file and a baseline-metrics CSV file. The JSON file records selected edit, target metrics, diagnostic failures, acceptance status, rule consistency, and before/after summaries. The CSV file records held-out 
+
+mean , sd , q eval , q95 , and applied edit for each variant and metric. Environment Python version, Jupyter runtime, package versions for numpy ,
+
+pandas , and plotting libraries if figures are regenerated, operating-system note, and repository or archive version for the submitted rerun package. 
+
+Table 8: Minimum reproducibility specification for the five inventory-control rerun experiments. Exact numerical equality may depend on software versions and random-number implementa-tion, but the qualitative claims in the paper require the following reproducibility checks. First, the restrictive and relaxed resource-envelope experiments must diagnose stockout, service-loss, and tracking failures and reject the stockout-increase repair. Second, the r stockout priority 
+
+damage experiment must reject the stockout-increase repair because stockout and tracking 26 thresholds are not restored and the conflict guardrail is violated. Third, the stockout-first 
+
+r smooth damage experiment must show that the available smoothing repair is not selected, while original-rule restoration reduces order volatility below threshold. Fourth, the volatility-first r smooth damage experiment must select the smoothing edit and reduce held-out order volatility from above threshold to below threshold, while still rejecting the controller globally because stockout and tracking failures remain. 
+
+# Data and Materials Availability 
+
+The preprint is intended to be accompanied by a public repository containing the executable simulation code, rule-base definitions, diagnostic-threshold configuration files, seed lists, param-eter files, table-generation scripts, and figure-generation scripts. 
+
+# Competing Interests 
+
+The author declares no competing interests. 
+
+# AI-Use Disclosure 
+
+AI-based writing assistance has been used for language editing, structuring, and drafting sup-port. All scientific claims, formal definitions, methodological choices, and final responsibility remain with the author. 
+
+# References 
+
+[1] Epstein, J. M. (1999). Agent-based computational models and generative social sci-ence. Complexity , 4(5), 41–60. https://doi.org/10.1002/(SICI)1099-0526(199905/06) 4:5<41::AID-CPLX9>3.0.CO;2-F 
+
+[2] Gilbert, N. (2008). Agent-Based Models . Sage. https://doi.org/10.4135/9781412983259 
+
+[3] Grimm, V., Railsback, S. F., Vincenot, C. E., et al. (2020). The ODD protocol for describing agent-based and other simulation models: A second update. Journal of Artificial Societies and Social Simulation , 23(2). https://www.jasss.org/23/2/7.html 
+
+[4] Pearl, J. (2009). Causality: Models, Reasoning, and Inference . Cambridge University Press. 
+
+https://doi.org/10.1017/CBO9780511803161 
+
+[5] Pan, S. J. and Yang, Q. (2010). A survey on transfer learning. IEEE Transactions on Knowl-edge and Data Engineering , 22(10), 1345–1359. https://doi.org/10.1109/TKDE.2009.191 
+
+[6] Apostolou, S. A., Bosch, J., and Holmstr¨ om Olsson, H. (2026). Agentic AI in industry: Adoption level and deployment barriers. arXiv preprint arXiv:2605.14675 . https://arxiv. org/abs/2605.14675 
+
+[7] Garrone, R. (2025). An adaptive, data-integrated agent-based modeling framework for ex-plainable and contestable policy design. arXiv preprint arXiv:2511.19726 . https://arxiv. org/abs/2511.19726 
+
+[8] Garrone, R. (2026a). Machine-coached policy revision in adaptive agent-based regulatory simulation: A controller-level contestability layer. Working paper .27 [9] Garrone, R. (2026b). One-step repairability of finite symbolic controllers under rule removal. 
+
+Working paper .[10] Antoniou, G., Billington, D., Governatori, G., and Maher, M. J. (2001). Representation results for defeasible logic. ACM Transactions on Computational Logic , 2(2), 255–287. https: //doi.org/10.1145/371316.371517 
+
+[11] Bauer, A., Leucker, M., and Schallhart, C. (2011). Runtime verification for LTL and TLTL. 
+
+ACM Transactions on Software Engineering and Methodology , 20(4), Article 14. https:// doi.org/10.1145/2000799.2000800 
+
+[12] Bloem, R., Jobstmann, B., Piterman, N., Pnueli, A., and Sa’ar, Y. (2012). Synthesis of Reactive(1) designs. Journal of Computer and System Sciences , 78(3), 911–938. https: //doi.org/10.1016/j.jcss.2011.08.007 
+
+[13] Clark, A. J., and Scarf, H. (1960). Optimal policies for a multi-echelon inventory problem. 
+
+Management Science , 6(4), 475–490. https://doi.org/10.1287/mnsc.6.4.475 
+
+[14] Clarke, E. M., Grumberg, O., and Peled, D. A. (1999). Model Checking . MIT Press. https: //mitpress.mit.edu/9780262032704/model-checking/ 
+
+[15] Forgy, C. L. (1982). Rete: A fast algorithm for the many pattern/many object pat-tern match problem. Artificial Intelligence , 19(1), 17–37. https://doi.org/10.1016/ 0004-3702(82)90020-0 
+
+[16] Ramadge, P. J., and Wonham, W. M. (1987). Supervisory control of a class of discrete event processes. SIAM Journal on Control and Optimization , 25(1), 206–230. https://doi. org/10.1137/0325013 
+
+[17] Scarf, H. (1960). The optimality of ( s, S ) policies in the dynamic inventory problem. In K. J. Arrow, S. Karlin, and P. Suppes (Eds.), Mathematical Methods in the Social Sciences ,196–202. Stanford University Press. https://purl.stanford.edu/bt748ps8245 
+
+[18] Silver, E. A., Pyke, D. F., and Peterson, R. (1998). Inventory Management and Produc-tion Planning and Scheduling . 3rd ed. Wiley. https://openlibrary.org/books/OL700340M/ Inventory_management_and_production_planning_and_scheduling 
+
+[19] Younes, H. L. S., and Simmons, R. G. (2006). Statistical probabilistic model checking with a focus on time-bounded properties. Information and Computation , 204(9), 1368–1409. 
+
+https://doi.org/10.1016/j.ic.2006.05.002 
+
+[20] Zipkin, P. H. (2000). Foundations of Inventory Management . McGraw-Hill. https:// openlibrary.org/books/OL9609707M/Foundations_of_Inventory_Management 
+
+28
