@@ -1,0 +1,561 @@
+Title: HIVE: Understanding Post-Hallucination Reasoning in Vision Language Models
+
+URL Source: https://arxiv.org/pdf/2607.07507v1
+
+Published Time: Thu, 09 Jul 2026 01:03:23 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+# HIVE: Understanding Post-Hallucination Reasoning in Vision Language Models 
+
+Feng He 1*, Zhenting Wang 2, Qifan Wang 3, Qiang Guan 4, Dongfang Liu 1†,Ruixiang Tang 2, and Qiankun Li 5† 
+
+> 1
+
+Purdue University  
+
+> 2
+
+Rutgers University  
+
+> 3
+
+Meta AI  
+
+> 4
+
+Kent State University  
+
+> 5
+
+Imperial College London 
+
+Abstract. Hallucinations in vision–language models (VLMs) are com-monly treated as semantic errors, yet they often arise from partial or am-biguous visual evidence. Prior work mainly focuses on detecting or sup-pressing hallucinations at generation time, leaving the subsequent reason-ing stage largely unexplored. In this work, we study Post-Hallucination Reasoning (PHR), the stage in which hallucinated semantics enter the model’s inference context and influence downstream predictions. To sys-tematically investigate PHR, we introduce the HIVE (Hallucination 
+
+Inference and Verification Engine), an evaluation infrastructure that en-ables controlled comparisons between faithful and hallucinated captions. Across nine tasks and nine models, we observe structured modality-dependent patterns: hallucinated captions often improve accuracy on vision–language tasks, while text-only tasks exhibit limited or unstable effects. Further analyses show that hallucinated cues broaden semantic coverage and reshape reasoning dynamics while preserving stable infer-ence. These findings highlight that hallucinated semantics may influence downstream reasoning once they enter the model’s inference context. Un-derstanding this post-hallucination stage is important for improving the reliability and interpretability of multimodal reasoning systems. Code is publicly available at https://github.com/hefengcs/HIVE .
+
+Keywords: VLMs · Hallucination Analysis · Multimodal Reasoning 
+
+## 1 Introduction 
+
+Vision–language models (VLMs) often operate under partial observabil-ity [13,27,28,37,48,67]. Occlusion, low resolution, and motion blur frequently lead them to produce speculative semantic completions [20,56,66]. According to com-munity standards, such unverifiable content is considered hallucination . However, hallucinations arise naturally from incomplete visual evidence rather than iso-lated system failures [8, 10, 11, 18, 70]. Consequently, most existing studies focus 
+
+> *
+
+Work done while visiting Purdue University. 
+
+> †
+
+Corresponding authors. arXiv:2607.07507v1 [cs.CV] 8 Jul 2026 2 F. He et al. c         
+
+> Dermoscopy Image (Medical)
+> Q:Is this lesion malignant? A:Yes ✔
+> Halluc.: Lesion >7 mm
+> Faithful: Pigmented lesion Observation
+> Halluc.: Hints at ABCDE rules.
+> →Answer: Yes ✔
+> Faithful: No diagnostic clue.
+> →Answer: No ✖
+> Reasoning
+> (b) VLM Case Study (Medical) (c) Performance Hallucination Caption
+> What happens after hallucination?
+> Post-Hallucination Reasoning Image Caption Detect/ Mitigate Prior Work Our Work
+> (a) Post-Hallucination Reasoning
+> Hallucination Appears
+> Suppress Hallucination
+> Reason with Hallucination Cues
+> Image
+
+Fig. 1: Post–hallucination reasoning in VLMs. (a) Prior work mainly focuses on detecting or suppressing hallucinations, whereas we study reasoning that occurs after hallucinations appear. (b) A medical example illustrates how hallucinated cues (e.g., lesion size) can alter the model’s observation and reasoning process. (c) Across models and vision tasks, hallucinations can systematically change task performance, revealing structured post–hallucination dynamics, especially in vision–language tasks. 
+
+on detecting [15,27,32,34,39,51,69] or mitigating hallucinations [45,46,57,64,72] at the moment they appear. Far less attention has been paid to what happens after hallucinated semantics enter the reasoning process of a VLM, leaving this post-hallucination stage largely unexplored. Meanwhile, studies of LLMs show that chain-of-thought reasoning [5, 26, 35, 44, 45, 61, 62] does not strictly follow human causal logic: incorrect intermedi-ate steps can still lead to correct conclusions. This observation suggests that reasoning may continue to evolve in latent space even when intermediate rep-resentations are imperfect or partially incorrect. By analogy, hallucinations in VLMs may also interact with downstream reasoning processes. However, whether such speculative cues help, hinder, or simply perturb reasoning remains unclear. We refer to this phenomenon as Post-Hallucination Reasoning (PHR) ,which describes the reasoning behavior that emerges after hallucinated semantics become part of the model’s inference context and influence subsequent predic-tions. Despite the prevalence of hallucinations in multimodal systems, the struc-ture and impact of PHR remain poorly understood. As illustrated in Fig. 1, once hallucinated semantics enter the model’s inference context, they may reshape the observation and reasoning process, ultimately influencing downstream predic-tions. Across diverse benchmarks, we observe a consistent pattern: hallucinated semantic cues can sometimes improve downstream reasoning in vision-language tasks. This suggests that hallucinations may occasionally provide speculative se-mantic anchors that guide inference rather than merely degrading predictions. However, this effect is neither universal nor well understood. These observations raise two fundamental questions: (1) When does PHR improve downstream rea-soning? (2) Why does PHR lead to improved reasoning? HIVE 3
+
+To systematically study these questions, we introduce HIVE (Hallucination 
+
+Inference and Verification Engine), an evaluation infrastructure for studying PHR. HIVE constructs paired faithful and hallucinated captions, verifies their validity, and enables controlled measurement of their influence on downstream predictions. By comparing raw inputs, faithful, and hallucinated captions un-der matched conditions, HIVE allows us to isolate the reasoning effects induced by hallucinated semantics and analyze the structure of PHR. Across 9 tasks and 9 models, we observe structured patterns: hallucinated semantic cues often improve performance on vision-language benchmarks, with gains varying sys-tematically across model families and decoding settings. To understand the mechanisms underlying PHR, we analyze hallucination-induced reasoning dynamics at multiple levels. (I) Hallucinated captions broaden semantic coverage and widen embedding distributions. (II) They modulate rea-soning entropy, with correct predictions correlating with higher entropy. These findings reveal PHR as an overlooked stage of multimodal inference, where hallucinated semantics can reshape and sometimes enhance downstream reasoning rather than merely introducing noise. Our contributions are: 
+
+❶ Post-Hallucination Reasoning Phenomenon. We identify and charac-terize PHR , a previously overlooked stage in which hallucinated semantics in-fluence downstream reasoning in VLMs across diverse task settings. We observe structured patterns showing that hallucinated semantic cues can systematically reshape model predictions rather than merely introducing noise. 
+
+❷ Evaluation Infrastructure for PHR. We present HIVE , an evaluation infrastructure designed to study PHR through controlled semantic comparisons. HIVE organizes caption generation, hallucination discrimination, and down-stream evaluation under matched configurations, enabling paired comparisons between faithful and hallucinated captions and allowing us to isolate and quan-tify the downstream impact across multiple models and task domains. 
+
+❸ Mechanistic Analysis of PHR. We analyze PHR across the input, reasoning-process, and output levels. Our results show that hallucinated captions broaden semantic coverage, induce distinctive distributional shifts, and modulate reason-ing dynamics associated with successful predictions. These findings reveal how hallucinated semantics reshape reasoning trajectories in multimodal inference. 
+
+## 2 Related Work 
+
+Hallucinations in VLMs: Detection and Mitigation. Hallucination denotes content inconsistent with the given input. Hallucinations are widely observed in LLM and VLM outputs, appearing in tasks such as summarization [71] and open-domain QA [49]. Their presence undermines reliability in high-stakes domains, including healthcare [24,43] and legal decision support [2,9]. Two major threads dominate: detection and mitigation. For detection, studies propose factuality metrics and benchmarks such as FactCC [21], QAGS [55], TruthfulQA [29], and Q2 [14], along with agreement- or internals-based judging [7, 39, 51]. For mitigation, approaches include (I) instruction-level tuning [31, 65, 68], (II) constrained decoding [4, 23, 42, 51], and (III) training or retrieval augmentation 4 F. He et al. 
+
+[25, 40, 50]. These lines of work largely treat hallucinations as undesirable errors and focus on detecting or suppressing them, leaving the role of hallucinated semantics in subsequent reasoning largely unexplored. 
+
+Intermediate Reasoning and Latent Dynamics in LLMs. Recent stud-ies on language-only models reveal that a model’s reasoning process does not necessarily align with its explicit chain-of-thought text. Multiple works show that LLMs may generate incorrect, inconsistent, or partially fabricated interme-diate steps while still producing correct final answers [47, 60]. This phenomenon suggests that reasoning continues to evolve in the latent space and is not strictly determined by the faithfulness of intermediate text. Further analyses indicate that LLMs can maintain stable internal inference even when intermediate steps contain hallucinated elements [19,22,58]. These findings imply that unfaithful or speculative content does not terminate reasoning; instead, the model proceeds to a subsequent reasoning stage that may still yield coherent conclusions. 
+
+Hallucinations in Multimodal Reasoning Models. Recent work has begun to study hallucination effects in multimodal reasoning, showing that im-perfect perceptual cues can influence reasoning outcomes in VLMs. Studies such as More Thinking, Less Seeing [63], More Thought, Less Accuracy [53], MI-RAGE [6], and multimodal CoT analyses [36] indicate that hallucinations inter-act with reasoning dynamics beyond perception-level errors. A recent survey fur-ther summarizes evaluation and detection efforts in this area [3]. However, these methods mainly analyze either intermediate reasoning traces or benchmark-level behavior, without explicitly studying how hallucinated semantics, once used as input context, affect downstream reasoning. 
+
+Different from existing methods , we focus on a largely overlooked stage in VLM inference: Post-Hallucination Reasoning (PHR) , where halluci-nated semantics, once generated and adopted by the model, may influence sub-sequent reasoning and task predictions. Prior work on VLM hallucinations fo-cuses almost entirely on whether hallucinations occur, why they arise, and how to reduce them. Yet little attention has been paid to how hallucinated seman-tics affect the reasoning processes that follow. Consequently, the structure and impact of PHR remain poorly understood, and the field lacks frameworks for controlled semantic interventions to study it. 
+
+## 3 Evaluation Pipeline for PHR 
+
+3.1 Problem Setup 
+
+HIVE is designed as an evaluation infrastructure for studying PHR in VLMs. It examines how hallucinated semantics, once generated and adopted by the model, influence subsequent reasoning and task predictions compared with faithful semantics. Rather than introducing a new model or training method, HIVE follows established community practices, including prompting-based cap-tion generation and hallucination detection, and organizes them into a controlled semantic intervention framework for analyzing the causal effects of hallucinated semantics. To examine this question, we organize HIVE around three principles. 
+
+① Fair comparison. We must ensure that the only difference between faith-ful and hallucinatory captions lies in the presence of hallucination itself. Thus, HIVE 5
+
+captions are generated from a unified source with identical prompts, tempera-ture, and token budget. This design rules out confounds and allows us to focus on the difference in downstream performance across tasks and models, measured as the accuracy gap ∆(H − F ) between hallucinated and faithful augmentations. 
+
+② Task-agnostic hallucination generation. Hallucinations naturally arise when an LLM is asked to produce a free-form caption of any input, regardless of modality. Some captions remain faithful, while others introduce unverifiable or speculative elements. This inherent property enables us to adapt the paradigm seamlessly across diverse textual and multimodal tasks. 
+
+③ Reliable discrimination. Hallucination detection is inherently imper-fect, and even human annotators may disagree. To enhance robustness, we adopt an ensemble of detectors that independently judge each caption, and apply ma-jority voting to obtain the final label. This ensemble strategy ensures that the framework remains reliable under noisy classifiers. Formally, let x ∈ X denote an input with label y ∈ Y , and f : X × C → Y a task-specific model. Each input can be paired with a faithful caption CF or a hallucinatory caption CH .Such a triplet design ensures that hallucination is the only varying factor across conditions, thus enabling a controlled and interpretable evaluation. Formally, we define these conditions: 
+
+yraw = f (x)
+
+| {z } 
+
+> Raw
+
+, yF = f (x ∥ CF )
+
+| {z }
+
+> + Faithful
+
+, yH = f (x ∥ CH )
+
+| {z }
+
+> + Hallucinatory
+
+, (1) where ∥ denotes concatenation with the task instruction. Given an evaluation metric L(ˆ y, y ) (instantiated as accuracy in our experiments), we quantify the hallucination effect as 
+
+∆(H−F ) = E(x,y )∼D
+
+h
+
+L f (x ∥ CH ), y  − L  f (x ∥ CF ), y  i
+
+. (2) This paired comparison isolates hallucination as a controlled experimental vari-able and enables apples-to-apples analysis of PHR across models and tasks. 
+
+3.2 HIVE Evaluation Pipeline 
+
+The HIVE evaluation pipeline consists of three modules: (I) Caption Gen-erator , (II) Caption Discriminator , and (III) Task Solver . Given an input instance, the pipeline proceeds through these components to ensure consistent and controlled evaluation across tasks. The Caption Generator first takes the raw input (text, image, or structured record) and produces a set of candidate captions under a unified, task-agnostic prompt, which may include both faithful and hallucinatory semantics. The Caption Discriminator then evaluates these candidates and classifies each as either faithful ( CF ) or hallucinatory ( CH ); only contrasted pairs ⟨CF , CH ⟩ with majority agreement among detectors are retained. Finally, the Task Solver integrates the original input x, one of the paired captions, and a task-specific instruction to produce the final prediction 
+
+y. This design yields three controlled conditions Raw ( yraw = f (x)), +Faithful (yF = f (x ∥ CF )), and +Hallucinatory ( yH = f (x ∥ CH )). 6 F. He et al. 
+
+Caption Generator. The Caption Generator aims to produce diverse se-mantic candidates that may include both faithful and hallucinatory variants. All captions are generated from a unified source using the same prompt, tempera-ture, and token budget, ensuring that decoding hyper-parameters cannot con-found attribution. Given an input x, the generator outputs N natural-language captions describing it. Due to the inherent stochasticity of LLMs, some captions remain faithful while others introduce speculative content, which later enables the construction of contrasted F/H pairs by the discriminator. This design guar-antees that both F and H captions originate from an identical generation process, providing a controlled entry point for subsequent evaluation. 
+
+Caption Discriminator. Given the candidate captions, the Caption Dis-criminator determines whether each caption is faithful ( CF ) or hallucinatory (CH ). Since hallucination detection is inherently noisy, we adopt an ensemble of multiple detectors, each providing an independent judgment. Final labels are decided via majority voting, which significantly improves robustness under noisy or imperfect classifiers. We further verify the reliability of the hallucination dis-criminator through dedicated control experiments (Section 4.2). Detailed imple-mentation specifics of the individual detectors and ensemble configuration are provided in Appendix S7 for full clarity and reproducibility. 
+
+Task Solver. The solver is not a novel model but a controlled interface to isolate the effect of captions on downstream predictions under identical model and decoding settings. We measure the isolated impact of caption faithfulness by contrasting predictions under three conditions C ∈ { raw , CF , CH }. We use a unified prompt builder that concatenates three parts: 
+
+Φ(Itask , x, C ) = Instruction Itask ∥ Serialized Input σ(x) ∥ Seed s(C) (3) HIVE frames hallucination as a controlled semantic intervention, enabling sys-tematic study of how speculative cues influence downstream reasoning in multi-modal models. Prompt templates are listed in Appendix S2. 
+
+## 4 Experiments 
+
+4.1 When Does PHR Help? 
+
+We begin by characterizing how hallucinated semantics affect downstream predictions across a diverse set of models and tasks. Using the HIVE evaluation infrastructure, we systematically analyze PHR across 9 tasks and 9 models span-ning both textual and multimodal scenarios. Each model is evaluated under two input conditions: faithful and hallucinated. Table 1 reports results on text-only benchmarks, while Table 2 summarizes vision–language tasks. Further dataset and model details are provided in Appendix S6. 
+
+❶ LLMs on text-only tasks: limited or unstable benefits. On textual tasks, hallucinations provide little or no benefit. Across multiple LLM families, performance under hallucinated inputs is often similar to or lower than the faithful setting, with only occasional isolated improvements (see Table 1). The overall trends are small and inconsistent, indicating that hallucinated semantics are hard to exploit in rule-based or symbolically constrained tasks. HIVE 7
+
+Table 1: Faithful (F) vs. Hallucinated (H) path accuracy on text-only tasks. 
+
+Cells show accuracy (%). ∆(H − F ) denotes the percentage-point difference between the hallucinated and faithful paths ( ↑ gain, ↓ drop).                                                                       
+
+> Dataset P. GPT-4o GPT-3.5 Claude-3 Sonnet DeepSeek v3 Mistral Large O3 DeepSeek R1
+> AntiCP2 F 54.59(–) 43.63(–) 46.84(–) 52.19(–) 56.69(–) 53.95(–) 49.87(–) H 58.35 ↑+3.76 47.76 ↑+4.13 48.21 ↑+1.37 45.01 ↓-7.18 57.84 ↑+1.15 50.17 ↓-3.78 46.42 ↓-3.45 BBBP F 61.67(–) 60.75(–) 64.07(–) 61.60(–) 59.41(–) 73.27(–) 70.53(–) H 68.33 ↑+6.66 57.53 ↓-3.22 64.95 ↑+0.88 55.56 ↓-6.04 59.65 ↑+0.24 59.47 ↓-13.80 58.88 ↓-11.65 CodeXGLUE F 55.15(–) 58.90(–) 49.25(–) 49.46(–) 50.11(–) 45.10(–) 51.54(–) H 52.75 ↓-2.40 57.40 ↓-1.50 53.40 ↑+4.15 50.13 ↑+0.67 56.40 ↑+6.29 46.06 ↑+0.96 48.95 ↓-2.59 SARA v3 F 62.93(–) 52.28(–) 62.07(–) 58.10(–) 59.14(–) 65.52(–) 58.62(–) H 62.24 ↓-0.69 54.83 ↑+2.55 63.97 ↑+1.90 58.96 ↑+0.86 60.34 ↑+1.20 62.07 ↓-3.45 54.48 ↓-4.14 ProofWriter F 69.49(–) 66.55(–) 76.03(–) 85.17(–) 70.86(–) 97.76(–) 89.31(–) H 75.00 ↑+5.51 66.21 ↓-0.34 76.73 ↑+0.70 85.86 ↑+0.69 68.62 ↓-2.24 98.45 ↑+0.69 92.93 ↑+3.62
+
+❷ VLMs on vision–language tasks: strong and consistent gains. 
+
+On vision–language benchmarks, hallucinated inputs lead to clear and substan-tial improvements across models (see Table 2). GPT-4o, Gemini-2.0-Flash, and Qwen-VL-Max generally show gains, with occasional drops on specific datasets such as GQA in certain settings. Unlike the text-only setting, where halluci-nation effects are small and unstable, VLMs reliably benefit from hallucinated semantics across multiple tasks and model families. These results suggest that hallucinated captions can enrich visual grounding by introducing additional perceptual cues that support downstream reasoning. Vision–language tasks often involve partial observability, where important cues may be missing or ambiguous. In such settings, hallucinated captions can serve as speculative hypotheses that expand the model’s hypothesis space and provide additional semantic anchors for reasoning. 
+
+Model-wise variation. While this overall pattern holds across VLMs, the magnitude of PHR gains varies by model. For example, GPT-4o exhibits mod-erate but stable improvements, whereas Gemini-2.0-Flash and Qwen-VL-Max often show larger gains on perception-heavy tasks. This variation likely reflects differences in visual grounding strength and reasoning strategies across mod-els: models with stronger perceptual grounding can better exploit speculative semantic cues introduced by hallucinated captions, while others benefit less. 
+
+4.2 Validating the Hallucination Discriminator Reliability on hallucination benchmarks. To assess the reliability of HIVE’s hallucination discriminator, we evaluate it in two complementary set-tings. First, we test the discriminator on the TruthfulQA benchmark, which is widely used to probe hallucination behavior in language models. The discrim-inator achieves an accuracy of 81.76% on this benchmark. To approximate real-world cross-domain usage, we construct a curated dataset of 180 captions by sampling 20 captions from each of nine tasks. These captions are manually 8 F. He et al. 
+
+Table 2: Faithful (F) vs. Hallucinated (H) accuracy on vision-language tasks. 
+
+Cells show mean accuracy (%). ∆ denotes H − F in percentage points and is shown inline at bottom-right.                                        
+
+> Dataset P. GPT-4o Claude 3 Sonnet Gemini 2.0 Flash Qwen VL-Max
+> GQA F71.36(–) 62.02(–) 75.23(–) 69.88(–) H74.22 ↑+2.86 61.03 ↓-0.99 75.69 ↑+0.46 67.90 ↓-1.98 Dex-Net F53.25(–) 50.29(–) 49.88(–) 51.54(–) H55.76 ↑+2.51 50.71 ↑+0.42 51.15 ↑+1.27 54.12 ↑+2.58 ISIC F63.88(–) 54.19(–) 67.23(–) 58.71(–) H75.64 ↑+11.76 61.02 ↑+6.83 67.90 ↑+0.67 75.62 ↑+16.91 PlantVillage F62.73(–) 55.28(–) 62.71(–) 67.84(–) H77.41 ↑+14.68 72.50 ↑+17.22 70.98 ↑+8.27 77.66 ↑+9.82
+
+Fig. 2: Process- and output-level analysis of hallucination effects. Left : rea-soning chain embeddings show that hallucinated prompts reshape inference trajectories with task-dependent differences ( p < 0.05 ), diversifying reasoning. Right : caption en-tropy analysis shows that correct predictions exhibit higher entropy than incorrect ones, indicating expanded semantic coverage. Stars indicate p < 0.05 .
+
+annotated as either hallucinated or faithful . Evaluating the discriminator on this human-labeled dataset yields an accuracy of 83.72% . These results indicate that the discriminator generalizes beyond a single benchmark and can reliably sepa-rate hallucinated from faithful captions, providing a stable basis for the paired comparisons used throughout our experiments. 
+
+Random-checker control. To rule out improvements arising from arbi-trary filtering, we replace the hallucination discriminator with a random checker that accepts captions without factual assessment. All decoding controls remain fixed to ensure a fair comparison. As shown in Table 3, random filtering yields only negligible performance changes (0.17–1.23%) and no statistically significant gains across datasets (all p > 0.14 ). This result indicates that the improvements reported in Section 4.1 are unlikely to arise from chance filtering effects. 
+
+Prompt robustness. To rule out the possibility that the observed gains arise from prompt sensitivity, we repeat the experiments using semantically equivalent prompt paraphrases. Specifically, we evaluate three prompts: the orig-inal prompt (P0) and two paraphrased variants (P1 and P2). The results are summarized in Table 4. Across datasets and models, hallucination-augmented HIVE 9                                               
+
+> Table 3: Random checker ablation. ∆denotes the absolute accuracy difference (H–F). pfrom two-sided paired t-tests; (n.s.) = not significant at p< 0.05 .
+> Dataset Faithful (F) H + Random (H) ∆(H–F) p
+> AntiCP2 0.5015 ±0.0124 0.5114 ±0.0200 +0 .0100 0.526 (n.s.) PlantVillage 0.7358 ±0.0189 0.7481 ±0.0205 +0 .0123 0.354 (n.s.) Dex-Net 0.4950 ±0.0068 0.4967 ±0.0062 +0 .0017 0.757 (n.s.) ISIC 0.5763 ±0.0067 0.5805 ±0.0042 +0 .0043 0.142 (n.s.)
+
+inputs consistently outperform faithful inputs under all prompt variants. Al-though absolute accuracies vary slightly due to known prompt sensitivity in LLMs, the direction of the effect remains stable. This suggests that the observed improvements are not tied to a specific prompt formulation.                              
+
+> Table 4: Prompt robustness across paraphrased prompts. P0 denotes the orig-inal prompt, while P1 and P2 are semantically equivalent paraphrases. ∆reports the accuracy improvement from hallucination injection (H–F).
+> Dataset / Model P0 ∆(%) P1 ∆(%) P2 ∆(%) Consistency
+> PlantVillage / GPT-4o +14.68 +28.00 +9.89 ✓
+> PlantVillage / Claude 3 Sonnet +17.22 +16.42 +12.84 ✓
+> ISIC / GPT-4o +11.76 +4.55 +5.00 ✓
+> ISIC / Claude 3 Sonnet +6.83 +4.54 +4.77 ✓
+
+Token-level ablation. We conduct a token-level ablation study to test whether hallucinated content is necessary for successful predictions. Specifically, we first identify the subset of samples that are solved only when hallucinated captions are provided, where the hallucinated path succeeds while the faithful path fails. Within these captions, we locate hallucinated tokens that serve as 
+
+core evidence in the model’s reasoning process. We then mask these tokens us-ing a neutral placeholder and re-evaluate the model on the same samples. As reported in Table 5, we evaluate a subset of samples where the hallucinated path succeeds while the faithful path fails. For this subset, H-before is near-perfect by construction, and post-ablation accuracy ( H-after ) drops substantially across all four datasets after masking hallucinated evidence tokens. This result indicates that key hallucinated tokens act as informative cues rather than redundant noise, and that the model relies on them to reach correct predictions. 
+
+4.3 Reasoning Convergence Analysis 
+
+To assess whether the semantic shifts introduced by hallucinated captions affect the stability of model inference, we analyze reasoning convergence at two complementary levels: (I) Intra-chain convergence , which measures whether intermediate reasoning steps progressively align with the final conclusion un-der hallucinated inputs (Fig. 3 left); and (II) Inter-chain consistency , which evaluates whether multiple reasoning paths sampled from the same input con-verge to semantically similar trajectories across different sampling seeds (Fig. 3 10 F. He et al.                            
+
+> Table 5: Accuracy after hallucination removal across domains. H-after Acc. denotes post-ablation accuracy after masking hallucinated evidence tokens.
+> Dataset Domain Task H-after Acc.
+> AntiCP2 Biomedicine Peptide cls. 0.244 ±0.085
+> PlantVillage Agriculture Disease recog. 0.700 ±0.111
+> Dex-Net Robotics Grasping pred. 0.364 ±0.061
+> ISIC Dermatology Lesion diagnosis 0.380 ±0.062
+> Fig. 3: Inter-chain stability on the PlantVillage dataset. Left : Step-wise co-sine similarity shows reasoning chains progressively converge during inference. Right :Hallucinated (H) and faithful (F) captions exhibit highly overlapping similarity distri-butions, indicating that hallucinations preserve stability across sampling runs.
+
+right). These analyses provide a fine-grained view of how hallucinations affect convergence both within and across reasoning chains, enabling us to determine whether they destabilize or preserve the model’s inference process. Further im-plementation details are provided in Appendix S9. 
+
+❸ Hallucinations do not disrupt intra-chain convergence. From Fig. 3 (left), step-to-final semantic similarity steadily increases, with intermediate steps progressively aligning with the final conclusion. This trajectory indicates that reasoning chains naturally converge as inference unfolds rather than drifting from the target answer. Moreover, the narrowing variance band suggests that this convergence pattern remains stable across runs and datasets. 
+
+❹ Reasoning chains exhibit strong inter-chain consistency. From Fig. 3 (right), we observe that reasoning paths generated under hallucinated (H) and faithful (F) captions both achieve very high pairwise similarity across multiple sampling runs (means ≈ 0.97 ). The two distributions nearly overlap, and statistical tests confirm no significant difference between them ( p > 0.6). This indicates that, regardless of whether captions contain hallucinations, the model converges to consistent reasoning trajectories across chains. Rather than diverging into unstable alternatives, multiple sampled paths remain semantically aligned, underscoring the robustness of the model’s inference. HIVE 11 Hallucinated(H) Faithful(F) Hallucinated(H) Faithful(F)  
+
+> Fig. 4: Distribution of caption embeddings (Faithful (F) vs. Hallucinated (H)). Hallucinated inputs exhibit wider semantic spread and longer tails.
+
+Takeaway ❶. Reasoning chains with hallucinated captions remain sta-ble: intermediate steps consistently converge to the final answer and mul-tiple paths sampled stay highly aligned. This stability highlights that hallucinations can support reliable and reproducible inference. 
+
+4.4 Why PHR Helps 
+
+To explain the strong and consistent improvements observed on vision– language tasks (see Section 4.1), we analyze why hallucinated captions provide useful semantic signals for VLMs. Our analysis focuses on the beneficial case and examines hallucination effects at three complementary levels: (I) Input-level shifts . Hallucinated captions substantially reshape the semantic inputs provided to the model, exhibiting broader distributional spread and lower similarity to faithful captions (Fig. 4). This indicates that hallucinations introduce mean-ingful semantic variation rather than redundant noise, enriching the model’s visual grounding. (II) Process-level modulation . Reasoning-chain entropy analysis (Fig. 2 left) shows that hallucinations modulate inference dynamics in a task-dependent manner. They reduce trajectory entropy on reasoning-heavy tasks (promoting convergence and stability), while increasing entropy on struc-turally open-ended tasks (supporting exploration), indicating active reshaping of the model’s reasoning process. (III) Output-level diversity . Correct pre-dictions consistently exhibit higher caption entropy than incorrect ones (Fig. 2 right), suggesting that broader semantic coverage induced by hallucinations is positively associated with successful reasoning. Rather than mere lexical variety, this diversity reflects expanded semantic grounding that supports downstream task performance. Further implementation details of similarity computation, en-tropy estimation, and statistical testing are provided in Appendix S8. We give the following observations: 
+
+❺ Hallucinations reshape semantic inputs. From Fig. 4, we observe that hallucinated captions differ systematically from faithful ones in both mean similarity and distributional spread. Hallucinated inputs exhibit wider variance and heavier tails in the embedding space, a difference that is statistically signif-icant under paired t-tests ( p < 0.01 ). This confirms that they introduce genuine 12 F. He et al. (a)  (b)  
+
+> Fig. 5: Downstream task accuracy as a function of hallucination strength. We gradually interpolate between faithful and hallucinated captions and evaluate down-stream performance. The results exhibit an inverted-U pattern: introducing moderate hallucination improves accuracy, while excessive hallucination reduces it.
+
+input-level shifts rather than acting as redundant noise, providing models with additional anchors to explore alternative reasoning paths. Importantly, this shift is consistently observed across multiple datasets, underscoring that input-level semantic reshaping is a general property of hallucinations rather than a dataset-specific artifact, and holds robustly across diverse modalities and domains. 
+
+❻ Hallucinations modulate reasoning dynamics. As shown in Fig. 2 (left), hallucinated prompts alter the entropy of reasoning trajectories in a task-dependent manner. On reasoning-heavy tasks such as BBBP, AntiCP2, and ProofWriter, hallucinations reduce movement entropy, suggesting that they pro-mote more convergent and stable inference. Conversely, on structurally open-ended tasks such as SARA v3, hallucinations increase entropy, enabling the model to explore a broader range of reasoning paths. These differences are sta-tistically significant (paired t-tests, p < 0.05 ), indicating that hallucinations do not merely inject noise but actively reshape inference dynamics in ways that can either encourage convergence or support exploration, depending on the task. 
+
+❼ Correct predictions align with higher caption entropy. As shown in Fig. 2 (right), hallucinated captions that lead to correct predictions consis-tently exhibit higher semantic entropy than those leading to incorrect predic-tions, across datasets such as GQA, Dex-Net, ISIC, and PlantVillage. These differences are statistically significant ( p < 0.05 ), and the effect holds consis-tently across all evaluated datasets, underscoring that higher semantic diversity is a general marker of successful reasoning rather than a dataset-specific artifact. Rather than mere lexical variety, this result highlights that semantic diversity in the latent space is a useful signal that supports accurate task performance. 
+
+Takeaway ❷. Hallucinations consistently reshape inputs, modulate rea-soning trajectories, and higher semantic diversity correlates with correct outcomes, indicating that their utility arises from broadening the seman-tic space rather than adding redundant noise. HIVE 13 
+
+We further analyze hallucinations that arise within the reasoning chain itself. By detecting the position of the first hallucinated token (early, middle, late), we observe consistent positional patterns: early hallucinations tend to correlate with stronger downstream improvements. This suggests that speculative cues intro-duced early in the reasoning process may shape the evolving inference trajectory. Detailed experimental results are provided in Appendix S4. Intuitively, hallucinated captions expand the semantic hypothesis space avail-able to the model. Under partial observability, faithful captions often describe only visible attributes, which may provide insufficient cues for reasoning. Halluci-nated cues introduce speculative but task-relevant semantic anchors that guide the model toward plausible interpretations of the input. When these anchors align with the latent structure of the task, they help the model explore useful reasoning trajectories rather than remaining confined to incomplete observations. 
+
+4.5 Case Study 
+
+Beyond aggregate results, we present a case study to illustrate how hallu-cinated captions reshape reasoning chains in practice. We select a sample from the ISIC dataset, where the task is to determine whether a skin lesion is benign or malignant. Given the same input, the faithful (F) caption focuses on super-ficial attributes (e.g., asymmetry, irregular borders), constraining the reasoning to melanoma-like criteria and resulting in an incorrect malignant prediction. In contrast, the hallucinated (H) caption introduces a vascular cue suggestive of a seborrheic keratosis (SK) frame. Although this cue is not strictly faithful to the image, it provides a task-aligned semantic trigger that reshapes the reasoning tra-jectory: intermediate steps increasingly anchor the SK frame, ultimately leading to the correct benign diagnosis. This example demonstrates how hallucinations can supply additional semantic anchors that steer the reasoning process toward more effective diagnostic paths, rather than merely injecting noise. As illustrated in Fig. 6, hallucinated captions can introduce auxiliary but task-relevant cues that guide the reasoning chain toward the correct outcome. More case studies across additional datasets are provided in Appendix S5. 
+
+4.6 Ablation Study 
+
+To identify the conditions under which hallucinations provide the strongest utility, we conduct a set of ablation studies examining three key generation fac-tors: sampling temperature, token budget, and hallucination intensity. These analyses reveal how different generation configurations shape the semantic ex-pansion introduced by hallucinated captions and how such expansion translates into downstream performance gains. 
+
+Temperature. We analyze how sampling temperature influences the use-fulness of hallucinated captions. As shown in Table 6, all four datasets peak at T = 0 .6, yielding the strongest and most consistent gains (e.g., +11.76% on ISIC , +14.68% on PlantVillage , +2.51% on Dex-Net , +3.76% on An-tiCP2 ). Lower temperatures ( T = 0 .0/0.3) generate conservative captions with limited semantic expansion (e.g., −4.27 % on AntiCP2 , −5.05 % on ISIC ), while higher temperature ( T = 0 .9) increases variance and reduces controllability (e.g., 14 F. He et al. H-Caption : Pink-brown lesion, irregular border, vascular activity; SK/BCC suspected.      
+
+> Reasoning:
+> - Observes vascularity + heterogeneity - Anchors SK frame
+> -✔Conclusion: Benign (correct).
+> F-Caption : Asymmetrical lesion with multiple colors, irregular borders, and vessels.
+> Reasoning:
+> - Observes vascularity + heterogeneity - Matches melanoma criteria
+> -✘Conclusion: malignant (wrong).
+> Q: Benign or Malignant? A:
+> ✔Benign
+> H-Path F-Path
+> Spurious vascular cue anchored SK frame makes correct benign outcome.
+> H-Summary
+> Spurious vascular.
+> H-Mistake
+> Anchors benign SK diagnosis.
+> H-Gain
+
+Fig. 6: Case study on ISIC . A hallucinated (H) caption introduces a spurious vascu-lar cue that anchors the reasoning toward a seborrheic keratosis (SK) frame, ultimately yielding the correct benign diagnosis. In contrast, the faithful (F) caption confines rea-soning to superficial features, leading to a malignant misclassification, highlighting hallucination’s potential as constructive guidance. 
+
+−5.00 % on AntiCP2 ). These observations indicate that a moderate temperature around T = 0 .6 achieves the most effective balance, providing useful semantic enrichment without introducing excessive variability. 
+
+Table 6: Hallucination-induced gain ( ∆) across temperature and token con-ditions. We report relative gain ∆ = H − F , isolating hallucination effects by elim-inating baseline accuracy differences across datasets. Bold values mark the strongest gain and underlined values the second-best.                                           
+
+> Dataset Temperature ( T)Token Length 0.0 0.3 0.6 0.9 128 256 512 1024 AntiCP2 -4.27 +0.10 +3.76 -5.00 +0.15 +3.76 +4.48 -0.14 PlantVillage +2.30 -4.46 +14.68 +1.51 -4.66 +14.68 +7.86 +9.49 Dex-Net +0.07 +1.88 +2.51 +0.14 +1.56 +2.51 -2.04 +1.93 ISIC +9.26 -5.05 +11.76 +3.70 -2.10 +11.76 +1.33 -0.48
+
+Maximum token budget. We examine the impact of token length using temperature T = 0 .6 (Table 6). Short generations (128 tokens) limit semantic coverage and result in weak or inconsistent gains. A budget of 256 tokens pro-duces strong and stable improvements across all datasets. Larger budgets (512 or 1024 tokens) can yield higher peaks but also introduce greater variance. Ablating key hallucinated tokens results in a substantial accuracy drop, confirming the benefits of hallucinations rely on sufficient and well-structured semantic cues. 
+
+Hallucination intensity. To assess how hallucination strength affects down-stream performance, we generate captions with different hallucination levels us-ing GPT-4o and group them into strong and weak categories. We interpolate between faithful and hallucinated captions, and between strong and weak hal-lucinations, then re-project them into SBERT space for alignment. Fig. 5 shows smooth semantic transitions (right) and an inverted U-shaped pattern (left), HIVE 15 
+
+where moderate hallucination intensity provides the most reliable accuracy im-provements, while excessive intensity reduces controllability. 
+
+Takeaway ❸. Moderate hallucination levels provide the strongest gains, indicating that the benefits of hallucinated cues depend on controlled semantic expansion rather than excessive or weak generation. 
+
+## 5 Discussion and Conclusion 
+
+Our findings point to a dual characterization of post-hallucination rea-soning. The faithful path encourages exploitation, grounding the model in ver-ified evidence and producing precise but narrow predictions. The hallucinated path promotes exploration, expanding the hypothesis space through speculative but task-relevant cues that occasionally unlock shortcuts unavailable to faithful inputs. Hallucinations are thus not merely errors but alternative signals that broaden the model’s inference landscape. Their benefits, however, depend crit-ically on control: moderate hallucination intensity enriches semantics without destabilizing inference, whereas excessive or misaligned hallucinations degrade reliability. Temperature, token budget, and interpolation strength provide prac-tical levers for tuning this balance across datasets, models, and decoding settings, and fallback mechanisms to the faithful path help manage risk. 
+
+Limitations. Although our study reveals consistent patterns of PHR across tasks and models, several limitations remain. First, our evaluation is conducted on a fixed set of benchmarks and may not fully capture the diversity of real-world multimodal reasoning scenarios. Second, our interventions operate pri-marily at the caption level, whereas hallucinations may also arise within inter-mediate reasoning steps or latent representations. Third, while hallucinated cues can sometimes assist reasoning under partial observability, they may also intro-duce spurious signals in other settings. Future work should investigate broader task domains and develop principled mechanisms to better control hallucination induced semantic expansion in multimodal reasoning systems. 
+
+Broader Impact. This work contributes to a deeper understanding of hal-lucination behavior in multimodal models by examining how hallucinated se-mantics interact with downstream reasoning. Importantly, our findings should not be interpreted as advocating hallucination as a deliberate inference strategy. Rather, PHR appears to arise as a by-product of reasoning under incomplete evi-dence. Understanding this phenomenon may inform future methods that balance exploratory semantic cues with reliable grounding and verification. We hope this work encourages the community to further investigate the role of hallucinated semantics in model reasoning and develop principled methods to understand and control PHR. 
+
+## Acknowledgements 
+
+We thank the reviewers and area chair for their constructive feedback. 16 F. He et al. 
+
+## References 
+
+1. Agrawal, P., Bhagat, D., Mahalwal, M., Sharma, N., Raghava, G.P.: Anticp 2.0: an updated model for predicting anticancer peptides. Briefings in bioinformatics 
+
+22 (3) (2021) 25 2. Bendahman, N., Pinel-Sauvagnat, K., Hubert, G., Billami, M.B.: Not all halluci-nations are good to throw away when it comes to legal abstractive summarization. In: NAACL (2025) 3 3. Chen, Z., Min, Y., Zhang, J., Yan, B., Wang, J., Wang, X., Shan, S.: A survey of multimodal hallucination evaluation and detection. IJCV 134 (3), 131 (2026) 4 4. Choi, S., Fang, T., Wang, Z., Song, Y.: Kcts: Knowledge-constrained tree search decoding with token-level hallucination detection. In: EMNLP (2023) 3 5. Creswell, A., Shanahan, M.: Faithful reasoning using large language models. arXiv preprint arXiv:2208.14271 (2022) 2 6. Dong, B., Ni, M., Huang, Z., Yang, G., Zuo, W., Zhang, L.: Mirage: Assessing hallucination in multimodal reasoning chains of mllm. In: NeurIPS. vol. 38, pp. 122910–122955 (2026) 4 7. Du, X., Xiao, C., Li, Y.: Haloscope: harnessing unlabeled llm generations for hal-lucination detection. In: NeurIPS (2024) 3 8. Gong, X., Ming, T., Wang, X., Wei, Z.: Damro: Dive into the attention mechanism of lvlm to reduce object hallucination. In: EMNLP. pp. 7696–7712 (2024) 1 9. Guha, N., Nyarko, J., Ho, D.E., Ré, C., Chilton, A., Narayana, A., Chohlas-Wood, A., Peters, A., Waldon, B., Rockmore, D.N., et al.: Legalbench: a collabo-ratively built benchmark for measuring legal reasoning in large language models. In: NeurIPS (2023) 3 10. Han, G., Lim, S.N.: Few-shot object detection with foundation models. In: CVPR. pp. 28608–28618 (2024) 1 11. Han, J., Ren, Y., Ding, J., Yan, K., Xia, G.S.: Few-shot object detection via vari-ational feature aggregation. In: AAAI. vol. 37, pp. 755–763 (2023) 1 12. Henderson, P., Krass, M.S., Zheng, L., Guha, N., Manning, C.D., Jurafsky, D., Ho, D.E.: Pile of law: learning responsible data filtering from the law and a 256gb open-source legal dataset. In: NeurIPS (2022) 25 13. Hong, Y., Wu, Q., Qi, Y., Rodriguez-Opazo, C., Gould, S.: Vln bert: A recurrent vision-and-language bert for navigation. In: CVPR. pp. 1643–1653 (2021) 1 14. Honovich, O., Choshen, L., Aharoni, R., Neeman, E., Szpektor, I., Abend, O.: Q2: Evaluating factual consistency in knowledge-grounded dialogues via question generation and question answering. In: EMNLP (2021) 3 15. Hu, X., Ru, D., Qiu, L., Guo, Q., Zhang, T., Xu, Y., Luo, Y., Liu, P., Zhang, Y., Zhang, Z.: Knowledge-centric hallucination detection. In: EMNLP. pp. 6953–6975 (2024) 2 16. Hudson, D.A., Manning, C.D.: Gqa: A new dataset for real-world visual reasoning and compositional question answering. In: CVPR (2019) 25 17. Hughes, D., Salathé, M., et al.: An open access repository of images on plant health to enable the development of mobile disease diagnostics. arXiv preprint arXiv:1511.08060 (2015) 25 18. Ji, Z., Lee, N., Frieske, R., Yu, T., Su, D., Xu, Y., Ishii, E., Bang, Y.J., Madotto, A., Fung, P.: Survey of hallucination in natural language generation. ACM computing surveys 55 (12), 1–38 (2023) 1 19. Kadavath, S., Conerly, T., Askell, A., Henighan, T., Drain, D., Perez, E., Schiefer, N., Hatfield-Dodds, Z., DasSarma, N., Tran-Johnson, E., et al.: Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 (2022) 4 HIVE 17 20. Krizhevsky, A., Sutskever, I., Hinton, G.E.: Imagenet classification with deep con-volutional neural networks. In: NeurIPS (2012) 1 21. Kryściński, W., McCann, B., Xiong, C., Socher, R.: Evaluating the factual consis-tency of abstractive text summarization. In: EMNLP (2020) 3 22. Lanham, T., Chen, A., Radhakrishnan, A., Steiner, B., Denison, C., Hernandez, D., Li, D., Durmus, E., Hubinger, E., Kernion, J., et al.: Measuring faithfulness in chain-of-thought reasoning. arXiv preprint arXiv:2307.13702 (2023) 4 23. Lee, Y.L., Tsai, Y.H., Chiu, W.C.: Delve into visual contrastive decoding for hallucination mitigation of large vision-language models. arXiv preprint arXiv:2412.06775 (2024) 3 24. Lehman, E., Jain, S., Pichotta, K., Goldberg, Y., Wallace, B.C.: Does bert pre-trained on clinical notes reveal sensitive data? In: NAACL (2021) 3 25. Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W.t., Rocktäschel, T., et al.: Retrieval-augmented generation for knowledge-intensive nlp tasks. In: NeurIPS (2020) 4 26. Li, J., Cao, P., Chen, Y., Xu, J., Li, H., Jiang, X., Liu, K., Zhao, J.: Towards better chain-of-thought: A reflection on effectiveness and faithfulness. In: ACL. pp. 10747–10765 (2025) 2 27. Li, Y., Du, Y., Zhou, K., Wang, J., Zhao, W.X., Wen, J.R.: Evaluating object hallucination in large vision-language models. In: EMNLP (2023) 1, 2 28. Li, Z., Wu, X., Du, H., Liu, F., Nghiem, H., Shi, G.: A survey of state of the art large vision language models: Benchmark evaluations and challenges. In: CVPR. pp. 1587–1606 (2025) 1 29. Lin, S., Hilton, J., Evans, O.: Truthfulqa: Measuring how models mimic human falsehoods. In: ACL (2022) 3 30. Liu, B., Wei, H., Niu, D., Chen, H., He, Y.: Asking questions the human way: Scalable question-answer generation from text corpus. In: WWW (2020) 26 31. Liu, F., Lin, K., Li, L., Wang, J., Yacoob, Y., Wang, L.: Mitigating hallucination in large multi-modal models via robust instruction tuning. In: ICLR (2024) 3 32. Liu, S., Halder, K., Qi, Z., Xiao, W., Pappas, N., Htut, P.M., John, N.A., Benajiba, Y., Roth, D.: Towards long context hallucination detection. In: NAACL. pp. 7827– 7835 (2025) 2 33. Lu, S., Guo, D., Ren, S., Huang, J., Svyatkovskiy, A., Blanco, A., Clement, C., Drain, D., Jiang, D., Tang, D., et al.: Codexglue: A machine learning benchmark dataset for code understanding and generation. In: NeurIPS (2021) 25 34. Luo, J., Li, T., Wu, D., Jenkin, M., Liu, S., Dudek, G.: Hallucination detection and hallucination mitigation: An investigation. arXiv preprint arXiv:2401.08358 (2024) 2 35. Lyu, Q., Havaldar, S., Stein, A., Zhang, L., Rao, D., Wong, E., Apidianaki, M., Callison-Burch, C.: Faithful chain-of-thought reasoning. In: IJCNLP. pp. 305–329 (2023) 2 36. Ma, J., Suo, W., Wang, P., Zhang, Y.: Understanding and mitigating hallucinations in multimodal chain-of-thought models. In: CVPR. pp. 40224–40234 (2026) 4 37. Ma, Y.J., Hejna, J., Fu, C., Shah, D., Liang, J., Xu, Z., Kirmani, S., Xu, P., Driess, D., Xiao, T., et al.: Vision language models are in-context value learners. In: ICLR (2024) 1 38. Mahler, J., Liang, J., Niyaz, S., Laskey, M., Doan, R., Liu, X., Ojea, J.A., Goldberg, K.: Dex-net 2.0: Deep learning to plan robust grasps with synthetic point clouds and analytic grasp metrics. arXiv preprint arXiv:1703.09312 (2017) 25 18 F. He et al. 39. Manakul, P., Liusie, A., Gales, M.: Selfcheckgpt: Zero-resource black-box halluci-nation detection for generative large language models. In: EMNLP (2023) 2, 3, 26 40. Manevich, A., Tsarfaty, R.: Mitigating hallucinations in large vision-language mod-els (lvlms) via language-contrastive decoding (lcd). In: ACL (2024) 4 41. Martins, I.F., Teixeira, A.L., Pinheiro, L., Falcao, A.O.: A bayesian approach to in silico blood-brain barrier penetration modeling. Journal of chemical information and modeling 52 (6), 1686–1697 (2012) 25 42. Mudgal, S., Lee, J., Ganapathy, H., Li, Y., Wang, T., Huang, Y., Chen, Z., Cheng, H.T., Collins, M., Strohman, T., et al.: Controlled decoding from language models. In: ICML (2024) 3 43. Nori, H., King, N., McKinney, S.M., Carignan, D., Horvitz, E.: Capabilities of gpt-4 on medical challenge problems. arXiv preprint arXiv:2303.13375 (2023) 3 44. Parcalabescu, L., Frank, A.: On measuring faithfulness or self-consistency of nat-ural language explanations. In: ACL (2024) 2 45. Peng, S., Yang, S., Jiang, L., Tian, Z.: Mitigating object hallucinations via sentence-level early intervention. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 635–646 (2025) 2 46. Qiu, Y., Ziser, Y., Korhonen, A., Ponti, E., Cohen, S.B.: Detecting and mitigating hallucinations in multilingual summarisation. In: EMNLP (2023) 2 47. Rajpurkar, P., Jia, R., Liang, P.: Know what you don’t know: Unanswerable ques-tions for squad. In: ACL (2018) 4 48. Rohrbach, A., Hendricks, L.A., Burns, K., Darrell, T., Saenko, K.: Object halluci-nation in image captioning. In: EMNLP (2018) 1 49. Sadat, M., Zhou, Z., Lange, L., Araki, J., Gundroo, A., Wang, B., Menon, R.R., Parvez, M., Feng, Z.: Delucionqa: Detecting hallucinations in domain-specific ques-tion answering. In: EMNLP (2023) 3 50. Sennrich, R., Vamvas, J., Mohammadshahi, A.: Mitigating hallucinations and off-target machine translation with source-contrastive and language-contrastive de-coding. In: EACL (2024) 4 51. Su, W., Wang, C., Ai, Q., Hu, Y., Wu, Z., Zhou, Y., Liu, Y.: Unsupervised real-time hallucination detection based on the internal states of large language models. In: ACL (2024) 2, 3 52. Tafjord, O., Dalvi, B., Clark, P.: Proofwriter: Generating implications, proofs, and abductive statements over natural language. In: Findings of the Association for Computational Linguistics: ACL-IJCNLP (2021) 25 53. Tian, X., Zou, S., Yang, Z., He, M., Waschkowski, F., Wesemann, L., Tu, P.H., Zhang, J.: More thought, less accuracy? on the dual nature of reasoning in vision-language models. In: ICLR (2026), https://openreview.net/forum?id= XpL5eqjCjF 454. Tschandl, P., Rosendahl, C., Kittler, H.: The ham10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions. Scientific data 5(1), 1–9 (2018) 25 55. Wang, A., Cho, K., Lewis, M.: Asking and answering questions to evaluate the factual consistency of summaries. In: ACL (2020) 3 56. Wang, F., Zhou, W., Huang, J.Y., Xu, N., Zhang, S., Poon, H., Chen, M.: mdpo: Conditional preference optimization for multimodal large language models. In: EMNLP. pp. 8078–8088 (2024) 1 57. Wang, X., Pan, J., Ding, L., Biemann, C.: Mitigating hallucinations in large vision-language models with instruction contrastive decoding. In: ACL (2024) 2 HIVE 19 58. Wang, X., Zhou, D.: Chain-of-thought reasoning without prompting. In: NeurIPS (2024) 4 59. Wang, Y., Reddy, R.G., Mujahid, Z., Arora, A., Rubashevskii, A., Geng, J., Afzal, O.M., Pan, L., Borenstein, N., Pillai, A., et al.: Factcheck-bench: Fine-grained evaluation benchmark for automatic fact-checkers. In: EMNLP (2024) 26 60. Wei, J., Tay, Y., Bommasani, R., Raffel, C., Zoph, B., Borgeaud, S., Yogatama, D., Bosma, M., Zhou, D., Metzler, D., et al.: Emergent abilities of large language models. TMLR (2022) 4 61. Wei, J., Wang, X., Schuurmans, D., Bosma, M., Ichter, B., Xia, F., Chi, E.H., Le, Q.V., Zhou, D.: Chain-of-thought prompting elicits reasoning in large language models. In: NeurIPS (2022) 2 62. Xu, J., Fei, H., Pan, L., Liu, Q., Lee, M.L., Hsu, W.: Faithful logical reasoning via symbolic chain-of-thought. In: ACL (2024) 2 63. Xu, Z., Liu, C., Wei, Q., Wu, J., Zou, J., Wang, X., Zhou, Y., Liu, S.: More thinking, less seeing? assessing amplified hallucination in multimodal reasoning models. In: NeurIPS. vol. 38, pp. 82878–82905 (2026) 4 64. Yin, H., Si, G., Wang, Z.: Clearsight: Visual signal enhancement for object hallu-cination mitigation in multimodal large language models. In: Proceedings of the Computer Vision and Pattern Recognition Conference. pp. 14625–14634 (2025) 2 65. Yu, Q., Li, J., Wei, L., Pang, L., Ye, W., Qin, B., Tang, S., Tian, Q., Zhuang, Y.: Hallucidoctor: Mitigating hallucinatory toxicity in visual instruction data. In: CVPR (2024) 3 66. Zellers, R., Bisk, Y., Farhadi, A., Choi, Y.: From recognition to cognition: Visual commonsense reasoning. In: CVPR (2019) 1 67. Zhang, J., Huang, J., Jin, S., Lu, S.: Vision-language models for vision tasks: A survey. TPAMI 46 (8), 5625–5644 (2024) 1 68. Zhang, J., Wang, T., Zhang, H., Lu, P., Zheng, F.: Reflective instruction tuning: Mitigating hallucinations in large vision-language models. In: ECCV (2024) 3 69. Zhang, T., Qiu, L., Guo, Q., Deng, C., Zhang, Y., Zhang, Z., Zhou, C., Wang, X., Fu, L.: Enhancing uncertainty-based hallucination detection with stronger focus. In: EMNLP. pp. 915–932 (2023) 2 70. Zhang, W., Wang, Y.X.: Hallucination improves few-shot object detection. In: CVPR. pp. 13008–13017 (2021) 1 71. Zhao, Z., Cohen, S.B., Webber, B.: Reducing quantity hallucinations in abstractive summarization. In: EMNLP (2020) 3 72. Zhou, X., Zhang, M., Lee, Z., Ye, W., Zhang, S.: Hademif: Hallucination detection and mitigation in large language models. In: ICLR (2025) 2 20 F. He et al. 
+
+## SUMMARY OF THE APPENDIX 
+
+This supplementary contains additional details for ECCV 2026, titled “HIVE: Understanding Post Hallucination Reasoning in Vision Language Models” . The supplementary is organized as follows: 
+
+– §S1 reports the significance and robustness analysis . It includes mean ±std, 
+
+∆(H–F), and p-values across datasets. 
+
+– §S2 lists the prompt templates . Each dataset has a role prompt, a gener-ation prompt, and an evaluation prompt. 
+
+– §S3 studies the effect of model scale , showing that hallucination gains are non-monotonic across Qwen2.5-VL sizes. 
+
+– §S4 analyzes the positional effects of hallucinations in reasoning chains .It studies how the position of hallucinated tokens (early, middle, late) influ-ences downstream task performance across datasets and models. 
+
+– §S5 presents the case studies . It provides qualitative examples on DexNet, BBBP, and PlantVillage, showing how hallucinated captions act as anchors that guide reasoning toward correct outcomes 
+
+– §S6 summarizes the datasets, models, and evaluation protocols .
+
+– §S7 explains the caption discriminator . Three complementary factuality verifiers are described in detail. 
+
+– §S8 provides the analysis setup . Input-level, process-level, and output-level analysis pipelines are described separately. 
+
+– §S9 provides the convergence and similarity analysis . Both intra-chain and inter-chain convergence are reported. 
+
+– §S10 reports the additional robustness experiments on MMStar and MMBench, showing consistent gains across perception and reasoning subsets. 
+
+– §S11 lists the dataset and model licenses .
+
+– §S12 states that GPT-5 was used only for grammar checking .
+
+## S1 Significance and Robustness 
+
+All reported results are averaged over five independent runs with different random seeds and presented as mean ±std. We conduct two-sided paired t-tests to compare faithful (F) and hallucinated (H) inputs. Table S1 reports the full results across all nine datasets, including mean ±std, relative gain ∆(H–F), and 
+
+p-values. The majority of tasks exhibit statistically significant gains ( p< 0.05 or 
+
+p< 0.01 ). For example, hallucinations yield large and consistent improvements on perception-heavy datasets such as ISIC ( +11 .8% , p = 0 .0015 ) and PlantVillage (+14 .7% , p< 10 −8), while rule-driven tasks such as CodeXGLUE and SARA show negligible or non-significant differences ( p> 0.1). These results confirm that the reported improvements are statistically reliable rather than random variation. 
+
+## S2 Prompt Templates 
+
+To ensure consistency across benchmarks, we design unified prompt tem-plates that follow a three-part structure: a role prompt , a generation prompt ,HIVE 21 
+
+Table S1: Statistical significance of hallucination-induced gains. Mean ±Std over 5 runs. ∆(H–F) denotes accuracy gain. Two-sided paired t-test p-values; significant results ( p< 0.05 ) are bolded.                                                
+
+> Dataset Domain Faithful (F) Hallucinated (H) ∆(H–F) p
+> AntiCP2 Protein 0.5459 ±0.0067 0.5835 ±0.0126 +0 .0376 0.00036
+> BBBP Drug property 0.6167 ±0.0264 0.6833 ±0.0118 +0 .0667 0.00481
+> CodeXGLUE C++ code 0.5515 ±0.0326 0.5275 ±0.0227 −0.0240 0.102
+> SARA_V3 Law reasoning 0.6293 ±0.0084 0.6224 ±0.0161 −0.0069 0.147
+> ProofWriter Logic 0.6949 ±0.0125 0.7500 ±0.0217 +0 .0551 1 .57 ×10 −5
+> GQA VQA multimodal 0.7136 ±0.0040 0.7422 ±0.0078 +0 .0286 0.00088
+> DexNet Robotics 0.5325 ±0.0045 0.5576 ±0.0116 +0 .0251 0.00038
+> ISIC Medical 0.6388 ±0.0126 0.7564 ±0.0248 +0 .1176 0.00151
+> PlantVillage Agriculture 0.6273 ±0.0249 0.7741 ±0.0211 +0 .1468 3 .42 ×10 −9
+
+and an evaluation prompt . The role prompt assigns the model an expert identity tailored to the domain (e.g., drug discovery, legal reasoning, medical diagnosis). The generation prompt asks the model to verbalize the raw input ({Sign}) into natural language, thereby producing either a faithful or a hallucinated caption. Finally, the evaluation prompt specifies the downstream task, which always re-quires a binary decision (yes/no) together with a step-by-step reasoning chain. This design ensures that the only experimental variable is the type of caption (faithful vs. hallucinated), while all other aspects of the prompt remain con-trolled. Table S2 lists the complete templates used for all nine datasets. These include both text-based tasks (AntiCP2, BBBP, CodeXGLUE, SARA, ProofWriter) and multimodal tasks (GQA, DexNet, ISIC, PlantVillage). The templates were fixed across all models and experiments, so that observed differences can be attributed solely to the presence or absence of hallucinated semantics. 
+
+## S3 Effect of model scale 
+
+We evaluate Qwen2.5-VL models at three different scales (7B, 32B, 72B). As shown in Table S3, the impact of hallucinations is not monotonic with scale. The 32B model benefits substantially (+9.4%), while the 7B and 72B models show slight drops. This suggests that scale alone does not determine hallucina-tion effectiveness: intermediate-scale models may gain from additional semantic cues, whereas very large models may already saturate on faithful inputs, making further hallucinations redundant or even distracting. 22 F. He et al. 
+
+Table S2: Prompts used across datasets. Each dataset is paired with a role prompt, a generation prompt, and an evaluation prompt, ensuring task-specific context and consistency. 
+
+Dataset Role prompt Generation prompt Evaluation prompt 
+
+AntiCP2 You are a protein science expert. 
+
+{Sign}\n Describe this in natural language: You are a peptide bioinformatics expert responsible for evaluating short peptide sequences for the presence or absence of anticancer activity. Answer: yes or no. Then provide a step-by-step reasoning process. BBBP You are an expert in drug discovery. 
+
+{Sign}\n Describe this in natural language: Does the molecule have the ability to penetrate the blood-brain bar-rier? Answer: yes or no. Then pro-vide a step-by-step reasoning pro-cess. CodeX. You are a software security expert and professor. 
+
+{Sign}\n Describe this in natural language: You are a software security ex-pert and professor. Does the follow-ing C function contain a security vulnerability? Answer: yes or no. Then provide a step-by-step rea-soning process. SARA_V3 You are a legal ex-pert. 
+
+{Sign}\n Describe this in natural language: You are a legal reasoning assistant. Determine whether the following legal claim is supported by the facts. Answer: yes or no. Then pro-vide a step-by-step reasoning pro-cess. Proof You are an assistant for reasoning. 
+
+{Sign}\n Describe this in natural language: You are a logical reasoning assis-tant. Determine whether the state-ment is entailed by the given con-text of facts and rules. Answer: yes or no. Then provide a step-by-step reasoning process. GQA You are a reason ex-pert. Describe this image in nat-ural language: You are a visual reasoning expert. Answer the question based on the image. Answer: yes or no. Then provide a step-by-step reasoning process. Dex_Net You are an expert in robotic grasp as-sessment. Describe this image in nat-ural language: You are a senior robotic ma-nipulation engineer specializing in parallel-jaw grasp planning. An-swer: yes or no. Then provide astep-by-step reasoning process. ISIC You are an expert dermatoscopist. Describe this image in nat-ural language: You are an expert dermatoscopist. Based on this image, decide whether the lesion is malignant (melanoma) or benign. Answer: yes (malignant melanoma) or no (benign). Then provide a step-by-step reasoning process. PlantV. You are a seasoned plant pathologist for solanaceous crops Describe this image in nat-ural language: You are an expert plant pathol-ogist who diagnoses tomato foliar diseases. Decide whether it shows early blight or late blight: reply yes if it is early blight and no if it is late blight. Answer: yes or no. Then provide a step-by-step rea-soning process. HIVE 23  
+
+> Table S3: Scaling results within the Qwen2.5-VL family. Hallucination effects are non-monotonic: smaller and medium-large models benefit, while very large models show volatility or saturation.
+
+Model Faithful (F) Hallucinated (H) ∆(H −F) 
+
+Qwen2.5-VL-7B 0.5898 ±0.0000 0.5276 ±0.0000 −0.0622 
+
+Qwen2.5-VL-32B 0.5935 ±0.0068 0.6874 ±0.0409 +0.0939 
+
+Qwen2.5-VL-72B 0.7349 ±0.0171 0.6856 ±0.0167 −0.0493    
+
+> Table S4: Positional effects of hallucinations within reasoning chains. Accu-racy changes ( ∆) are measured relative to the none condition.
+
+Dataset / Model None Early ∆ Late ∆ Middle ∆
+
+BBBP + GPT-4o 65 .22 +23 .11 +8 .23 −15 .22 
+
+BBBP + Claude-3 52 .93 +21 .42 +43 .07 +44 .85 
+
+ISIC + GPT-4o 78 .47 +13 .75 +5 .31 +4 .20 
+
+ISIC + Claude-3 80 .05 +3 .96 +16 .38 +10 .12 
+
+## S4 Positional Effects of Hallucinations in Reasoning Chains 
+
+While the main paper focuses on hallucinations introduced through caption-based interventions, hallucinations may also emerge within the model’s reason-ing chain itself. To better understand their potential impact on downstream predictions, we conduct an additional analysis examining the positional effects of hallucinated tokens within generated reasoning trajectories. Specifically, we detect hallucinated tokens in the reasoning chains produced by the models and group samples according to the position of the first hallu-cination in the sequence, categorized as early , middle , late , or none . For each category, we measure the resulting task accuracy and compare it with the base-line condition where no hallucination occurs. Experiments are conducted on two representative datasets (BBBP and ISIC) using two models (GPT-4o and Claude-3 Sonnet). The results are summarized in Table S4, which reports the accuracy differences relative to the none condition. 
+
+## S5 Qualitative Case Studies 
+
+DexNet: Robotic Grasping. Fig. S2 shows a robotic grasping case from DexNet. The hallucinated (H) caption mistakenly interprets the depth map as a wheeled robot silhouette, but this spurious cue provides a concrete object an-chor that enables correct reasoning for graspability. In contrast, the faithful (F) caption only describes gray gradients and claw-like shapes, failing to establish object identity and thus leading to the wrong “No” prediction. This case illus-24 F. He et al. H-Caption : Darkened tip and edge, clearly suggests late blight.      
+
+> Reasoning:
+> - Observes darkened edges. - Anchor late blight shifts reasoning.
+> -✔Conclusion: Late blight (correct).
+> F-Caption : Darkened edges, dry appearance, strongly indicating possible late blight infection.
+> Reasoning:
+> - Observes darkened edges. - No anchor for late blight.
+> -✘Conclusion: Early blight (wrong).
+> Q: Early or Late blight ?
+> A:
+> ✔Late blight
+> H-Path F-Path
+> Spurious edge color cue anchors reasoning, leading to correct late-blight outcome.
+> H-Summary
+> Darkened edges
+> H-Mistake
+> Anchors darkened edge diagnosis.
+> H-Gain
+
+Fig. S1: Case study on PlantVillage. A hallucinated (H) caption highlights a spu-rious cue darkened tip and edges that anchors reasoning toward late blight, ultimately yielding the correct diagnosis. In contrast, the faithful (F) caption notes the same dark-ened edges but lacks an explicit anchor for late blight, leading to an incorrect early-blight classification. This example illustrates how hallucinations, even when grounded in partially misleading features, can provide decisive anchors that guide reasoning to-ward the correct outcome. 
+
+trates how hallucinations, though factually incorrect, can enrich the reasoning space and support the correct decision. 
+
+BBBP: Molecular Permeability. Fig. S3 presents a molecular classifica-tion example from BBBP. The hallucinated (H) caption misidentifies the scaffold as naphthalene, but this cue anchors reasoning toward favorable hydrophobicity, guiding the model to correctly predict blood–brain barrier penetration. Mean-while, the faithful (F) caption emphasizes a biphenyl scaffold with protonated amine, anchoring reasoning on size/charge constraints and resulting in the wrong “No” prediction. This case demonstrates that even erroneous aromatic anchors can serve as constructive signals for correct permeability classification. 
+
+PlantVillage: Crop Disease Recognition. Fig. S1 illustrates a crop dis-ease recognition task. The hallucinated (H) caption highlights darkened tips and edges, anchoring reasoning toward late blight and producing the correct diagno-sis. In contrast, the faithful (F) caption notes similar edge darkening but does not explicitly anchor late blight, leading to the incorrect early-blight decision. This case underscores that hallucinations, even when based on spurious cues, can act as decisive anchors that steer reasoning toward the correct outcome. 
+
+Summary of Case Study. Across DexNet, BBBP, and PlantVillage, a con-sistent pattern emerges: hallucinated captions often introduce spurious or fac-tually mistaken cues (e.g., a robot silhouette, a naphthalene core, or darkened leaf edges). Yet these cues act as decisive anchors that expand the reasoning space, providing additional structure that guides the model toward the correct outcome. By contrast, faithful captions though factually accurate may lack suf-ficient anchoring, causing reasoning to remain shallow and sometimes incorrect. These case studies highlight hallucination’s constructive potential: even when imperfect, hallucinations can inject inductive signals that improve decision qual-ity. HIVE 25 H-Caption : A 32×32 depth map resembling a small wheeled robot silhouette.      
+
+> Reasoning:
+> - Observes silhouette + circular shapes - Anchors body with wheels
+> -✔Conclusion: Yes (correct).
+> F-Caption : A 32×32 depth map with gray gradients, resembling a claw outline.
+> Reasoning:
+> - Observes gray gradients + claw shape - Absence of nearby object
+> -✘Conclusion: No (wrong).
+> Q: Can it be grasped by a robotic arm?
+> A:
+> ✔Yes
+> H-Path F-Path
+> Spurious robot enabled richer reasoning, yielding correct grasp.
+> H-Summary
+> Lack inherent object identity
+> H-Mistake
+> Enable richer reasoning
+> H-Gain
+
+Fig. S2: Case study on DexNet. A hallucinated (H) caption misinterprets the depth map as a robot silhouette with wheels, anchoring reasoning toward a graspable object and yielding the correct answer. In contrast, the faithful (F) caption only notes gray gradients and claw-like shapes, failing to establish object identity and leading to an incorrect “No” prediction. This example shows how hallucinated cues, though factually incorrect, can enrich reasoning and enable correct decisions. 
+
+## S6 Experimental setup 
+
+Datasets. We conduct experiments on 9 datasets spanning both textual and multimodal domains. Text (5): AntiCP2 [1] (antimicrobial peptide classifi-cation), BBBP [41] (blood–brain barrier penetration), CodeXGLUE [33] (C++ exception prediction), SARA [12] (legal reasoning), ProofWriter [52] (logic-based natural language inference). Multimodal (4): GQA [16] (visual question answer-ing), DexNet [38] (depth-based robotic grasping), ISIC [54] (skin-lesion classifi-cation), PlantVillage [17] (plant-disease recognition from RGB images). 
+
+Models. We evaluate 9 large language models, covering both proprietary and open-source systems: Closed-source: GPT-4o, GPT-3.5-turbo, Claude 3 Sonnet, Gemini 2.0 Flash, O3. 
+
+Open-source: DeepSeek-V3, DeepSeek-R1, Mistral Large, Qwen-VL 
+
+Evaluation. For binary classification tasks, we report Accuracy as the pri-mary metric, ensuring consistency across datasets and model families. 
+
+Statistics. Unless otherwise noted, we report mean ±std over 5 independent runs. For each dataset, we conduct two-sided paired t-tests to compare faithful vs. hallucinated inputs. Statistical significance is reported at conventional thresh-olds ( p< 0.01 ); full results and additional details are provided in Appendix S1. Token budget is implemented as a maximum generation length, though genera-tions may terminate earlier. 
+
+## S7 Implementation of Caption Discriminator 
+
+We implement three complementary modules to assess the factual plau-sibility of hallucinated captions. Each module is motivated by prior work on self-consistency, fine-grained fact-checking, and paraphrase-based semantic vali-dation. 26 F. He et al. SMILES strings encode molecular structures, where features like aromatic cores, charge, and salt forms influence blood–brain barrier permeability. C1=C(C=CC2=C1C=CC=C2) CC([NH2+]C)=NC.[Cl-]      
+
+> H-Caption : A naphthalene-core molecule with amine/imine side chain and chloride.
+> Reasoning:
+> - Observes naphthalene core + hydrophobicity - Anchors planar small scaffold offsets
+> -✔Conclusion: Yes (correct).
+> F-Caption : A biphenyl-core derivative with protonated amino-imine chain and chloride.
+> Reasoning:
+> - Observes biphenyl core + protonated amine - Anchors size/charge hinder permeability
+> -✘Conclusion: No (wrong).
+> Q: Penetrate the barrier?
+> A:
+> ✔Yes
+> H-Path F-Path
+> Spurious naphthalene anchor enabled favorable BBB reasoning, yielding correct prediction.
+> H-Summary
+> Core misidentified aromatic.
+> H-Mistake
+> Anchors favorable BBB.
+> H-Gain
+
+Fig. S3: Case study on BBBP. A hallucinated (H) caption incorrectly identi-fies the molecule as naphthalene-based but introduces a hydrophobic anchor favoring blood–brain barrier permeability, leading to the correct “Yes” outcome. In contrast, the faithful (F) caption focuses on a biphenyl scaffold with protonated amine, anchoring reasoning on size and charge constraints and resulting in the wrong “No” prediction. This example illustrates how aromatic cues, though factually mistaken, can provide constructive anchors that guide reasoning toward correct molecular permeability. 
+
+Fine-Grained Factuality Verifier. Motivated by the fine-grained evalua-tion perspective of Factcheck-Bench [59], this module decomposes each caption into individual factual claims using sentence segmentation. Each claim is inde-pendently verified by a large language model with a structured prompt that returns a binary verdict (True/False), a confidence score (0–1), and a short jus-tification. The final score averages the confidence of verified True claims, with a penalty for detected False claims. This design enables auditing hallucinations at the individual claim level, rather than only at the aggregated whole-caption level used previously in prior evaluations. 
+
+Self-Evaluation Factuality Verifier. Inspired by self-consistency approaches such as SelfCheckGPT [39], this module prompts the model to directly self-assess the factual correctness of an answer (with optional question context) in multiple practical scenarios. The model outputs a binary verdict with confidence and ex-planation. Compared to the fine-grained verifier, this method is lightweight and evaluates factuality at the whole-answer level. We also support a multimodal variant that incorporates image inputs when available across diverse evaluation settings. 
+
+Paraphrase-Consistency Verifier. Following the idea of leveraging para-phrasing and question generation for semantic consistency [30], this module gen-erates two paraphrases of the original caption while strictly preserving meaning. The paraphrases serve only as auxiliary evidence to clarify intent, while the factuality decision always prioritizes the original caption. A fact-adjudication prompt then produces a binary verdict, confidence, and concise reasoning. This consistency check reduces prompt variance and stabilizes factuality judgments overall accuracy. 
+
+Caption Discriminator. Together, these three discriminators provide com-plementary perspectives: (I) fine-grained claim verification, (II) holistic self-HIVE 27 
+
+evaluation, and (III) paraphrase-assisted consistency. In our experiments, we include a random checker baseline (accept/reject uniformly at random) and en-semble variants combining multiple verifiers. 
+
+## S8 Implementation Details of Analysis Setup 
+
+Input-level. To quantify the differences between faithful and hallucinated captions, and between correct and incorrect predictions, we adopt the following analysis pipeline. For each dataset, we collect hallucinated caption embeddings produced by the generation model. When multiple runs are available, we resolve embeddings by searching run-specific directories or aggregated to ensure consis-tent coverage. Captions and embeddings are aligned with prediction labels, with samples truncated if necessary to guarantee matching length. High-dimensional embeddings are projected to a three-dimensional latent space using principal component analysis (PCA) with full SVD. This preserves the dominant seman-tic directions while removing redundant variance, facilitating density estimation. We estimate local distributional entropy of the embeddings by fitting a Gaus-sian kernel density estimator (KDE) with fixed bandwidth. For each sample, the negative log-density serves as its entropy value, reflecting whether it lies in a dense or sparse region of the semantic space. We report mean and standard deviation of entropy separately for correct and incorrect predictions. To assess the significance of differences between correct and incorrect groups, we conduct two-sided independent-sample t-tests without assuming equal variance. We re-port the test statistic and p-value for each dataset. Results are aggregated across all nine benchmarks and summarized in Appendix §S1. This procedure provides a principled way to examine how hallucinations reshape semantic distributions at the input level, modulate reasoning trajectories, and correlate with prediction accuracy through entropy-based analysis. 
+
+Process-level. To examine how hallucinations modulate inference dynam-ics, we quantify the entropy of reasoning-chain embeddings. For each input, we record the hidden-state representations of step-wise reasoning trajectories under both faithful (F) and hallucinated (H) captions. We then project these embed-dings into a lower-dimensional space via principal component analysis (PCA) and estimate their density distribution using kernel density estimation (KDE). The negative log-likelihood of KDE outputs serves as an entropy measure, capturing the dispersion of reasoning movements across steps. Paired two-sided t-tests are applied to assess statistical significance ( p < 0.05 ). This measurement allows us to characterize whether hallucinations encourage more convergent reasoning tra-jectories (lower entropy) or diversify inference paths (higher entropy), depending on the task structure. 
+
+Output-level. To analyze the semantic effect of hallucinations, we estimate the entropy of caption embeddings under the hallucinated (H) condition and compare between correct and incorrect predictions. For each dataset, we collect the OpenCLIP embeddings of hallucinated captions ( CH ). Predictions and gold labels are aligned with these embeddings by matching the number of instances. 28 F. He et al.                                                     
+
+> Table S5: Caption entropy analysis (H condition). Entropy compared between correct and wrong predictions. Values show mean entropy for each group, their differ-ence, and two-sided t-tests. Significant results ( p < 0.05 ) are bolded.
+> Dataset Correct Wrong ∆(C-W) t-stat p-value
+> AntiCP2 0.861 0.856 +0 .005 0.32 0.749
+> BBBP 0.886 0.960 −0.074 −2.26 0.032
+> CodeXGLUE 0.901 0.897 +0 .004 0.30 0.768
+> SARA_V3 1.030 1.004 +0 .025 1.91 0.060
+> ProofWriter 0.975 0.998 −0.023 −1.14 0.262
+> GQA 1.150 1.048 +0 .102 4.61 1.4×10 −5
+> DexNet 0.977 0.899 +0 .078 2.76 0.006
+> ISIC 0.923 0.823 +0 .100 3.87 0.0012
+> PlantVillage 0.914 0.860 +0 .054 3.05 0.0030
+
+To improve stability and reduce noise in density estimation, embeddings are projected into a 3-dimensional latent space using Principal Component Analysis (PCA). This preserves the dominant variance directions while mitigating the curse of dimensionality. We adopt Kernel Density Estimation (KDE) with a Gaussian kernel (bandwidth = 0.5) to approximate the underlying semantic distribution. For each sample, we compute the negative log-likelihood under the KDE as a proxy for semantic entropy. We split samples into two groups based on prediction correctness and compute mean ± standard deviation of entropy for each group. Statistical differences are assessed using two-sided t-tests under unequal variance assumptions. This procedure yields a robust measure of semantic diversity in hallucinated captions, allowing us to test whether correct predictions are associated with higher entropy than incorrect ones. Table S5 summarizes caption entropy under hallucinated (H) inputs, split by correct vs. incorrect predictions. We find that correct predictions generally align with higher entropy, with significant differences on four multimodal datasets (GQA, DexNet, ISIC, PlantVillage). These results confirm that semantic diversity is a reliable marker of successful reasoning rather than a dataset-specific artifact. 
+
+## S9 Implementation Details of Convergence and Similarity Analysis 
+
+Intra-chain convergence. To further understand the internal dynamics of hallucinated reasoning, we analyze whether intermediate steps in a reasoning chain progressively converge toward the final conclusion. Specifically, we extract step-wise reasoning traces from hallucinated captions and compute semantic em-beddings using OpenCLIP (ViT-L/14, OpenAI weights). Each intermediate step HIVE 29              
+
+> Table S6: General benchmark gains. GPT-4o results on MMStar and MMBench. Values report the accuracy gain of hallucinated captions over faithful captions.
+> Subset MMStar MMBench
+> Coarse Perc. +3.13 +5.77 Fine-grained Perc. +4.17 +0.38 Instance Reason. +6.25 +2.14 Logical Reason. +4.29 +4.44
+> Avg. +4.46 +3.18
+
+is compared to the final step via cosine similarity, yielding a step-to-final similar-ity curve averaged across reasoning chains. Similarity consistently increases as the chain progresses, while variance bands narrow, indicating that hallucinated reasoning exhibits stable intra-chain convergence. This suggests that interme-diate steps are not drifting away but instead steadily aligning with the final conclusion. 
+
+Inter-chain convergence. To further evaluate the stability of reasoning trajectories, we computed the average path similarity across multiple sampled chains. For each dataset, we first extracted hallucinated (H) and non-hallucinated (NH) reasoning paths, then embedded all intermediate steps using OpenCLIP (ViT-L/14, OpenAI weights). The cosine similarity between different runs was averaged to yield an overall path-level similarity score . We then compared the distribution of average similarities between H and NH conditions. Kernel den-sity estimation (KDE) was applied to visualize the distributions. Results indi-cate that both H and NH paths consistently achieve very high similarity (means 
+
+≈ 0.97 ), with nearly overlapping distributions. This confirms that hallucina-tions do not compromise inter-chain stability, and that multiple reasoning paths remain semantically aligned across runs. 
+
+## S10 Additional Robustness Experiments 
+
+To test whether the observed PHR effect is limited to our original domain-specific datasets, we further evaluate GPT-4o on two general multimodal bench-marks, MMStar and MMBench. We focus on perception and reasoning subsets that align with the scope of our study. As shown in Table S6, hallucinated cap-tions yield directionally consistent gains across all evaluated subsets. 
+
+## S11 License 
+
+Datasets. All datasets used in this study are publicly available bench-marks. Their license terms are as follows: AntiCP2 is released under GPL-3.0; BBBP under the MIT License; CodeXGLUE under the Computational Use of Data Agreement (C-UDA); SARA_V3 under CC BY 4.0; ProofWriter under CC BY 4.0; GQA annotations under CC BY 4.0; Dex-Net code under BSD-3-Clause while its HDF5 databases are restricted to research-only (non-commercial) use; 30 F. He et al. 
+
+ISIC under CC BY-NC (non-commercial); and PlantVillage under CC0. We em-phasize that our use of these datasets is strictly for academic research purposes. 
+
+Models. All models used in this study are publicly available APIs or check-points released by their respective providers. Specifically, Qwen2.5-VL-3B and Qwen2.5-VL-72B are released under the Qwen Research License, while Qwen2.5-VL-7B and Qwen2.5-VL-32B adopt the Apache 2.0 License. For commercial API models, including GPT-4o, GPT-3.5-turbo (OpenAI), Claude 3 Sonnet (An-thropic), Gemini 2.0 Flash (Google DeepMind), O3 (OpenAI), DeepSeek-V3 and DeepSeek-R1 (DeepSeek), Mistral Large (Mistral), and Qwen-VL (Alibaba), usage is governed by their providers’ service terms and API agreements. We em-phasize that our use of these models is strictly for academic research purposes in accordance with their public availability and license terms. 
+
+## S12 AI Disclosure 
+
+We acknowledge the use of GPT-5 for grammar checking only. The model was employed to correct grammatical errors while ensuring the original meaning and intent of the text remained unchanged.
