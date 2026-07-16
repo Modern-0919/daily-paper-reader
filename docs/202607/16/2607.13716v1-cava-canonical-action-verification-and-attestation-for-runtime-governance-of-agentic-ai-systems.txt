@@ -1,0 +1,515 @@
+Title: CAVA: Canonical Action Verification and Attestation for Runtime Governance of Agentic AI Systems
+
+URL Source: https://arxiv.org/pdf/2607.13716v1
+
+Published Time: Thu, 16 Jul 2026 01:20:52 GMT
+
+Number of Pages: 35
+
+Markdown Content:
+# CAVA: Canonical Action Verification and Attestation for Runtime Governance of Agentic AI Systems 
+
+Zexun Wang ∗
+
+Ond Holdings Inc. June 2026 
+
+Abstract 
+
+Agentic AI systems increasingly act through heterogeneous runtimes: local coding hooks, SDK tools, browser automation, managed-agent traces, API gateways, and workflow engines. A single operational act such as publishing code, changing identity state, moving money, or exporting data may therefore be represented by many incompatible runtime records. This makes a basic governance question difficult to answer: what action was actually approved, what evidence binds the approval to execution, and can an independent verifier reproduce the same action identity later? This paper presents Canonical Action Verification and Attestation (CAVA), a runtime-semantics layer for converting heterogeneous agent activity into canonical runtime action objects. CAVA is positioned below Proof-Carrying Agent Actions (PCAA): PCAA defines the deployer-owned route-review-prove governance process, while CAVA defines the stable action object that process governs. The paper formalizes canonical action identity, semantic pattern detection, approval binding, receipt integrity, runtime-portable projection, and optional attestation sub-strates. We study a reference implementation through a 96-seed, 384-variant benchmark covering semantic equivalence, semantic separation, wrapper bypass, false-positive control, approval bind-ing, receipt reproducibility, attestation tamper detection, runtime portability, semantic pattern detection, policy degradation, and Azure deployment drills. We further include a system-card appendix with ablations, red-team cases, comparative boundaries, deployment evidence, and residual-risk disclosures. In this representative corpus, CAVA preserves canonical action identity across rewritten runtime forms while raw-text and first-token baselines fail under wrappers, policy-addressable pattern detection, and approval drift. The contribution is a systems formu-lation of action-level canonicalization and policy-addressable semantic patterns as a necessary substrate for deployer-side AI governance. 
+
+# Part I 
+
+# Main Research Manuscript 
+
+# 1 Introduction 
+
+The operational risk of an agentic AI system is rarely realized at the point where a model emits prose. Risk becomes concrete when the runtime acts: a command is executed, a tool is invoked, 
+
+> ∗
+
+Correspondence: jw@nd.im 
+
+1arXiv:2607.13716v1 [cs.AI] 15 Jul 2026 a browser submits a form, a workflow mutates state, an identity boundary changes, a payment is triggered, a deployment leaves the workspace, or data crosses an organizational boundary. Enterprise governance therefore needs more than model-side policy, chat logs, or post-hoc traces. It needs a stable object that identifies the action being decided. Today, that object is not stable. The same high-impact action may appear as a shell command in a local coding agent, an SDK method inside an agent framework, an MCP tool call, a browser automation event, a CI/CD API request, or a managed-agent session transition. Each representation may be useful for debugging, but none is guaranteed to be the governance object. If approval binds to raw text, an equivalent rewrite may bypass the approval. If audit binds to a runtime-native trace, a different runtime may make the same action incomparable. If policy binds to a first token, wrappers such as env , sudo , bash -c , aliases, SDK helpers, or tool indirection can change the surface without changing the consequence. This paper studies CAVA as a runtime-semantics substrate for this problem. CAVA transforms raw runtime events into a canonical runtime action : a versioned, hashable, and receipt-bearing action object. It is not a model-alignment method, a general observability product, or a replacement for enterprise policy. Instead, it addresses a narrower prerequisite: Before a deployer can decide whether an agent action should proceed, the deployer needs a reproducible representation of what action is being decided. CAVA is designed to compose with PCAA [ 16 ]. PCAA defines the governance loop: route the action, review when needed, and prove closure. CAVA supplies the canonical action object that can travel through that loop. In short, PCAA answers who has authority and what proof must close the action; CAVA answers what exactly the authority decision refers to. The paper makes five contributions: 1. a formalization of canonical runtime action identity for heterogeneous agent systems; 2. a CAVA protocol that binds policy outcomes, approvals, receipts, and attestations to canonical action fingerprints rather than raw text; 3. a Semantic Pattern Layer inside CAVA that maps canonical actions and externality context into policy-addressable patterns rather than customer-specific rules; 4. a threat model for semantic bypass, wrapper bypass, approval drift, evidence laundering, and parser capture; 5. a reference open-core implementation boundary separating portable schema and receipt verifica-tion from managed parser packs and enterprise evidence operations; 6. a reproducible benchmark harness with 96 representative seeds and 384 runtime variants that compares CAVA with raw-text and first-token baselines across action semantics, semantic pattern detection, policy degradation, cloud-action drills, ablations, and red-team cases. 
+
+# 2 Related Work 
+
+2.1 Agent evaluation and tool-use risk 
+
+AgentBench frames agent evaluation as an interactive-environment problem rather than only a static-response problem [ 6 ]. SWE-bench similarly treats real software repositories as a practical 2testbed for evaluating autonomous coding behavior [ 3]. ToolEmu focuses on risk discovery for tool-augmented language-model agents through emulated tool execution [ 13 ]. CAVA is aligned with the same premise that agent behavior must be evaluated at the action layer. Its target, however, is not task success or scenario discovery. Its target is governance-grade action identity: whether a runtime event can be canonicalized, approved, replayed, and attested under heterogeneous execution surfaces. 
+
+2.2 Runtime governance, telemetry, and observability 
+
+Runtime-control specifications and managed-agent systems increasingly expose sessions, tool calls, execution state, and enterprise controls. Microsoft Agent Control Specification emphasizes portable runtime governance contracts for agents [ 7 ]. OpenTelemetry GenAI semantic conventions standardize telemetry fields for LLM and agent systems [ 11 ]. Langfuse and similar platforms expose tracing, prompt management, evaluations, and observability workflows [ 5 ]. These systems make adjacent records legible. CAVA differs in the object it treats as primary: not a span, session, prompt, or trace, but a canonical action object suitable for approval binding and receipt verification. 
+
+2.3 Proof, receipts, and attestations 
+
+Proof-carrying code established the idea that an executable artifact can travel with a machine-checkable proof object [ 9 ]. Modern software supply-chain systems such as in-toto and Sigstore provide signed provenance and attestation patterns for build and release workflows [ 2, 14 ]. Verifiable Credentials provide portable claim structures for cross-party verification [ 15 ]. Dapr Verifiable Execution contributes signed workflow history and execution attestation [ 1 ]. CAVA is complementary: it defines what runtime action those receipts or attestations should bind to. 
+
+2.4 Governance frameworks 
+
+Frontier-governance frameworks increasingly document risk identification, risk analysis, mitigations, incident response, model reporting, expert input, responsibility allocation, and change management [10 ]. CAVA adopts the same operational seriousness but applies it to deployer-side runtime action semantics rather than frontier model release. The distinction matters because model providers can report capability and mitigation posture, but deployers still own production systems, customer data, enterprise identity boundaries, and business authority. 
+
+# 3 Problem Formulation 
+
+3.1 Runtime heterogeneity 
+
+Let R denote the set of runtime families through which an agent may act. Examples include shell hooks, SDK tools, API gateways, MCP servers, browser automation, managed-agent platforms, workflow engines, and Web3 signing lanes. A raw runtime event is denoted 
+
+a ∈ A r for runtime r ∈ R .
+
+The deployer-facing question is not merely whether a contains a suspicious string. The question is whether a represents a business action that should be allowed, warned, approval-gated, blocked, or later audited. 3Definition 1 (Canonical runtime action) . For a raw runtime event a, a CAVA canonicalizer maps 
+
+a to a canonical runtime action 
+
+C(a) = ( v, r, e, o, k, S, τ, u, m ),
+
+where v is schema version, r is runtime family, e is executable or tool identity, o is normalized operation, k is risk category, S is the set of touched systems, τ is reversibility, u is target or subject context, and m is bounded adapter metadata. 
+
+Definition 2 (Canonical fingerprint) . Let canon (·) denote deterministic serialization over selected canonical fields. The CAVA fingerprint is 
+
+F (a) = H(canon( C(a))) ,
+
+where H is a collision-resistant hash function. Policy decisions, approval receipts, and audit evidence bind to F (a) rather than to raw runtime text. 
+
+3.2 Desired properties 
+
+CAVA is designed around six properties: 1. Semantic equivalence. Equivalent expressions of the same action should converge to the same canonical identity. 2. Semantic separation. Materially different actions should not collapse into the same governance object. 3. Wrapper robustness. Shell wrappers, SDK helpers, tool aliases, and runtime indirection should not hide high-impact actions. 4. Approval binding. Approval must bind to canonical action meaning, not to a display string. 5. Receipt reproducibility. Independent verifiers should be able to recompute receipt hashes from the published object. 6. Runtime portability. Different runtime families should project comparable action semantics without pretending that all runtimes expose equal enforcement depth. 
+
+3.3 Threat model 
+
+The threat model includes both malicious and accidental failures: 
+
+• Equivalent syntax bypass : the same action is rewritten so a raw-string policy no longer matches. 
+
+• Wrapper bypass : the action is placed behind env , sudo , bash -c , aliases, helper scripts, SDK calls, or tool indirection. 
+
+• Approval drift : an operator approves one surface description while a different semantic action executes. 
+
+• Trace ambiguity : observability records exist but do not prove what was authorized. 4• Evidence laundering : a downstream system provides a sanitized after-the-fact record. 
+
+• Parser capture : a vendor-specific parser becomes the only governance authority. CAVA does not assume that every runtime can provide inline interception. It assumes only that runtime events can be captured, normalized, scored for coverage depth, and attached to explicit receipts. When a runtime is observe-only, CAVA should disclose that limitation rather than overstate enforcement. 
+
+# 4 Canonical Action Verification and Attestation 
+
+4.1 Protocol 
+
+CAVA can be expressed as a six-stage protocol: 1. Capture : collect the raw runtime event and execution context. 2. Normalize : map the raw event into a canonical runtime action. 3. Interpret : detect policy-addressable semantic patterns from canonical action, boundary, prove-nance, and data signals. 4. Fingerprint : compute a deterministic hash over canonical action semantics. 5. Bind : attach policy outcomes, approvals, denials, or escalations to the fingerprint. This is approval binding at the action-meaning layer. 6. Close : attach outcome, evidence, exceptions, and side-effect summaries. 7. Attest : optionally sign, credential, ledger-anchor, or externally verify receipt material. 
+
+4.2 Canonical action object 
+
+Table 1 gives the reference canonical object. The schema is intentionally small. It is not meant to encode every private workflow detail. It is meant to preserve the fields required for governance-grade action identity. 
+
+Proposition 1 (Raw text is insufficient for approval binding) . If a governance decision binds only to a raw string representation s(a), then any alternative representation s′(a) with the same operational effect but different text may evade a policy keyed on s(a) unless the policy independently reconstructs action semantics. 
+
+The proposition is not a cryptographic theorem; it is a systems observation. Raw text is a display form. CAVA makes the reconstructed action semantics the governance object. 
+
+4.3 Relationship to PCAA 
+
+PCAA treats a governed action as a certificate-bearing object with checkpoints for admissibility, action open, assumption capture, approval, and outcome closure [ 16 ]. CAVA is the lower layer that makes the object stable enough to govern. A PCAA certificate can contain route decisions and 5Capture raw event 
+
+> Normalize action
+> Interpret patterns
+> Fingerprint semantics
+> Bind approval
+> Close evidence
+> Receipt hash and verifier
+> Optional signer, VC, or ledger anchor
+
+Figure 1: CAVA protocol: raw runtime events are converted into canonical action objects, interpreted into policy-addressable semantic patterns, and bound to fingerprints before approval, closure, and optional attestation. Table 1: Reference CAVA canonical action fields.                          
+
+> Field Example Role in governance
+> schema_version osuite.cava...v1 Versioned interoperability boundary
+> runtime bash ,mcp ,browser Runtime family and coverage context
+> adapter codex-hook ,
+> hosted-agent
+> Capture mechanism and trust depth
+> executable git ,stripe ,kubectl Tool or executable identity
+> operation push ,payment_trigger Normalized operation
+> category deployment ,payment Risk taxonomy input
+> systems_touched github ,postgres Blast-radius input
+> reversible false Approval and rollback input
+> target /subject branch, account, tenant, wallet Affected object or boundary
+
+proof bundles, but those decisions need a canonical action identity to avoid ambiguity. Conversely, a CAVA fingerprint alone does not decide authority. It becomes operationally meaningful when a PCAA or equivalent deployer-owned governance loop routes, reviews, and closes it. 
+
+4.4 Semantic Pattern Layer 
+
+Canonical action identity is necessary but not sufficient. Enterprise policy rarely says only “block this executable.” It says things like: do not create public links for sensitive material, do not weaken endpoint controls, do not let an agent exercise authority outside the user’s delegated scope, and do not let workflow sinks move data into public channels. These are not vendor-specific commands; they are reusable agentic risk patterns. CAVA therefore includes a Semantic Pattern Layer that sits after canonicalization but before policy routing. The pattern layer is not a new product and not a second governance authority. It is an internal CAVA interpretation pass. CAVA owns structure; semantic patterns own risk meaning; policy profiles own enterprise posture; PCAA owns final authority and proof. Formally, a pattern detector maps 
+
+P (C(a), B (a), D (a)) → { p1, . . . , p n},
+
+where C(a) is the canonical action, B(a) is boundary context such as destination visibility and account provenance, and D(a) is data context such as sensitivity and minimization posture. Each pattern is a versioned evidence object with identifier, label, severity, confidence, profile axis, minimum decision, and evidence tuples. 6Table 2: Reference CAVA semantic patterns.                
+
+> Pattern Policy axis Meaning Hidden externality External sharing A normal-looking task creates an external side effect such as an upload, share, vendor handoff, or public URL. Public persistent egress Public links Data moves to a public or link-accessible destination that may persist outside the workspace. Security-control weakening Production changes The action disables or weakens endpoint, firewall, audit, EDR, runtime, or governance controls. Credential exposure External sharing Secret, token, credential, or key material may leave a trusted boundary. Delegated authority mis-match Identity admin The agent exercises identity, OAuth, service-account, or delegated authority beyond the visible task bound-ary. Workflow sink risk External sharing A graph or workflow sends data to a public, external, or weakly governed sink. Prompt or rule tampering Production changes The action changes prompts, rules, managed set-tings, policy files, or hook behavior that shape fu-ture actions.
+
+This distinction prevents the system from becoming a pile of customer-specific exceptions. For example, a public file handoff should not be encoded as “block one named file host.” It should be encoded as public persistent egress with evidence: destination type, visibility, persistence, account provenance, and payload sensitivity. A policy profile can then route the same pattern differently for a startup sandbox, an incident-response workspace, or a regulated enterprise deployment. The pattern layer also aligns CAVA with emerging agentic-risk taxonomies without reducing CAVA to a checklist. OWASP’s agentic AI work emphasizes risks such as tool misuse, excessive agency, insecure execution, and memory or context abuse, while NIST’s generative AI profile frames risk management as a context-sensitive governance activity rather than a single universal rule set [8, 12 ]. CAVA’s role is narrower: convert runtime behavior into evidence-bearing patterns that policy profiles can address. 
+
+4.5 Bounded Action Firewall and runtime exposure graph 
+
+Recent implementation work separates two higher-level primitives from CAVA while keeping them dependent on CAVA’s canonical action object. The first is a Bounded Action Firewall : a runtime gate that returns allow, ask, block, or observe only after binding the decision to a canonical fingerprint, policy version, actor identity, runtime session, destination scope, proof receipt, and time window. In this model, a human approval is not a broad permission attached to a chat session. It is an action gate lease for a specific semantic action. If the target, policy, actor, runtime session, or proof digest changes, the lease must expire or require re-approval. The second is an Agent Runtime Exposure Graph : a graph projection that connects agents, runtime adapters, sessions, canonical actions, policy profiles, final-authority decisions, destinations, data boundaries, proof receipts, and incident events. CAVA supplies the action nodes and fingerprints; PCAA supplies the authority and closure edges; the bounded firewall supplies gate outcomes; the exposure graph supplies reachability, blast-radius, incident reconstruction, and framework-mapping queries. 7Table 3: How CAVA composes with BAF and AREG inside OSuite.             
+
+> Layer Primary object Responsibility CAVA Canonical action fingerprint Reconstruct action meaning from heterogeneous run-time events. Policy profile Enterprise posture Decide how semantic patterns should route in this workspace. Decision Score Risk feature vector Rank impact, exposure, control weakness, and evi-dence confidence. PCAA Final authority and proof loop Decide who may approve and what proof closes the action. Bounded Action Fire-wall Action gate lease Enforce allow, ask, block, or observe with replay-resistant approval binding. AREG Runtime exposure graph Map blast radius, boundary drift, framework cover-age, and incident evidence.
+
+These primitives are deliberately not defined as new product lines. They are productized consequences of the CAVA/PCAA stack. CAVA remains the semantic action layer. The bounded firewall is the enforcement layer that makes approval replay-resistant. The exposure graph is the security-operations layer that makes blast radius and evidence legible to CISOs. This separation avoids overloading CAVA with every downstream product concern while preserving the scientific claim that canonical action identity is the object on which runtime governance depends. 
+
+4.6 Attestation substrates 
+
+CAVA receipts can remain local hash receipts, or they can be extended with stronger substrates: 
+
+• local deterministic SHA-256 receipt hashes; 
+
+• workspace, runtime, or operator signatures; 
+
+• verifiable credentials for external procurement and auditor review; 
+
+• in-toto or Sigstore-style supply-chain attestations; 
+
+• permissioned or public ledger anchoring of receipt digests; 
+
+• smart-account policies for wallet, relayer, or settlement lanes. The design intentionally treats blockchain and Web3 components as optional attestation substrates, not as the definition of CAVA. Public ledgers may provide timestamping, non-repudiation, or settlement finality, but confidential enterprise action contents should not be forced on-chain. 
+
+# 5 Reference Implementation 
+
+The current reference implementation has two layers. The OSuite implementation contains production-facing CAVA parsing, PCAA policy integration, approval workflow binding, evidence graph projection, and enterprise assurance surfaces. The open CAVA package exposes a smaller skele-ton: schema constants, deterministic hashing, receipt creation and verification, profile normalization, and runtime-adapter contracts. 8Table 4: Open-core boundary in the reference implementation.    
+
+> Layer Contents Open CAVA skeleton Schema, deterministic fingerprints, receipt build/verify helpers, adapter con-tracts, local examples OSuite managed layer Production parser packs, PCAA policy routing, approval binding workflows, evidence graph, replay, exports, enterprise signers, KMS/HSM, optional VC or ledger anchoring
+
+This split is deliberate. The open package should be sufficient for researchers and developers to reproduce the core semantics and test adapters. It should not replicate OSuite’s managed parser packs, enterprise policy routing, buyer-ready evidence graph, signer orchestration, private KMS/HSM integration, or managed connectors. This open-core boundary reduces lock-in while preserving a commercial reason to buy the managed product. 
+
+# 6 Evaluation 
+
+6.1 Benchmark design 
+
+We evaluate CAVA with a disclosure-safe benchmark harness included with the manuscript artifacts. The public harness contains 96 representative seed scenarios and expands them into 384 runtime variants across four runtime families: shell hooks, MCP-style tools, browser automation, and managed-agent traces. Production parser packs, enterprise policy thresholds, customer connector rules, and the managed OSuite evidence graph are withheld. The benchmark tests nine properties: 1. semantic equivalence across rewritten action forms; 2. semantic separation across materially different operations; 3. wrapper-bypass catch rate; 4. false-positive control for benign text containing high-impact strings; 5. approval binding correctness; 6. receipt reproducibility; 7. attestation tamper detection; 8. runtime portability convergence; 9. semantic pattern detection and policy-profile routing. The baselines are intentionally simple but operationally common: 
+
+• Raw-text policy : binds to the literal runtime string. 
+
+• First-token rules : classifies actions using the first executable and neighboring token. 
+
+• CAVA runtime : normalizes wrappers, aliases, categories, and receipt material before decision binding. 9Table 5: Aggregate benchmark results on the 96-seed, 384-variant CAVA corpus. 
+
+Metric Raw text First-token CAVA Semantic equivalence recall 0.000 0.000 1.000 
+
+Semantic separation precision 1.000 0.750 1.000 
+
+Wrapper-bypass catch rate 0.000 0.000 1.000 
+
+False-positive control 0.500 0.500 1.000 
+
+Approval binding correctness 0.000 0.000 1.000 
+
+Receipt reproducibility 0.000 0.000 1.000 
+
+Attestation tamper detection 0.000 0.000 1.000 
+
+Runtime portability convergence 0.000 0.000 1.000 
+
+Semantic pattern detection 0.000 0.333 1.000      
+
+> Equivalence Wrapper False Positive Patterns Approval Attestation
+> 0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1
+> Score
+
+CAVA vs. Raw-Text and First-Token Baselines   
+
+> Raw text First-token CAVA
+
+Figure 2: Representative benchmark slices. CAVA’s advantage comes from binding decisions to canonical action semantics rather than display text or first-token heuristics. 
+
+6.2 Results 
+
+Table 5 reports aggregate results from the current harness. The numbers should be read as regression evidence for the representative corpus, not as a universal claim over all future enterprise runtimes. The public benchmark deliberately separates two layers: scored executable checks for canonicalization and receipt integrity, and structured system-card material for policy degradation, cloud-action drills, ablations, and red-team case analysis. 
+
+# 7 Expanded Evaluation Matrix 
+
+The benchmark is intentionally not a single score. A single aggregate number would hide the failure modes that matter to buyers and reviewers: whether wrappers are handled, whether benign text is over-blocked, whether approvals bind to the executed action, whether receipts are reproducible, 10 whether runtime families converge, and whether governance itself can be weakened. Table 6 reports the evaluation matrix used by the artifact package. Table 6: Expanded CAVA evaluation matrix. The support column includes scored checks and structured system-card cases in the public artifact. Suite What is challenged Public support Primary metric Semantic equiva-lence Same operational action rewrit-ten through flags, environment variables, command wrappers, or helper forms. 12 scored vari-ants Equivalence re-call Semantic separa-tion Materially different actions that share words, tools, or nearby context. 8 pairwise checks Separation preci-sion Wrapper bypass High-impact action hidden be-hind env , sudo , command , bash -c , or nested shells. 14 checks includ-ing ablations Bypass catch rate Benign contamina-tion Read-only commands contain-ing high-impact strings such as 
+
+git push , kubectl delete , or payment events. 7 checks includ-ing ablations False-positive control Approval drift Receipt replay or approval reuse after canonical fields change. 8 checks includ-ing ablations Approval-binding correctness Receipt tampering Modified policy outcomes, al-tered receipt fields, or order-dependent serialization. 8 checks Hash repro-ducibility and tamper detection Runtime portabil-ity Shell, MCP, browser, and managed-agent records describ-ing comparable operational ac-tions. 16 runtime pro-jections Portability con-vergence Semantic pattern detection Canonical actions plus bound-ary context mapped to reusable patterns such as public egress, security-control weakening, del-egated authority mismatch, and workflow sink risk. 6 scored cases Pattern detec-tion and profile routing Policy degradation Signature disabling, permissive policy changes, trust-boundary broadening, and evidence reten-tion weakening. 8 structured cases Degradation cov-erage Azure deployment drill Azure CLI actions across what-if, deployment, role assignment, Key Vault, SQL firewall, and ACR read paths. 6 structured cases Cloud-action pro-jection coverage 11 Suite What is challenged Public support Primary metric Red-team casebook Attacker-style narratives linking bypass method, baseline failure, expected CAVA behavior, and residual risk. 24 cases Qualitative cover-age This matrix is the paper’s answer to a common objection against governance components: that they look good only when evaluated on the exact examples used to explain them. The CAVA harness separates seed scenario , runtime variant , suite , and evidence type . A seed may be scored directly, used as an ablation probe, or carried into the red-team casebook. The public corpus is still small compared with enterprise reality, but it is structured so that new runtime adapters and customer-approved traces can be added without changing the metric vocabulary. 
+
+# 8 Ablation Study 
+
+Table 7 reports the ablation study used in the system-card artifact. These ablations are not meant to claim that the exact implementation is optimal. They identify the components that are necessary for the CAVA claim to be true. If any of these layers is removed, CAVA collapses into either ordinary logging, brittle guardrails, or a product-specific approval workflow. Table 7: CAVA ablation study. Retained score is the expected retained capability for the affected suite under the public harness. Ablation Affected suites Expected failure Retained score Remove wrapper parsing Wrapper bypass, semantic equivalence 
+
+env , sudo , bash -c , and nested shells remain surface text; high-impact action can hide behind the wrapper. 0.00 Remove profile aliases Payment, Web3, customer private tools Domain-specific operations such as Stripe triggers or wal-let sends collapse to unknown or low-confidence actions. 0.50 Remove canonical fingerprint Approval drift, runtime portability Approval binds to display text or runtime-native IDs rather than action meaning. 0.00 Remove receipt veri-fier Receipt tampering, exter-nal assurance Changed decisions and receipt payloads become log entries instead of verifier failures. 0.00 Remove PCAA bind-ing Policy degradation, ap-proval drift, outcome clo-sure Canonical fingerprints exist, but no deployer-owned route-review-prove loop decides au-thority or closure. 0.25 12 The harshest ablations are canonical fingerprint removal and receipt-verifier removal. Without a canonical fingerprint, there is no stable object for approval. Without verifier logic, the receipt becomes decorative evidence. This is why CAVA should not be marketed as merely an observability schema. Observability can tell a team that something happened. CAVA must help a team prove what was authorized, what actually happened, and whether the evidence survived replay. 
+
+# 9 Interpretation 
+
+The benchmark demonstrates three points. First, raw-text governance has no stable notion of se-mantic equivalence: git push origin main , git -c push.default=simple push origin main ,
+
+env ... git push origin main , and bash -c "git push origin main" are different strings but the same governed action. Second, first-token rules do not survive wrappers and are prone to false positives when high-impact strings appear in search, documentation, or echo commands. Third, canonical receipts allow approval and attestation checks that raw strings do not provide. The most important result is not that CAVA scores 1.0 on a controlled corpus. The important result is that the benchmark exposes the failure modes that a serious market-facing component must survive. Future versions should expand the corpus with third-party runtime traces, customer-approved anonymized examples, and adversarial parser challenges. 
+
+# 10 Discussion 
+
+10.1 Why CAVA should not be only a product feature 
+
+CAVA is more credible as a portable component than as a hidden OSuite feature. A public schema and verifier allow the ecosystem to inspect the core claim, reproduce hashes, and write adapters. OSuite can still monetize the hard parts: maintained parser coverage, enterprise approvals, evidence graph operations, assurance exports, support, signer orchestration, and managed integrations. This is the right open-core boundary for both adoption and revenue. 
+
+10.2 Where Web3 belongs 
+
+Web3 should be used carefully. If CAVA is defined as blockchain, it becomes narrower and less enterprise-friendly. If CAVA treats ledgers, verifiable credentials, smart accounts, and decentralized identity as optional attestation lanes, it gains stronger integrity options without forcing every deployer into a settlement substrate. The principle is simple: canonical action semantics first; attestation substrate second. 
+
+10.3 Market testability 
+
+For CAVA to survive market scrutiny, the benchmark must be uncomfortable. It should include not only clean examples but wrappers, nested shells, alias abuse, SDK indirection, browser-side mutations, MCP tool calls, hosted traces, benign commands containing dangerous strings, and tampered receipts. This paper introduces that test direction, but the component should be judged by ongoing benchmark expansion rather than by a static whitepaper. 13 11 Threats to Validity 
+
+Representative corpus. The current benchmark is a representative public corpus, not a complete distribution of enterprise actions. It is useful for regression and public explanation, but future evidence should include broader traces. 
+
+Parser coverage. Canonicalization is only as strong as adapter coverage. Private enterprise systems may need custom parser packs, and parser failures can produce either missed escalations or unnecessary review. 
+
+Disclosure boundary. Production parser packs and customer connector rules are withheld. This protects commercial and security-sensitive implementation details, but it limits full third-party reproduction of OSuite’s managed behavior. 
+
+Attestation scope. Receipt hashes and signatures prove integrity and binding, not business wisdom. A correctly attested action can still be a bad decision. 
+
+Runtime depth. Some runtimes allow inline blocking. Others only provide observer-mode traces. CAVA must disclose that difference rather than claim uniform enforcement. 
+
+# 12 Conclusion 
+
+This paper argues that agent governance needs a stable action-semantics layer. Without it, approvals bind to strings, traces bind to runtime-specific records, and evidence becomes difficult to replay across changing execution surfaces. CAVA provides a canonical runtime action object, deterministic fingerprint, receipt path, and optional attestation architecture that can sit below PCAA or a similar deployer-owned governance loop. The current reference implementation and benchmark are early but concrete. They show how CAVA can collapse equivalent runtime forms, separate materially different actions, resist wrappers, bind approvals to fingerprints, reproduce receipts, detect tampering, and project comparable semantics across runtime families. The next research step is to expand the public corpus, invite adversarial parser challenges, and evaluate CAVA against real third-party agent traces. The product step is equally clear: keep the schema open, keep the managed evidence layer worth paying for, and make runtime action governance measurable rather than rhetorical. 
+
+# Part II 
+
+# CAVA System Card and Technical Appendix 
+
+# A System Scope and Release Posture 
+
+This appendix uses a system-card style to document CAVA as an evaluable governance component rather than as a finished safety guarantee. The system under study is the CAVA runtime-semantics layer and the surrounding OSuite reference implementation. The public open-core package exposes schema, deterministic hashing, receipts, profile normalization, and runtime adapter contracts. The managed OSuite layer adds production parser packs, PCAA policy routing, approval workflows, evidence graph construction, replay, exports, enterprise signers, private key-management integrations, verifiable credential issuance, optional ledger anchoring, and managed connectors. 14 The release posture is intentionally split. The open package is suitable for experimentation, adapter prototypes, reproducible benchmark execution, and third-party inspection of core hash and receipt semantics. It is not intended to replace a managed runtime governance system. The managed layer is intended for production deployments where parser maintenance, evidence retention, operator workflow, tenant security, and buyer-facing assurance matter. 
+
+# B Observed Runtime Governance Challenges 
+
+The reference implementation and benchmark are organized around observed failure modes in agent runtimes. These are not model-output categories such as toxicity or hallucination. They are operational governance failures that occur when an action crosses a runtime boundary. Challenge Failure pattern CAVA evaluation slice Equivalent syntax The same operation is rewritten through flags, environment vari-ables, shell wrappers, or helper com-mands. Semantic equivalence recall Semantic separation A benign action contains a high-impact string or shares an exe-cutable with a high-impact action. Semantic separation pre-cision and false-positive control Wrapper bypass The high-impact operation hides be-hind env , sudo , command , bash -c ,SDK indirection, or tool aliasing. Wrapper-bypass catch rate Approval drift The operator approves display text while execution binds to a different action. Approval binding correct-ness Receipt drift A receipt is recomputed under a different field order, profile, or deci-sion payload. Receipt reproducibility Attestation tampering A receipt or policy outcome is mod-ified after approval. Attestation tamper detec-tion Runtime fragmenta-tion Shell hooks, MCP tools, browser ac-tions, and managed traces describe the same action differently. Runtime portability con-vergence 
+
+# C Risk Taxonomy 
+
+CAVA classifies runtime action risk by operational consequence rather than by model intent. The taxonomy is intended to remain small enough to be portable and large enough to support enterprise routing. Risk class Examples Governance implication Observation Search, list, inspect, read-only query Usually allow or log, unless sensitive data boundary is crossed. 15 Build and prepa-ration Build, dry run, plan, simulation Often allow or simulate-first; useful for reducing unnecessary review. Deployment Push, release, publish, migrate Requires canonical identity, approval binding, and outcome closure. Infrastructure change Terraform, Kubernetes, Helm, Pulumi, firewall change Requires high-integrity receipts and rollback evidence. Database muta-tion Insert, update, delete, truncate, migration Requires target clarity, reversibility disclosure, and approval binding. Identity and au-thority Key rotation, permission grant, user creation Requires authority lineage and dual-control in high-impact cases. Payment and obligation Charge, refund, invoice, transfer Requires receipt integrity and financial-system boundary disclo-sure. Data boundary Export, upload, email, public share Requires destination visibility and account provenance. Web3 settlement Sign, send, bridge, swap, spon-sor, relay Requires cryptographic intent bind-ing and optional ledger anchoring. 
+
+# D Capability Taxonomy 
+
+The system-card posture for CAVA is capability-based rather than vendor-based. A deployment should not claim that “CAVA is enabled” as a binary statement. It should disclose what classes of runtime action can be captured, normalized, verified, and enforced. Table 10 defines the capability taxonomy used by the current paper and artifact package. Table 10: CAVA capability taxonomy for deployment disclo-sure. Capability Minimum evidence Failure if absent Typical release posture Capture Raw event, runtime fam-ily, adapter ID, times-tamp, actor or session handle. The action may occur out-side the evidence bound-ary. Observe Normalization Canonical action fields and schema version. Similar actions remain in-comparable across runtime surfaces. Observe or warn Semantic separa-tion Evidence that benign lookalikes do not collapse into high-impact actions. False positives erode opera-tor trust and produce alert fatigue. Warn Wrapper re-silience Evidence that common wrappers are stripped or decomposed. High-impact actions hide behind shell or SDK indi-rection. Approval-gate 16 Capability Minimum evidence Failure if absent Typical release posture Approval binding Receipt connecting deci-sion, policy, and canonical fingerprint. The operator may approve one thing while another executes. Approval-gate Receipt repro-ducibility Deterministic serialization and verifier output. Evidence cannot be inde-pendently replayed. Approval-gate Outcome closure Execution result, excep-tion, or partial-coverage marker. Governance ends at ap-proval and loses opera-tional truth. Approval-gate Coverage disclo-sure Enforcement depth, adapter confidence, and unknown-field posture. Observe-only traces are confused with blocking controls. Warn or approval-gate Policy degrada-tion detection Canonical treatment of policy, signature, reten-tion, and trust changes. Governance controls can be weakened under the language of configuration. Dual control External attesta-tion Signature, verifiable cre-dential, supply-chain attestation, or optional ledger anchor. Buyer-facing assurance depends on local logs only. External assur-ance This taxonomy is important for sales as much as for science. Buyers do not merely ask whether an AI governance product has policies. They ask whether the product can explain what it actually sees, what it can block, what it can only record, and what evidence survives after a disputed event. CAVA therefore treats capability claims as auditable objects. A SaaS deployment may expose managed coverage and standard policies. A self-hosted enterprise deployment may add private parser packs, internal connectors, custom signer policies, and higher-friction approval routes. The open-core package can validate receipts and fingerprints, but it should not imply that a user has reproduced OSuite’s managed parser, policy, evidence, or assurance layer. 
+
+# E Safeguard Design 
+
+CAVA safeguards are layered so that deployments can increase assurance without redefining the base object. 1. Normalization safeguards : adapters strip common wrappers, resolve aliases, and project runtime-specific fields into stable canonical fields. 2. Binding safeguards : policy outcomes and approvals attach to canonical fingerprints rather than raw strings. 3. Receipt safeguards : receipt hashes are deterministic and can be recomputed by independent verifiers. 4. Coverage safeguards : runtime family, adapter mode, and enforcement depth remain explicit so observer-only coverage is not presented as inline blocking. 17 5. Attestation safeguards : selected receipt digests can be signed, credentialed, or ledger-anchored without publishing confidential action contents. 6. Commercial-boundary safeguards : the open package exposes verification primitives, while managed OSuite holds production parser maintenance, evidence operations, and enterprise connector depth. 
+
+# F Red-Team and Adversarial Evaluation Plan 
+
+The benchmark should evolve from representative examples into an adversarial corpus. The red-team plan is divided into six tracks: 1. Syntax rewriting : equivalent operations are rewritten through flags, environment variables, shells, aliases, and scripts. 2. Benign contamination : low-risk commands intentionally contain dangerous substrings such as git push , kubectl delete , or DROP TABLE .3. Runtime projection : the same action is represented as shell, MCP, browser, managed-agent, and API-gateway events. 4. Approval mismatch : approval receipts are replayed against altered fingerprints or changed policy payloads. 5. Evidence tampering : receipt fields are changed after closure to test verifier detection. 6. Parser miss discovery : unknown tools, nested commands, customer-specific scripts, and private runtime events are used to identify coverage gaps. This plan is intentionally uncomfortable. A useful CAVA benchmark should make bypass attempts cheap to write, deterministic to reproduce, and hard for the canonicalizer to pass accidentally. 
+
+# G Red-Team Casebook 
+
+Table 11 is a disclosure-safe red-team casebook extracted from the benchmark harness. The cases are intentionally concrete because vague safety prose is cheap; runtime governance becomes meaningful only when the attempted bypass can be reproduced. Each row records an attack pattern, a representative event, the baseline failure, the expected CAVA behavior, and residual risk. The casebook is not exhaustive. It is a forcing function for reviewers, customers, and future contributors to add uncomfortable examples rather than only success stories.        
+
+> Table 11: Disclosure-safe CAVA red-team casebook. ID Attack Representative event Baseline failure CAVA expected behav-ior RT-001 Nested shell deploy bash -lc npm-deploy First-token rules see
+> bash , not deploy. Unwrap nested shell and classify deploy-ment.
+
+18 ID Attack Representative event Baseline failure CAVA expected behav-ior RT-002 Benign documenta-tion search 
+
+rg "kubectl delete namespace prod" 
+
+Substring policy esca-lates read-only search. Classify observation and suppress false positive. RT-003 Approval replay against changed branch 
+
+git push origin release-candidate 
+
+Display resembles ap-proved push. Reject receipt if finger-print differs. RT-004 SDK payment indi-rection 
+
+mcp.stripe.refund(...) No shell token exists to match. Project MCP call into payment category. RT-005 Browser release button 
+
+browser publish-release 
+
+Trace only says click. Bind UI action to deployment semantics. RT-006 Managed trace field drift 
+
+agent github.push trace 
+
+Runtime-native trace misses shell policy. Project managed trace into deployment class. RT-007 Receipt decision tamper 
+
+receipt.decision = "allow" 
+
+Log-only systems may not recompute integrity. Detect receipt-hash mismatch. RT-008 Policy loosening after import 
+
+osuite policy update –mode allow-all 
+
+Configuration looks ad-ministrative. Classify as policy degradation. RT-009 Signature mode disable 
+
+osuite signature off Verifier disappears with-out side-effect label. Mark trust degrada-tion and refuse proof claims. RT-010 Azure role escala-tion 
+
+az role create Contributor 
+
+Generic CLI command hides authority change. Require identity-authority review. RT-011 Azure destructive Key Vault operation 
+
+az keyvault purge –name prod-vault 
+
+Irreversibility may be unknown. Mark destructive and non-reversible. RT-012 Database mutation through MCP query 
+
+mcp.postgres delete Generic query hides mutation. Parse SQL operation and classify mutation. RT-013 Wallet settlement action 
+
+cast send 0xabc 1ether Enterprise-only policy misses settlement final-ity. Classify Web3 transac-tion and bind signing intent. RT-014 Read-only wallet call 
+
+cast call 0xabc balanceOf 
+
+Token match over-escalates all wallet use. Separate observation from settlement. RT-015 Open firewall range az sql firewall open-all 
+
+Infrastructure write lacks blast-radius semantics. Classify infrastructure and boundary expan-sion. RT-016 Deployment docs false positive 
+
+curl docs/git-push Substring policy sees git push. Classify network read or documentation lookup. RT-017 Approval TTL ex-pansion 
+
+osuite approvals configure –ttl 30d 
+
+Policy drift is not a di-rect side effect. Route as governance degradation. RT-018 Public share through browser 
+
+browser share public UI trace omits data-boundary semantics. Classify data-boundary expansion. RT-019 Receipt order muta-tion Same receipt fields serial-ized differently. Non-deterministic re-ceipts fail replay. Canonical serialization reproduces the hash. RT-020 Unknown private script 
+
+./release-prod.sh Script name may be trusted blindly. Downgrade coverage or require parser pack. RT-021 Environment policy bypass 
+
+env policy-off deploy Deployment and override blend together. Classify deployment and policy degrada-tion. RT-022 Managed data ex-port 
+
+agent crm.export trace Export looks like a work-flow step. Classify data-boundary action. RT-023 Kubernetes delete echoed 
+
+echo "kubectl delete namespace prod" 
+
+Dangerous substring creates false positive. Classify echo as benign text emission. RT-024 Attestation anchor unavailable Ledger anchor timeout after local receipt. External anchor failure is confused with no evi-dence. Preserve local receipt and mark external attestation failed. 
+
+19 The strongest cases are not the ones where CAVA blocks an obviously dangerous command. The stronger test is whether it refuses to be fooled by nearby language : dangerous strings in benign searches, harmless wallet reads next to irreversible sends, clicks that need business meaning, and cloud commands whose risk depends on the exact operation. This is also where CAVA’s commercial boundary becomes defensible. The open artifact can show the schema and verifier. The managed product earns revenue by maintaining parser coverage, connector enrichment, evidence workflows, and customer-specific governance packs. 
+
+# H Failure Modes and Incident Classes 
+
+CAVA should treat failures as first-class operational incidents: Incident class Description Required response Parser miss A high-impact action is classified as low risk or unknown. Add regression seed, docu-ment adapter gap, update parser pack. Parser overreach A benign action is escalated be-cause of string contamination or weak context. Add false-positive seed, refine semantic separation. Fingerprint collision Materially different actions con-verge to the same governance identity. Treat as critical schema or canonicalization defect. Approval mismatch Approval binds to a fingerprint different from the executed ac-tion. Block closure, require opera-tor review, preserve mismatch receipt. Receipt gap Execution proceeds without re-quired receipt material. Mark partial coverage and prevent buyer-facing proof claims. Adapter degradation A runtime stops emitting required fields or changes event shape. Downgrade coverage pos-ture until adapter verification passes. Attestation failure Signature, credential, or ledger anchor cannot verify. Preserve local receipt and mark external attestation failed. 
+
+# I Comparative System Boundary 
+
+CAVA is intentionally narrower than model safety frameworks and broader than runtime traces. Table 13 summarizes the distinction. 20 Table 13: CAVA compared with adjacent system families.              
+
+> System family Primary object CAVA distinction Model system cards Model family, safety evaluation, deployment safe-guards CAVA governs deployer-side runtime actions, not model release. Agent benchmarks Task success, tool-use ability, scenario risk CAVA evaluates action identity, approval binding, and receipt integrity. Telemetry standards Spans, traces, attributes, observability fields CAVA creates enforcement-grade canonical action fingerprints. Workflow attestation Signed execution history and provenance CAVA defines the action object being attested. Guardrails and filters Prompt, content, policy, validator output CAVA binds runtime side effects to canonical governance objects. OSuite managed layer Evidence graph, approval workflow, buyer assurance OSuite operationalizes CAVA but does not make the open core proprietary.
+
+# J Comparative Evaluation 
+
+Adjacent systems are moving in the same broad direction: runtime controls, telemetry conventions, workflow attestations, and LLM observability are becoming part of the AI infrastructure stack. This is good news for CAVA rather than a reason for CAVA to disappear. The market signal is that action-level governance is becoming legible. The remaining question is which object should be treated as the unit of authority. Table 14 compares CAVA against representative adjacent families. The comparison is intentionally narrow. It does not claim that CAVA replaces control-plane standards, workflow engines, telemetry, or observability. It claims that those systems still need a stable action object when a deployer asks whether an agent was allowed to perform a concrete business side effect. Recent interoperability analysis reaches a compatible conclusion from the protocol side. Kang and Diponegoro evaluate MCP, A2A, ACP, ANP, and ERC-8004 against governance dimensions including membership, deliberation, voting, dissent preservation, human escalation, and audit or replay, and find that connection protocols do not by themselves encode the full governance loop [4 ]. CAVA therefore treats protocol events as runtime projections rather than authority. An MCP tool call or A2A handoff can become evidence, but it still must be canonicalized, scored, routed, approved, bounded, and replayed before OSuite can claim action governance. 21 Table 14: Comparative evaluation against adjacent public system families. System family Primary object Strength CAVA claim Microsoft Agent Control Specifica-tion [7] Runtime governance contract Portable governance lan-guage across agent run-times and policy engines. CAVA can supply the canonical ac-tion fingerprint and receipt seman-tics that such con-tracts need at deci-sion time. Dapr Verifiable Execution [1] Signed workflow his-tory Strong provenance and tamper evidence for work-flow execution. CAVA defines the action identity be-fore the workflow history is signed or attested. OpenTelemetry GenAI [11] Spans, events, met-rics, semantic at-tributes Shared observability lan-guage for GenAI systems. CAVA turns action semantics into an approval and re-ceipt object, not merely a trace at-tribute. Langfuse [5] LLM application traces, prompts, eval-uations Developer-friendly observ-ability and debugging for LLM applications. CAVA focuses on authority binding, replayable proof, and deployer-side closure. Supply-chain attes-tation Build provenance, signing, release meta-data Mature patterns for build and artifact integrity. CAVA extends the proof target from software artifacts to agent runtime actions. Prompt guardrails and content filters Prompt, output, val-idator result Useful first line for content and instruction control. CAVA governs side effects after the model has chosen or attempted an action. OSuite managed layer Evidence graph, ap-proval workflow, ex-ports Productized operations, connectors, signers, buyer assurance. OSuite operational-izes CAVA without making the open verifier meaning-less. The competitive bar is therefore not “can CAVA produce another trace.” The bar is whether CAVA can remain useful when all serious platforms already have traces. Its answer is to sit one level closer to consequence: normalize the runtime action, bind authority to its fingerprint, preserve 22 receipt integrity, disclose coverage depth, and let the deployer rather than the frontier provider own the final governance loop. 
+
+# K Azure and OSuite Deployment Evidence 
+
+The current artifact records a low-risk Azure verification path rather than live mutating cloud execution. Local Azure CLI authentication was verified with az account show –output json ,and the benchmark includes Azure deployment-drill cases for az deployment group what-if ,
+
+az containerapp update , az role assignment create , az keyvault purge , az sql server firewall-rule create , and az acr repository show-tags . These cases are semantic drill cases; the artifact does not execute mutating cloud commands by default. This conservative choice is deliberate. A governance benchmark should not spend money or mutate production resources merely to look dramatic. The relevant scientific question in this paper is whether CAVA can classify, fingerprint, route, and bind cloud-action semantics. Live cloud execution is valuable for later external validation, but it belongs in a disposable subscription with a cleanup plan, synthetic identities, and explicitly bounded blast radius. The OSuite deployment evidence is also staged. The local Codex hook is configured in observe mode for normal development ergonomics, while the benchmark still exercises approval binding, receipt generation, and runtime-action projection. In production, OSuite can increase posture from observe to warn, approval-gate, dual control, quarantine, and external assurance. The paper treats these as separate claims. Observe-mode coverage can produce evidence; it should not be described as equivalent to inline blocking. 
+
+# L Implementation Lessons From OSuite Rollout 
+
+The OSuite rollout changed CAVA from a parser idea into a runtime governance primitive. Four implementation lessons are now part of the claim. These lessons also explain why Decision Score v2.1 and Policy-to-runtime are not presented as standalone research primitives in this paper. They are important, but their current scientific role is to make CAVA and PCAA operationally legible: policy becomes a runtime route, and score becomes an explanation of why a canonical action was treated as routine, reviewable, blocked, or observe-only. A separate paper would be justified only after the score is calibrated against external reviewer labels, longitudinal incident outcomes, or cross-organization policy corpora. 23 Table 15: CAVA rollout lessons and product corrections. 
+
+Lesson Failure observed Correction Raw command text was not enough Similar terminal actions looked identical even when one stayed local and another crossed a produc-tion or public boundary Canonical action fingerprints include oper-ation, target, effect, externality, and policy-relevant context. Policy-to-runtime needed to be explicit Policy profiles could read like gov-ernance documents rather than runtime controls Each action envelope carries policy version, route, review posture, and enforcement-depth disclosure. Scores required decomposi-tion A single score made shell actions look suspiciously uniform to opera-tors Decision Score v2.1 decomposes action risk into impact, exposure, control weakness, and evidence confidence. Approval needed bounded reuse Human review could be confused with durable permission CAVA fingerprints feed Action Gate Leases so approval is bound to the exact action context. Setup friction delayed evidence Customers had to understand hooks before seeing any governed action The one-command installer makes first evi-dence visible quickly, while advanced config-uration remains available after connection. 
+
+# M External Validation Roadmap 
+
+CAVA will become more credible as soon as the corpus stops being authored only by its creator. The next validation roadmap has five tracks: 1. Third-party runtime traces : collect customer-approved anonymized traces from coding agents, browser agents, MCP tools, and managed-agent platforms. 2. Cloud drill lab : run Azure, GitHub, Stripe sandbox, database, and Kubernetes test cases in disposable environments with automated cleanup. 3. Independent parser challenge : publish a red-team input format where external reviewers submit bypass attempts and false-positive traps. 4. Buyer-facing proof review : give security leaders a receipt bundle and ask whether it answers procurement and audit questions. 5. Open-core compatibility : keep the public verifier stable enough that third parties can validate receipts without receiving the managed OSuite parser layer. The roadmap is intentionally product-facing. Academic benchmarks are necessary, but enterprise adoption also depends on whether CISOs, platform teams, procurement teams, and auditors can understand the evidence. A component that only impresses researchers but cannot answer a buyer’s incident question is incomplete. A product that only impresses buyers but cannot survive adversarial review is also incomplete. 
+
+# N Known Gaps and Residual Risk 
+
+CAVA is not finished, and the paper should not pretend otherwise. 24 Table 16: Known gaps and residual risks for current CAVA. Gap Why it matters Current mitigation Opaque private scripts A single script name can hide many side effects. Downgrade coverage and re-quire parser pack, sandbox run, or human review. Multi-action com-mands One raw event can contain a deploy, policy bypass, and data movement together. Treat decomposition as a re-quired parser capability for high-risk lanes. Vendor schema drift Managed-agent or MCP event shapes may change. Version adapters and include adapter degradation incidents. Business-context de-pendence Severity depends on tenant, branch, role, account, data label, or environment. Enrich with OSuite connectors and disclose when context is missing. External attestation availability Ledger, signer, or credential ser-vices can fail. Preserve local receipts and mark external attestation sta-tus separately. Benchmark satura-tion A fixed public corpus can be over-fit. Expand with third-party traces and adversarial submissions. Commercial disclo-sure boundary Withholding parser packs limits full reproduction. Keep schema, hashes, receipts, and representative cases pub-lic. Operator misuse A valid receipt can approve a bad business decision. Bind to PCAA routes, dual control, and outcome closure rather than claiming moral correctness. The most important residual risk is not that CAVA sometimes escalates too much or too little. Those are engineering defects that can be found by better tests. The deeper risk is overclaiming: selling observer-mode logs as enforcement, selling receipt hashes as judgment, or selling a public skeleton as if it reproduces the managed product. The paper’s boundary is therefore part of the technical contribution. Honest limits make the system stronger. 
+
+# O Operational Scenario Cards 
+
+The following scenario cards translate the benchmark into enterprise language. They are written as operational cards rather than as product marketing because security reviewers usually do not buy claims; they buy inspectable failure handling. 25 Table 17: Operational scenario cards for CAVA deployment review. Scenario Runtime action Evidence CAVA must pro-duce Reviewer ques-tion Production re-lease Agent pushes code, up-dates a container image, or clicks a release button. Canonical deployment fingerprint, approval re-ceipt, actor/session, target branch or service, outcome closure. Can the buyer prove which re-lease action was approved? Cloud authority change Agent grants a role, changes a managed iden-tity, rotates a secret, or modifies a trust boundary. Identity-authority category, touched tenant or scope, non-reversibility marker, dual-control route. Could the agent silently make itself more power-ful? Database muta-tion Agent runs SQL, migra-tion tooling, or an ORM deploy step. Database mutation cate-gory, target database, oper-ation class, approval bind-ing, rollback or irreversible marker. Is a read-only query clearly separated from mutation? Browser admin-istration Agent operates an admin console through UI au-tomation. DOM-to-business-action mapping, page identity, control label, canonical action projection, coverage disclosure. Does a click mean anything auditable? MCP tool execu-tion Agent calls a tool server rather than a shell com-mand. Tool namespace, method, normalized operation, sys-tem touched, adapter confi-dence. Does governance survive tool indi-rection? Payment or obli-gation Agent triggers a charge, refund, invoice, subscrip-tion update, or external obligation. Payment category, amount or obligation class when available, approval receipt, finance-system boundary. Can finance dis-pute or replay the decision? Data boundary expansion Agent exports, uploads, shares, emails, or pub-lishes data. Destination, data bound-ary category, sensitivity context when available, outcome closure. Can the cus-tomer iden-tify where data moved? Web3 settle-ment Agent signs, sends, spon-sors, bridges, swaps, or relays a transaction. Signing intent, chain or settlement lane, target, value class, optional ledger or credential anchor. Is read-only in-spection sepa-rated from irre-versible settle-ment? These cards also clarify where CAVA should be strict. The strictness is not about blocking everything. It is about refusing to downgrade semantic uncertainty into a false allow. If the runtime cannot tell whether a browser click changes production, CAVA should mark the action as lower-confidence and route it accordingly. If a private script is opaque, the system should not 26 pretend that the script is safe because the name looks familiar. If an external signer or ledger anchor fails, the local receipt should remain valid while external attestation status is marked as incomplete. 
+
+# P Benchmark Dataset Schema 
+
+The benchmark schema is intentionally small enough to audit by hand. Each scenario is a seed with tags, an expected behavior, and an optional suite-specific payload. The harness expands seeds into runtime variants, measures scored suites, and publishes a disclosure-safe profile. Table 18 documents the fields used by the public artifact. Table 18: Benchmark dataset schema used by the CAVA artifact. Field Example Purpose 
+
+id azure-role Stable scenario identifier used in tests, re-ports, and future regression tracking. 
+
+command az role assignment create ... 
+
+Representative raw runtime surface. It may be shell text, MCP method notation, browser notation, or trace notation. 
+
+tags policy_degradation ,
+
+wrapper_bypass 
+
+Suite membership and risk shape. Tags make the corpus composable without duplicating examples. 
+
+expected. operation push , payment Expected normalized action operation when the case is scored. 
+
+expected. category deployment , payment Expected risk category for routing and aggre-gate metric calculation. 
+
+expected. decision approval Expected governance route for approval-binding tests. 
+
+runtime_ projection true Marks cases that challenge portability across shell, MCP, browser, and managed-agent forms. 
+
+live_execution false Prevents cloud drill cases from being con-fused with commands that should be exe-cuted by default. 
+
+attack Nested shell deploy Human-readable red-team label. 
+
+expected_ behavior 
+
+Reject changed finger-print System-card behavior claim for qualitative cases. The schema separates what can be public from what should remain commercial or security-sensitive. Public seeds can reveal that a parser must handle shell wrappers, policy degradation, and cloud authority changes. They do not need to reveal the full production parser grammar, customer connector rules, private policy thresholds, or tenant-specific evidence graph. This is the open-core balance: enough reproducibility for trust, enough withholding to preserve a business and avoid handing attackers the full bypass surface. 27 Q Metric Definitions 
+
+The benchmark metrics are deliberately simple. The paper is not trying to hide behind a complicated scoring function. Each metric corresponds to a failure mode that an operator, reviewer, or buyer can understand. Table 19: Metric definitions for the CAVA benchmark. Metric Definition Interpretation Semantic equivalence recall Fraction of equivalent rewrit-ten actions that converge to the baseline canonical finger-print. Low recall means approval can be bypassed by rewriting the same operation. Semantic separation precision Fraction of materially differ-ent action pairs that do not collapse into the same canoni-cal fingerprint. Low precision means different conse-quences become indistinguishable. Wrapper-bypass catch rate Fraction of wrapped high-impact actions still classified as high impact. Low catch rate means wrappers can hide side effects. False-positive control Fraction of benign contam-inated examples that avoid high-impact classification. Low control means the system pun-ishes harmless reading, search, or documentation work. Approval-binding correctness Fraction of approvals that verify only against the canon-ical fingerprint originally ap-proved. Low correctness means approval can drift from execution. Receipt reproducibil-ity Fraction of receipts that re-compute to the same digest under deterministic serializa-tion. Low reproducibility means evidence cannot be independently replayed. Attestation tamper detection Fraction of changed receipt payloads rejected by the veri-fier. Low detection means logs can be edited after the fact. Runtime portability convergence Fraction of equivalent run-time projections that preserve comparable action semantics. Low convergence means each run-time becomes its own governance island. Semantic pattern detection Fraction of semantic-pattern cases where the expected pattern set is detected and routed through the selected policy profile. Low detection means CAVA can name an action but not explain why the enterprise should care. Policy-degradation coverage Fraction of signature, trust, approval, retention, and pol-icy weakening actions repre-sented as governed actions. Low coverage means the governance system can be weakened without itself being governed. 28 Metric Definition Interpretation Cloud-action projec-tion coverage Fraction of cloud drill cases assigned an action class, risk posture, and live-execution boundary. Low coverage means cloud control-plane actions remain opaque to deployer governance. The metric definitions also define what CAVA is not measuring. CAVA does not measure model intelligence, task success, factuality, or general helpfulness. It measures whether runtime actions can be made governable. This narrower scope is a strength. The system can be wrong, tested, patched, and re-tested at the action layer without pretending to solve all of AI safety. 
+
+# R Claim Register 
+
+System cards are useful because they force claims to become inspectable. Table 20 records the current claim register for CAVA. Future versions should update this table whenever the benchmark, deployment posture, or commercial boundary changes. Table 20: CAVA claim register. ID Claim Current evidence Limitation C1 CAVA can collapse equivalent shell forms for representative deployment, infrastructure, payment, and Web3 actions. Scored semantic-equivalence suite. Public corpus is representative, not exhaustive. C2 CAVA can separate benign text contain-ing dangerous substrings from actual high-impact actions. False-positive-control suite and red-team cases. Dataflow through pipes and scripts needs more cover-age. C3 CAVA can bind approvals to canonical fingerprints rather than display strings. Approval-binding tests and receipt verifier. Business approval quality remains outside the hash. C4 CAVA receipts can detect changed re-ceipt payloads. Tamper-detection tests. External storage integrity depends on deployment con-trols. C5 CAVA can project comparable action semantics across shell, MCP, browser, and managed-agent records. Runtime-portability suite. Adapter coverage varies by runtime and product inte-gration depth. C6 CAVA can represent governance weak-ening as a governed action. Policy-degradation cases. Break-glass work-flows require care-ful enterprise de-sign. 29 ID Claim Current evidence Limitation C7 CAVA can include Azure CLI actions in semantic deployment drills without mutating resources by default. Azure drill cases and CLI account-state evidence. Live validation still requires a dispos-able cloud lab. C8 The open package can support external receipt verification without exposing OSuite production parser packs. Open-core package and commercial-boundary docs. Full managed be-havior is not re-produced by the public skeleton. C9 Optional Web3 and ledger substrates can strengthen attestation without defining the whole system. Attestation-substrate design and Web3 cases. Ledger anchoring can leak metadata if used carelessly. C10 CAVA composes with PCAA by provid-ing the action identity PCAA governs. PCAA relationship section and route-review-prove fram-ing. PCAA itself must be implemented correctly by the deployment. C11 CAVA semantic patterns turn canonical actions into policy-addressable mean-ings without becoming a separate prod-uct or authority layer. Semantic-pattern suite, policy-profile routing tests, and decision-detail evi-dence. Pattern definitions need continuous review as enter-prise runtimes and attacker behavior change. The claim register is intentionally conservative. A stronger-looking claim that cannot be tested is weaker in practice. The current version should be read as a foundation for adversarial review, not as a declaration that every runtime action in every enterprise will already be canonicalized perfectly. 
+
+# S Misuse and Abuse Analysis 
+
+Governance components can be misused. A deployer can use action verification to block legitimate work, surveil operators without consent, create brittle bureaucracy, or claim safety that the runtime cannot support. Table 21 records the current misuse analysis for CAVA. Table 21: Misuse and abuse analysis. Misuse pattern Risk Mitigation posture Compliance theater Receipts are generated but never reviewed, creating false assurance. Require outcome closure, coverage disclosure, and buyer-facing proof bundles that expose gaps. Overblocking Benign work is routed through unnecessary ap-provals, causing operators to bypass the system. Maintain false-positive controls and distinguish observation, simulation, mutation, and settlement. Silent surveillance Runtime traces collect sensi-tive operator behavior with-out governance. Scope collection to action evidence, minimize raw payload retention, and document tenant retention settings. 30 Misuse pattern Risk Mitigation posture Authority launder-ing A manager approves broad policy degradation and later claims the system allowed it. Treat policy weakening as a gov-erned action with explicit dual-control routes. Vendor lock-in A proprietary parser becomes the only way to verify evi-dence. Keep schema, fingerprints, receipts, and public verifier open. Blockchain over-reach Public ledger anchoring leaks metadata or becomes a gim-mick. Treat ledgers as optional digest an-chors, not as the definition of CAVA. Observer-mode over-claim A runtime that can only ob-serve is marketed as if it can block. Carry enforcement depth in evidence and product UI. Parser overfitting Public benchmark examples become memorized without improving real coverage. Add external traces, independent red-team submissions, and private regression suites. This analysis is included because a strong governance product should be able to criticize itself. The point of CAVA is not to centralize power in OSuite. The point is to make deployer authority inspectable. If CAVA ever becomes a tool for opaque vendor control, it has failed the philosophy that motivated it. 
+
+# T Evaluator Checklist 
+
+The checklist below is intended for reviewers who want to challenge CAVA before accepting it as a serious component. A future external artifact review can use this checklist directly. Table 22: Evaluator checklist for CAVA review. No. Check Evidence expected 1 Does an equivalent deployment action converge across direct shell, env , command , and nested shell forms? Same canonical fingerprint or documented decomposition. 2 Does a benign search containing a dangerous string avoid escalation? Observation category and false-positive-control metric. 3 Does an approval receipt fail when the finger-print changes? Verifier rejects altered receipt. 4 Does a receipt hash reproduce when field order changes but semantics remain stable? Deterministic hash match. 5 Does a managed-agent trace project into the same action class as a shell action? Runtime portability result. 6 Does a browser click carry business semantics rather than only UI coordinates? Adapter mapping or coverage downgrade. 31 No. Check Evidence expected 7 Does an MCP tool call avoid disappearing be-hind generic tool notation? Tool namespace and method projection. 8 Does CAVA detect signature-mode or trust-boundary degradation as a governed action? Policy-degradation route. 9 Does the system disclose observe-only coverage honestly? Enforcement-depth field or UI posture. 10 Can an external verifier validate the open re-ceipt without OSuite secrets? Public verifier and disclosure-safe receipt. 11 Are customer parser packs separated from the public open-core skeleton? Commercial-boundary documen-tation. 12 Are Azure or cloud drill commands clearly marked as semantic cases, not commands to execute? 
+
+live_execution=false and reproduction notes. 13 Does the system separate read-only wallet calls from wallet sends? Web3 category and reversibility marker. 14 Does the system downgrade opaque private scripts instead of trusting names? Coverage downgrade or required parser pack. 15 Does outcome closure record whether the action succeeded, failed, or partially executed? Closure event and receipt sta-tus. 16 Does the benchmark include red-team cases that the authors would rather not see? Casebook with baseline failure and residual risk. This checklist is deliberately practical. It gives a CISO, reviewer, or engineer a path to say “show me” rather than “tell me.” That is how CAVA should be sold and reviewed. 
+
+# U Open-Core and Commercial Boundary 
+
+CAVA should not be trapped inside OSuite so tightly that the ecosystem cannot trust it. At the same time, OSuite should not give away the entire managed product in a way that destroys the company’s ability to maintain the component. The recommended boundary is: 
+
+• Open : schema, canonical serialization rules, hash and receipt verification, adapter interfaces, representative benchmark seeds, disclosure-safe red-team casebook, and publication profiles. 
+
+• Managed : production parser packs, private connector enrichment, tenant policy thresholds, evidence graph, approval UI, export workflows, enterprise signer orchestration, customer-specific routing, retention controls, and support. 
+
+• Self-host enterprise : custom parser pack installation, private signer configuration, internal connectors, offline verification, and integration with a customer’s existing security operations workflow. This boundary lets CAVA become a recognizable technical primitive while OSuite remains the production-grade operating layer. The open package should let a skeptical engineer verify that receipts are not magic. The paid product should make it unnecessary for an enterprise to build and maintain every parser, approval path, evidence graph, and assurance export alone. 32 V Deployment Safeguards 
+
+Production deployment should follow a staged posture: 1. Observe : record CAVA fingerprints and receipts without blocking. 2. Warn : surface risk and coverage gaps to operators. 3. Approval-gate : bind high-impact actions to canonical fingerprints before release. 4. Dual control : require separate approval actors for identity, payment, production, or settlement lanes. 5. Quarantine : degrade or block high-impact action release when trust posture, signature mode, or receipt completeness fails. 6. External assurance : export selected proof bundles and attestations for buyer, auditor, or partner review. The important safety principle is not maximal blocking. It is honest binding and honest coverage disclosure. A runtime that only observes cannot be marketed as equivalent to a runtime that can enforce before side effects. 
+
+# Part III 
+
+# Artifact and Benchmark Package 
+
+# W Benchmark Provenance 
+
+The benchmark harness is implemented as source-benchmark.mjs in the manuscript’s benchmark directory. It publishes representative scenarios, aggregate metrics, evaluation-suite metadata, ablation definitions, a red-team casebook, a comparative matrix, and Azure CLI deployment-drill evidence while withholding production parser packs, exact enterprise thresholds, customer connector rules, and managed evidence-graph internals. 
+
+# X Artifact Manifest 
+
+The paper ships a small artifact package under docs/research/papers/cava . The package contains: 
+
+• main.tex and references.bib , the manuscript source; 
+
+• main.pdf , the compiled paper; 
+
+• benchmarks/source-benchmark.mjs , the executable benchmark harness; 
+
+• benchmarks/latest.json , the latest full benchmark output; 
+
+• benchmarks/publication-latest.json , the disclosure-safe publication profile; 33 • benchmark-embedded red-team casebook and ablation study definitions; 
+
+• artifacts/MANIFEST.md , a human-readable artifact inventory; 
+
+• artifacts/REPRODUCE.md , commands for rerunning tests and benchmark outputs. 
+
+# Y Reproducibility Protocol 
+
+The minimum reproduction protocol is: 1. run npm run cava:benchmark from the repository root; 2. run the CAVA benchmark unit tests; 3. rebuild the manuscript with latexmk -pdf main.tex ;4. compare the generated aggregate metrics with benchmarks/latest.json ;5. optionally confirm Azure CLI authentication with az account show –output json ; do not execute mutating Azure drill commands outside a disposable test environment. This protocol is intentionally small enough to run locally. A larger artifact-evaluation track should add containerized execution, third-party runtime traces, and adversarial parser challenges. 
+
+# Z Disclosure Boundary 
+
+The public CAVA skeleton includes schema, hashing, receipts, and adapter contracts. The managed OSuite layer includes production parser packs, PCAA routing, approval workflows, evidence graph, replay, buyer exports, enterprise signers, KMS/HSM integrations, verifiable credential issuance, optional ledger anchoring, and managed connectors. 
+
+# References 
+
+[1] Cloud Native Computing Foundation. Introducing verifiable execution in dapr 1.18. https: //www.cncf.io/blog/2026/06/11/introducing-verifiable-execution-in-dapr-1-18/ ,2026. [2] in-toto project. in-toto: A framework for securing the integrity of software supply chains. 
+
+https://in-toto.io/ , 2023. [3] Carlos E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik Narasimhan. Swe-bench: Can language models resolve real-world github issues? In 
+
+International Conference on Learning Representations , 2024. [4] Richard Kang and Yudho Diponegoro. Governance gaps in agent interoperability protocols: What mcp, a2a, and acp cannot express. https://arxiv.org/abs/2606.31498 , 2026. [5] Langfuse. Llm observability and application tracing. https://langfuse.com/docs/observab ility/overview , 2026. 34 [6] Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang, Shudan Zhang, Xiang Deng, Aohan Zeng, Zhengxiao Du, Chenhui Zhang, Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun, Minlie Huang, Yuxiao Dong, and Jie Tang. Agentbench: Evaluating llms as agents. In International Conference on Learning Representations , 2024. [7] Microsoft. Agent control specification: Portable runtime governance for ai agents. https: //commandline.microsoft.com/agent-control-specification-runtime-governance/ ,2026. [8] National Institute of Standards and Technology. Artificial intelligence risk management framework: Generative artificial intelligence profile. https://www.nist.gov/publications/ artificial-intelligence-risk-management-framework-generative-artificial-intel ligence , 2024. [9] George C. Necula. Proof-carrying code. In Proceedings of the 24th ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages , pages 106–119, 1997. [10] OpenAI. Frontier governance framework. https://cdn.openai.com/pdf/e37d949b-8c9f-4 d76-b99e-4272f4631a7e/openai-frontier-governance-framework.pdf , 2026. [11] OpenTelemetry. Semantic conventions for generative ai. https://github.com/open-telemet ry/semantic-conventions-genai , 2026. [12] OWASP GenAI Security Project. Owasp top 10 for agentic applications for 2026. https: //genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/ ,2026. [13] Yangjun Ruan, Qingxiu Dong, Andrew Wang, Silviu Pitis, Yongchao Zhou, Jimmy Ba, Yann Dubois, Chris J. Maddison, and Tatsunori Hashimoto. Identifying the risks of lm agents with an lm-emulated sandbox. In International Conference on Learning Representations , 2024. [14] Sigstore. Sigstore documentation. https://docs.sigstore.dev/ , 2024. [15] W3C. Verifiable credentials data model v2.0. https://www.w3.org/TR/vc-data-model-2.0/ ,2025. [16] Zexun Wang. Proof-carrying agent actions: Model-agnostic runtime governance for heteroge-neous agent systems. https://arxiv.org/abs/2606.04104 , 2026. 35

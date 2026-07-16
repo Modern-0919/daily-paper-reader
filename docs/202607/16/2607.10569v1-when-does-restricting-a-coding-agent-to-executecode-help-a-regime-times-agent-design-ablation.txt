@@ -1,0 +1,469 @@
+Title: When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation
+
+URL Source: https://arxiv.org/pdf/2607.10569v1
+
+Published Time: Tue, 14 Jul 2026 01:29:00 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation 
+
+# Hong Yang 
+
+hy3134@rit.edu Rochester Institute of Technology Rochester, New York, USA 
+
+# Qi Yu 
+
+Rochester Institute of Technology Rochester, New York, USA 
+
+# Travis Desell 
+
+Rochester Institute of Technology Rochester, New York, USA 
+
+## Abstract 
+
+Modern coding agents expose multiple tool surfaces — IDE primi-tives, bash, and Model Context Protocol (MCP) code-execution — and the field has shipped three contradictory claims about which one matters. We run the missing crossed comparison: an integrity-clean three-arm ablation ( baseline / bash_only / code_only ) on synthetic computation tasks and SWE-bench Mini modification tasks, holding model, harness, and prompts fixed, with two agents (Claude Code, OpenAI Codex CLI) so the comparison spans both regime and agent-design axes. Across the four resulting (regime, agent) cells, restricting the agent to a single execute_code MCP tool is cheaper than — or statistically tied with — its cheapest tool-rich rival in three cells (significantly on Artifact/Claude and SWE-bench/Codex; directionally on Artifact/Codex), with pass rates statistically tied within each cell. The lone exception is SWE-bench/Claude, where code_only is directionally costlier ( +14 .4% ,not significant (NS)); a conditional-cost analysis localizes that gap to failure-cost on doomed-run trajectories, not a per-edit tax on suc-cessful runs. Two implications: the cheapest tool surface is jointly 
+
+determined by task regime and agent design rather than by either axis alone, and the headline cost signal lives in cache-adjusted cost — not pass rate, which is invariant across surfaces at the model sizes we evaluate. The benchmark harness, task suite, and analysis code are available at https://github.com/hyang0129/onlycodes. 
+
+## 1 Introduction 
+
+Coding agents now ship with overlapping tool surfaces—Read, Grep, Glob, Edit, Write, and Bash on Claude Code; ACI primitives on SWE-agent; an MCP execute_code tool on emerging stacks—and the field has settled on three mutually incompatible claims about which surface a coding agent should expose. Specialised IDE primitives are required: SWE-agent argues that the Agent–Computer Interface (ACI) is load-bearing, with an ACI-vs-shell ablation that produced a gain of +10 .7 percentage points on SWE-bench at the time of publication [ 42 ]. Bash alone is sufficient: mini-SWE-agent is a ∼100-line bash-only scaffold that posts >74% on SWE-bench Verified with no IDE primitives at all [ 31 ]. Replace the tool surface with code execution: industry write-ups report ∼98 –99% token reductions by routing through an MCP execute_code tool rather than calling the native tools directly [ 2 , 9 , 32 ]. The three prescriptions have never been crossed on a single harness, on the same model, with regime stratification, so the field cannot tell which condition each applies under, or whether they contradict each other at all. We run the missing crossed comparison: the same harness, the same models, and the same prompts, evaluated under three tool surfaces ( baseline , bash_only , code_only ) crossed with two task regimes (computation, modification) and two agents (Claude Code, Artifact 
+
+> Claude
+> Artifact
+> Codex
+> SWE-bench
+> Claude
+> SWE-bench
+> Codex
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> 1.1
+> 1.2
+> 1.3
+> Cost ratio  (code-only / cheapest rival)
+> p<0.001
+> 0.75
+> p=0.25
+> 0.93
+> p=0.12
+> 1.14
+> p<0.001
+> 0.80
+
+Figure 1: Cost ratio (code-only / cheapest rival ) per 
+
+(benchmark , agent ) cell, on a 1.0 parity line. The four bars are the two benchmarks × two agents that constitute the 
+
+four-cell structure referenced throughout the paper. Three of four cells favor code_only (significant on Artifact-Claude and SWE-bench-Codex; directional on Artifact-Codex). The lone exception, Claude × SWE-bench, is itself only directional (NS); the source of this anomaly is decomposed in Table 4. Paired Wilcoxon signed-rank 𝑝 -values are reported inline in §5.3; per-cell magnitudes and additional contrasts in Table 2. 
+
+Codex CLI), all under an integrity-clean SWE-bench protocol with post-agent test_patch application (§3.3) [ 16 ]. The baseline arm exposes each agent’s default tool surface; bash_only restricts to native bash plus read/glob/grep, with Edit and Write removed; 
+
+code_only replaces the entire tool surface with a single MCP tool— mcp__codebox__execute_code on a persistent Python+Bash REPL—and disallows every native built-in [ 1]. The modification cell is SWE-bench Mini ( 𝑛 = 100 , canonical post-agent test_patch 
+
+protocol); the computation cell is a set of self-contained tasks each defined by a (workspace, hidden grader, reference output) triple with deterministic offline scoring (§3.6). The crossed 3 × 2 × 2 design is the minimum that disambiguates the three claims of §1, because each claim’s scope (which surface, which regime, which agent) is exactly what is in dispute. The computation cell is a methodologi-cal vehicle, not a benchmark contribution—the artifact-benchmark space is already crowded (§2.4). None of the prior data points on this axis is the crossed com-parison we run. SWE-agent’s two-arm ACI-vs-shell ablation [ 42 ]arXiv:2607.10569v1 [cs.SE] 12 Jul 2026 SE 3.0 @ KDD ’26, August 2026, Jeju, Korea Hong Yang, Qi Yu, and Travis Desell 
+
+and mini-SWE-agent’s single bash-only arm on SWE-bench Ver-ified [ 31 ] both fix a single tool-surface axis on the modification regime, with no code-execution arm and no regime stratification. The industry write-ups on code-execution surfaces [ 2, 9 , 32 ] target external-MCP tool surfaces (Drive, Salesforce, Stripe, Cloudflare’s API) rather than internal IDE primitives and report no benchmark and no regime split. Liu et al. offer an architectural taxonomy of Claude Code’s primitives explicitly without ablation [ 19 ]; the Ver-dent technical report describes a single-vendor informal ablation without public methodology or regime stratification [ 33 ]. No prior work has crossed three internal IDE surfaces under regime stratifi-cation with both a Claude- and a Codex-family agent, so the three claims of §1 have remained unfalsifiable at the population level. We make three contributions. 
+
+(1) A four-cell agent-conditional cost structure. The four cells are the cross of the two task regimes with the two agents—{computation (Artifact), modification (SWE-bench)} × {Claude, Codex}. Across these four (regime × agent) cells, code_only is cheaper in three cells (significantly in two, directionally in one) and directionally more expensive in the fourth—Artifact/Claude ( Δcost adj. = −24 .6% ,
+
+𝑝 = 7.4 × 10 −14 ), Artifact/Codex ( −6.7% , directional), and SWE-bench/Codex ( −19 .9% , 𝑝 = 2.0 × 10 −9) all favour code_only , while SWE-bench/Claude reverses ( 14 .4% , NS; full table at §5, Table 2). The same restriction is cheaper under three (regime, agent) combi-nations (significantly under two) and costlier under one, so surface choice is jointly determined by regime AND agent design, not by either alone; the three prior claims of §1 coexist because each is true under its specific (regime, agent) combination and false under the others. 
+
+(2) A three-mechanism causal decomposition. We decompose the four-cell structure into three causally distinct mechanisms whose joint footprint matches it; no single mechanism predicts the full table. Path-cost (edit friction): code_only must express every file edit as a Python script, and on Claude SWE-bench this scales output tokens with edit volume (per-instance Spearman 𝜌 = 0.488 , 𝑝 =
+
+2.6 × 10 −7), driving the lone Claude × SWE-bench output-token blow-up (§6.1). Failure-cost: the Claude × SWE-bench cost overrun localises to unanimous-fail and split instances; on the unanimous-pass subset the gap collapses sharply (§6.3). Pricing asymmetry: 
+
+on Codex, execute_code batches operations per LLM call ( ∼ 2.5
+
+tool calls per LLM step vs. ∼ 1.0 for baseline ) and lets the agent constrain per-call output volume programmatically, which produces the SWE-bench/Codex win without changing LLM-call count—an effect absent on Claude (§6.2). 
+
+(3) Capability invariance, with empirical receipt. Pass rates differ by less than three percentage points across all four cells × three arms, with all four headline pass-rate contrasts NS (Table 2); and on a strict 9/9-trial unanimity criterion the majority of instances in every cell are unanimously decided, so task outcome does not vary with tool surface for the bulk of the corpus. Tool surface changes the path and the cost, not the answer. This dissociation is what licenses contributions (1) and (2) as cost-engineering claims rather than capability claims, and it is consistent with the Capability Overlap Principle [ 45 ]; the load-bearing claim is the empirical agreement-matrix result, not the theoretical frame. Table 1 condenses these four cells into an at-a-glance map: the 
+
+code_only cost outcome against its cheapest rival, whether that outcome is statistically significant or merely directional, and the operational lesson each cell licenses. 
+
+## 2 Related Work 2.1 IDE-tool-surface ablation on coding agents 
+
+The closest precedent is SWE-agent, whose two-arm Agent–Computer Interface (ACI) vs. raw shell ablation established that structured IDE primitives beat free-form shell at the model size of late 2024 [ 42 ]. Two subsequent points have left the conclusion partly stale: mini-SWE-agent, a ∼100 -line bash-only scaffold, posts competitive num-bers on SWE-bench Verified with no IDE primitives at all [ 31 ], and Live-SWE-agent shows a self-evolving scaffold seeded from it can climb higher [ 40 ]. Engineered surfaces continue to be ex-plored on the other end, layering AST-aware retrieval, semantic search, or fixed localize–repair–validate pipelines on the SWE-agent line [ 26 , 39 , 46 ]. None of these crosses three internal IDE surfaces under a single integrity-clean harness with regime strat-ification; each fixes a single axis. Descriptive surveys of Claude Code’s primitive surface [ 6 , 19 , 29 ] and component-evolution work on coding-agent harnesses [ 18 , 38 ] do not swap the entire surface either. The vendor signal closest in spirit to ours is the Verdent technical report [ 33 ], which informally notes that removing ad-vanced tools while keeping bash +read +write +edit produced lit-tle SWE-bench Verified change; single-vendor and without public methodology, we treat it as motivation rather than a scoop. 
+
+## 2.2 Code execution as the action interface 
+
+The code_only arm sits in a line of work that replaces structured tool calls with executable code. PAL and Program-of-Thoughts es-tablished Python as the medium of model reasoning for arithmetic and symbolic computation [ 8, 13 ]; CodeAct extended the move to the action layer of agentic systems, contrasting executable Python with JSON tool calls on general-purpose agent benchmarks [ 34 ], and the OpenHands platform [ 35 ] ships the CodeAct interface at scale. The most directly relevant industry signals are Anthropic’s “code execution with MCP” write-up and Cloudflare’s two “Code Mode” posts, which report large token reductions when an LLM writes code that calls external MCP tools rather than calling them directly [ 2 , 9 , 32 ]. All four target external tool surfaces — Drive, Salesforce, Stripe, Cloudflare’s REST API — not the agent’s internal IDE primitives, and none reports a coding-benchmark evaluation. Bechard et al. [ 5 ] argue the analogous “less is more” point for enter-prise API automation, again outside the code-repair domain. Our 
+
+code_only arm ports code-as-action into the agent’s IDE-primitive layer and evaluates it on the benchmarks where Claude Code, Codex CLI, and their peers actually run. 
+
+## 2.3 Tool-use tax and capability overlap 
+
+We frame the surface choice through Zhang et al.’s “tool-use tax” inequality: a tool delivers net benefit only when its task-specific capability gain exceeds the per-call cost of carrying its definition in the prompt [ 45 ]. Their evidence is on general math and question-answering; ours supplies the coding-agent receipt. The orthogonal tool-pruning and tool-budgeting literature — Budget-Aware Tool When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation SE 3.0 @ KDD ’26, August 2026, Jeju, Korea 
+
+Table 1: At-a-glance map of the four (regime, agent) cells (companion to Figure 1). Δcost adj. is the paired per-instance cost gap ( code_only minus its cheapest rival — bash_only on Artifact, baseline on SWE-bench) as a percentage of the rival mean; negative favors code_only . Sig.: *** significant (paired Wilcoxon, two-sided), dir. directional, NS not significant. Exact 𝑝 -values and token contrasts appear in Table 2.                            
+
+> Bench Agent Δcost adj. Sig. Practical takeaway Artifact Claude −24 .6%*** Computation on Claude: restrict to execute_code ; cheaper at matched pass rate. Artifact Codex −6.7%dir. Computation on Codex: code_only trends cheaper, but the margin is within noise. SWE-bench Claude 14 .4%NS Repo edits on Claude: keep native Edit /Write ;code_only pays an edit-friction tax on hard or failed instances. SWE-bench Codex −19 .9%*** Repo edits on Codex: restrict to execute_code ; tool-call batching cuts cost.
+
+Use [ 21 ], ToolTree [ 43 ], Trajectory Reduction [ 41 ], ToolScope [ 20 ], and the MCP description audit of Hasan et al. [ 14 ] — all ask which 
+
+𝑘 tools to select from a large pool, holding the surface design itself fixed. We instead compare three fixed surfaces on the same harness. Fan et al.’s SWE-Effi [ 11 ] introduces resource-aware effectiveness metrics for coding agents and reports that failed runs consume an order of magnitude more compute than successes; this “expensive failures” framing motivates the cache-adjusted cost methodology in §3.5 and is consistent with the failure-cost mechanism we identify on SWE-bench/Claude (§6.3). 
+
+## 2.4 Coding-agent benchmarks 
+
+Our paired evaluation spans both halves of an established bench-mark axis. On the modification side, SWE-bench [ 16 ] and its human-validated Verified subset [ 25 ] are the foundation; later benchmarks that build on them — SWE-bench Pro [ 10 ], Multi-SWE-bench [ 44 ], SWE-PolyBench [ 28 ], and SWE Atlas [ 27 ] — extend SWE-bench along difficulty, language, and task-shape axes, but never along the agent’s tool surface. Ganhotra’s audit [ 12 ] that the bulk of SWE-bench Verified is single-file motivates our targeted multi-file sampling. On the computation side, MLE-Bench [ 7] and MLAgent-Bench [ 15 ] grade Kaggle-style submissions by the numerical output of agent-written code, RE-Bench [ 36 ] pushes the same shape to longer-horizon ML R&D, CORE-Bench [ 30 ] grades reproduction of published numerical results, and SWE-Lancer [ 22 ] mixes modifi-cation and computation in a single corpus. We do not propose a new computation benchmark — the space is crowded. The artifact suite we run is the methodological vehicle that makes the four-cell agent-conditional cost structure of §5 observable at all: without a computation cell on the same harness, every (regime, agent) con-trast collapses to a single column of SWE-bench numbers, and the same-regime divergence between Claude and Codex on SWE-bench cannot be read against any computation baseline. This paper is the empirical complement to Liu et al.’s architectural taxonomy of Claude Code’s primitive surface [ 19 ]: they describe the design space; we ablate three points in it under regime and agent-design stratification, on the benchmark pair that spans the field’s two graded regimes. Observational mining of in-the-wild agent pull requests, exemplified by the SE 3.0 anchor dataset AIDev [ 17 ], holds neither the model nor the tool surface fixed and so does not substitute for the controlled ablation we report. 
+
+## 3 Method 3.1 Three-arm tool surface 
+
+Each arm is defined by what tools are exposed to the agent at process launch; the same Claude Code or Codex CLI binary runs all three. The baseline arm passes no restriction flag and ex-poses the agent’s default surface — Read, Grep, Glob, Edit, Write, Bash, and the agent-built-in subagents on Claude Code; the anal-ogous file primitives, shell tool, and structured apply_patch on Codex. The bash_only arm restricts to bash plus read-only brows-ing primitives, disallowing every file-editing built-in ( Edit /Write /
+
+MultiEdit /NotebookEdit on Claude; shell_tool with structured patching disabled on Codex). The code_only arm replaces the entire surface with a single MCP tool, mcp__codebox__execute _code , served by our exec-server stack as a persistent Python+Bash REPL keyed by working directory across calls; all native built-ins are explicitly disallowed. Two implementation asymmetries are worth surfacing. First, Codex exposes no feature flag for disabling its structured apply _patch tool, so on Codex the bash_only and code_only arms en-force restriction with a prompt-prefix directive rather than a hard flag; this is soft enforcement and model compliance is not guaran-teed. We measure and report explicit apply_patch leakage in §4.2 and find it empirically negligible ( <1% on both restricted arms)— a bound on registered tool calls, not behavioral compliance (see Limitations). Second, code_only depends on REPL state persisting between execute_code invocations: without a persistent kernel, the round-trip savings of “one script per task” collapse, so the exec-server pins the persistent-kernel environment flag for the runs that feed §5. The bash_only arm matches the tool surface of mini-SWE-agent [ 31 ] but does not reuse its loop, prompt template, or scaffold; we apply the bash-only restriction to the same Claude Code and Codex binaries the other two arms use, so the contrast isolates the tool surface variable rather than comparing scaffold implementa-tions. SE 3.0 @ KDD ’26, August 2026, Jeju, Korea Hong Yang, Qi Yu, and Travis Desell 
+
+## 3.2 Harness design 
+
+Per-instance setup (SWE-bench). Each SWE-bench instance is cloned at its base_commit and a per-instance Python virtual en-vironment is built against it. The repository and the virtual envi-ronment are each given their own read-only fuse-overlayfs lower directory, so a per-arm upper directory captures every write and is discarded between arms — no re-clone, no pip install -e . be-tween arms. The virtual-environment overlay is mounted back at its original creation path because console-script shebangs hard-code that absolute path at install time. Artifact tasks are self-contained and skip this step. 
+
+Git-history strip. Before the agent runs, the worktree is collapsed to a single orphan commit at its current tree; all refs, packed refs, reflogs, and alternates are deleted, and git gc –prune=now repacks the resulting object set. The agent cannot recover the upstream reference fix via git log , git show , or the reflog. Fixed author and committer dates make the orphan SHA deterministic for a given tree, so repeated runs strip to the same state. 
+
+Overlay refresh between arms. git reset cannot un-create files an earlier arm added (fuse-overlayfs copy-up plus EEXIST seman-tics), so the harness unmounts, deletes the upper and work directo-ries, recreates them, remounts, and re-strips history between arms. The agent’s view of the merged mount path is stable; the underlying state is fresh. 
+
+Per-arm subprocess isolation. Each agent invocation creates a fresh temporary configuration directory containing only the cre-dentials and minimal config needed for the run, and points the binary at it via CLAUDE_CONFIG_DIR or CODEX_HOME . No session-persistence files, no cross-run state. Both binaries run in headless mode with permission prompts and sandbox / approval gates by-passed. 
+
+Wall-time cap. Each invocation runs in a fresh process group; on timeout the harness sends SIGKILL to the entire group (so subagents and spawned shells die with the parent) and the run is recorded 
+
+FAIL with a synthetic wall_timeout JSONL record. The numerical wall budget is specified in §4. 
+
+## 3.3 Evaluation integrity 
+
+The canonical SWE-bench protocol applies the gold test_patch 
+
+only after the agent terminates: at run time the agent observes the repository at base_commit , and the tests used for grading are not present in the worktree [ 16 ]. Our harness implements deferred application explicitly. The test_patch is applied only after the agent’s process exits, and a pytest –collect-only gate then runs against the patched tree to confirm that the held-out tests are col-lectible. A zero-item collection scores FAIL rather than letting the test runner silently report success against a non-existent suite. Because our agents — unlike the bash-only patch-submission scaffold used in the original SWE-bench evaluation — can write arbitrary files anywhere in the worktree, the canonical “apply the patch” step is preceded by two cleanup operations. Every file that the test_patch targets is restored from HEAD to discard any agent edits to it, and every path the patch lists as a new file is removed from the worktree so an agent-created file cannot collide with a held-out test and block the apply. git apply is then invoked against the resulting tree. If the apply still fails — almost always because an agent-created file could not safely be removed in the second step — the instance is recorded FAIL with reason post-agent git ap-ply failed: agent edits conflicted with the held-out test patch , rather than scored against a tree we cannot trust. This is strictly more conservative than the canonical protocol, which assumes a clean apply. 
+
+## 3.4 The Capability Overlap framing 
+
+We adopt the tool-use tax framing of Zhang et al. [ 45 ]: a tool delivers net benefit iff its task-specific capability gain exceeds the per-call cost of carrying its definition in the prompt. Most Claude Code IDE primitives are bash-subsets in capability (Read, Grep, Glob, and Write reduce to cat , grep , find , and shell-heredoc); Edit alone has non-overlapping capability — atomic byte-precise replacement with linting — awkward to express in bash. The per-call tax is task-invariant while the gain term is regime- and call-pattern-dependent, so §5 reads the four-cell cost structure as the empirical outcome of this inequality and §6 decomposes it into three mechanisms the framework alone does not determine. 
+
+## 3.5 Cache isolation and cost reporting 
+
+Across the four surfaces this paper touches — the Anthropic Mes-sages API, the Claude Code CLI, the OpenAI Responses API, and the OpenAI Codex CLI — no documented parameter, flag, envi-ronment variable, or namespace setting forces a server-side cache miss or scopes cached tokens to a single caller. The only docu-mented mechanism is implicit: change the cached content so the cache key changes. The vendor cache primitives we surveyed — Anthropic’s cache_control and context-editing, OpenAI’s prompt _cache_key and Responses stored-state, and the two CLIs’ session flags — set cache breakpoints, routing hints, or local session state, none of which bypass the cache or scope it per caller [ 4, 24 ]. We therefore cannot guarantee per-task cache isolation in the reported numbers and instead address the resulting non-stationarity in the cost-reporting methodology. Cost in §5 is reported as a single cache-adjusted column, derived from the underlying token-billed formula cost = input_tokens ·𝑟 in +
+
+output_tokens ·𝑟 out (every token billed at non-cached rates; the per-model rates 𝑟 in , 𝑟 out are pinned in §4) plus a per-arm median-floor adjustment. For each arm, let 𝑀 arm be the median across that arm’s instances of first-turn cache_read_input_tokens — empirically the floor representing “system prompt plus tool definitions are warm in cache.” Any instance whose first-turn cache_read falls below 𝑀 arm is bumped up to 𝑀 arm for accounting; instances already at or above the floor and all multi-turn cache reads are unchanged. The adjustment normalises the system-prompt warm/cold lottery without claiming we achieved isolation. The adjustment stops at the shared system-prompt+tool-definition prefix; we do not claim control over post-prefix cache sharing. Such sharing is empirically negligible: prompt caches key on a prefix hash invalidated by any byte difference, and past the system prompt every turn diverges per task (fresh task statement, task-conditional response, task-specific tool-call payloads). Per-instance first-turn When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation SE 3.0 @ KDD ’26, August 2026, Jeju, Korea 
+
+cache_read clusters tightly around each arm’s system-prompt to-ken count, with no bimodal tail consistent with cross-task content reuse. We do not report raw API-billed cost: it is sensitive to run order and ambient cache state we cannot control. 
+
+## 3.6 The artifact-suite contract 
+
+The artifact suite is a new benchmark; this subsection is the method-ology layer that defends it the way §3.3 defends our SWE-bench protocol. Per-category counts and what each category probes are reported in §4; this section specifies the contract, not the inventory. 
+
+Task contract. Every artifact instance is a four-part bundle: a 
+
+task.yaml (problem statement, budget fields, and pointers), a workspace/ 
+
+of public files copied into the agent’s scratch dir, a grader/hidden.py 
+
+exposing a single grade(scratch_dir) entry point, and a grader/reference_output.* 
+
+artifact used to verify the grader itself. The declared execution-budget fields ( max_code_runs , max_wall_seconds ) are not enforced in the corpus that feeds §5; the only wall-clock cap is the harness budget from §3.2. 
+
+Grader contract. Each grade(scratch_dir) returns a score in 
+
+[0, 1] with a pass flag and must be deterministic , offline (no network, keys, or clock-dependent oracles), and seeded-random only (fixed declared seed). It may not write to the scratch directory, which would contaminate re-grading. A reference-output round-trip — grading workspace/ merged with reference_output/ must score one — is the grader’s self-test, run by CI on every push. 
+
+Subprocess isolation. Graders run in a fresh per-task subprocess, so a grader-side exception cannot kill the harness — the artifact-side analogue of the pytest –collect-only gate in §3.3. 
+
+No-leak invariant. Before the agent runs, the materializer scans the scratch tree for any grader/hidden.py or reference_output.* ;a match aborts the run before the agent starts, so no run can com-plete with the answer key in its working directory. Catching a leak post-hoc would already have biased the grade. 
+
+## 4 Experimental Setup 4.1 Benchmark inventory 
+
+We evaluate on two benchmarks chosen to cover disjoint task regimes; the methodology for each lives in §3.3 (SWE-bench proto-col) and §3.6 (artifact-suite contract), and is not repeated here. 
+
+Artifact suite (computation regime). A self-contained suite of 
+
+𝑛 =93 tasks across nine categories, three at 𝑛 =15 (data engineering, data science, ML engineering) and six at 𝑛 =8 (algorithmic, data processing, enumeration, iterative numerical, stateful reasoning, verification-heavy). Each task is a (workspace, hidden grader, reference output) triple under the contract of §3.6; the reference-output round-trip self-test passes on all 93 tasks in CI. The suite is a new benchmark rather than an externally validated one; we scope its generalization in Limitations, and note here that two design prop-erties keep it from favoring the code_only arm by construction. First, grading is outcome-based: the hidden grader of §3.6 scores the produced artifact in the scratch directory, identically across arms and blind to which tool surface produced it, so it cannot reward code execution as a method. Second, all three arms can already exe-cute code ( baseline via Bash , bash_only via bash, code_only via 
+
+execute_code ); they differ only in the file-manipulation and brows-ing primitives layered around that shared capability, so the regime contrast against the external SWE-bench benchmark isolates the tool surface rather than the ability to compute. 
+
+SWE-bench Mini (modification regime). A curated 𝑛 =100 subset of SWE-bench [ 16 ] in two sub-corpora. verified-mini (𝑛 =50 ): Django (25 ), Sphinx ( 25 ), drawn from SWE-bench Verified [ 25 ]. datasci-mini 
+
+(𝑛 =50 ): sklearn ( 15 ), matplotlib ( 12 ), xarray ( 8), sympy ( 7), seaborn (5), astropy ( 3). The split spans the canonical modification regime and the data-science / scientific-Python tail underrepresented in SWE-bench Verified. 
+
+## 4.2 Agents 
+
+We instantiate the three-arm ablation of §3.1 ( baseline , bash_only ,
+
+code_only ) on two production coding agents: Claude Code [ 3](model claude-sonnet-4-6 , Claude Code 2.1.139) and Codex CLI [23 ](model gpt-5.5 ). Both are invoked under the per-arm subprocess-isolation protocol of §3.2 (per-run isolated config dir, no session-persistence, sandbox/permission bypass). Codex is reported as a co-headline finding, not a footnote-level generalisation probe: the agent-design contrast on SWE-bench (Codex 𝑝 = 2.0 × 10 −9vs. Claude 𝑝 = 0.12 on the code_only cost contrast) is one of the four cells that Table 2 in §5 reports. 
+
+Codex apply_patch leakage audit. The §3.1 soft-disable was au-dited on all 110 Codex SWE-bench JSONLs (seed 1): file_change 
+
+events fire 7 times on bash_only and 4 times on code_only (both 
+
+<1% , the 4 concentrated in scikit-learn__scikit-learn-11596 )vs. 344 on baseline . This audit counts explicit apply_patch /file_change 
+
+tool-call events, so it bounds registered tool leakage rather than behavioral compliance: a model could in principle reach equivalent file-editing behavior through bash without emitting a file_change 
+
+event, which this metric would not capture. We read it as a tight bound on explicit tool use—the isolation the crossed design as-sumes on Codex holds at the level of registered tool calls—and, because Codex restriction is prompt-enforced rather than hard-flagged (§3.1), treat the two significant Codex-side results as condi-tional on soft compliance (see Limitations). 
+
+## 4.3 Seeds and the unit of inference 
+
+Seeds. Each (instance, arm) cell is run with 3 seeds, drawn as independent harness invocations on disjoint container snapshots. Per-seed raw records and the analysis scripts that produced every 
+
+\result{} macro in this paper are released with the harness; we do not reproduce them in this PDF. 
+
+The unit of inference is the task, not the seed. A seed-marginal stan-dard error (SE) would pool over instances of dramatically hetero-geneous difficulty and confuse between-task variance with within-task replication noise. Empirically, on Claude SWE-bench the cross-instance SD of cache-adjusted cost is roughly an order of magnitude larger than the paired per-task contrast SE, and pairing flips several headline cells from NS to significant. SE 3.0 @ KDD ’26, August 2026, Jeju, Korea Hong Yang, Qi Yu, and Travis Desell 
+
+Procedure. For every comparison reported in §5: (i) collapse the 3 seeds within each (task, arm) cell to a per-task mean; (ii) for each ordered arm pair (𝐴, 𝐵 ) within a benchmark, compute the per-task vector of differences Δ𝑡 = mean 𝐴 (𝑡 ) − mean 𝐵 (𝑡 ) and report mean Δ, SE Δ = SD (Δ)/ √𝑛 tasks , and a 95% normal-approximation CI ( 𝑛 tasks ∈ { 93 , 100 } supports the approximation); (iii) pair the CI with a paired Wilcoxon signed-rank 𝑝 [ 37 ] on the Δ vector for continuous metrics (cost, input tokens, output tokens). Wilcoxon is preferred over the paired 𝑡 -test because the per-task Δ distri-butions are heavy-tailed—a handful of pathological SWE-bench instances dominate parametric variance while the median direc-tion is clear in every cell. Pass rate uses the same machinery on per-task pass rates ∈ { 0, 1/3, 2/3, 1}, a Wilcoxon-on-rates analogue of McNemar that respects the within-task seed structure. The mar-ginal per-arm summary (the “row” in Table 2) is the mean over tasks of the per-task mean, ±SD task /√𝑛 tasks —the SE that respects task as the unit of replication. Per-seed values are derivable from the released data but are not the inferential unit. Implementation: 
+
+paper/data/scripts/paired_contrasts.py , fully reproducible from the released JSONL records. 
+
+## 4.4 Metrics, cost rates, and exclusions 
+
+Metric surface. Table 2 in §5 reports four columns per (benchmark, agent) cell. Pass rate , defined as PASS /( PASS +FAIL ) with env_fail 
+
+instances excluded from the denominator (see below), reported as an absolute Δ in percentage points. Cache-adjusted cost : the median-floor-adjusted variant defined in §3.5, which charges the shared per-arm prefix at the cache-read rate using the per-arm median first-turn cache_read_input_tokens as the floor; reported as a relative Δ%. Input tokens and output tokens : per-run sums of the corresponding usage fields across user-role API turns (cached and uncached pooled for input); reported as relative Δ%. Turns, dollars per turn, and median per-instance cost are diagnostic rather than headline; the raw token-based cost is the underlying input to the cache-adjusted column, not a parallel reporting axis (§3.5). 
+
+Cost rates. The cache-adjusted cost formula plugs in the vendor-published per-million-token rates for input, cached-input, and out-put, separately for claude-sonnet-4-6 and gpt-5.5 , as of the access date in §3.5. Pinning the rate constants in the setup sec-tion is what makes every cost column in §5 reproducible from the released JSONL records. 
+
+Wall budget. Each (instance , arm , run ) is capped at 60 minutes of wall time (§3.2); per-task execution-budget fields reserved in the artifact task schema are not enforced. 
+
+## 5 Main Results 5.1 Code-only is cheaper in three of four cells (significant in two) 
+
+Reading down the cost-adjusted column of Table 2, code_only is cheaper than its cheapest rival in three of the four (regime, agent) cells. The two significant advantages are Artifact/Claude ( −24 .6%, 
+
+𝑝 = 7.4 × 10 −14 ) and SWE-bench/Codex ( −19 .9%, 𝑝 = 2.0 × 10 −9); the third is a directional Artifact/Codex advantage ( −6.7%, NS). The lone exception is SWE-bench/Claude at 14 .4%(NS, 𝑝 = 0.12 ). The two significant advantages span both benchmarks and both agents; the single cell where the advantage disappears motivates the edit-friction analysis in §6.1. Same model, same harness, same prompts — the per-cell magnitude and sign of the code_only ad-vantage depend jointly on regime and agent design. These are cost-engineering results under the cache-adjusted accounting model of §3.5, not universal cache-isolated savings. Under a raw, cache-blind accounting—every token at the non-cached rate, no median-floor—the two significant advantages stay significant and same-signed (Artifact/Claude −24 .4%, SWE-bench/Codex −17 .8%) and SWE-bench/Claude stays directionally costlier; only the directional Artifact/Codex cell is accounting-sensitive, which is why we report it as directional rather than robust. The pass column is statistically tied in every cell: the cost asym-metry lives in how the agent arrives at the answer, not whether it arrives. The token columns localize the SWE-bench surfaces to opposite axes. SWE-bench/Claude’s directionally costlier outcome is concentrated in output tokens ( 39 .9%, 𝑝 = 4.8 × 10 −10 ), antic-ipating the edit-friction mechanism (§6.1). SWE-bench/Codex’s significant cost advantage is concentrated in input tokens ( −24 .8%, 
+
+𝑝 = 6.0 ×10 −9) with output statistically flat, anticipating the per-call input-budget mechanism (§6.2). 
+
+Where bash_only sits. The intermediate bash_only surface — native shell without the file-editing primitives — is a monotone waypoint between baseline and code_only only in the compu-tation regime, where it undercuts baseline and code_only un-dercuts it in turn (Table 2). The modification regime breaks the ordering: on SWE-bench/Codex bash_only is the costliest arm, sig-nificantly above baseline (4.8%, 𝑝 = 0.0047 ), even as code_only 
+
+is the cheapest. Because bash_only can be the single most expen-sive arm, the code_only advantage reflects consolidation into one 
+
+execute_code round-trip rather than tool removal per se — which is why the headline contrast is baseline vs. code_only .
+
+## 5.2 Per-cell cost-difference distributions 
+
+Figure 2 sorts per-instance Δcost adj. (code-only minus the cheap-est rival, averaged across three seeds) within each cell; negative values favor code-only. Artifact/Claude is a uniform shift: 85 of 
+
+93 instances win, median −$0 .023 per instance. SWE-bench/Codex shows the same shape: 76 of 100 win, median −$0 .092 . The two NS cells differ in structure. Artifact/Codex is symmetric near parity — 
+
+48 of 93 win, IQR −$0 .021 to $0 .013 — consistent with the Table 2 NS row. SWE-bench/Claude inverts: only 44 of 100 favor code-only, and the loss concentrates in a right tail ( 𝑝 75 = $0 .097 , max = $2 .33 ). The directionally costlier mean for that cell is task-structural, not outlier-driven; the shape of panels (c) and (d) motivates the two mechanism questions in §6. 
+
+## 5.3 Cost surface depends jointly on regime and agent design 
+
+Figure 1 reduces the four cost-adjusted contrasts to one panel. Left to right, the per-cell ratios (code-only / cheapest rival ) are 
+
+0.754 (Artifact/Claude, 𝑝 = 7.4×10 −14 ), 0.933 (Artifact/Codex, 𝑝 = 0.25 ), 
+
+1.144 (SWE-bench/Claude, 𝑝 = 0.12 ), and 0.801 (SWE-bench/Codex, 
+
+𝑝 = 2.0×10 −9). The unity-parity line is crossed by the SWE-bench/Claude bar alone. When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation SE 3.0 @ KDD ’26, August 2026, Jeju, Korea 
+
+Table 2: Code-only vs. its cheapest rival in each (benchmark, agent) cell. The rival is the lower-cost of the two non-code-only arms of the §3.1 ablation: bash_only on Artifact and baseline on SWE-bench, for both agents. Δpass in percentage points; Δcost adj. ,
+
+Δinput , Δoutput are relative changes ( (code-only − rival )/ rival , in %); cost is cache-floor-adjusted (§3.5). All 𝑝 values are paired Wilcoxon signed-rank, two-sided. 𝑛 = 93 for Artifact (per-instance means across 3 seeds), 𝑛 = 100 for SWE-bench. 
+
+Pass (pp) Cost adj. Input tok Output tok Bench Agent Δ 𝑝 Δ 𝑝 Δ 𝑝 Δ 𝑝 
+
+Artifact Claude 0.00 0.74 −24 .6% 7.4 × 10 −14 −33 .6% 1.6 × 10 −15 −2.9% 0.75 
+
+Artifact Codex 2.51 0.10 −6.7% 0.25 −15 .8% 0.0014 −2.7% 0.67 
+
+SWE-bench Claude −1.67 0.47 14 .4% 0.12 26 .0% 0.75 39 .9% 4.8 × 10 −10 
+
+SWE-bench Codex 0.33 0.70 −19 .9% 2.0 × 10 −9 −24 .8% 6.0 × 10 −9 −0.7% 0.83 20 40 60 80            
+
+> instance (sorted)
+> −0.15
+> −0.10
+> −0.05
+> 0.00
+> 0.05
+> Δ cost adj. (USD)
+> median Δ = $-0.0233
+> n_win / n = 85/93
+> Artifact · Claude
+> 20 40 60 80
+> instance (sorted)
+> −0.15
+> −0.10
+> −0.05
+> 0.00
+> 0.05
+> median Δ = $-0.0016
+> n_win / n = 48/93
+> Artifact · Codex
+> 20 40 60 80 100
+> instance (sorted)
+> −1
+> 0
+> 1
+> 2
+> Δ cost adj. (USD)
+> median Δ = $+0.0094
+> n_win / n = 44/100
+> SWE-bench · Claude
+> 20 40 60 80 100
+> instance (sorted)
+> −1.00
+> −0.75
+> −0.50
+> −0.25
+> 0.00
+> median Δ = $-0.0917
+> n_win / n = 76/100
+> SWE-bench · Codex
+
+Figure 2: Per-instance Δcost adj. = (code-only −cheapest rival ),sorted within each (benchmark , agent ) cell. Zero line marks cost-parity; the per-cell median is annotated. Per-instance values are means across 3 seeds; 𝑛 =93 per Artifact panel, 𝑛 =100 
+
+per SWE-bench panel. 
+
+The SWE-bench/Claude cell is the only one where restricting the agent to a single execute_code tool makes it directionally costlier than its cheapest rival, while SWE-bench/Codex is the cell where the same restriction yields the matrix’s largest significant cost win. Same regime, same restriction, opposite outcomes: surface choice is jointly determined by regime and agent design. Codex’s significant cost win is the confirmed effect; Claude’s directional loss is the asymmetric companion that the discussion unpacks separately. The Claude direction (edit friction on Edit /Write -heavy tasks) is analyzed in §6.1; the Codex direction (tool-call batching and upper-tail output suppression) in §6.2. 
+
+## 5.4 Agreement matrix and conditional cost 
+
+Three seeds across three arms give nine outcomes per instance. The agreement matrix (Table 3) reports how often arms agree per instance, under two definitions. Strict (every arm passes on every seed, or every arm fails on every seed) ranges from 74 .0% on SWE-bench/Claude to 94 .6% on Artifact/Codex. Majority (per-arm pass-rate ≥ 2/3, unanimously across arms) ranges from 91 .0% to 98 .9%. The strict-to-majority gap on SWE-bench cells ( ≈13 pp) matches the seed leave-one-out reclassification rate, so majority counts the 
+
+Table 3: Per-cell agreement across the 𝑛 seeds ×𝑛 arms =9 trials per instance. Unanimous (majority) : every arm has per-arm pass-rate ≥2/3 across 3 seeds. Unanimous (strict 9/9): every arm passes on every seed or every arm fails on every seed. 
+
+Split (majority) : arms disagree under the majority definition. 
+
+Unanimous Split Bench Agent 𝑛 Majority Strict 9/9 Majority Artifact Claude 93 98 .9% 90 .3% 1.1%Artifact Codex 93 96 .8% 94 .6% 3.2%SWE-bench Claude 100 91 .0% 74 .0% 9.0%SWE-bench Codex 100 91 .0% 79 .0% 9.0%
+
+structurally split instances while strict mixes structural and seed-noise splits. Split structure is mostly graded difficulty rather than arm-specific easy subsets: only 1 of 9 Claude SWE-bench splits has a single arm carrying all passes. Restricting the cost contrast to the unanimous-pass subset (Ta-ble 4) localizes where the full-set gap comes from. In three of four cells the gap is preserved: Artifact/Claude holds at −24 .8%(vs. −24 .6% on the full set), Artifact/Codex at −6.8%, and SWE-bench/Codex at −15 .5% (still significant). SWE-bench/Claude col-lapses: the full-set 14 .4% gap (NS) drops to 4.1% (NS) on the subset where every arm passes. The full-set gap is therefore a failure-cost effect concentrated on doomed-run trajectories, not a per-edit tax on successful runs; the mechanism is analyzed in §6.3. The cache-floor median is recomputed on the subset per §3.5; it matches the full-set floor in 34 of 36 (benchmark, seed, agent, arm) groups, with both exceptions on rival arms (not the contrast arm) for a single SWE-bench/Claude seed. 
+
+## 6 Discussion 6.1 Path-cost: edit friction on Claude SWE-bench 
+
+The lone cell of Table 2 in which code_only is directionally costlier than its rival is Claude × SWE-bench: cost runs +14% (NS) but output tokens are +40% at 𝑝 <10 −9—the extra cost scales with output volume rather than reflecting a fixed per-run overhead. The working hypothesis is edit friction: under code_only , every file modification must be expressed as a Python script rather than as a single native 
+
+Edit or Write call. The per-instance Spearman correlation between SE 3.0 @ KDD ’26, August 2026, Jeju, Korea Hong Yang, Qi Yu, and Travis Desell 
+
+Table 4: Code-arm cost contrast on the full set vs. restricted to the unanimous-pass subset (every arm passes by majority across 3 seeds). Cache-floor median is recomputed on the subset per the cost-adjustment methodology. Δcost adj. is the paired mean of (code-arm − rival ) as a percentage of the rival mean; 𝑝 is paired Wilcoxon two-sided on the subset. 
+
+Full set Unanimous-pass Bench Agent 𝑛 Δcost adj. 𝑛 Δcost adj. 𝑝 
+
+Artifact Claude 93 −24 .6% 92 −24 .8% 9.7 × 10 −14 
+
+Artifact Codex 93 −6.7% 89 −6.8% 0.31 
+
+SWE-bench Claude 100 14 .4% 49 4.1% 0.88 
+
+SWE-bench Codex 100 −19 .9% 42 −15 .5% 0.0063 
+
+Δedit chars (code_only − baseline , computed from JSONL tool-use blocks) and Δoutput tokens is 𝜌 = 0.49 (𝑝 = 2.6 × 10 −7, 𝑛 = 100 ); a median split confirms that the per-instance penalty scales with edit volume, with Δoutput tokens = 2650 on the low-patch half vs. 6378 on the high-patch half (one-sided Mann–Whitney 𝑝 = 0.025 ). About 
+
+3993 tokens of the aggregate gap is fixed-cost regime verbosity (OLS intercept at zero patch size); edit friction is the additional per-line tax, not the whole gap. 
+
+## 6.2 Pricing asymmetry: batching and programmatic output control on Codex 
+
+Why does Codex’s code_only save ∼25% on input tokens on SWE-bench while LLM-call counts stay essentially flat ( 18 .20 for baseline 
+
+vs. 18 .00 for code_only )? Two mechanisms, neither reproduced by the bash_only control, jointly account for the win (conditional on the soft-enforced Codex arm; see Limitations). Tool-call batching: 
+
+execute_code issues 17 .10 tool calls per run vs. 22 .90 for baseline ,so a single Python script subsumes what exec_command requires several calls to do (Figure 3 shows one such step on a named in-stance). Upper-tail suppression: median per-call output is essentially unchanged ( 1747 vs. 1648 chars), but the 𝑝 99 collapses from the 
+
+exec_command ceiling of 40 154 chars to 16 736 —the agent con-strains per-call output volume programmatically, by tightening query scope, slicing returned text, or staging output across multiple prints, rather than receiving whatever the native tool emits (Figure 4 catches the cap-pinning event on a named instance). This refines the industry token-reduction claim [ 2, 32 ]: the gain materialises when the agent’s API expresses per-call batching and its native rival exposes a hard output ceiling, not from the execute_code 
+
+surface alone. Claude’s API empirically does not batch on SWE-bench ( code_only issues 30 .10 calls per run vs. 27 .90 for baseline ), and the round-count inflation is the input-token mirror of the edit-friction effect in §6.1—one mechanism viewed at two granularities. 
+
+## 6.3 Failure-cost and capability invariance 
+
+Pass rates differ by less than three percentage points across ev-ery cell while costs swing 20 –40% (Table 2). The straightforward interpretation is that tool restriction is a harness-efficiency axis orthogonal to model capability: the model solves the task with any reasonable interface; the surface changes the path, not the answer. This matches the Capability Overlap Principle [ 45 ] and the pass-rate        
+
+> Baseline arm — 1 LLM step →3 tool calls
+> Assistant: I need to see the definition, an existing test, and how it’s called elsewhere.
+> exec_command
+> read definition site
+> exec_command
+> read existing test
+> exec_command
+> search call sites
+> Code-only arm — 1 LLM step →1 tool call
+> Assistant: I need to see the definition, an existing test, and how it’s called elsewhere.
+> execute_code
+> •read definition site
+> •read existing test
+> •search call sites
+
+Figure 3: Tool-call batching at one LLM step (Codex on 
+
+sphinx-doc__sphinx-7757 ; both arms PASS). On a context-gathering step, the baseline arm emits three parallel 
+
+exec_command calls; the code-only arm bundles the same three lookups into a single execute_code script. The aggregate ratio of tool calls per LLM call is 1.35 (baseline) vs. 0.89 (code-only) on Codex SWE-bench. 0 10000 20000 30000 40000 
+
+Per-call output (characters) 
+
+code-only: 
+
+single-pattern grep 
+
+baseline: 
+
+broad keyword sweep 
+
+> cap = 40,154 chars
+> 40,165
+> 1,514
+> +3,918
+> tokens
+> truncated
+
+Figure 4: Per-call output at one LLM step (Codex on django __django-11848 ; both arms PASS). The baseline arm’s broad keyword sweep matched unrelated fixture data and pinned the exec_command output cap at 40 154 .000 chars ( +3918 .000 to-kens elided); the code-only arm’s narrower scope returned 
+
+1514 .000 chars cleanly. The aggregate 𝑝 99 collapse in §6.2 is the population-level analogue of this case. 
+
+invariance reported under tool ablation in [ 33 ]. The agreement ma-trix (Table 3) confirms it: unanimous-outcome instances dominate every cell at ≥91% under majority vote and ≥74% on the strictest 
+
+9/9-trials criterion. The Claude × SWE-bench cost gap decomposes When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation SE 3.0 @ KDD ’26, August 2026, Jeju, Korea 
+
+cleanly against this anchor (Table 4): on the unanimous-pass sub-set Δcost adj. collapses from +14 .4% to +4.1% (NS), Δinput tokens from 
+
++26 .0% to +16 .5% (NS), but Δoutput tokens stays at +44 .2% (highly significant). Two mechanisms cohabit the cell: the §6.1 edit-friction path-cost is the output-side tax that persists on successful runs; the remaining input-side blow-up is a failure-cost—extended doomed-run trajectories on instances no surface can solve. Conditioning on success separates them. The cache-floor median is byte-identical on subset and full set in 34 of 36 (benchmark, seed, agent, arm) groups (§3.5), so the collapse is not a cost-adjustment artefact. 
+
+Agent-specific vs. interface-general. These mechanisms do not generalize equally, which bounds how far the four-cell result should be read as a rule for coding agents at large. Two are agent-specific , tied to one vendor’s tool implementation or pricing rather than to the execute_code surface itself: the tool-call batching and upper-tail output suppression behind the Codex × SWE-bench win (§6.2) depend on how Codex’s native exec_command batches and caps output, and the edit-friction path-cost behind the Claude ×
+
+SWE-bench output-token blow-up (§6.1) depends on Claude’s per-
+
+Edit pricing and an API that does not batch. A different agent could move either sign, so neither transfers unchanged and both should be re-measured per agent. Two are more plausibly interface-general :the pass-rate invariance across surfaces (§6.3)—the surface changes the path and cost, not the answer—which holds in every cell for both agents, and its corollary that restricting to a code-execution surface tends to reduce or at worst hold cost when edit volume is low, since the edit-friction and failure-cost taxes both scale with modification volume. The latter two are properties of the regime-by-surface interaction rather than of a single agent, and are the parts most likely to generalize. 
+
+## 6.4 Where the method works, and where it does not 
+
+The harness quantifies tool-surface tax under cache noise (§3.5), isolates regime effects via the artifact-vs-SWE-bench split, and surfaces agent-design coupling: the same restriction ( code_only )produces a significant cost win for Codex on SWE-bench ( 𝑝 <10 −8)and a non-significant directionally-costlier result for Claude in the same cell — the sharpest agent-design contrast in the four-cell structure. It does not support model-capability claims, because pass rates are statistically tied; the path-vs-answer dissociation in §6.3 licenses the cost contrasts as cost-engineering rather than capability claims. We make no per-repo SWE-bench claims at 𝑛 ≈12 –15 ; the remaining headline caveat is the NS Claude × SWE-bench cell at 
+
+𝑝 ≈0.12 .
+
+## 6.5 Implications for agent design 
+
+The four-cell structure adjudicates between the prior prescriptions of §1 as follows. Computation-dominated workloads: drop the IDE surface; code_only wins on cost at parity capability (Artifact ×
+
+Claude, Table 2). Modification-dominated workloads with a high solve-rate: the surface choice is roughly cost-neutral on Claude—the headline +14 .4% penalty is a failure-cost effect on doomed runs, not a per-edit tax on successful ones (Table 4). Modification-dominated workloads with a low solve-rate: keep Edit and Write at minimum— the edit-friction path-cost in §6.1 compounds with the failure-cost in §6.3 on instances no surface can solve. Tool surfaces that admit batching and programmatic output control: expect input-token sav-ings of the kind Codex realises in §6.2, provided the workload does not push LLM-call count up in the process. 
+
+## Limitations 
+
+• Two agent surfaces. The 3 × 2 × 2 design exercises Claude Code ( claude-sonnet-4-6 ) and Codex CLI ( gpt-5.5 ); GPT-5, Gemini 2.5, and open-weight scaffolds are out of scope. 
+
+• Soft tool enforcement on Codex. Claude Code hard-disables tools at launch via a feature flag; the Codex CLI exposes no such flag, so its bash_only and code_only restrictions are imposed by a prompt-prefix directive (§3.1). The §4.2 audit finds explicit apply_patch leakage <1% , but this counts reg-istered tool-call events, not behavioral compliance—a model could reach equivalent file editing through bash without reg-istering as leakage. The two significant Codex-side findings— the SWE-bench/Codex cost advantage (Table 2) and the batching/output-control mechanism (§6.2)—are therefore conditional on soft compliance rather than guaranteed isola-tion. A hard-enforced replication on an open harness with ex-plicit programmatic tool registration—e.g. OpenHands [ 35 ]or a LangGraph-style declarative allowlist that holds regard-less of model intent—is the primary follow-up. 
+
+• Sample size. Per-cell 𝑛 is 93 (Artifact) and 100 (SWE-bench Mini), three seeds each; the directional Claude/SWE-bench gap motivates Verified-scale replication as follow-up. 
+
+• Artifact-suite scope and external validity. Tasks are single-language (Python) on Linux, skewed toward analytical and ML-flavoured computation; the grader contract in §3.6 has not been exercised on Rust, systems-engineering tasks, or long-horizon scenarios. The suite is a new benchmark rather than an externally validated one, and several conclu-sions rest on contrasting it with SWE-bench; we therefore read the artifact-side results as early evidence, not a general rule, and claim no transfer to systems programming, multi-language repositories, or long-horizon agent workflows. §4.1 argues the suite does not favor code_only by construction; external validation on independently authored computation benchmarks is future work. 
+
+• Cost is cache-adjusted, not cache-isolated. Neither the Anthropic Messages nor OpenAI Responses API exposes a documented way to disable the server-side prompt cache (§3.5); within-task multi-turn cache reads are not adjusted. The two significant cost advantages survive a raw, cache-blind accounting (§5.1). 
+
+• Single-shot, internal-surface scope. Multi-shot prompt-ing, scaffold evolution, and external MCP tool surfaces (§2) are out of scope. 
+
+## References      
+
+> [1] Anthropic. 2024. Introducing the Model Context Protocol. Protocol specification + announcement. https://www.anthropic.com/news/model-context-protocol Published 2024-11-25.. [2] Anthropic. 2025. Code execution with MCP: building more efficient agents. Anthropic Engineering Blog. https://www.anthropic.com/engineering/code-execution-with-mcp
+
+SE 3.0 @ KDD ’26, August 2026, Jeju, Korea Hong Yang, Qi Yu, and Travis Desell 
+
+[3] Anthropic. 2026. Claude Code. GitHub repository https://github.com/anthropics/ claude-code. Primary product cite for the Claude Code row of §4.2’s agent-surface table. Pin exact CLI version via the \result{claude_cli_version} macro — bib entry refers to the project, not a frozen release. Decision-pending note resolved 2026-05-28 in favour of this primary cite for parity with repo:openai2026codex ;the liu2026divecc architectural survey retains its §02 related-work citation but is not the §4.2 anchor. Canonical URL confirmed 2026-05-28 ( anthropics org, 127k stars, 20.9k forks, links to official docs at code.claude.com ).. [4] Anthropic. 2026. Prompt caching. Claude API documentation. https://platform. claude.com/docs/en/build-with-claude/prompt-caching Accessed 2026-05-28. Canonical URL on platform.claude.com ; docs.claude.com/... 302-redirects here. Used in §3.5 to assert that the Anthropic Messages API exposes no pa-rameter that forces a cache miss or scopes cached tokens per caller/session: 
+
+cache_control accepts only {"type": "ephemeral"} with an optional ttl 
+
+("5m" default or "1h" ), and the only documented isolation boundary is workspace-level (effective 2026-02-05), coarser than per-caller.. [5] Patrice Bechard, Orlando Marquez Ayala, Emily Chen, Jordan Skelton, Sagar Davasam, Srinivas Sunkara, Vikas Yadav, and Sai Rajeswar. 2026. Terminal Agents Suffice for Enterprise Automation. arXiv preprint arXiv:2604.00073 (March 2026). ServiceNow Research.. [6] Nghi D. Q. Bui. 2026. Building Effective AI Coding Agents for the Terminal: Scaffolding, Harness, Context Engineering, and Lessons Learned. arXiv preprint arXiv:2603.05344 (March 2026). Describes OPENDEV, a Rust-based terminal coding agent.. [7] Jun Shern Chan, Neil Chowdhury, Oliver Jaffe, James Aung, Dane Sherburn, Evan Mays, Giulio Starace, Kevin Liu, Leon Maksin, Tejal Patwardhan, Lilian Weng, and Aleksander Mądry. 2024. MLE-bench: Evaluating Machine Learning Agents on Machine Learning Engineering. arXiv preprint arXiv:2410.07095 (Oct. 2024). OpenAI. Author list verified against arXiv:2410.07095 on 2026-05-28.. [8] Wenhu Chen, Xueguang Ma, Xinyi Wang, and William W. Cohen. 2023. Pro-gram of Thoughts Prompting: Disentangling Computation from Reasoning for Numerical Reasoning Tasks. TMLR (2023). arXiv:2211.12588 Author list verified against arXiv:2211.12588 on 2026-05-28 (originally reconstructed from prose). TMLR 2023 confirmed.. [9] Cloudflare. 2026. Code Mode MCP: give agents an entire API in 1,000 tokens. Cloudflare Blog. https://blog.cloudflare.com/code-mode-mcp/ Published 2026-02-20.. [10] Xiang Deng, Jeff Da, Edwin Pan, Yannis Yiming He, Charles Ide, Kanak Garg, Niklas Lauffer, Andrew Park, Nitin Pasari, Chetan Rane, Karmini Sampath, Maya Krishnan, Srivatsa Kundurthy, Sean Hendryx, Zifan Wang, Vijay Bharadwaj, Jeff Holm, Raja Aluri, Chen Bo Calvin Zhang, Noah Jacobson, Bing Liu, and Brad Kenstler. 2025. SWE-Bench Pro: Can AI Agents Solve Long-Horizon Software Engineering Tasks? arXiv preprint arXiv:2509.16941 (Sept. 2025). Scale AI.. [11] Zhiyu Fan, Kirill Vasilevski, Dayi Lin, Boyuan Chen, Yihao Chen, Zhiqing Zhong, Jie M. Zhang, Pinjia He, and Ahmed E. Hassan. 2025. SWE-Effi: Re-Evaluating Soft-ware AI Agent System Effectiveness Under Resource Constraints. arXiv preprint arXiv:2509.09853 (Sept. 2025). Author list verified against arXiv:2509.09853 on 2026-05-28 (replaced earlier “Fan and others” placeholder).. [12] Jatin Ganhotra. 2025. Do SWE-Agents Solve Multi-File Issues Like Humans? A Deep Dive into SWE-Bench Verified. Blog post (jatinganhotra.dev). Source of the 85.8% single-file figure. Published 2025-01-05. Follow-up “The Multi-File Frontier” (2025-03-30) restates the finding; this Jan deep-dive is the originating source.. [13] Luyu Gao, Aman Madaan, Shuyan Zhou, Uri Alon, Pengfei Liu, Yiming Yang, Jamie Callan, and Graham Neubig. 2023. PAL: Program-aided Language Models. In ICML . arXiv:2211.10435 Author list verified against arXiv:2211.10435 on 2026-05-28 (originally reconstructed from prose). Title casing corrected to “Program-aided” per arXiv. ICML 2023 per published proceedings; arXiv abstract page does not display the venue.. [14] Mohammed Mehedi Hasan, Hao Li, Gopi Krishnan Rajbahadur, Bram Adams, and Ahmed E. Hassan. 2026. Model Context Protocol (MCP) Tool Descriptions Are Smelly! Towards Improving AI Agent Efficiency with Augmented MCP Tool Descriptions. arXiv preprint arXiv:2602.14878 (Feb. 2026). Ablates descriptions, not the tool set — do not conflate with surface ablation when paraphrasing.. [15] Qian Huang, Jian Vora, Percy Liang, and Jure Leskovec. 2024. MLAgentBench: Evaluating Language Agents on Machine Learning Experimentation. In ICML .arXiv:2310.03302 [16] Carlos E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik Narasimhan. 2024. SWE-bench: Can Language Models Resolve Real-World GitHub Issues?. In ICLR . arXiv:2310.06770 [cs.CL] Author list verified against arXiv:2310.06770 on 2026-05-28 (originally reconstructed from prose). ICLR 2024 confirmed.. [17] Hao Li, Haoxiang Zhang, and Ahmed E. Hassan. 2025. The Rise of AI Team-mates in Software Engineering (SE) 3.0: How Autonomous Coding Agents Are Reshaping Software Engineering. arXiv preprint arXiv:2507.15003 (2025). arXiv:2507.15003 [cs.SE] https://arxiv.org/abs/2507.15003 Releases the AIDev dataset (456K+ PRs in v1, refreshed to ∼1M PRs through 2025-08-01 at https: //huggingface.co/datasets/reebazahid/AIDev). Cited as the SE 3.0 workshop an-chor dataset; the workshop itself is at KDD 2026 (https://agent-se.github.io/). Authors verified against arXiv:2507.15003 on 2026-05-28.. [18] Jiahang Lin, Shichun Liu, Chengjun Pan, Lizhi Lin, Shihan Dou, Zhiheng Xi, Xuanjing Huang, Hang Yan, Zhenhua Han, Tao Gui, and Yu-Gang Jiang. 2026. Agentic Harness Engineering: Observability-Driven Automatic Evolution of Coding-Agent Harnesses. arXiv preprint arXiv:2604.25850 (April 2026). [19] Jiacheng Liu, Xiaohan Zhao, Xinyi Shang, and Zhiqiang Shen. 2026. Dive into Claude Code: The Design Space of Today’s and Future AI Agent Systems. arXiv preprint arXiv:2604.14228 (April 2026). MBZUAI VILA Lab + UCL.. [20] Marianne Menglin Liu, Daniel Garcia, Fjona Parllaku, Vikas Upadhyay, Syed Fahad Allam Shah, and Dan Roth. 2026. ToolScope: Enhancing LLM Agent Tool Use through Tool Merging and Context-Aware Filtering. In ACL (Main) .arXiv:2510.20036 Author list, title, and venue (ACL 2026 Main) verified against arXiv:2510.20036 on 2026-05-28. Title was previously misrecorded as “Semantic-Redundancy Merging for Tool Sets” in roadmap drafts; author field was a TBD placeholder before this revision.. [21] Tengxiao Liu, Zifeng Wang, Jin Miao, I-Hung Hsu, Jun Yan, Jiefeng Chen, Rujun Han, Fangyuan Xu, Yanfei Chen, Ke Jiang, Samira Daruki, Yi Liang, William Yang Wang, Tomas Pfister, and Chen-Yu Lee. 2025. Budget-Aware Tool-Use Enables Effective Agent Scaling. arXiv preprint arXiv:2511.17006 (Nov. 2025). [22] Samuel Miserendino, Michele Wang, Tejal Patwardhan, and Johannes Heidecke. 2025. SWE-Lancer: Can Frontier LLMs Earn $1 Million from Real-World Freelance Software Engineering? arXiv preprint arXiv:2502.12115 (Feb. 2025). OpenAI. Author list verified against arXiv:2502.12115 on 2026-05-28.. [23] OpenAI. 2026. Codex CLI. GitHub repository. https://github.com/openai/codex Accessed 2026-05-28. Used in §3.5 to assert that the Codex CLI README and configuration documentation expose no cache flag or environment variable. Verify against the README at the commit hash cited in §4 once the agent-version table is finalized.. [24] OpenAI. 2026. Prompt caching. OpenAI Platform documentation. https:// platform.openai.com/docs/guides/prompt-caching Accessed 2026-05-28. Used in §3.5 to assert that prompt_cache_key is a routing / partition hint, not a disable switch, and explicitly not a security boundary — cache hits cross sessions when prefixes collide. URL returned HTTP 403 to agent-side WebFetch on access date; human reviewer manually opened the page from a browser session and confirmed the cited wording on 2026-05-28.. [25] OpenAI Preparedness Team. 2024. Introducing SWE-bench Verified. OpenAI blog + dataset release. https://openai.com/index/introducing-swe-bench-verified/ 500-instance human-validated subset of SWE-bench.. [26] Albert Örwall. 2024–2025. Moatless Tools. GitHub repository. https://github.com/ aorwall/moatless-tools SWE-bench Verified leaderboard scaffold. No standalone paper for moatless-tools itself; the related SWE-Search paper (arXiv:2410.20285) uses a separate moatless-tree-search repo.. [27] Mohit Raghavendra, Soham Dan, Miguel Romero Calvo, Yannis Yiming He, Johannes Baptist Mols, Gautam Anand, Cole McCollum, Edgar Arakelyan, Vijay Bharadwaj, Andrew Park, Jeff Da, MohammadHossein Rezaei, Bing Liu, Brad Kenstler, and Yunzhong He. 2026. SWE Atlas: Benchmarking Coding Agents Beyond Issue Resolution. arXiv preprint arXiv:2605.08366 (May 2026). Published 2026-05-08.. [28] Muhammad Shihab Rashid, Christian Bock, Yuan Zhuang, Alexander Buch-holz, Tim Esler, Simon Valentin, Luca Franceschi, Martin Wistuba, Prabhu Teja Sivaprasad, Woo Jung Kim, Anoop Deoras, Giovanni Zappella, and Laurent Cal-lot. 2025. SWE-PolyBench: A multi-language benchmark for repository level evaluation of coding agents. arXiv preprint arXiv:2504.08703 (April 2025). Ama-zon. Author list verified against arXiv:2504.08703 on 2026-05-28 (replaced earlier “Amazon Science” corporate placeholder).. [29] Benjamin Rombaut. 2026. Inside the Scaffold: A Source-Code Taxonomy of Coding Agent Architectures. arXiv preprint arXiv:2604.03515 (April 2026). [30] Zachary S. Siegel, Sayash Kapoor, Nitya Nagdir, Benedikt Stroebl, and Arvind Narayanan. 2024. CORE-Bench: Fostering the Credibility of Published Research Through a Computational Reproducibility Agent Benchmark. arXiv preprint arXiv:2409.11363 (Sept. 2024). [31] SWE-agent contributors. 2025. mini-SWE-agent. GitHub repository https:// github.com/SWE-agent/mini-swe-agent. No standalone paper; 100 LoC bash-only scaffold, HAL SWE-bench Verified Mini leaderboard.. [32] Kenton Varda and Sunil Pai. 2025. Code Mode: the better way to use MCP. Cloudflare Blog. https://blog.cloudflare.com/code-mode/ Published 2025-09-26.. [33] Verdent. 2025. SWE-bench Verified Technical Report. Verdent blog / technical report. https://www.verdent.ai/blog/swe-bench-verified-technical-report Tool-ablation finding: removing advanced tools while keeping bash+read+write+edit produced little performance change. 76.1% pass@1 on SWE-bench Verified (Claude Sonnet 4.5).. [34] Xingyao Wang, Yangyi Chen, Lifan Yuan, Yizhe Zhang, Yunzhu Li, Hao Peng, and Heng Ji. 2024. Executable Code Actions Elicit Better LLM Agents. In ICML .arXiv:2402.01030 [35] Xingyao Wang, Boxuan Li, Yufan Song, Frank F. Xu, Xiangru Tang, Mingchen Zhuge, Jiayi Pan, Yueqi Song, Bowen Li, Jaskirat Singh, Hoang H. Tran, Fuqiang When Does Restricting a Coding Agent to execute_code Help? A Regime × Agent-Design Ablation SE 3.0 @ KDD ’26, August 2026, Jeju, Korea 
+
+Li, Ren Ma, Mingzhang Zheng, Bill Qian, Yanjun Shao, Niklas Muennighoff, Yizhe Zhang, Binyuan Hui, Junyang Lin, Robert Brennan, Hao Peng, Heng Ji, and Graham Neubig. 2025. OpenHands: An Open Platform for AI Software Developers as Generalist Agents. In ICLR . arXiv:2407.16741 [cs.SE] 24-author list verified against arXiv:2407.16741 on 2026-05-28. An earlier staging draft contained a hallucinated 27-author list with fabricated names (Salakhutdinov, Mitchell, Z. Yang, D. Sun, S. Jha, M. I. H. Chowdhury, B. Sridhar, H. Hu, T. Patel, H. Lin, A. V. Singh, others) — this entry is the canonical fix point.. [36] Hjalmar Wijk, Tao Lin, Joel Becker, Sami Jawhar, Neev Parikh, Thomas Broadley, Lawrence Chan, Michael Chen, Josh Clymer, Jai Dhyani, Elena Ericheva, Katharyn Garcia, Brian Goodrich, Nikola Jurkovic, Holden Karnofsky, Megan Kinniment, Aron Lajko, Seraphina Nix, Lucas Sato, William Saunders, Maksym Taran, Ben West, and Elizabeth Barnes. 2024. RE-Bench: Evaluating Frontier AI R&D Ca-pabilities of Language Model Agents Against Human Experts. arXiv preprint arXiv:2411.15114 (Nov. 2024). METR.. [37] Frank Wilcoxon. 1945. Individual Comparisons by Ranking Methods. Biometrics Bulletin 1, 6 (1945), 80–83. doi:10.2307/3001968 Cited once in §4.3 to anchor the choice of paired Wilcoxon signed-rank over paired-𝑡 for the heavy-tailed per-task 
+
+Δ distributions. All fields verified against JSTOR (DOI resolves to stable/3001968), Semantic Scholar, and the Shippensburg full-text PDF on 2026-05-28. Classical reference; no ‘TBD‘ fields.. [38] Sherman Wong, Zhenting Qi, Zhaodong Wang, Nathan Hu, Samuel Lin, Jun Ge, Erwin Gao, Wenlin Chen, Yilun Du, Minlan Yu, and Ying Zhang. 2025. Confucius Code Agent: Scalable Agent Scaffolding for Real-World Codebases. arXiv preprint arXiv:2512.10398 (Dec. 2025). [39] Chunqiu Steven Xia, Yinlin Deng, Soren Dunn, and Lingming Zhang. 2024. Agent-less: Demystifying LLM-based Software Engineering Agents. arXiv preprint arXiv:2407.01489 (July 2024). [40] Chunqiu Steven Xia, Zhe Wang, Yan Yang, Yuxiang Wei, and Lingming Zhang. 2025. Live-SWE-agent: Can Software Engineering Agents Self-Evolve on the Fly? 
+
+arXiv preprint arXiv:2511.13646 (Nov. 2025). [41] Yuan-An Xiao, Pengfei Gao, Chao Peng, and Yingfei Xiong. 2025. Reducing Cost of LLM Agents with Trajectory Reduction. arXiv preprint arXiv:2509.23586 (Sept. 2025). Accepted FSE 2026. System name: AgentDiet.. [42] John Yang, Carlos E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao, Karthik Narasimhan, and Ofir Press. 2024. SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering. In NeurIPS .arXiv:2405.15793 [cs.SE] [43] Shuo Yang, Soyeon Caren Han, Yihao Ding, Shuhe Wang, and Eduard Hoy. 2026. ToolTree: Efficient LLM Agent Tool Planning via Dual-Feedback Monte Carlo Tree Search and Bidirectional Pruning. arXiv preprint arXiv:2603.12740 (March 2026). Accepted ICLR 2026.. [44] Daoguang Zan, Zhirong Huang, Wei Liu, Hanwu Chen, Linhao Zhang, Shulin Xin, Lu Chen, Qi Liu, Xiaojian Zhong, Aoyan Li, Siyao Liu, Yongsheng Xiao, Liangqiang Chen, Yuyu Zhang, Jing Su, Tianyu Liu, Rui Long, Kai Shen, and Liang Xiang. 2025. Multi-SWE-bench: A Multilingual Benchmark for Issue Resolving. 
+
+arXiv preprint arXiv:2504.02605 (April 2025). ByteDance Seed team.. [45] Kaituo Zhang, Zhen Xiong, Mingyu Zhong, Zhimeng Jiang, Zhouyuan Yuan, Zhecheng Li, and Ying Lin. 2026. Are Tools All We Need? Unveiling the Tool-Use Tax in LLM Agents. arXiv preprint arXiv:2605.00136 (April 2026). Earlier roadmap drafts misattributed to “Wang et al.”. Correct attribution is Zhang et al.. [46] Yuntong Zhang, Haifeng Ruan, Zhiyu Fan, and Abhik Roychoudhury. 2024. Au-toCodeRover: Autonomous Program Improvement. In ISSTA . arXiv:2404.05427 Author list verified against arXiv:2404.05427 on 2026-05-28 (originally recon-structed from prose). ISSTA 2024 confirmed..

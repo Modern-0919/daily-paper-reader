@@ -6,79 +6,79 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-15
-- 运行时间：2026-07-15 21:30:02 UTC
+- 最新运行日期：2026-07-16
+- 运行时间：2026-07-16 21:28:51 UTC
 - 运行状态：成功
 - 本次总论文数：19
 - 精读区：7
 - 速读区：12
 
 ### 今日简报（AI）
-今日对19篇论文进行筛选，精读7篇，速读12篇，聚焦编码智能体评估与视觉语言模型推理两大热点。
-最值得关注精读论文：AgentLens提出生产级轨迹评估方法，HIVE深入解析后幻觉推理机制；速读中多篇探讨智能体安全与合规问题。
-建议普通读者优先精读AgentLens与HIVE，并延伸阅读速读中的安全陷阱与编码智能体安全债务相关研究。
-- 详情：[/202607/15/README](/202607/15/README)
+今日精选7篇精读，聚焦LLM Agent的修复与安全、加速与自我进化。  
+重点关注《Phantom Guardrails》揭示的自我改进Agent的虚假设障陷阱，以及《AgentCheck》提供的可复现干预缓解工作台。  
+建议精读这两篇以理解Agent安全诊断与防护机制，速读中的《Speculate with Memory》适合追求加速的读者。
+- 详情：[/202607/16/README](/202607/16/README)
 
 ### 精读区论文标签
-1. [AgentLens: Production-Assessed Trajectory Reviews for Coding Agent Evaluation](/202607/15/2607.06624v2-agentlens-production-assessed-trajectory-reviews-for-coding-agent-evaluation)  
-   标签：评分：10.0/10、query:agent-traj
-   evidence：生产环境评估的代码代理轨迹基准，结合形式化验证和LLM轨迹审查
-2. [HIVE: Understanding Post-Hallucination Reasoning in Vision Language Models](/202607/15/2607.07507v1-hive-understanding-post-hallucination-reasoning-in-vision-language-models)  
+1. [AgentCheck: A Reproduce-Intervene-Mitigate Workbench for LLM Agents over MCP](/202607/16/2607.11098v3-agentcheck-a-reproduce-intervene-mitigate-workbench-for-llm-agents-over-mcp)  
+   标签：评分：9.0/10、query:agent-traj
+   evidence：通过向工具响应注入故障来测试智能体轨迹的工作台
+2. [Phantom Guardrails: When Self-Improving Agent Harnesses Fix Failures That Never Happened](/202607/16/2607.13083v1-phantom-guardrails-when-self-improving-agent-harnesses-fix-failures-that-never-happened)  
    标签：评分：9.0/10、query:agent-output
-   evidence：检测视觉语言模型输出中的幻觉
-3. [AgentCheck: A Reproduce-Intervene-Mitigate Workbench for LLM Agents over MCP](/202607/15/2607.11098v2-agentcheck-a-reproduce-intervene-mitigate-workbench-for-llm-agents-over-mcp)  
+   evidence：检测代理自我改进中的幻觉故障
+3. [Set-shifting Behavioral Test for Harnessed Agents](/202607/16/2607.13396v1-set-shifting-behavioral-test-for-harnessed-agents)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：AgentCheck工作台，通过故障注入复现和测试agent轨迹
-4. [PM-Bench: Evaluating Prospective Memory in LLM Agents](/202607/15/2607.12385v1-pm-bench-evaluating-prospective-memory-in-llm-agents)  
+   evidence：针对LLM智能体在工具可靠性变化时的行为测试，评估轨迹
+4. [DevicesWorld: Benchmarking Cross-Device Agents in Heterogeneous Environments](/202607/16/2607.13465v1-devicesworld-benchmarking-cross-device-agents-in-heterogeneous-environments)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：用于评估agent前瞻记忆轨迹的基准
-5. [Shortcut Trajectory Planning for Efficient Offline Reinforcement Learning](/202607/15/2607.09336v1-shortcut-trajectory-planning-for-efficient-offline-reinforcement-learning)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：离线强化学习中的快捷轨迹规划方法
-6. [Agents Don't Just Agree, They Remember: Benchmarking Persistent Sycophancy in Stateful Personal Agents](/202607/15/2607.10526v1-agents-dont-just-agree-they-remember-benchmarking-persistent-sycophancy-in-stateful-personal-agents)  
+   evidence：跨设备代理测试基准
+5. [AgentCompass: A Unified Evaluation Infrastructure for Agent Capabilities](/202607/16/2607.13705v1-agentcompass-a-unified-evaluation-infrastructure-for-agent-capabilities)  
+   标签：评分：9.0/10、query:agent-traj
+   evidence：包含轨迹分析工具的统一评估基础设施
+6. [AgentKGV: Agentic LLM-RAG Framework with Two-Stage Training for the Fact Verification of Knowledge Graphs](/202607/16/2607.09092v1-agentkgv-agentic-llm-rag-framework-with-two-stage-training-for-the-fact-verification-of-knowledge-graphs)  
    标签：评分：8.0/10、query:agent-output
-   evidence：检测状态化代理中持久性谄媚的基准
-7. [Agents Don't Just Agree, They Remember: Benchmarking Persistent Sycophancy in Stateful Personal Agents](/202607/15/2607.10526v2-agents-dont-just-agree-they-remember-benchmarking-persistent-sycophancy-in-stateful-personal-agents)  
+   evidence：通过代理RAG检测知识图谱输出中的事实错误（幻觉）
+7. [PVDetector: Detecting Prompt Injection Attacks on Purpose-Specific LLM Agents through Policy-Violation Concept Analysis](/202607/16/2607.12624v1-pvdetector-detecting-prompt-injection-attacks-on-purpose-specific-llm-agents-through-policy-violation-concept-analysis)  
    标签：评分：8.0/10、query:agent-output
-   evidence：持续谄媚基准，检测智能体输出一致性
+   evidence：通过策略违反概念分析检测LLM智能体的提示注入攻击
 
 ### 速读区论文标签
-1. [The Compliance Trap: Diagnosing How AI Agents Consume Conflicting Memory](/202607/15/2607.10608v1-the-compliance-trap-diagnosing-how-ai-agents-consume-conflicting-memory)  
+1. [Speculate with Memory: Lossless Acceleration for LLM Agents](/202607/16/2607.12236v1-speculate-with-memory-lossless-acceleration-for-llm-agents)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：提出E-P-R轨迹级框架用于诊断记忆消费过程
-2. [Filtering Harmful Actions Isn't Enough: Phantom Transfer in Agentic SDF](/202607/15/2607.10750v1-filtering-harmful-actions-isnt-enough-phantom-transfer-in-agentic-sdf)  
+   evidence：利用agent轨迹提升预测
+2. [Critic Experience Bank: Self-Evolving Step-Level Confidence Estimation for LLM Agents](/202607/16/2607.12397v1-critic-experience-bank-self-evolving-step-level-confidence-estimation-for-llm-agents)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：合成智能体轨迹用于训练和评估偏差
-3. [Trust but Verify? Uncovering the Security Debt of Autonomous Coding Agents](/202607/15/2607.12428v1-trust-but-verify-uncovering-the-security-debt-of-autonomous-coding-agents)  
+   evidence：用于测试agent行为的步级置信度估计
+3. [Compaction as Epistemic Failure: How Agentic LLM Tools Fabricate Confirmed Results from Killed Processes](/202607/16/2607.13071v1-compaction-as-epistemic-failure-how-agentic-llm-tools-fabricate-confirmed-results-from-killed-processes)  
    标签：评分：8.0/10、query:agent-output
-   evidence：自主编码代理输出的安全债务
-4. [ReflectVLN: Training Vision-Language Navigation Agents with Reflective Reasoning](/202607/15/2607.12680v1-reflectvln-training-vision-language-navigation-agents-with-reflective-reasoning)  
+   evidence：记录agent工具压缩导致错误输出传播的故障模式
+4. [SingGuard-NSFA: Extensible Guardrails for Agentic AI via Generative Reasoning and Real-Time Classification](/202607/16/2607.13081v1-singguard-nsfa-extensible-guardrails-for-agentic-ai-via-generative-reasoning-and-real-time-classification)  
+   标签：评分：8.0/10、query:agent-output
+   evidence：检测代理输出中威胁的护栏框架
+5. [CAVA: Canonical Action Verification and Attestation for Runtime Governance of Agentic AI Systems](/202607/16/2607.13716v1-cava-canonical-action-verification-and-attestation-for-runtime-governance-of-agentic-ai-systems)  
+   标签：评分：8.0/10、query:agent-output
+   evidence：智能体行为的运行时验证和证明
+6. [TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents](/202607/16/2607.13988v1-trace-turn-level-reward-assignment-via-credit-estimation-for-long-horizon-agents)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：通过反思推理评估智能体轨迹
-5. [Playing ZendoWorld: Challenging AI Agents on Active Visual Concept Induction](/202607/15/2607.08233v1-playing-zendoworld-challenging-ai-agents-on-active-visual-concept-induction)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过主动视觉概念归纳测试自主代理行为的交互环境
-6. [AfterVibe: What Remains When the Conversation Ends](/202607/15/2607.09900v1-aftervibe-what-remains-when-the-conversation-ends)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过再生测试评估代理轨迹
-7. [Agentic-DPO: From Imitation to Agentic Policy Optimization on Expert Trajectories](/202607/15/2607.10601v1-agentic-dpo-from-imitation-to-agentic-policy-optimization-on-expert-trajectories)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过专家轨迹进行策略优化分析
-8. [The Hidden Footprint: Making Storage a First-Class Metric for LLM Agent Evaluation](/202607/15/2607.11149v1-the-hidden-footprint-making-storage-a-first-class-metric-for-llm-agent-evaluation)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：代理存储足迹评估基准
-9. [StructAgent: Harness Long-horizon Digital Agents with Unified Causal Structure](/202607/15/2607.11388v1-structagent-harness-long-horizon-digital-agents-with-unified-causal-structure)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：结构化代理状态和工作流以提升轨迹可测试性
-10. [Beyond Test Presence: Assessing the Quality and Robustness of Agent-Generated Tests in Open-Source Projects](/202607/15/2607.12068v1-beyond-test-presence-assessing-the-quality-and-robustness-of-agent-generated-tests-in-open-source-projects)  
+   evidence：强化学习中长程智能体轨迹的信用分配
+7. [Rethinking Penetration Testing for AI-Enabled Systems: From Resource Compromise to Behavioral Objective Violation](/202607/16/2607.14006v1-rethinking-penetration-testing-for-ai-enabled-systems-from-resource-compromise-to-behavioral-objective-violation)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：将渗透测试重新定义为AI系统的行为目标违反检测
+8. [Toward Auditable AI Scientists: A Hypothesis Evolution Protocol for LLM Agents](/202607/16/2607.09195v1-toward-auditable-ai-scientists-a-hypothesis-evolution-protocol-for-llm-agents)  
    标签：评分：7.0/10、query:agent-output
-   evidence：评估代理生成的测试输出质量
-11. [ActiveFly-Bench: Aligning Embodied Question Answering with Vision-Language-Action for Aerial Embodied Perception](/202607/15/2607.10180v1-activefly-bench-aligning-embodied-question-answering-with-vision-language-action-for-aerial-embodied-perception)  
+   evidence：通过可审计协议验证代理假设
+9. [ABot-AgentOS: A General Robotic Agent OS with Lifelong Multi-modal Memory](/202607/16/2607.10350v1-abot-agentos-a-general-robotic-agent-os-with-lifelong-multi-modal-memory)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：机器人智能体操作系统，包含验证和轨迹任务基准
+10. [ABot-AgentOS: A General Robotic Agent OS with Lifelong Multi-modal Memory](/202607/16/2607.10350v2-abot-agentos-a-general-robotic-agent-os-with-lifelong-multi-modal-memory)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：机器人智能体操作系统，包含验证和轨迹任务基准
+11. [Distributed Agent System: Fault-Tolerant Collaboration Among Embodied Agents](/202607/16/2607.10811v1-distributed-agent-system-fault-tolerant-collaboration-among-embodied-agents)  
+   标签：评分：7.0/10、query:agent-traj
+   evidence：自主代理的容错行为测试
+12. [When Does Restricting a Coding Agent to execute_code Help? A Regime $\times$ Agent-Design Ablation](/202607/16/2607.10569v1-when-does-restricting-a-coding-agent-to-executecode-help-a-regime-times-agent-design-ablation)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：无人机具身感知与行为规划基准，与测试自主代理行为相关
-12. [TGMS: An Agent-Native Bi-Temporal Graph Management System](/202607/15/2607.10265v1-tgms-an-agent-native-bi-temporal-graph-management-system)  
-   标签：评分：6.0/10、query:agent-output
-   evidence：通过内容寻址执行轨迹验证代理输出
+   evidence：在编码任务中测试代理工具使用轨迹的消融研究
 
 
 <div class="dpr-home-promo-card">

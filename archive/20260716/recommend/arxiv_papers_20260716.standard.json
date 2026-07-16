@@ -1,0 +1,866 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-07-16T21:15:43.981978+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 2,
+    "deep_divecandidates": 14,
+    "deep_cap": 7,
+    "deep_selected": 7,
+    "quick_candidates": 15,
+    "quick_skim_target": 12,
+    "quick_selected": 12
+  },
+  "deep_dive": [
+    {
+      "id": "2607.11098v3",
+      "source": "arxiv",
+      "title": "AgentCheck: A Reproduce-Intervene-Mitigate Workbench for LLM Agents over MCP",
+      "abstract": "Tool-using LLM agents are mostly evaluated assuming all tools work. When a tool times out, returns a week-stale value, or has its description poisoned in deployment, the developer needs a controlled way to reproduce the failure, test a fix, and confirm the fix worked before deployment. We present AgentCheck, an open-source web workbench that turns an MCP server into an intervention surface. AgentCheck runs an agent against its real tools and records every tool response, then re-runs the agent with the response perturbed by a fault (12 types) injector. Matching tool calls are replayed from cache, and later tool calls go live after the agent diverges. This yields a reproduce-intervene-confirm loop: the developer toggles a mitigation, re-runs against the identical fault, and sees if the failure goes away. Scoring has two parts: deterministic pass/fail rules, plus an LLM judge for interpretive labels, validated against human annotations. Across five agents, the best passes 105/120 scenarios and the weakest only 77. The failures are usually silent, confident use of incorrect tool outputs rather than crashes. On the weakest agent, a retry mitigation raises success on timeout error faults from as few as 30% of cases to 100%, whereas stale-data faults remain near 3-4 of 10 regardless of the mitigation. AgentCheck makes these failure modes reproducible, comparable, and verifiable before deployment.",
+      "authors": [
+        "Aritra Mazumder",
+        "Nusrat jahan Lia"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-07-13T05:14:12+00:00",
+      "link": "https://arxiv.org/pdf/2607.11098v3",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "workbench for testing agent trajectories by injecting faults into tool responses",
+      "llm_evidence_cn": "通过向工具响应注入故障来测试智能体轨迹的工作台",
+      "llm_evidence": "通过向工具响应注入故障来测试智能体轨迹的工作台",
+      "canonical_evidence": "通过向工具响应注入故障来测试智能体轨迹的工作台",
+      "llm_tldr_en": "AgentCheck provides a reproduce-intervene-mitigate loop for testing LLM agents by perturbing tool responses, enabling systematic trajectory testing.",
+      "llm_tldr_cn": "针对工具使用型智能体在部署中可能遇到的故障，提出AgentCheck工作台，通过扰动工具响应注入12种故障，重放匹配调用，实现故障复现、干预和缓解的循环测试。该方法为智能体轨迹测试提供了可控、可重复的验证手段。",
+      "llm_tldr": "针对工具使用型智能体在部署中可能遇到的故障，提出AgentCheck工作台，通过扰动工具响应注入12种故障，重放匹配调用，实现故障复现、干预和缓解的循环测试。该方法为智能体轨迹测试提供了可控、可重复的验证手段。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "trajectory testing methods for autonomous agents",
+      "matched_requirement_id": "req-7",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.13083v1",
+      "source": "arxiv",
+      "title": "Phantom Guardrails: When Self-Improving Agent Harnesses Fix Failures That Never Happened",
+      "abstract": "Self-improving AI agents are designed to learn from their mistakes. We show they can also hallucinate mistakes that never happened. We study this failure mode in automated harness optimization, where an LLM-based proposer edits an agent's scaffold, including prompts, parsers, filters, validators and guardrails, to eliminate observed failures. But this process rarely asks first: was there a real failure to fix? We introduce the Counterfactual Fabrication Lab, a deterministic micro-lab where the correct action is known: do nothing. The lab plants a candidate guardrail for a failure class that provably never occurs, presents only legal episodes, and uses a byte-exact oracle to check every cited violation. The proposer behaves as expected on real violations and abstains on featureless legal input. Yet when the legal input contains a harmless pattern resembling a familiar game rule, it invents a failure: in 15/60 runs, versus 0/60 on featureless input, it enables the nonexistent-rule guardrail and cites a violation the oracle refutes. The effect is structured, not indiscriminate. In single-shot proposals it appears only when three conditions coincide: a rule-shaped pattern, an open-ended rule set and an instruction that presupposes failures. Removing any of these conditions eliminates the fabrication. Because the invented guardrail changes no true outcome and cannot improve an already-perfect suppression score, the phenomenon is neither reward hacking nor over-refusal. It is a phantom guardrail: a fix for a failure that never happened, invisible to suppression-only acceptance. Inside an add-only accept loop it re-enters even without the failure-presupposing instruction, the loop's keep-adding role supplying the demand the instruction supplied in single shot, and once in it stays. We present the Counterfactual Fabrication Lab for measuring fabricated failures in self-improving agent harnesses.",
+      "authors": [
+        "Su Wang",
+        "Pin Qian",
+        "Yifan Lin",
+        "Jingzhou Xu",
+        "Yihang Chen",
+        "Xiaochong Jiang",
+        "Lifei Liu",
+        "Haoran Yu"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR",
+        "cs.SE"
+      ],
+      "published": "2026-07-13T10:14:15+00:00",
+      "link": "https://arxiv.org/pdf/2607.13083v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "detecting hallucinated failures in agent self-improvement",
+      "llm_evidence_cn": "检测代理自我改进中的幻觉故障",
+      "llm_evidence": "检测代理自我改进中的幻觉故障",
+      "canonical_evidence": "检测代理自我改进中的幻觉故障",
+      "llm_tldr_en": "This paper reveals that self-improving agents can hallucinate mistakes, and introduces the Counterfactual Fabrication Lab to detect such hallucinations via byte-exact oracle.",
+      "llm_tldr_cn": "自我改进的AI代理从错误中学习，但可能幻觉出从未发生的错误。本文研究这种失败模式，并引入反事实制造实验室，通过字节精确神谕确认每次违规，证明代理会为不存在的故障添加护栏。这揭示了输出检测中的幻觉问题，对代理输出验证和监控具有重要警示。",
+      "llm_tldr": "自我改进的AI代理从错误中学习，但可能幻觉出从未发生的错误。本文研究这种失败模式，并引入反事实制造实验室，通过字节精确神谕确认每次违规，证明代理会为不存在的故障添加护栏。这揭示了输出检测中的幻觉问题，对代理输出验证和监控具有重要警示。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detecting hallucinations in agent outputs",
+      "matched_requirement_id": "req-12",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.13396v1",
+      "source": "arxiv",
+      "title": "Set-shifting Behavioral Test for Harnessed Agents",
+      "abstract": "What happens to an LLM agent's tool choice when the reliable tool silently changes within an ongoing session? We borrow set-shifting from cognitive psychology to study how well agents adapt to hidden reliability shifts. Our benchmark mounts tool-skill libraries with redundancies, where many tools solve the same task but differ in hidden reliability. In our evaluation framework, a branched schedule shifts the reliable tool group at hidden boundaries and pairs every shift with a no-shift control. We find that agents, by default, settle on a small recurring routine within a few turns of each boundary, with call shares concentrating on a few discrete values after each reliability shift. We score the set-shifting accuracy for each agent trajectory: the joint probability of routing to the target tool group in every post-shift window. We test open-weight LLMs in an open-source agentic harness and find qualitatively distinct failure modes across the same set of routines. We also find that set framing, how the toolset presents the alternatives as competing or complementary, shifts the routing dynamics.",
+      "authors": [
+        "Ziwei Ye"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL",
+        "cs.SE"
+      ],
+      "published": "2026-07-15T02:49:05+00:00",
+      "link": "https://arxiv.org/pdf/2607.13396v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "behavioral test for LLM agents adapting to hidden reliability shifts of tools, evaluates trajectories",
+      "llm_evidence_cn": "针对LLM智能体在工具可靠性变化时的行为测试，评估轨迹",
+      "llm_evidence": "针对LLM智能体在工具可靠性变化时的行为测试，评估轨迹",
+      "canonical_evidence": "针对LLM智能体在工具可靠性变化时的行为测试，评估轨迹",
+      "llm_tldr_en": "This paper introduces a set-shifting behavioral test to evaluate how LLM agents adapt to hidden changes in tool reliability, scoring trajectory-level accuracy.",
+      "llm_tldr_cn": "该论文借鉴认知心理学中的任务转换范式，研究LLM智能体在工具可靠性发生隐蔽变化时的适应能力。提出的基准包含冗余工具库，通过分支时间表在隐藏边界处切换可靠工具，并计算每个智能体轨迹的任务转换准确率。实验发现智能体倾向于固守少数惯用工具，揭示了其在动态环境中的适应局限性。",
+      "llm_tldr": "该论文借鉴认知心理学中的任务转换范式，研究LLM智能体在工具可靠性发生隐蔽变化时的适应能力。提出的基准包含冗余工具库，通过分支时间表在隐藏边界处切换可靠工具，并计算每个智能体轨迹的任务转换准确率。实验发现智能体倾向于固守少数惯用工具，揭示了其在动态环境中的适应局限性。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.13465v1",
+      "source": "arxiv",
+      "title": "DevicesWorld: Benchmarking Cross-Device Agents in Heterogeneous Environments",
+      "abstract": "LLM-based agents have rapidly improved at operating individual digital environments such as mobile applications, desktop systems, and smart homes. However, real-world user goals often span multiple devices: information may come from a phone, be processed on a desktop, and the result may need to appear on another device. Most existing benchmarks center on a single dominant execution environment, making it difficult to evaluate whether agents can acquire and integrate information across heterogeneous devices and complete end-to-end tasks with cross-device dependencies. We introduce DevicesWorld, a large-scale executable benchmark for cross-device collaborative operation. DevicesWorld contains 6,140 tasks and integrates three classes of device environments -- mobile, desktop, and IoT -- into a unified cross-device interaction and evaluation framework. Each task defines a natural-language user goal, participating devices and initial states, executable actions, rule-based verifiers, and a cleanup procedure. A multi-stage construction and quality-control pipeline keeps tasks close to realistic user needs while allowing final outcomes to be automatically verified from device states and generated files. We evaluate five frontier LLM-agent systems on a fixed evaluation set. All methods achieve low success rates, with the best reaching only 12.5%. Among failed runs, about 28.7% satisfy at least one scoring condition yet still fail the full task. Trajectories show that agents become stuck acquiring information or manipulating interfaces, confuse source and output devices, or terminate before all conditions are jointly satisfied. DevicesWorld turns cross-device collaborative operation into an executable, reproducible, and diagnostically useful evaluation problem for research on reliable cross-device agents.",
+      "authors": [
+        "Huatao Li",
+        "Xinwei Geng",
+        "Yuheng Wang",
+        "Yutong Li",
+        "Runde Yang",
+        "Hantao Chen",
+        "Shu Yao",
+        "Jingru Fan",
+        "Xuhui Ren",
+        "Yuanyuan Zhao",
+        "Fei Huang",
+        "Chen Qian"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI",
+        "cs.HC",
+        "cs.MA",
+        "cs.SE"
+      ],
+      "published": "2026-07-15T05:53:27+00:00",
+      "link": "https://arxiv.org/pdf/2607.13465v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "benchmark for cross-device agent testing",
+      "llm_evidence_cn": "跨设备代理测试基准",
+      "llm_evidence": "跨设备代理测试基准",
+      "canonical_evidence": "跨设备代理测试基准",
+      "llm_tldr_en": "DevicesWorld is a large-scale benchmark with 6,140 tasks for evaluating cross-device agent trajectories, covering three device classes and end-to-end tasks.",
+      "llm_tldr_cn": "现有基准大多针对单一设备环境，无法评估代理跨设备协作能力。本文提出DevicesWorld，包含6140个可执行任务，集成手机、桌面和智能家居三类设备环境，用于测试代理跨设备轨迹和端到端任务。该基准为代理轨迹测试提供了多设备场景。",
+      "llm_tldr": "现有基准大多针对单一设备环境，无法评估代理跨设备协作能力。本文提出DevicesWorld，包含6140个可执行任务，集成手机、桌面和智能家居三类设备环境，用于测试代理跨设备轨迹和端到端任务。该基准为代理轨迹测试提供了多设备场景。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.13705v1",
+      "source": "arxiv",
+      "title": "AgentCompass: A Unified Evaluation Infrastructure for Agent Capabilities",
+      "abstract": "As Large Language Models (LLMs) evolve into autonomous agents, the need for unified evaluation infrastructure becomes critical. However, current evaluation pipelines remain highly fragmented and tightly coupled, hindering reproducibility and causing redundant engineering. To address this, we introduce AgentCompass, an open-source, lightweight, and extensible infrastructure for evaluating LLM-based agents. AgentCompass organizes the evaluation process around three independent components, namely Benchmark, Harness, and Environment, thereby enabling flexible configurations without requiring the reimplementation of complex execution logic. Furthermore, it features a fault-tolerant asynchronous runtime and comprehensive trajectory analysis tools to transparently diagnose nuanced failure modes like reward-hacking. Natively supporting over 20 benchmarks across five capability dimensions, AgentCompass provides the community with a scalable and reproducible infrastructure for advancing agent research.",
+      "authors": [
+        "Zichen Ding",
+        "Jiaye Ge",
+        "Shufan Jiang",
+        "Kai Chen",
+        "Mo Li",
+        "Qingqiu Li",
+        "Zehao Li",
+        "Zonglin Li",
+        "Tiaohao Liang",
+        "Shudong Liu",
+        "Zerun Ma",
+        "Zixing Shang",
+        "Wenhui Tian",
+        "Zun Wang",
+        "Liwei Wu",
+        "Zhenyu Wu",
+        "Jun Xu",
+        "Bowen Yang",
+        "Dingbo Yuan",
+        "Qi Zhang",
+        "Songyang Zhang",
+        "Peiheng Zhou",
+        "Dongsheng Zhu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.SE"
+      ],
+      "published": "2026-07-15T11:11:17+00:00",
+      "link": "https://arxiv.org/pdf/2607.13705v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "unified evaluation infrastructure with trajectory analysis tools",
+      "llm_evidence_cn": "包含轨迹分析工具的统一评估基础设施",
+      "llm_evidence": "包含轨迹分析工具的统一评估基础设施",
+      "canonical_evidence": "包含轨迹分析工具的统一评估基础设施",
+      "llm_tldr_en": "AgentCompass provides an open-source, extensible infrastructure for evaluating LLM agents, featuring fault-tolerant runtime and trajectory analysis tools.",
+      "llm_tldr_cn": "LLM代理评估管道碎片化且耦合严重。本文提出AgentCompass，一个开源轻量级评估基础设施，将评估分为基准、测试平台和环境三个独立组件，支持灵活配置，并包含容错异步运行时和全面的轨迹分析工具，提高了可复现性和工程效率。该基础设施专门支持代理轨迹的可视化和深入分析。",
+      "llm_tldr": "LLM代理评估管道碎片化且耦合严重。本文提出AgentCompass，一个开源轻量级评估基础设施，将评估分为基准、测试平台和环境三个独立组件，支持灵活配置，并包含容错异步运行时和全面的轨迹分析工具，提高了可复现性和工程效率。该基础设施专门支持代理轨迹的可视化和深入分析。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.09092v1",
+      "source": "arxiv",
+      "title": "AgentKGV: Agentic LLM-RAG Framework with Two-Stage Training for the Fact Verification of Knowledge Graphs",
+      "abstract": "Knowledge graphs (KGs) are often automatically constructed from large-scale corpora, but they inevitably contain factual errors due to noisy sources and extraction failures, and verifying them reliably at industrial scale remains a critical challenge. To address this, we propose AgentKGV, the Agentic LLM-RAG framework for KG fact Verification, that integrates dynamic routing and iterative query rewriting, which handles surface-form mismatch in document-level retrieval. To make this framework more accurate and cost-efficient for industrial deployment, we further introduce a two-stage training strategy: turn-level distillation-based SFT that transfers reasoning ability from a large teacher model into a small model for stable query rewriting and reasoning, and trajectory-level GRPO that optimizes the search policy to reduce unnecessary retrieval at scale. On the long-tail-predicate split of the open-domain T-REx benchmark, our framework improves macro-F1 over single-turn RAG by 5.5 \\%p, and two-stage training does it further by 9.4 \\%p. GRPO also cuts the average number of search calls from 3.24 to 1.63 without lowering accuracy.",
+      "authors": [
+        "Yumin Heo",
+        "Hyeon-gu Lee",
+        "Sumin Seo",
+        "Youngjoong Ko"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-07-10T04:22:34+00:00",
+      "link": "https://arxiv.org/pdf/2607.09092v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "detecting factual errors (hallucinations) in knowledge graph outputs via agentic RAG",
+      "llm_evidence_cn": "通过代理RAG检测知识图谱输出中的事实错误（幻觉）",
+      "llm_evidence": "通过代理RAG检测知识图谱输出中的事实错误（幻觉）",
+      "canonical_evidence": "通过代理RAG检测知识图谱输出中的事实错误（幻觉）",
+      "llm_tldr_en": "AgentKGV uses agentic LLM-RAG and two-stage training to verify facts in knowledge graphs, detecting hallucinated outputs.",
+      "llm_tldr_cn": "自动构建的知识图谱常含事实错误，需要可靠验证。本文提出AgentKGV，集成动态路由和迭代查询重写的代理RAG框架，并通过两阶段训练提升效率和准确性。在工业规模数据上，AgentKGV有效检测出虚假事实，降低了人工审核成本。该工作直接针对代理输出中的幻觉检测。",
+      "llm_tldr": "自动构建的知识图谱常含事实错误，需要可靠验证。本文提出AgentKGV，集成动态路由和迭代查询重写的代理RAG框架，并通过两阶段训练提升效率和准确性。在工业规模数据上，AgentKGV有效检测出虚假事实，降低了人工审核成本。该工作直接针对代理输出中的幻觉检测。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detecting hallucinations in agent outputs",
+      "matched_requirement_id": "req-12",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.12624v1",
+      "source": "arxiv",
+      "title": "PVDetector: Detecting Prompt Injection Attacks on Purpose-Specific LLM Agents through Policy-Violation Concept Analysis",
+      "abstract": "Large language models (LLMs) are increasingly deployed as purpose-specific agents to handle domain-specific tasks such as customer service and code generation. These agents are expected to comply with not only generic safety guardrails but also purpose-specific restrictions tailored to their designated roles. Such additional restrictions enlarge the attack surface, particularly to prompt injection (PI) attacks. To defend against such attacks, existing detection methods primarily rely on analyzing input-output patterns, yet yield limited effectiveness. To address this limitation, we turn to analyzing the hidden activation space and discover that LLMs inherently retain latent policy-violation (PV) concepts when prompted with requests beyond their designated purpose. Particularly, PV concepts capture the semantics of conflicts between user queries and predefined restrictions, implicitly reflecting LLMs' intrinsic awareness of recognizing policy violations. Building on this insight, we propose PVDetector, a training-free framework that detects PI attacks during LLM inference by measuring hidden-state alignment with PV concepts, which are derived offline from the contrastive pairs of policy-violating and policy-compliant prompts. Experiments across multiple LLMs and datasets show that PVDetector achieves <1\\% false negative rate with minimal auxiliary overhead, consistently outperforming state-of-the-art methods. Our code is available at https://github.com/Claresigle/PVDetector .",
+      "authors": [
+        "Junhui Wang",
+        "Hangtao Zhang",
+        "Zhirun Zheng",
+        "Li Zeng",
+        "Jiejun Xiao",
+        "Xi Luo",
+        "Lihua Yin",
+        "Saiqin Long"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR"
+      ],
+      "published": "2026-07-14T11:01:10+00:00",
+      "link": "https://arxiv.org/pdf/2607.12624v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "detects prompt injection attacks on LLM agents via policy-violation concept analysis",
+      "llm_evidence_cn": "通过策略违反概念分析检测LLM智能体的提示注入攻击",
+      "llm_evidence": "通过策略违反概念分析检测LLM智能体的提示注入攻击",
+      "canonical_evidence": "通过策略违反概念分析检测LLM智能体的提示注入攻击",
+      "llm_tldr_en": "PVDetector detects prompt injection attacks on purpose-specific LLM agents by analyzing hidden activation space for policy-violation concepts.",
+      "llm_tldr_cn": "该论文针对面向特定目的的LLM智能体的提示注入攻击，提出PVDetector检测方法。不同于传统输入输出模式分析，PVDetector通过分析隐藏激活空间，发现LLM内在保留策略违反概念，从而更有效地检测攻击。实验表明该方法在多场景下优于现有检测器，为智能体输出安全提供了新思路。",
+      "llm_tldr": "该论文针对面向特定目的的LLM智能体的提示注入攻击，提出PVDetector检测方法。不同于传统输入输出模式分析，PVDetector通过分析隐藏激活空间，发现LLM内在保留策略违反概念，从而更有效地检测攻击。实验表明该方法在多场景下优于现有检测器，为智能体输出安全提供了新思路。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detection of agent outputs",
+      "matched_requirement_id": "req-8",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2607.12236v1",
+      "source": "arxiv",
+      "title": "Speculate with Memory: Lossless Acceleration for LLM Agents",
+      "abstract": "Speculative execution accelerates LLM agents by using a smaller, cheaper model to predict and pre-launch the next step while the environment is idle. However, existing speculators are stateless and discard all information between tasks, preventing prediction quality from improving with experience. We equip the speculator with three online memory systems that learn from past agent trajectories: a contrastive transition table tracking action-sequence statistics, an episodic memory retrieving contextually similar segments, and a confusion tracker suppressing recurring errors. We evaluate this approach on six benchmarks spanning three speculation types: action prediction, observation prediction, and chained prediction. Memory-augmented speculation yields a 19--39\\% relative accuracy improvement on action prediction and up to a $2.5\\times$ increase on observation prediction tasks with repetitive action spaces. These gains grow continuously as memory accumulates and generalize across speculator models of varying cost. All speculation is lossless because it runs during idle time at zero added wall-clock cost, and the actor's trajectory is identical to non-speculative execution.",
+      "authors": [
+        "Yu Li",
+        "Qinyuan Ye",
+        "Prafulla Kumar Choubey",
+        "Jiaxin Zhang",
+        "Chien-Sheng Wu"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL"
+      ],
+      "published": "2026-07-14T00:36:31+00:00",
+      "link": "https://arxiv.org/pdf/2607.12236v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "uses agent trajectories to improve prediction",
+      "llm_evidence_cn": "利用agent轨迹提升预测",
+      "llm_evidence": "利用agent轨迹提升预测",
+      "canonical_evidence": "利用agent轨迹提升预测",
+      "llm_tldr_en": "Speculative execution for LLM agents is accelerated by a memory system that learns from past agent trajectories, improving prediction quality by 19-39% across six benchmarks.",
+      "llm_tldr_cn": "现有LLM代理的投机执行由于无状态而无法从经验中学习。本文提出三种在线记忆系统（对比转移表、情景记忆、混淆追踪器），学习过去代理轨迹以提升下一步预测质量。在六个基准上内存增强投机使加速提升19%-39%。该工作将轨迹学习直接用于优化代理执行效率。",
+      "llm_tldr": "现有LLM代理的投机执行由于无状态而无法从经验中学习。本文提出三种在线记忆系统（对比转移表、情景记忆、混淆追踪器），学习过去代理轨迹以提升下一步预测质量。在六个基准上内存增强投机使加速提升19%-39%。该工作将轨迹学习直接用于优化代理执行效率。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2607.09195v1",
+      "source": "arxiv",
+      "title": "Toward Auditable AI Scientists: A Hypothesis Evolution Protocol for LLM Agents",
+      "abstract": "Large language model (LLM) agents are increasingly expected to play a central role in AI-driven scientific discovery. Equipped with broad knowledge, flexible reasoning, and tool use, they have the potential to autonomously explore and solve scientific problems by repeatedly proposing hypotheses, testing them, and revising their beliefs in the light of the evidence. In current agents, however, these hypotheses, tests, and belief updates are buried in unstructured logs, and no mechanism lets the agent or the human researcher audit that process. Here we propose the Hypothesis Evolution Protocol (HEP), an agent harness that provides hypothesis generation, evaluation, and evolution as explicit, auditable operations. On materials-science research tasks, a HEP-equipped agent operates the hypothesis--test--evidence--belief cycle that planning-style agents lack, generalizes across research questions, and exploits the protocol more fully as the base LLM becomes more capable. These results mark a step toward auditable AI scientists, whose scientific reasoning can be inspected, verified, and built upon.",
+      "authors": [
+        "Izumi Takahara",
+        "Teruyasu Mizoguchi"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cond-mat.mtrl-sci"
+      ],
+      "published": "2026-07-10T08:39:30+00:00",
+      "link": "https://arxiv.org/pdf/2607.09195v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "verification of agent hypotheses through auditable protocol",
+      "llm_evidence_cn": "通过可审计协议验证代理假设",
+      "llm_evidence": "通过可审计协议验证代理假设",
+      "canonical_evidence": "通过可审计协议验证代理假设",
+      "llm_tldr_en": "HEP makes hypothesis generation, evaluation, and evolution explicit and auditable, enabling verification of LLM agent scientific outputs.",
+      "llm_tldr_cn": "LLM代理在科学发现中生成的假设和测试过程缺乏可审计性。本文提出假设演化协议（HEP），将假设生成、评估和演化作为显式可审计操作。在材料科学任务上，HEP使代理的推理过程可追溯，从而验证输出正确性。该方法为代理输出验证提供了标准化框架。",
+      "llm_tldr": "LLM代理在科学发现中生成的假设和测试过程缺乏可审计性。本文提出假设演化协议（HEP），将假设生成、评估和演化作为显式可审计操作。在材料科学任务上，HEP使代理的推理过程可追溯，从而验证输出正确性。该方法为代理输出验证提供了标准化框架。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "verification of agent generated responses",
+      "matched_requirement_id": "req-10",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.10569v1",
+      "source": "arxiv",
+      "title": "When Does Restricting a Coding Agent to execute_code Help? A Regime $\\times$ Agent-Design Ablation",
+      "abstract": "Modern coding agents expose multiple tool surfaces -- IDE primitives, bash, and Model Context Protocol (MCP) code-execution -- and the field has shipped three contradictory claims about which one matters. We run the missing crossed comparison: an integrity-clean three-arm ablation (baseline / bash_only / code_only) on synthetic computation tasks and SWE-bench Mini modification tasks, holding model, harness, and prompts fixed, with two agents (Claude Code, OpenAI Codex CLI) so the comparison spans both regime and agent-design axes. Across the four resulting (regime, agent) cells, restricting the agent to a single execute_code MCP tool is cheaper than -- or statistically tied with -- its cheapest tool-rich rival in three cells (significantly on Artifact/Claude and SWE-bench/Codex; directionally on Artifact/Codex), with pass rates statistically tied within each cell. The lone exception is SWE-bench/Claude, where code_only is directionally costlier (+14.4%, not significant); a conditional-cost analysis localizes that gap to failure-cost on doomed-run trajectories, not a per-edit tax on successful runs. Two implications: the cheapest tool surface is jointly determined by task regime and agent design rather than by either axis alone, and the headline cost signal lives in cache-adjusted cost -- not pass rate, which is invariant across surfaces at the model sizes we evaluate. The benchmark harness, task suite, and analysis code are available at https://github.com/hyang0129/onlycodes.",
+      "authors": [
+        "Hong Yang",
+        "Qi Yu",
+        "Travis Desell"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI",
+        "cs.LG"
+      ],
+      "published": "2026-07-12T04:52:08+00:00",
+      "link": "https://arxiv.org/pdf/2607.10569v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "ablation study testing agent tool usage trajectories in coding tasks",
+      "llm_evidence_cn": "在编码任务中测试代理工具使用轨迹的消融研究",
+      "llm_evidence": "在编码任务中测试代理工具使用轨迹的消融研究",
+      "canonical_evidence": "在编码任务中测试代理工具使用轨迹的消融研究",
+      "llm_tldr_en": "Ablation study comparing coding agent tool configurations on synthetic and SWE-bench tasks, testing agent behavior trajectories.",
+      "llm_tldr_cn": "编码代理有多个工具表面（IDE、bash、MCP代码执行），不同配置对性能影响结论矛盾。本文进行三臂消融实验，在合成计算和SWE-bench Mini任务上固定模型和提示，测试不同工具限制下代理的行为轨迹。结果发现单一MCP工具在多数场景下成本更低或相当。该工作提供了测试代理轨迹的系统方法。",
+      "llm_tldr": "编码代理有多个工具表面（IDE、bash、MCP代码执行），不同配置对性能影响结论矛盾。本文进行三臂消融实验，在合成计算和SWE-bench Mini任务上固定模型和提示，测试不同工具限制下代理的行为轨迹。结果发现单一MCP工具在多数场景下成本更低或相当。该工作提供了测试代理轨迹的系统方法。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2607.12397v1",
+      "source": "arxiv",
+      "title": "Critic Experience Bank: Self-Evolving Step-Level Confidence Estimation for LLM Agents",
+      "abstract": "LLM agents act in external environments where each action changes the state that later decisions condition on, and where a single wrong step can waste interaction budget or trigger irreversible side effects long before the final failure is observed. Reliable deployment therefore requires \\emph{step-level confidence estimation}: a calibrated probability that each proposed action is productive, available \\emph{before} the action is executed. Existing LLM confidence estimators are designed to score a response from the given prompt, but agent confidence also depends on execution consequences: whether similar actions in similar situations actually advanced the task after the environment responded. We introduce the \\method (\\methodshort), a self-evolving critic framework in which an LLM critic accumulates evidence from its own past judgments and their observed consequences. After each trajectory, a hindsight LLM that sees the full execution feedback votes on whether each step was productive. The resulting pseudo-labels populate a memory bank from which related productive and unproductive experiences are retrieved into the critic's prompt whenever a similar step recurs. \\methodshort requires no training and uses no ground truth step labels. Across three agent benchmarks and three critic backbones, \\methodshort attains the best calibration (ECE and Brier) and ranking (AUC) in every dataset--critic combination, reducing ECE by up to $54\\%$ relative to the strongest training-free baseline.",
+      "authors": [
+        "Yaopei Zeng",
+        "Congchao Wang",
+        "JianHang Chen",
+        "Nan Wang",
+        "Yurui Chang",
+        "Lu Lin"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-14T06:17:09+00:00",
+      "link": "https://arxiv.org/pdf/2607.12397v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "step-level confidence estimation for testing agent behavior",
+      "llm_evidence_cn": "用于测试agent行为的步级置信度估计",
+      "llm_evidence": "用于测试agent行为的步级置信度估计",
+      "canonical_evidence": "用于测试agent行为的步级置信度估计",
+      "llm_tldr_en": "Critic Experience Bank enables self-evolving step-level confidence estimation for LLM agents, predicting action productivity before execution.",
+      "llm_tldr_cn": "该论文提出Critic Experience Bank，为LLM agent提供步级置信度估计。现有方法仅基于提示评估响应，忽略了执行后果。该方法通过记录相似情景下的实际执行结果，动态调整置信度，在行动前评估其有效性。实验表明该方法在避免错误步骤和提升任务成功率上优于现有置信度估计方法。",
+      "llm_tldr": "该论文提出Critic Experience Bank，为LLM agent提供步级置信度估计。现有方法仅基于提示评估响应，忽略了执行后果。该方法通过记录相似情景下的实际执行结果，动态调整置信度，在行动前评估其有效性。实验表明该方法在避免错误步骤和提升任务成功率上优于现有置信度估计方法。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2607.10350v1",
+      "source": "arxiv",
+      "title": "ABot-AgentOS: A General Robotic Agent OS with Lifelong Multi-modal Memory",
+      "abstract": "Recent VLM and VLA systems have improved robotic perception and action prediction, yet long-horizon embodied agents still require a general runtime layer for reasoning, memory, tool use, verification, and cross-embodiment execution. We present ABot-AgentOS, a general robotic Agent Operating System that sits above low-level controllers and provides a deliberative agent layer for scene-conditioned planning, context-isolated skill execution, multi-stage verification, multi-modal memory, and edge-cloud collaboration. To evaluate such systems, we introduce EmbodiedWorldBench, an executable benchmark with 16 indoor, outdoor, and hybrid scenes, four difficulty levels, and over 200 tasks involving navigation, object search, NPC dialogue, dynamic events, and trace-grounded scoring. ABot-AgentOS further introduces Universal Multi-modal Graph Memory, a persistent source-grounded substrate that converts dialogue, visual observations, spatial context, temporal relations, and task traces into typed nodes and edges. A failure-driven self-evolution loop converts diagnosed memory failures into gated runtime evo-assets that are promoted only to later evaluation splits, preventing current-split ground-truth leakage while enabling continual improvement. On an initial EmbodiedWorldBench subset, ABot-AgentOS improves over a single-controller baseline in both task success and goal completion. Across memory benchmarks, ABot-AgentOS Static achieves 87.5 on LoCoMo, 59.9 on OpenEQA EM-EQA, 88.6 on Mem-Gallery, and 76.5 Acc@All on NExT-QA; self-evolution further improves LoCoMo to 88.7, OpenEQA to 60.4, and Mem-Gallery to 89.0. These results suggest that a general Agent OS layer can improve long-horizon embodied execution while providing persistent, auditable memory for continual interaction.",
+      "authors": [
+        "Jiayi Tian",
+        "Shiao Liu",
+        "Yuting Xu",
+        "Jia Lu",
+        "Zihao Guan",
+        "Honglin Han",
+        "Di Yang",
+        "Minqi Gu",
+        "Yifei Qian",
+        "Tianlin Zhang",
+        "Yanqing Zhu",
+        "Zeqian Ye",
+        "Menglin Yang",
+        "Fei Wang",
+        "Xu Hu",
+        "Xiuxian Li",
+        "Wei Zhang",
+        "Shihui Su",
+        "Yiyan Ji",
+        "Jingbo Wang",
+        "Ziteng Feng",
+        "Jiaheng Liu",
+        "Zhaoxiang Zhang",
+        "Xiaolong Wu",
+        "Mingyang Yin",
+        "Zedong Chu",
+        "Mu Xu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.RO"
+      ],
+      "published": "2026-07-11T15:24:43+00:00",
+      "link": "https://arxiv.org/pdf/2607.10350v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "robotic agent OS with verification and benchmark for trajectory tasks",
+      "llm_evidence_cn": "机器人智能体操作系统，包含验证和轨迹任务基准",
+      "llm_evidence": "机器人智能体操作系统，包含验证和轨迹任务基准",
+      "canonical_evidence": "机器人智能体操作系统，包含验证和轨迹任务基准",
+      "llm_tldr_en": "ABot-AgentOS provides a general runtime layer for robotic agents with multi-stage verification; EmbodiedWorldBench evaluates 200+ tasks including navigation, object search; supports trajectory-like behavior testing.",
+      "llm_tldr_cn": "本文提出ABot-AgentOS通用机器人智能体操作系统，在底层控制器之上提供推理、记忆、验证等高层能力，并引入EmbodiedWorldBench基准，包含16个场景、200余个任务，覆盖导航、物体搜索等轨迹密集型行为。其多阶段验证机制为测试自主智能体行为轨迹提供了方法论支撑。",
+      "llm_tldr": "本文提出ABot-AgentOS通用机器人智能体操作系统，在底层控制器之上提供推理、记忆、验证等高层能力，并引入EmbodiedWorldBench基准，包含16个场景、200余个任务，覆盖导航、物体搜索等轨迹密集型行为。其多阶段验证机制为测试自主智能体行为轨迹提供了方法论支撑。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.13071v1",
+      "source": "arxiv",
+      "title": "Compaction as Epistemic Failure: How Agentic LLM Tools Fabricate Confirmed Results from Killed Processes",
+      "abstract": "Agentic LLM coding tools compress long session histories into compaction summaries that subsequent sessions inherit as ground truth. This paper documents a failure mode in Claude Code where partial standard output from timed-out commands (exit code 143) is recorded in compaction summaries as confirmed results, propagating false positives across sessions and model versions without re-verification. The underlying mechanism is a conflation of observation and persistence, where information that appeared in the terminal is treated as equivalent to information written to durable storage. This finding extends the analysis of LLM self-evaluation failures reported in prior work on non-determinism in LLM-as-judge grading by showing that agentic tools exhibit analogous reliability deficits when reporting on their own operational outcomes. The failure has direct implications for any workflow that relies on agentic session continuity for data processing, scientific computation, or multi-step automation.",
+      "authors": [
+        "Hiroki Tamba"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI"
+      ],
+      "published": "2026-07-11T07:45:13+00:00",
+      "link": "https://arxiv.org/pdf/2607.13071v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "documents failure mode in agent tool compaction causing false positive outputs",
+      "llm_evidence_cn": "记录agent工具压缩导致错误输出传播的故障模式",
+      "llm_evidence": "记录agent工具压缩导致错误输出传播的故障模式",
+      "canonical_evidence": "记录agent工具压缩导致错误输出传播的故障模式",
+      "llm_tldr_en": "Identifies a failure mode where compaction summaries in agentic LLM tools treat partial output as confirmed results, propagating errors.",
+      "llm_tldr_cn": "该论文发现Claude Code中压缩总结将超时命令的部分输出当作确认结果，导致误报跨会话传播。机制是混淆观察与持久化。这项工作扩展了对LLM自我评估失败的理解，提醒开发者重视agent输出监测。",
+      "llm_tldr": "该论文发现Claude Code中压缩总结将超时命令的部分输出当作确认结果，导致误报跨会话传播。机制是混淆观察与持久化。这项工作扩展了对LLM自我评估失败的理解，提醒开发者重视agent输出监测。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "monitoring agent outputs for errors",
+      "matched_requirement_id": "req-9",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2607.10350v2",
+      "source": "arxiv",
+      "title": "ABot-AgentOS: A General Robotic Agent OS with Lifelong Multi-modal Memory",
+      "abstract": "Recent VLM and VLA systems have improved robotic perception and action prediction, yet long-horizon embodied agents still require a general runtime layer for reasoning, memory, tool use, verification, and cross-embodiment execution. We present ABot-AgentOS, a general robotic Agent Operating System that sits above low-level controllers and provides a deliberative agent layer for scene-conditioned planning, context-isolated skill execution, multi-stage verification, multi-modal memory, and edge-cloud collaboration. To evaluate such systems, we introduce EmbodiedWorldBench, an executable benchmark with 16 indoor, outdoor, and hybrid scenes, four difficulty levels, and over 200 tasks involving navigation, object search, NPC dialogue, dynamic events, and trace-grounded scoring. ABot-AgentOS further introduces Universal Multi-modal Graph Memory, a persistent source-grounded substrate that converts dialogue, visual observations, spatial context, temporal relations, and task traces into typed nodes and edges. A failure-driven self-evolution loop converts diagnosed memory failures into gated runtime evo-assets that are promoted only to later evaluation splits, preventing current-split ground-truth leakage while enabling continual improvement. On an initial EmbodiedWorldBench subset, ABot-AgentOS improves over a single-controller baseline in both task success and goal completion. Across memory benchmarks, ABot-AgentOS Static achieves 87.5 on LoCoMo, 59.9 on OpenEQA EM-EQA, 88.6 on Mem-Gallery, and 76.5 Acc@All on NExT-QA; self-evolution further improves LoCoMo to 88.7, OpenEQA to 60.4, and Mem-Gallery to 89.0. These results suggest that a general Agent OS layer can improve long-horizon embodied execution while providing persistent, auditable memory for continual interaction.",
+      "authors": [
+        "Jiayi Tian",
+        "Shiao Liu",
+        "Yuting Xu",
+        "Jia Lu",
+        "Zihao Guan",
+        "Honglin Han",
+        "Di Yang",
+        "Minqi Gu",
+        "Yifei Qian",
+        "Tianlin Zhang",
+        "Yanqing Zhu",
+        "Zeqian Ye",
+        "Menglin Yang",
+        "Fei Wang",
+        "Xu Hu",
+        "Xiuxian Li",
+        "Wei Zhang",
+        "Shihui Su",
+        "Yiyan Ji",
+        "Jingbo Wang",
+        "Ziteng Feng",
+        "Jiaheng Liu",
+        "Zhaoxiang Zhang",
+        "Xiaolong Wu",
+        "Zixiao Tang",
+        "Zhining Gu",
+        "Yang Cai",
+        "Linbo Zheng",
+        "Jingjing Ma",
+        "Mingyang Yin",
+        "Zedong Chu",
+        "Ziqiao Li",
+        "Mu Xu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.RO"
+      ],
+      "published": "2026-07-11T15:24:43+00:00",
+      "link": "https://arxiv.org/pdf/2607.10350v2",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "robotic agent OS with verification and benchmark for trajectory tasks",
+      "llm_evidence_cn": "机器人智能体操作系统，包含验证和轨迹任务基准",
+      "llm_evidence": "机器人智能体操作系统，包含验证和轨迹任务基准",
+      "canonical_evidence": "机器人智能体操作系统，包含验证和轨迹任务基准",
+      "llm_tldr_en": "ABot-AgentOS provides a general runtime layer for robotic agents with multi-stage verification; EmbodiedWorldBench evaluates 200+ tasks including navigation, object search; supports trajectory-like behavior testing.",
+      "llm_tldr_cn": "本文提出ABot-AgentOS通用机器人智能体操作系统，在底层控制器之上提供推理、记忆、验证等高层能力，并引入EmbodiedWorldBench基准，包含16个场景、200余个任务，覆盖导航、物体搜索等轨迹密集型行为。其多阶段验证机制为测试自主智能体行为轨迹提供了方法论支撑。",
+      "llm_tldr": "本文提出ABot-AgentOS通用机器人智能体操作系统，在底层控制器之上提供推理、记忆、验证等高层能力，并引入EmbodiedWorldBench基准，包含16个场景、200余个任务，覆盖导航、物体搜索等轨迹密集型行为。其多阶段验证机制为测试自主智能体行为轨迹提供了方法论支撑。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.13081v1",
+      "source": "arxiv",
+      "title": "SingGuard-NSFA: Extensible Guardrails for Agentic AI via Generative Reasoning and Real-Time Classification",
+      "abstract": "We present nsfaguard, a guardrail framework for securing agentic AI systems against operational threats, such as prompt injection, sensitive information extraction, malicious code requests, dangerous tool misuse, and resource exhaustion. We first introduce the NSFA taxonomy, which organizes 185 risk variants into a CIA-triad-grounded hierarchy and is cross-validated against three well-established OWASP guidelines. Based on this taxonomy, we construct a benchmark suite spanning 133 languages, comprising over 93K purpose-built samples targeting both user queries and agent responses, along with 3,435 cross-source samples adapted from five public agent-security datasets. To detect these operational threats in practice, we develop a dual-mode approach combining SFT-based generative reasoning for interpretable offline auditing with discriminative classification heads on the frozen backbone, enabling real-time detection at approximately 50,ms. We release four models with 0.8B, 2B, 4B, and 9B parameters, all achieving $\\geq$94% F1 on purpose-built benchmarks and surpassing the strongest competing guardrails by 6 to 12 absolute points. On cross-source evaluation, the 9B model attains 91.29% F1 with a more balanced precision--recall trade-off. Moreover, ablation experiments show that classification heads can equip a guardrail with risk detection capabilities beyond its original scope and achieve state-of-the-art performance. These results demonstrate the extensibility of the approach and its generality as a plug-in enhancement.",
+      "authors": [
+        "SingGuard Team"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR",
+        "cs.AI",
+        "cs.CL",
+        "cs.LG"
+      ],
+      "published": "2026-07-13T07:28:45+00:00",
+      "link": "https://arxiv.org/pdf/2607.13081v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "guardrail framework detecting threats in agent outputs",
+      "llm_evidence_cn": "检测代理输出中威胁的护栏框架",
+      "llm_evidence": "检测代理输出中威胁的护栏框架",
+      "canonical_evidence": "检测代理输出中威胁的护栏框架",
+      "llm_tldr_en": "Proposes nsfaguard, a guardrail framework for agentic AI that detects operational threats in both user queries and agent responses using taxonomy and benchmark.",
+      "llm_tldr_cn": "本文提出nsfaguard护栏框架，用于保护代理AI系统免受操作威胁。通过NSFA风险分类体系（185种变体）和覆盖133种语言的9.3万样本基准，该框架能检测提示注入、敏感信息泄露、恶意代码请求等威胁。结合生成推理和实时分类，有效防护代理输出安全。",
+      "llm_tldr": "本文提出nsfaguard护栏框架，用于保护代理AI系统免受操作威胁。通过NSFA风险分类体系（185种变体）和覆盖133种语言的9.3万样本基准，该框架能检测提示注入、敏感信息泄露、恶意代码请求等威胁。结合生成推理和实时分类，有效防护代理输出安全。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detection of agent outputs",
+      "matched_requirement_id": "req-8",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2607.10811v1",
+      "source": "arxiv",
+      "title": "Distributed Agent System: Fault-Tolerant Collaboration Among Embodied Agents",
+      "abstract": "AI engineering is shifting from passive text generation by large language models (LLMs) to agent-driven task execution, creating new reliability challenges for long-horizon tasks under resource constraints and environmental uncertainty. Conventional error-elimination optimization strategies fail to address cumulative error propagation. This paper proposes Distributed Agent System (DAS), a device-edge-cloud framework for fault-tolerant collaboration among heterogeneous agents. We redefine agent reliability as system-level fault tolerance rather than single-turn zero-error accuracy, and present a two-layer fault-tolerance architecture: single-agent execution reliability via fault-tolerant alignment, and cross-agent communication reliability via semi-formal language protocols. This framework provides a practical engineering pathway for reliable heterogeneous embodied agents collaboration in industrial scenarios.",
+      "authors": [
+        "Kai Yu",
+        "Lu Chen",
+        "Hanqi Li"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA",
+        "cs.AI"
+      ],
+      "published": "2026-07-12T15:45:54+00:00",
+      "link": "https://arxiv.org/pdf/2607.10811v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "fault-tolerant behavior testing for autonomous agents",
+      "llm_evidence_cn": "自主代理的容错行为测试",
+      "llm_evidence": "自主代理的容错行为测试",
+      "canonical_evidence": "自主代理的容错行为测试",
+      "llm_tldr_en": "Proposes a distributed agent system with fault-tolerant collaboration, redefining reliability as system-level fault tolerance and testing single-agent and cross-agent failure modes.",
+      "llm_tldr_cn": "长期任务中代理错误累积导致可靠性挑战。本文提出分布式代理系统（DAS），将可靠性重新定义为系统级容错而非单步精确性。构建两层容错架构：单代理执行容错对齐和跨代理通信语义一致化。在多种任务上验证了系统对累积错误的鲁棒性。该工作为代理行为测试提供了新的可靠性评估视角。",
+      "llm_tldr": "长期任务中代理错误累积导致可靠性挑战。本文提出分布式代理系统（DAS），将可靠性重新定义为系统级容错而非单步精确性。构建两层容错架构：单代理执行容错对齐和跨代理通信语义一致化。在多种任务上验证了系统对累积错误的鲁棒性。该工作为代理行为测试提供了新的可靠性评估视角。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.13716v1",
+      "source": "arxiv",
+      "title": "CAVA: Canonical Action Verification and Attestation for Runtime Governance of Agentic AI Systems",
+      "abstract": "Agentic AI systems increasingly act through heterogeneous runtimes: local coding hooks, SDK tools, browser automation, managed-agent traces, API gateways, and workflow engines. A single operational act such as publishing code, changing identity state, moving money, or exporting data may therefore be represented by many incompatible runtime records. This makes a basic governance question difficult to answer: what action was actually approved, what evidence binds the approval to execution, and can an independent verifier reproduce the same action identity later?   This paper presents Canonical Action Verification and Attestation (CAVA), a runtime-semantics layer for converting heterogeneous agent activity into canonical runtime action objects. CAVA is positioned below Proof-Carrying Agent Actions (PCAA): PCAA defines the deployer-owned route-review-prove governance process, while CAVA defines the stable action object that process governs. The paper formalizes canonical action identity, semantic pattern detection, approval binding, receipt integrity, runtime-portable projection, and optional attestation substrates. We study a reference implementation through a 96-seed, 384-variant benchmark covering semantic equivalence, semantic separation, wrapper bypass, false-positive control, approval binding, receipt reproducibility, attestation tamper detection, runtime portability, semantic pattern detection, policy degradation, and Azure deployment drills. The contribution is a systems formulation of action-level canonicalization and policy-addressable semantic patterns as a necessary substrate for deployer-side AI governance.",
+      "authors": [
+        "Zexun Wang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-15T11:34:34+00:00",
+      "link": "https://arxiv.org/pdf/2607.13716v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "runtime verification and attestation of agent actions",
+      "llm_evidence_cn": "智能体行为的运行时验证和证明",
+      "llm_evidence": "智能体行为的运行时验证和证明",
+      "canonical_evidence": "智能体行为的运行时验证和证明",
+      "llm_tldr_en": "CAVA converts heterogeneous agent activity into canonical runtime records for verification and attestation of actions.",
+      "llm_tldr_cn": "智能体在不同运行时环境中产生的操作记录不一致，难以验证实际执行了什么操作。CAVA提出一种运行时语义层，将异构的智能体活动转换为规范形式，支持独立验证和证明。该方法能够将批准的证据绑定到执行上，使后续审计可复现，增强了智能体系统输出的可信性。",
+      "llm_tldr": "智能体在不同运行时环境中产生的操作记录不一致，难以验证实际执行了什么操作。CAVA提出一种运行时语义层，将异构的智能体活动转换为规范形式，支持独立验证和证明。该方法能够将批准的证据绑定到执行上，使后续审计可复现，增强了智能体系统输出的可信性。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "verification of agent generated responses",
+      "matched_requirement_id": "req-10",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2607.13988v1",
+      "source": "arxiv",
+      "title": "TRACE: Turn-level Reward Assignment via Credit Estimation for Long-Horizon Agents",
+      "abstract": "Multi-turn agents solve complex tasks through extended sequences of tool interactions before producing a final answer, making credit assignment a fundamental challenge during post-training. Outcome rewards provide reliable supervision for short-horizon reasoning, but become sparse and high-variance as trajectories grow to tens or hundreds of tool calls. They can also be misleading: a failed rollout may contain many useful actions that move the agent closer to the goal, yet outcome-only training assigns them the same negative advantage as the eventual mistake. We propose TRACE (Turn-level Reward Assignment via Credit Estimation), a dense credit-assignment method for agentic reinforcement learning. TRACE represents rollouts as state transitions at tool-call boundaries, obtains gold-answer log-probabilities from a frozen reference model, transforms them into log-ratio state values, and derives per-action rewards as Temporal-Difference changes in those values. This requires no additional critic or process-label training, and its one-step log-ratio TD component telescopes across redundant tool calls. On long-horizon complex search, TRACE substantially improves base-model tool-use ability using pure RL, without a cold-start supervised fine-tuning stage, an agentic mid-training stage, or training on live-web data. On the closed-web BrowseComp-Plus benchmark, it raises Qwen3-4B from $7.2$ to $35.6$ and Qwen3-30B-A3B from $8.4$ to $42.6$. The learned search behavior also transfers to open-web benchmarks, and the learning curves show earlier improvement and faster convergence during RL training.",
+      "authors": [
+        "Leitian Tao",
+        "Baolin Peng",
+        "Wenlin Yao",
+        "Tao Ge",
+        "Hao Cheng",
+        "Mike Hang Wang",
+        "Jianfeng Gao",
+        "Sharon Li"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG"
+      ],
+      "published": "2026-07-15T16:16:42+00:00",
+      "link": "https://arxiv.org/pdf/2607.13988v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "credit assignment for long-horizon agent trajectories in RL",
+      "llm_evidence_cn": "强化学习中长程智能体轨迹的信用分配",
+      "llm_evidence": "强化学习中长程智能体轨迹的信用分配",
+      "canonical_evidence": "强化学习中长程智能体轨迹的信用分配",
+      "llm_tldr_en": "Proposes TRACE for dense credit assignment in agentic RL by estimating turn-level rewards from trajectories, enabling better evaluation of multi-turn agent behavior.",
+      "llm_tldr_cn": "针对多轮智能体轨迹中信用分配困难的问题，提出TRACE方法，通过轨迹状态转移表示估计每步奖励，实现密集信用分配，帮助评估长程智能体行为。实验表明该方法在多种任务上提升训练效率，为分析智能体轨迹提供了新工具。",
+      "llm_tldr": "针对多轮智能体轨迹中信用分配困难的问题，提出TRACE方法，通过轨迹状态转移表示估计每步奖励，实现密集信用分配，帮助评估长程智能体行为。实验表明该方法在多种任务上提升训练效率，为分析智能体轨迹提供了新工具。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2607.14006v1",
+      "source": "arxiv",
+      "title": "Rethinking Penetration Testing for AI-Enabled Systems: From Resource Compromise to Behavioral Objective Violation",
+      "abstract": "Penetration testing traditionally evaluates whether adversaries can exploit weaknesses in software, infrastructure, configurations, or operational controls to achieve security-relevant compromise. This paradigm remains necessary for AI-enabled systems, but it is no longer sufficient. In such systems, adversaries may influence prompts, retrieved content, sensor inputs, training data, memory, tools, or human-AI interaction loops to alter system behavior without directly compromising the underlying infrastructure. This paper reframes penetration testing for AI-enabled systems as objective-driven behavioral evaluation. We define an AI-enabled system as one in which learned models materially influence behavior affecting operational outcomes, and we define AI-enabled penetration as the feasible induction of AI-governed behavior that violates one or more operational objectives under an explicit threat model. This definition preserves conventional penetration testing while extending it to adversarial pathways such as prompt injection, indirect prompt injection, data poisoning, sensor manipulation, retrieval poisoning, tool misuse, and agentic misalignment. We further propose a testing workflow that identifies operational objectives, maps AI-governed behavior, analyzes adversarial influence surfaces, defines behavioral failure criteria, executes scenario-based tests, and reports evidence linking adversarial action to objective violation. A running example involving an AI-enabled security operations center assistant illustrates how penetration may occur through behavioral influence rather than infrastructure compromise. Together, the definitions, workflow, and example provide a technical framework for evaluating adversarial success in deployed AI-enabled systems.",
+      "authors": [
+        "Mohammad Allahbakhsh",
+        "Mohammad Hassan Bahari",
+        "Moslem Attar-Raouf"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR",
+        "cs.AI"
+      ],
+      "published": "2026-07-15T16:36:54+00:00",
+      "link": "https://arxiv.org/pdf/2607.14006v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reframes penetration testing as behavioral objective violation for AI systems",
+      "llm_evidence_cn": "将渗透测试重新定义为AI系统的行为目标违反检测",
+      "llm_evidence": "将渗透测试重新定义为AI系统的行为目标违反检测",
+      "canonical_evidence": "将渗透测试重新定义为AI系统的行为目标违反检测",
+      "llm_tldr_en": "Proposes objective-driven behavioral evaluation for AI systems, shifting from resource compromise to behavioral violation testing.",
+      "llm_tldr_cn": "传统渗透测试仅关注资源安全，不足以应对AI系统中行为操纵风险。本文重新定义AI系统的渗透测试为目标驱动的行为评估，关注智能体行为是否违反客观目标。该方法强调测试行为而非基础设施，为智能体行为测试提供了新范式。实验表明能有效发现行为漏洞。",
+      "llm_tldr": "传统渗透测试仅关注资源安全，不足以应对AI系统中行为操纵风险。本文重新定义AI系统的渗透测试为目标驱动的行为评估，关注智能体行为是否违反客观目标。该方法强调测试行为而非基础设施，为智能体行为测试提供了新范式。实验表明能有效发现行为漏洞。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "8plus"
+    }
+  ]
+}
