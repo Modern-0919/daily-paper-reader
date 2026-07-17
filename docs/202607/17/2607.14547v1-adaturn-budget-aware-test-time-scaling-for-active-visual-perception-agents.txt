@@ -1,0 +1,1085 @@
+Title: AdaTurn: Budget-Aware Test-Time Scaling for Active Visual Perception Agents
+
+URL Source: https://arxiv.org/pdf/2607.14547v1
+
+Published Time: Fri, 17 Jul 2026 01:18:46 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# AdaTurn: Budget-Aware Test-Time Scaling for Active Visual Perception Agents 
+
+Susan Liang 1 Chao Huang 1 Filippos Bellos 2
+
+Jing Bi 1 Jason J Corso 2 Chenliang Xu 11University of Rochester 2Univeristy of Michigan 
+
+Abstract 
+
+Active visual agents solve fine-grained image tasks by interleaving reasoning with image-grounding actions across multiple turns. However, deployment-time rollout budgets are rarely fixed: some requests permit long rollouts, while others require the agent to act under a tight turn limit. Existing methods train the policy as if the rollout budget were hidden, so when the available budget is smaller than the trajectory the agent prefers, the interaction is often truncated before any valid answer is produced; we term this failure catastrophic truncation . To overcome this challenge, we present AdaTurn, a budget-aware framework that conditions the agent on the allowed number of turns and explicitly trains the boundary behavior induced by the budget. Our key component, Forced-Answer DAPO (FA-DAPO), converts the over-budget event from a masked or penalized failure into a trainable final-decision step, teaching the model to synthesize partial evidence when further tool use is no longer possible. We further randomize rollout budgets during both training and inference and introduce a load-balanced scheduler that makes such operations practical. AdaTurn substantially improves low-budget accuracy, for example raising VisualProbe-Medium from 36.7% to 47.6% at four turns, while preserving strong scaling at larger budgets and transferring effectively to multiple backbones and general multimodal benchmarks. Total Turns=4        
+
+> DeepEyes (SOTA 1):
+> Premature Stopping Tool Answer
+> T1 T2
+> Wasted Turns
+> Mini -o3 (SOTA 2):
+> Catastrophic Truncation Tool Tool
+> T1 T2
+> Tool
+> T3
+> Tool
+> T4
+> Tool
+> T5
+
+x    
+
+> Truncate w/o answer
+> AdaTurn (Ours )
+> Turn -Aware Agent Tool Tool
+> T1 T2
+> Tool
+> T3
+> Answer
+> T4
+
+☹
+
+😣 
+
+😁 T=4 T=8    
+
+> DeepEyes Mini-o3 AdaTurn (Ours)
+> 29.8 29.8
+> 36.7
+> 47.8 47.6
+> 50.8
+> +60%
+
+(a) Comparison between SoTA approaches and our AdaTurn . (b) VisualProbe benchmark accuracy (Medium). 
+
+> +70%
+
+Figure 1: Turn-aware reasoning under limited rollout budgets. Existing visual agents can stop too early when extra turns remain or suffer catastrophic truncation when the allocated budget is smaller than the rollout they implicitly expect, yielding no valid answer. AdaTurn conditions the agent on the turn budget and teaches it to switch from tool use to answer generation before the budget is exhausted, which leads to much stronger low-budget performance while preserving high-budget gains. 
+
+Preprint. arXiv:2607.14547v1 [cs.CV] 16 Jul 2026 1 Introduction 
+
+Multimodal language models are increasingly used not only as one-shot image predictors [Liu et al., 2024a, Xu et al., 2024, Bai et al., 2025b, Chen et al., 2024], but also as active visual agents that interleave reasoning with image-grounding actions across multiple turns [Wu and Xie, 2024b, Wang et al., 2024, Zhang et al., 2025c, Shen et al., 2024, Zheng et al., 2025b, Wang et al., 2025a, Lai et al., 2025]. Instead of answering from a single encoded image, the model can inspect local regions, gather new observations, and refine its decision over multiple interaction turns. This shift has made test-time scaling newly relevant for visual reasoning [Snell et al., 2024, OpenAI, 2024, Agarwal et al., 2025, Wang et al., 2025b]. Recent systems such as DeepEyes [Zheng et al., 2025b], Pixel Reasoner [Wang et al., 2025a], Chain-of-Focus [Zhang et al., 2025c], and Mini-o3 [Lai et al., 2025] show that “thinking with images” can outperform standard one-pass prediction on high-resolution and visually cluttered tasks. When the agent is allowed more turns, it can search more carefully, reject distractors, and verify a tentative answer before committing. Yet this success hides an important deployment mismatch. In practical settings, the rollout budget is an external resource constraint rather than a fixed property of the model [Wen et al., 2025, Nogueira et al., 2025]. One request may permit only four turns because of latency requirements, while another may permit thirty-two. Existing visual agents are typically trained for a fixed rollout regime rather than with the deployment-time budget as an explicit input [Zheng et al., 2025b, Wang et al., 2025a, Lai et al., 2025]. As a result, when the available budget is smaller than the policy prefers, the agent may continue requesting tools until the system terminates the rollout without any valid answer. We call this failure mode catastrophic truncation . For example, Mini-o3’s performance on VisualProbe-Hard benchmark reduces from 48.0% to 26.5% after we limit the maximum rollout turns to 4. The same budget-blindness also wastes computation at the opposite extreme: when extra turns are available, the agent may stop as soon as it finds a plausible answer instead of using the remaining budget for verification. AdaTurn addresses this mismatch by making the rollout budget part of the learning problem. The central idea is simple: a capable visual agent should not learn a single rollout style, but a family of behaviors calibrated to the available budget. This perspective yields three design requirements. First, the policy must be conditioned on the maximum allowed turns, so that short-budget and long-budget behavior can differ systematically. Second, the model must receive learning signal at the budget boundary, because this is precisely where standard training breaks down. Third, if rollout budgets vary during training and inference, the underlying infrastructure must also become budget-aware; otherwise the slowest worker dominates training throughput. We satisfy these requirements with AdaTurn, an active visual perception agent with dynamic rollout depth. Besides the budget-conditioned visual agent, we also introduce Forced-Answer DAPO (FA-DAPO) , a reinforcement learning strategy built on DAPO [Yu et al., 2025], a more robust variant of GRPO [Shao et al., 2024], that converts an over-budget tool request into a trainable final-answer decision. Instead of penalizing or masking the boundary case, AdaTurn teaches the policy how to synthesize the evidence collected so far when no further tool use is possible. We further train with dynamic rollout budgets and pair this with a load-balanced scheduler that keeps worker utilization stable despite heterogeneous rollout lengths. The resulting system is effective across different rollout budgets and benchmarks. At four turns, AdaTurn improves VisualProbe-Medium [Lai et al., 2025] from 36.7% to 47.6% and MME-RealWorld [Zhang et al., 2024] from 50.1% to 64.0% over Mini-o3 [Lai et al., 2025]. Figure 6 shows that these gains are concentrated where deployment constraints matter most, namely the low-budget regime, while the model remains strong as the budget increases. We also find that the approach transfers to Qwen3-VL 4B and 8B backbones [Bai et al., 2025a] and preserves broad multimodal ability on OCR and reasoning benchmarks. In summary, our contributions are: • We formulate budget-aware active visual perception and identify catastrophic truncation as a central failure mode of deployment-constrained visual agents. • We propose AdaTurn, a budget-conditioned visual agent, and Forced-Answer DAPO (FA-DAPO), which explicitly trains the final-answer decision at the budget boundary. 2• We introduce a load-balanced scheduler that reduces rollout imbalance during both training and inference and improves rollout throughput by 1.34 ×.• We demonstrate that AdaTurn delivers large gains in the low-budget regime, remains strong at larger budgets, transfers to multiple backbones, and preserves general multimodal capability. 
+
+2 Related Work 
+
+2.1 High-Resolution Image Understanding 
+
+Early vision-language models such as LLaVA [Liu et al., 2024a] relied on fixed low-resolution inputs, which discard the small details that often determine success on fine-grained visual tasks. More recent high-resolution models, including LLaVA-UHD [Xu et al., 2024], Qwen2.5-VL [Bai et al., 2025b], and InternVL 2.5 [Chen et al., 2024], improve image encoding through dynamic tiling, image slicing, or stronger visual backbones. However, these approaches still perform inference largely in one pass, so they cannot adaptively allocate attention to the regions that become relevant during reasoning. This limitation has motivated active perception methods such as SEAL [Wu and Xie, 2024b], DC 2 [Wang et al., 2024], Chain-of-Focus [Zhang et al., 2025c], and ZoomEye [Shen et al., 2024], which explicitly inspect the image over multiple steps. AdaTurn operates in this active-perception regime, but focuses on a different question: how such agents should behave when the available rollout budget itself varies across requests. 
+
+2.2 Agentic Visual Perception 
+
+Recent work has shown that multi-turn visual search can be learned directly within a language-model-style action loop. DeepEyes [Zheng et al., 2025b] demonstrates that image-grounded tool use can emerge from reinforcement learning alone, while DeepEyesV2 [Hong et al., 2025], VISTA-R1 [Lu et al., 2025], and Agent0-VL [Liu et al., 2025] extend the tool space or the training environment. Mini-o3 [Lai et al., 2025] is particularly relevant because it shows that visual agents can benefit substantially from longer rollouts and richer interaction patterns. Our work differs in focus — we do not primarily ask how to obtain longer trajectories; we ask how the same agent should behave when the permitted trajectory length changes at deployment time. AdaTurn treats the rollout budget as an explicit conditioning variable and optimizes the final-turn decision directly, which addresses a failure mode that prior visual agents largely leave unresolved. 
+
+2.3 Reinforcement Learning and Test-Time Scaling for VLMs 
+
+Group Relative Policy Optimization (GRPO) Shao et al. [2024] has become a standard recipe for training reasoning models, beginning with DeepSeek-R1 [Guo et al., 2025] and extending rapidly to multimodal settings such as VLM-R1 [Shen et al., 2025], R1-VL [Zhang et al., 2025b], and Visionary-R1 [Zhang et al., 2025a]. Beyond one-shot reasoning, recent sequence-level reinforcement learning formulations have also begun to study multi-turn tool-integrated reasoning more directly [Xue et al., 2025, Zheng et al., 2025a]. In parallel, test-time scaling has emerged as a dominant view of reasoning systems: additional inference-time computation often improves performance, but only when the model knows how to use that extra budget effectively [Snell et al., 2024, OpenAI, 2024, Agarwal et al., 2025, Wang et al., 2025b]. Prior budget-aware methods have mainly focused on token-level control within a single generation, for example via budget tokens or confidence-based early stopping [Wen et al., 2025, Nogueira et al., 2025]. AdaTurn addresses a different setting, namely multi-turn agents whose action space changes at the final turn because tool execution is no longer available. Our contribution is therefore not only budget conditioning, but boundary-aware reinforcement learning and the systems support needed to train it efficiently. 
+
+3 Method 
+
+AdaTurn is built around a simple premise: for an active visual agent, the rollout budget is not a nuisance variable but part of the task specification. The policy should therefore depend not only on the image and the question, but also on how many interaction turns are available. We first formalize this budget-aware setting in Section 3.1. We then present Forced-Answer DAPO (FA-DAPO) in 3Current Turn 
+
+< 𝑇 !"# 
+
+Yes 
+
+(Within Turns) 
+
+No 
+
+(Exceed Turns) 
+
+Call Tool Successfully 
+
+> Execute tool (e.g., crop /
+> zoom -in) on the image.
+
+Tool Result 
+
+> Return new image
+> observation to the
+> agent.
+
+Cannot Call Tool s
+
+🚫 Current Turn exceeded   
+
+> (𝑇 ≥𝑇 !"# )
+
+Forced to Answer 
+
+> Generate the final
+> answer and stop.
+
+Inputs 
+
+Image Question 
+
+What is the number 
+
+below “ SINCE” ? 
+
+Max Agent 
+
+Turns ( 𝑇 !"# )
+
+𝑇 !"# = 4
+
+Vision -Language Agent (AdaTurn )
+
+Vision 
+
+Encoder 
+
+Language 
+
+Model 
+
+Agent Internal Process 
+
+1. Thinking 
+
+2. Decide Next Step  
+
+> *Answer the question
+> directly, or
+> * Call a tool to get more
+> visual details
+
+Decision: 
+
+Call Tools? 
+
+Answer 
+
+“ The number below 
+
+SINCE is 1934.” 
+
+No 
+
+(Answer) 
+
+Yes 
+
+(Call Tool) 
+
+Agent Loop 
+
+(Next Turn )
+
+<think>The user is looking for a number below "SINCE." Scanning 
+
+the panoramic input, the large buildings and amusement 
+
+structures on the right side of the frame have significant signage. I 
+
+will zoom into the apartment complex and the Wonder Wheel 
+
+area to check for historical markers or storefronts.</think >
+
+Think 
+
+Agent Rollout Trajectory 
+
+Inputs: 
+
+What is the number 
+
+below “ SINCE” ? 
+
+𝑇 !"# = 4
+
+Agent Turn 1 :
+
+<grounding>{"bbox_2d": [0.519, 0.598, 0.917, 1.0], "source": 
+
+"observation_0"}</grounding> 
+
+Tool Result: 
+
+<think>Observation 1 did not reveal any text containing "SINCE." 
+
+Re -evaluating the original image, there is a dense row of shops 
+
+and restaurants on the far left. This area is more likely to have 
+
+"Established" or "Since" dates on its storefronts. I will pivot and 
+
+crop the left -hand boardwalk section.</think> 
+
+Think 
+
+Agent Turn 2 :
+
+<grounding>{"bbox_2d": [0, 0.689, 0.311, 1.0], "source": 
+
+"observation_0"}</grounding> 
+
+Tool Result: 
+
+<think>In this view, I detect two instances of the word "SINCE." On 
+
+the right, a sign for Nathan's menZons "SINCE 1916," and on the 
+
+le[, a circular gold logo on Ruby's also contains "SINCE." I need to 
+
+verify the number on the Ruby's sign specifically. I'll zoom in on 
+
+the red storefront to confirm.</think> 
+
+Think 
+
+Agent Turn N: 
+
+<grounding>{"bbox_2d": [0.089, 0.481, 0.317, 0.712], "source": 
+
+"observation_2"}</grounding> 
+
+…
+
+Tool Rejection: 
+
+🚫 You have used all 
+
+> turns and cannot
+> further call tools.
+> Please provide your
+> answer and stop.
+
+<think >I have exhausted my tool -calling budget and must answer 
+
+the quesZon using the informaZon I have obtained, even though I 
+
+may make mistakes due to a lack of data.</ think> 
+
+Think 
+
+Agent Turn N (Forced to Answer): 
+
+<answer>1934</answer>        
+
+> Decision Tool &Resul tForced to Answer Final Answer Agent Thinkin g
+
+(a) AdaTurn Agent Loop. (b) AdaTurn Agent Rollout Trajectory. Figure 2: Overview of AdaTurn. The left panel shows the turn-aware agent loop: the model receives the image, the user question, and the maximum rollout budget Tmax , then decides at each turn whether to call a visual tool or emit the final answer. If a tool request would exceed the budget, AdaTurn blocks the tool call and forces the model to answer using the evidence already collected. The right panel illustrates a concrete rollout in which the agent gathers several observations and then produces a budget-aware final answer at the last turn. Section 3.2, which supplies the missing learning signal at the final-turn boundary. Finally, Section 3.3 describes dynamic-budget training and the load-balanced rollout scheduler that makes such training efficient in practice. Figure 2 gives an overview. 
+
+3.1 Problem Formulation and AdaTurn Agent Loop 
+
+Let Q denote the user question, I the input image, Tmax the maximum rollout budget, and g the ground-truth answer. AdaTurn solves a budget-aware decision problem with input 
+
+x = ( Q, I, T max ). (1) At turn t, the agent conditions on the interaction history 
+
+ht = ( Q, I, T max , (y1, o 1), . . . , (yt−1, o t−1)) , (2) where yt is the token sequence generated at turn t and ot is the tool observation returned by the environment. At each turn, the policy πθ emits either a tool-calling sequence ct ∈ C or a final-answer sequence at ∈ A :
+
+yt ∼ πθ (· | ht), yt ∈ C ∪ A . (3) If yt ∈ C and t < T max , the tool executor E returns a new observation 
+
+ot = E(I, y t), (4) which becomes part of the next-turn history. If yt ∈ A , the rollout terminates and the answer is scored against g. The key structural constraint appears at the last turn: 
+
+yt ∈ Y t =
+
+C ∪ A , t < T max ,
+
+A, t = Tmax . (5) Before the final turn, the agent may either gather more evidence or answer. At the final turn, only answer actions are executable. Catastrophic truncation arises when the learned policy still prefers a tool action at this boundary. 4Max Turns              
+
+> 𝑇 !"# =4
+> Answer
+> Answer
+> Answer
+> Question
+> Tool Tool Tool Tool
+> Tool Tool
+> Tool
+> Tool Tool
+> …
+> Tool Tool Tool
+> Tool Tool
+> T1 T2T3 T4
+> Answer
+> Rejected
+
+x
+
+> Rejected
+
+x Tool            
+
+> Tool
+> Answer
+> Answer
+> Answer
+> Question
+> Tool Tool Tool
+> Tool Tool
+> Tool
+> Tool
+> …
+> Max Turns
+> 𝑇 !"# =4
+> Tool Tool Tool
+> Tool Tool
+> T1 T2T3 T4
+> Rejected
+
+x
+
+> Rejected
+
+x   
+
+> Answer
+> Answer
+> Answer
+> (a) Existing vision agent training approach
+> (e.g., DeepEyes , Mini -o3). (b) Our new agent training approach.
+
+Figure 3: Training behavior at the budget boundary. Prior methods either treat over-budget rollouts as wrong and penalize them, or mask them and discard the learning signal. Forced-Answer DAPO instead rolls back to the last valid prefix and explicitly trains the model to produce a final answer when the next tool request would exceed the budget. Figure 2 illustrates the resulting agent loop. The left panel shows the budget-conditioned control flow: the model receives the image, the question, and the maximum budget Tmax , then repeatedly decides whether to spend another turn on grounding or to terminate with an answer. This makes the budget visible throughout the rollout rather than leaving it as an implicit system-side constraint. The right panel shows a concrete trajectory in which successive observations narrow the search space until the policy emits a final answer at the budget boundary. The important point is not merely that AdaTurn stops at turn Tmax , but that it is trained to make this boundary decision intelligently. Under large budgets, the policy can spend additional turns on verification; under small budgets, it learns to compress the search and commit using partial evidence. 
+
+3.2 Forced-Answer DAPO 
+
+We adopt Decoupled Clip and Dynamic Sampling Policy Optimization (DAPO) [Yu et al., 2025], a more robust variant of GRPO [Shao et al., 2024, Guo et al., 2025, Shen et al., 2025, Zhang et al., 2025b], as the reinforcement learning algorithm. For each input x, we sample a group of G rollouts 
+
+{Y (i)}Gi=1 from the current policy, score them with rewards {R(i)}Gi=1 , and compute normalized advantages 
+
+ˆA(i) = R(i) − 1
+
+> G
+
+PGj=1 R(j)
+
+Std( {R(j)}Gj=1 ) + δ , (6) where Y (i) = [ y(i)1 , . . . , y (i) 
+
+> Tmax
+
+] is the i-th rollout and δ is a small constant for numerical stability. DAPO then optimizes the token-normalized clipped objective: 
+
+LDAPO (θ) = −E
+
+"
+
+1
+
+PGi=1 |Y (i)|
+
+> G
+
+X
+
+> i=1
+
+X
+
+> k
+
+min 
+
+
+
+ρi,k ˆAi,k , clip( ρi,k , 1 − ϵlow , 1 + ϵhigh ) ˆAi,k 
+
+#
+
+(7) where ˆAi,k = ˆA(i) for each token k in rollout Y (i), and the token-wise importance ratio is 
+
+ρi,k =
+
+πθ
+
+
+
+y(i) 
+
+> k
+
+| x, y (i)
+
+> <k
+
+
+
+πθold 
+
+
+
+y(i) 
+
+> k
+
+| x, y (i)
+
+> <k
+
+ . (8) With different clip values ( ϵlow and ϵhigh for positive and negative advantages, respectively) and token-wise normalization, DAPO can stabilize training while still allowing the policy to learn from outlier samples with large advantages. The central difficulty is that the final-turn boundary is qualitatively different from the rest of the rollout. At turns t < T max , the policy decides between continuing to gather evidence and terminating. 5Rollout Requests ( 𝑁 )                                                                      
+
+> Each request 𝑟 ∗has a different maximum rollout turns 𝑇 "#$
+> 𝑟 !𝑟 "𝑟 #…𝑟 $%"𝑟 $%!𝑟 $𝑟 &𝑟 $%#
+> Uniform Chunk Assignment Load -Balanced Assignment (Ours)
+> …Chunk 1
+> [0,𝑘 ]
+> Chunk 2
+> [𝑘 ,2×𝑘 ]
+> Chunk M
+> [𝑀 −1×𝑘 ,𝑀 ×𝑘 ]
+> 𝑘 =𝑁 //𝑀
+> …𝑟 %𝑟 &𝑟 '…𝑟 '(%𝑟 '(&𝑟 &' …𝑟 )*'(%𝑟 )
+> 856…20 95…15 30 10 …
+> Rollout Max Turns 𝑇 "#$
+> Engine 1Engine 2Engine 𝑀
+> Accumulated Rollout Cost
+> 57Engine 1
+> 45Engine 2
+> 75Engine 𝑀
+> Rollout Inefficiency
+> (Idle Servers)
+> Load Balancer
+> Input: 𝑟 ∗,𝑀
+> Goal: Minimize Rollout Cost
+> …𝑟 +𝑟 ,𝑟 %+ …𝑟 -𝑟 %. 𝑟 &…𝑟 -& 𝑟 &.
+> 31 18 6…26 24 5…2519 10 …
+> Rollout Max Turns 𝑇 "#$
+> Engine 1Engine 2Engine 𝑀
+> Accumulated Rollout Cost
+> 61 Engine 1
+> 62 Engine 2
+> 59 Engine 𝑀
+> 𝑟 &%
+
+Figure 4: Load-balanced rollout assignment. Dynamic rollout budgets create large differences in per-sample rollout cost. Instead of uniformly splitting requests across engines, we sort requests by assigned budget and greedily place each one on the engine with the current lowest accumulated load, which keeps the rollout workers much better balanced. At turn t = Tmax , that choice collapses: tool calls are no longer feasible. Figure 3 shows that existing strategies do not optimize this regime well. DeepEyes [Zheng et al., 2025b] treats the over-budget case as a wrong rollout, which discourages long-horizon exploration and effectively ties the policy to the training budget. Mini-o3 [Lai et al., 2025] avoids this penalty by masking truncated cases, but this also removes the learning signal precisely where budget-awareness matters most. In both cases, the boundary behavior is under-trained. We address this with Forced-Answer DAPO (FA-DAPO). Suppose a rollout reaches turn Tmax and the policy still prefers a tool request. Instead of treating the sample as either incorrect or irrelevant, we roll back to the last executable prefix h−
+
+Tmax and append a control instruction stating that the tool budget has been exhausted and the model must provide its best final answer. Formally, we transform each sampled rollout as 
+
+˜Y (i) =
+
+(Y (i), if Y (i) emits an answer within Tmax ,
+
+h−(i)
+
+Tmax , ˜a(i)
+
+Tmax 
+
+
+
+, if y(i)
+
+Tmax ∈ C , (9) where ˜a(i)
+
+Tmax ∼ πθ (· | h−(i)
+
+Tmax , b Tmax ) and bTmax is the budget-exhausted control message. We then score the resulting answer with 
+
+R(i) = λacc racc ( ˜Y (i), g ) + λfmt rfmt ( ˜Y (i)). (10) Conceptually, FA-DAPO converts catastrophic truncation from an artifact of the rollout engine into a supervised decision problem for the policy. This design enables AdaTurn to operate reliably under tight budgets while still benefiting from additional turns when they are available. We examine several alternative training variants, including masked-prefix optimization, final-turn-only reinforcement learning, and format-weighted rewards, in Section 4.3. 
+
+3.3 Dynamic Rollout Budgets and Load-Balanced Scheduling 
+
+The maximum rollout budget is not fixed during either training or inference. During training, we sample Tmax from a predefined set of candidate budgets and inject it into the prompt as part of the agent state. The same task therefore appears under both short and long budgets, forcing the policy to learn a calibrated trade-off between further search and immediate commitment. This same mechanism carries over directly to inference: practitioners can set Tmax according to their latency or compute budget without switching models or retraining the policy. Dynamic budgets, however, create a systems bottleneck. In multi-engine rollout generation, batch latency is determined by the slowest engine. If long-budget samples are assigned unevenly, fast 62 4 6 8 10 12 14 16 18            
+
+> Training Step
+> 600
+> 1200
+> 1800
+> 2400
+> 3000
+> Rollout Time (s)
+> avg speedup ×1.34
+> 246810 12 14 16 18
+> Training Step
+> 0
+> 15
+> 30
+> 45
+> 60
+> Rollout Load
+> Imbalance Value
+> Vanilla (max) Load-Balance (max) Min Min Max range
+
+Figure 5: Effect of load-balanced rollout scheduling. The left plot reports the minimum, maximum, and min-max rollout time range across engines, showing that the scheduler reduces the maximum engine time and yields an average 1.34 × speedup. The right plot reports the gap between the largest and smallest accumulated rollout budgets across engines, which is consistently smaller with load balancing. Table 1: Quantitative comparison on visual perception benchmarks. AdaTurn performs favorably in the low-budget regime and remains competitive at 32 turns while using the same 7B backbone scale as prior open-source agent baselines. For VisualProbe and V * Bench, we report Avg@32 to reduce variance caused by randomness. We report Avg@8 and Avg@1 for HR-Bench and MME-RealWorld, respectively. Model VisualProbe V* HR-Bench MME-RealWorld hard medium easy 4K 8K GPT-4o [Hurst et al., 2024] 11.2 15.4 47.5 65.2 62.0 58.3 45.2 LLaVA-OneVision [Li et al., 2024] 13.4 12.5 36.2 70.9 61.2 54.0 57.4 Qwen2.5-VL-Instruct [Bai et al., 2025b] 23.9 26.0 39.1 75.5 68.2 62.7 57.3 SEAL [Wu and Xie, 2024a] - - - 75.4 - - -DyFo [Li et al., 2025] - - - 81.2 - - -Chain-of-Focus [Zhang et al., 2025d] - - - 88.0 - - -Pixel Reasoner [Wang et al., 2025a] 28.8 29.6 58.4 86.3 74.0 66.9 64.4 DeepEyes [Zheng et al., 2025b] (6 turns) 35.1 29.8 60.1 83.3 73.2 69.5 64.0 Mini-o3 [Lai et al., 2025] (4 turns) 26.5 36.7 42.4 79.2 68.9 63.2 50.1 Mini-o3 [Lai et al., 2025] (32 turns) 48.0 50.4 67.0 88.2 77.5 73.3 65.5 Ours (4 turns) 39.0 47.6 61.2 85.2 75.7 71.1 64.0 
+
+Ours (32 turns) 48.1 51.0 66.7 86.9 77.5 73.4 66.3 
+
+workers idle while one overloaded worker processes a set of overlong trajectories. Figure 4 shows our solution. We assign rollout jobs by sorting requests according to their assigned budget and greedily dispatching each request to the engine with the current lowest accumulated load, which keeps the rollout cost more balanced across workers. Appendix B provides the full pseudocode. Each request 
+
+rn carries an assigned rollout budget Tn. After sorting requests by Tn in descending order, we greedily assign each request to the engine with the current lowest accumulated load. We quantify rollout imbalance as the gap between the largest and smallest accumulated rollout budgets across engines after assignment. Figure 5 reports the effect on real training runs. The scheduler consistently reduces both the maximum rollout time and the cross-engine load imbalance value calculated as the gap between the largest and smallest accumulated rollout budgets across engines. This leads to an average 1.34 × speedup in rollout generation, which is critical for dynamic-budget training and inference. 
+
+4 Experiments 
+
+4.1 Experimental Details Datasets. We evaluate AdaTurn on VisualProbe [Lai et al., 2025] and V * Bench [Wu and Xie, 2024a] for agentic visual search, HR-Bench [Wang et al., 2024] at 4K and 8K for high-resolution perception, and MME-RealWorld [Zhang et al., 2024] for real-world multimodal reasoning. To assess whether the resulting policy remains broadly useful beyond the main visual-search setting, we additionally report OCRBench [Liu et al., 2024b], ChartQA [Masry et al., 2022], DocVQA [Mathew et al., 2021], MathVista [Lu et al., 2023], ScienceQA [Lu et al., 2022], and CV-Bench [Tong et al., 2024]. 74 8 16 24 32                            
+
+> # Frames
+> 40.0
+> 50.0
+> 60.0
+> 70.0
+> Score (%)
+> VisualProbe (Easy)
+> 4816 24 32
+> # Frames
+> 30.0
+> 40.0
+> 50.0
+> VisualProbe (Medium)
+> 4816 24 32
+> # Frames
+> 20.0
+> 30.0
+> 40.0
+> 50.0
+> VisualProbe (Hard)
+> 4816 24 32
+> # Frames
+> 76.0
+> 80.0
+> 84.0
+> 88.0
+> V* Bench
+> 4816 24 32
+> # Frames
+> 68.0
+> 72.0
+> 76.0
+> Score (%)
+> HR-Bench 4K
+> 4816 24 32
+> # Frames
+> 64.0
+> 68.0
+> 72.0
+> HR-Bench 8K
+> 4816 24 32
+> # Frames
+> 48.0
+> 54.0
+> 60.0
+> 66.0
+> MME-RealWorld
+> Qwen2.5-VL-7B-Instruct DeepEyes Mini-o3 Ours (AdaTurn)
+
+Figure 6: Performance vs. rollout budget. AdaTurn provides a more favorable trade-off than Mini-o3 [Lai et al., 2025] in the low-budget regime, particularly at four and eight turns, while remaining competitive as additional turns are available. 
+
+Baselines. We compare against closed and open-source multimodal models, including GPT-4o [Hurst et al., 2024], LLaVA-OneVision [Li et al., 2024], Qwen2.5-VL-7B-Instruct [Bai et al., 2025b], DeepEyes [Zheng et al., 2025b], Mini-o3 [Lai et al., 2025], Pixel Reasoner [Wang et al., 2025a], and Chain-of-Focus [Zhang et al., 2025d]. The most relevant baselines are DeepEyes [Zheng et al., 2025b] and Mini-o3 [Lai et al., 2025] because they also train multi-turn visual tool use; they therefore isolate the contribution of budget-aware learning more directly than generic VLM baselines. 
+
+Metrics. We report benchmark-standard accuracy. Following the corresponding benchmark protocols, VisualProbe and V * Bench are averaged over 32 repeated runs to reduce stochastic variation, while HR-Bench and MME-RealWorld are evaluated with 8 and 1 run, respectively. 
+
+Implementation Details. Unless otherwise specified, the main results use a Qwen2.5-VL-7B-Instruct backbone [Bai et al., 2025b] and compare inference under different maximum rollout turns. For more implementation details, including the training hyperparameters and the ablation variants, please refer to Appendix A. 
+
+4.2 Quantitative Comparison 
+
+Table 1 reports the main quantitative comparison. AdaTurn performs particularly well in the low-budget regime, where catastrophic truncation is most consequential. At four turns, AdaTurn improves over Mini-o3 [Lai et al., 2025] by +12 .5% on VisualProbe-Hard, +10 .9% on VisualProbe-Medium, 
+
++6 .0% on V *, +6 .8% on HR-Bench 4K, +7 .9% on HR-Bench 8K, and +13 .9% on MME-RealWorld. These improvements are consistent across VisualProbe [Lai et al., 2025], HR-Bench [Wang et al., 2024], and MME-RealWorld [Zhang et al., 2024], suggesting that the benefit is not confined to a single benchmark family. At the same time, these gains do not come at the expense of high-budget behavior. At thirty-two turns, AdaTurn matches or exceeds Mini-o3 [Lai et al., 2025] on VisualProbe-Hard, VisualProbe-Medium, HR-Bench 8K, and MME-RealWorld, while tying on HR-Bench 4K. This indicates that FA-DAPO does not simply encourage earlier termination; rather, it teaches the model to answer appropriately when the budget is limited while still making use of longer rollouts when they are available. Figure 6 presents the same trend from a complementary perspective by plotting performance as a function of the rollout budget. AdaTurn shifts the curve upward in the low-budget region, especially at 4 and 8 turns, while preserving favorable scaling as the budget grows. Additional rollout visualizations and a failure case analysis are provided in Appendix Sections G and H. 8Table 2: Transfer across backbone scales. AdaTurn improves both Qwen3-VL-4B-Instruct and Qwen3-VL-8B-Instruct under tight budgets and remains competitive when the rollout budget is in-creased. For VisualProbe and V * Bench, we report Avg@32 to reduce variance caused by randomness. We report Avg@8 and Avg@1 for HR-Bench and MME-RealWorld, respectively. Model VisualProbe V* HR-Bench MME-RealWorld hard medium easy 4K 8K Qwen3-VL-4B-Instruct [Bai et al., 2025a] - - - 88.0 81.3 74.4 -+ Mini-o3 [Lai et al., 2025] (4 turns) 24.7 44.3 54.9 87.0 77.2 72.4 61.2 + Mini-o3 [Lai et al., 2025] (32 turns) 46.3 53.9 69.1 90.2 80.0 77.3 66.0 + Ours (4 turns) 40.0 51.7 68.4 90.0 79.2 76.6 66.6 
+
++ Ours (32 turns) 46.4 54.3 70.6 90.7 79.8 78.0 67.1 
+
+Qwen3-VL-8B-Instruct [Bai et al., 2025a] - - - 90.1 82.3 78.0 -+ Mini-o3 [Lai et al., 2025] (4 turns) 24.9 44.6 58.7 87.6 78.3 75.8 60.0 + Mini-o3 [Lai et al., 2025] (32 turns) 55.4 55.6 74.7 91.1 82.8 81.9 69.3 + Ours (4 turns) 45.9 54.6 73.8 91.1 82.4 81.4 69.2 
+
++ Ours (32 turns) 56.0 57.0 74.8 91.6 83.0 82.3 69.8 
+
+4.3 Ablation Studies 
+
+Figure 7 isolates the contribution of the reinforcement learning design. The main takeaway is that forced-answer training is the primary contributor to the improvement: every AdaTurn variant outperforms Mini-o3 at four turns, indicating that explicit supervision of the budget boundary is important for mitigating catastrophic truncation. Among these variants, the default formulation performs best overall, especially once the budget exceeds eight turns. 4 8 16 24 32  
+
+> # Frames
+> 76.0
+> 80.0
+> 84.0
+> 88.0
+> Score (%)
+> Qwen2.5-VL-7B-Instruct
+> DeepEyes
+> Mini-o3 AdaTurn (Ours)
+> Ours w/ Mask
+> Ours w/ Final Turn RL
+> Ours w/ Format Reward
+
+Figure 7: Ablation of the reinforcement learning design. Explicitly training the final-turn answer behavior contributes most of the observed gain. Masking prefix turns, restricting reinforcement learning to only the final forced-answer turn, or adding an extra format reward all underperform the default full-rollout accuracy-only training. Appendix C provides the detailed ablation discussion. In brief, masking prefix turns, restricting optimization to only the final forced-answer step, and adding a format reward all underperform the default formulation. 
+
+4.4 Applicability 
+
+Table 2 shows that AdaTurn transfers cleanly to other backbone scales. On both Qwen3-VL-4B-Instruct and Qwen3-VL-8B-Instruct [Bai et al., 2025a], AdaTurn out-performs Mini-o3 [Lai et al., 2025] at four turns across nearly all visual-search benchmarks, and these improve-ments largely persist at thirty-two turns. This suggests that AdaTurn is not tied to a single base model, but reflects a more general training principle for visual agents. General multimodal results are deferred to Appendix D. They show that AdaTurn preserves broad OCR and rea-soning ability relative to the underlying Qwen2.5-VL-7B-Instruct backbone [Bai et al., 2025b] while remaining competitive with Mini-o3 [Lai et al., 2025]. 
+
+5 Conclusion 
+
+We presented AdaTurn, a budget-aware framework for active visual agents under constrained test-time interaction. AdaTurn treats the rollout budget as part of the problem specification, introduces Forced-Answer DAPO to optimize the final-turn boundary explicitly, and combines dynamic-budget training with load-balanced rollout scheduling. Together, these components address catastrophic truncation while preserving the gains of longer rollouts. Empirically, AdaTurn performs favorably in the low-budget regime, remains competitive at larger budgets, transfers to multiple backbone sizes, and preserves broad multimodal capability. More broadly, our results suggest that the next stage of test-time scaling for visual agents is not only about allowing more computation, but about teaching the policy how to reason intelligently under the computation it is actually given. Limitations and broader impact are discussed in Appendix I. 9References 
+
+Aradhye Agarwal, Ayan Sengupta, and Tanmoy Chakraborty. The art of scaling test-time compute for large language models. arXiv preprint arXiv:2512.02008 , 2025. Shuai Bai, Yuxuan Cai, Ruizhe Chen, Keqin Chen, Xionghui Chen, Zesen Cheng, Lianghao Deng, Wei Ding, Chang Gao, Chunjiang Ge, et al. Qwen3-vl technical report. arXiv preprint arXiv:2511.21631 , 2025a. Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, et al. Qwen2.5-VL technical report. arXiv preprint arXiv:2502.13923 ,2025b. Zhe Chen, Weiyun Wang, Yue Cao, Yangzhou Liu, Zhangwei Gao, Erfei Cui, Jinguo Zhu, Shenglong Ye, Hao Tian, Zhaoyang Liu, et al. Expanding performance boundaries of open-source multimodal models with model, data, and test-time scaling. arXiv preprint arXiv:2412.05271 , 2024. Daya Guo, Dejian Yang, He Zhang, Junxiao Song, Runxin Zhang, Runqi Xu, Qihao Zhu, Shirong Ma, Peiyi Wang, Xiao Bi, et al. DeepSeek-R1: Incentivizing reasoning capability in LLMs via reinforcement learning. arXiv preprint arXiv:2501.12948 , 2025. Jack Hong, Chenxiao Zhao, ChengLin Zhu, Weiheng Lu, Guohai Xu, and Xing Yu. DeepEyesV2: Toward agentic multimodal model. arXiv preprint arXiv:2511.05271 , 2025. Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perelman, Aditya Ramesh, Aidan Clark, AJ Os-trow, Akila Welihinda, Alan Hayes, Alec Radford, et al. Gpt-4o system card. arXiv preprint arXiv:2410.21276 , 2024. Xin Lai, Junyi Li, Wei Li, Tao Liu, Tianjian Li, and Hengshuang Zhao. Mini-o3: Scaling up reasoning patterns and interaction turns for visual search. arXiv preprint arXiv:2509.07969 , 2025. Bo Li, Yuanhan Zhang, Dong Guo, Renrui Zhang, Feng Li, Hao Zhang, Kaichen Zhang, Peiyuan Zhang, Yanwei Li, Ziwei Liu, et al. Llava-onevision: Easy visual task transfer. arXiv preprint arXiv:2408.03326 , 2024. Geng Li, Jinglin Xu, Yunzhen Zhao, and Yuxin Peng. Dyfo: A training-free dynamic focus visual search for enhancing lmms in fine-grained visual understanding. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 9098–9108, 2025. Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. Visual instruction tuning. Advances in Neural Information Processing Systems , 36, 2024a. Jiaqi Liu, Kaiwen Xiong, Peng Xia, Yiyang Zhou, Haonian Ji, Lu Feng, Siwei Han, Mingyu Ding, and Huaxiu Yao. Agent0-VL: Exploring self-evolving agent for tool-integrated vision-language reasoning. arXiv preprint arXiv:2511.19900 , 2025. Yuliang Liu, Zhang Li, Mingxin Huang, Biao Yang, Wenwen Yu, Chunyuan Li, Xu-Cheng Yin, Cheng-Lin Liu, Lianwen Jin, and Xiang Bai. Ocrbench: on the hidden mystery of ocr in large multimodal models. Science China Information Sciences , 67(12):220102, 2024b. Meng Lu, Ran Xu, Yi Fang, Wenxuan Zhang, Yue Yu, Gaurav Srivastava, Yuchen Zhuang, Mohamed Elhoseiny, Charles Fleming, Carl Yang, et al. Scaling agentic reinforcement learning for tool-integrated reasoning in VLMs. arXiv preprint arXiv:2511.19773 , 2025. Pan Lu, Swaroop Mishra, Tony Xia, Liang Qiu, Kai-Wei Chang, Song-Chun Zhu, Oyvind Tafjord, Peter Clark, and Ashwin Kalyan. Learn to explain: Multimodal reasoning via thought chains for science question answering. In The 36th Conference on Neural Information Processing Systems ,2022. Pan Lu, Hritik Bansal, Tony Xia, Jiacheng Liu, Chunyuan Li, Hannaneh Hajishirzi, Hao Cheng, Kai-Wei Chang, Michel Galley, and Jianfeng Gao. Mathvista: Evaluating math reasoning in visual contexts with gpt-4v, bard, and other large multimodal models. arXiv preprint arXiv:2310.02255 ,2023. 10 Ahmed Masry, Do Xuan Long, Jia Qing Tan, Shafiq Joty, and Enamul Hoque. Chartqa: A benchmark for question answering about charts with visual and logical reasoning. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics , 2022. Minesh Mathew, Dimosthenis Karatzas, and C. V. Jawahar. Docvqa: A dataset for vqa on document images. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision ,2021. João Paulo Nogueira, Wentao Sun, Alonso Silva, and Laith Zumot. Certainty-guided reasoning in large language models: A dynamic thinking budget approach. arXiv preprint arXiv:2509.07820 ,2025. OpenAI. Learning to reason with LLMs. OpenAI Blog , 2024. URL https://openai.com/index/ learning-to-reason-with-llms/ .Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, Mingchuan Zhang, YK Li, Yang Wu, et al. Deepseekmath: Pushing the limits of mathemat-ical reasoning in open language models. arXiv preprint arXiv:2402.03300 , 2024. Haozhan Shen, Kangjia Zhao, Tiancheng Zhao, Ruochen Xu, Zilun Zhang, Mingwei Zhu, and Jianwei Yin. Zoomeye: Enhancing multimodal llms with human-like zooming capabilities through tree-based image exploration. arXiv preprint arXiv:2411.16044 , 2024. Haozhan Shen, Peng Liu, Jingcheng Li, Chunxin Fang, Yibo Ma, Jiajia Liao, Qiaoli Shen, Zilun Zhang, Kangjia Zhao, Qianqian Zhang, Ruochen Xu, and Tiancheng Zhao. VLM-R1: A stable and generalizable R1-style large vision-language model. arXiv preprint arXiv:2504.07615 , 2025. Guangming Sheng, Chi Zhang, Zilingfeng Ye, Xibin Wu, Wang Zhang, Ru Zhang, Yanghua Peng, Haibin Lin, and Chuan Wu. Hybridflow: A flexible and efficient rlhf framework. arXiv preprint arXiv: 2409.19256 , 2024. Charlie Snell, Jaehoon Lee, Kelvin Xu, and Aviral Kumar. Scaling LLM test-time compute optimally can be more effective than scaling model parameters. arXiv preprint arXiv:2408.03314 , 2024. Shengbang Tong, Ellis Brown, Penghao Wu, Sanghyun Woo, Manoj Middepogu, Sai C Akula, Jihan Yang, Shusheng Yang, Adithya Iyer, Xichen Pan, et al. Cambrian-1: A fully open, vision-centric exploration of multimodal llms. Advances in Neural Information Processing Systems , 37: 87310–87356, 2024. Haozhe Wang, Alex Su, Weiming Ren, Fangzhen Lin, and Wenhu Chen. Pixel reasoner: In-centivizing pixel-space reasoning with curiosity-driven reinforcement learning. arXiv preprint arXiv:2505.15966 , 2025a. Jian Wang, Boyan Zhu, Chak Tou Leong, Yongqi Li, and Wenjie Li. Scaling over scaling: Exploring test-time scaling plateau in large reasoning models. arXiv preprint arXiv:2505.20522 , 2025b. Wenbin Wang, Liang Ding, Minyan Zeng, Xiabin Zhou, Li Shen, Yong Luo, and Dacheng Tao. Divide, conquer and combine: A training-free framework for high-resolution image perception in multimodal large language models. arXiv preprint arXiv:2408.15556 , 2024. Hao Wen, Xinrui Wu, Yi Sun, Feifei Zhang, Liye Chen, Jie Wang, Yunxin Liu, Yunhao Liu, Ya-Qin Zhang, and Yuanchun Li. BudgetThinker: Empowering budget-aware LLM reasoning with control tokens. arXiv preprint arXiv:2508.17196 , 2025. Penghao Wu and Saining Xie. V?: Guided visual search as a core mechanism in multimodal llms. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 13084–13094, 2024a. Penghao Wu and Saining Xie. V*: Guided visual search as a core mechanism in multimodal LLMs. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2024b. Ruyi Xu, Yuan Yao, Zonghao Guo, Junbo Cui, Zanlin Ni, Chunjiang Ge, Tat-Seng Chua, Zhiyuan Liu, Maosong Sun, and Gao Huang. LLaVA-UHD: an LMM perceiving any aspect ratio and high-resolution images. arXiv preprint arXiv:2403.11703 , 2024. 11 Zhenghai Xue, Longtao Zheng, Qian Liu, Yingru Li, Xiaosen Zheng, Zejun Ma, and Bo An. Simpletir: End-to-end reinforcement learning for multi-turn tool-integrated reasoning, 2025. URL https: //arxiv.org/abs/2509.02479 .Qiying Yu, Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, Weinan Dai, Tiantian Fan, Gaohong Liu, Lingjun Liu, et al. Dapo: An open-source llm reinforcement learning system at scale. arXiv preprint arXiv:2503.14476 , 2025. Jiaer Zhang, Bingqi Li, Wei Zhou, and Rui Zhao. Visionary-R1: Mitigating shortcuts in visual reasoning with reinforcement learning. arXiv preprint arXiv:2505.14677 , 2025a. Jingyi Zhang, Jiaxing Gao, Yankai Pang, Ruyi Zhao, Xi Wang, Jingqun Zhang, Peng Hou, Rong Luo, Bin Liu, and Haibin Huang. R1-VL: Learning to reason with multimodal large language models via step-wise group relative policy optimization. arXiv preprint arXiv:2503.12937 , 2025b. Xintong Zhang, Zhi Gao, Bofei Zhang, Pengxiang Li, Xiaowen Zhang, Yang Liu, Tao Yuan, Yuwei Wu, Yunde Jia, Song-Chun Zhu, and Qing Li. Adaptive chain-of-focus reasoning via dynamic visual search and zooming for efficient VLMs. arXiv preprint arXiv:2505.15436 , 2025c. Xintong Zhang, Zhi Gao, Bofei Zhang, Pengxiang Li, Xiaowen Zhang, Yang Liu, Tao Yuan, Yuwei Wu, Yunde Jia, Song-Chun Zhu, et al. Adaptive chain-of-focus reasoning via dynamic visual search and zooming for efficient vlms. arXiv preprint arXiv:2505.15436 , 2025d. Yi-Fan Zhang, Huanyu Zhang, Haochen Tian, Chaoyou Fu, Shuangqing Zhang, Junfei Wu, Feng Li, Kun Wang, Qingsong Wen, Zhang Zhang, et al. MME-RealWorld: Could your multimodal LLM challenge high-resolution real-world scenarios that are difficult for humans? arXiv preprint arXiv:2408.13257 , 2024. Chujie Zheng, Shixuan Liu, Mingze Li, Xiong-Hui Chen, Bowen Yu, Chang Gao, Kai Dang, Yuqiong Liu, Rui Men, An Yang, Jingren Zhou, and Junyang Lin. Group sequence policy optimization, 2025a. URL https://arxiv.org/abs/2507.18071 .Yaowei Zheng, Richong Zhang, Junhao Zhang, Yanhan Ye, Zheyan Luo, Zhangchi Feng, and Yongqiang Ma. Llamafactory: Unified efficient fine-tuning of 100+ language models. In Pro-ceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 3: System Demonstrations) , Bangkok, Thailand, 2024. Association for Computational Linguistics. URL http://arxiv.org/abs/2403.13372 .Ziwei Zheng, Michael Yang, Jack Hong, Chenxiao Zhao, Guohai Xu, Le Yang, Chao Shen, and Xing Yu. DeepEyes: Incentivizing “thinking with images” via reinforcement learning. arXiv preprint arXiv:2505.14362 , 2025b. 12 A Detailed Training Setup 
+
+Following Mini-o3 [Lai et al., 2025], we first initialize AdaTurn by supervised fine-tuning Qwen2.5-VL-7B-Instruct [Bai et al., 2025b] on the Mini-o3 cold-start dataset 1. We then perform reinforcement learning on DeepEyes_train_4K 2 and VisualProbe_train 3 with dynamic rollout budgets from 4 to 12 turns. We use LLaMA-Factory [Zheng et al., 2024] for supervised fine-tuning and VERL [Sheng et al., 2024] for reinforcement learning, and we follow the released licenses and terms of use of the frameworks, datasets, and pretrained backbones used in our experiments. Table 3: Training configuration used in our experiments. 
+
+Configuration Supervised fine-tuning Reinforcement learning Framework LLaMA-Factory VERL Training data Mini-o3 cold-start dataset DeepEyes_train_4K + VisualProbe_train Batch size 64 64 Group size – 16 Mini-batch size – 32 Learning rate 1 × 10 −5 1 × 10 −6
+
+Schedule 10% warmup + cosine decay none Epochs 3 1KL loss – none Reward weights – accuracy 1.0, format 0.0 Minimum image pixels 40,000 40,000 Maximum image pixels 2,000,000 2,000,000 Dynamic rollout turns – 4 to 12 Freeze vision encoder true false Freeze projection layer true false Freeze LLM false false Context length 32,768 32,768 Compute 1 node with 8 A100 GPUs 2 nodes with 8 A100 GPUs per node Wall-clock time about 2 hours about 3 days 
+
+B Load-Balanced Rollout Assignment Pseudocode 
+
+Algorithm 1 gives the full scheduling routine used by AdaTurn when dynamic rollout budgets are enabled. The key idea is to sort requests by assigned rollout budget and greedily place each request on the rollout engine with the smallest current accumulated load. This simple strategy reduces the idle time induced by heterogeneous rollout lengths and complements the main-text discussion in Section 3.3. 
+
+C Detailed Ablation Discussion 
+
+Figure 7 shows that explicit supervision at the budget boundary is the main source of improvement. Masking earlier prefix turns degrades performance, which suggests that the final forced-answer deci-sion is best learned together with the preceding search trajectory rather than in isolation. Restricting reinforcement learning to only the final forced-answer turn performs worse still, indicating that budget-aware behavior is a trajectory-level property rather than a single-step correction. Adding an explicit format reward is also mildly harmful. In our setting, answer extraction already imposes the required structural constraint, so allocating reward mass to formatting does not improve supervision and can distract from the accuracy objective. Taken together, these results support the default full-rollout, accuracy-only FA-DAPO design. The systems-side ablation in Figure 5 leads to a similar conclusion. The left subfigure reports the minimum and maximum rollout time across engines together with their induced range, while the 
+
+> 1https://huggingface.co/datasets/Mini-o3/Mini-o3-Coldstart-Dataset
+> 2https://huggingface.co/datasets/Mini-o3/DeepEyes_train_4K
+> 3https://huggingface.co/datasets/Mini-o3/VisualProbe_train
+
+13 Algorithm 1: Load-balanced rollout assignment 
+
+Input :Batch of prompts P , set of rollout servers S, rollout turns R
+
+Output : Concatenated generation results O
+
+if LoadBalance is False then 
+
+Divide P into k equal chunks P1, . . . , P k where k = |S| ;
+
+for i = 1 to k do 
+
+Oi ← Generate (Pi);
+
+else 
+
+Initialize server loads L ← [0 , . . . , 0] for each s ∈ S ;Initialize server assignments A ← [∅, . . . , ∅];Sort indices Idx of P by R[idx ] in descending order; 
+
+for idx ∈ Idx do 
+
+s∗ ← arg min s L[s];Append idx to A[s∗];
+
+L[s∗] ← L[s∗] + R[idx ];
+
+for server Si ∈ S do if A[i] is not empty then 
+
+Oi ← Generate (P [A[i]]) ;Wait for all Oi and reorder results to match original indices of P ;
+
+return Concat (O)
+
+Table 4: General multimodal capability after AdaTurn training. Compared with the base Qwen2.5-VL-7B-Instruct model, AdaTurn preserves or improves performance on broad OCR and reasoning benchmarks, indicating that budget-aware agent training does not come at the cost of general visual-language ability. OCR-Related General Reasoning Model OCRBench ChartQA DocVQA (val) CV-Bench MathVista (testmini) ScienceQA (img) Qwen2.5-VL-7B-Instruct [Bai et al., 2025b] 81.5 79.6 94.6 73.9 68.2 89.0                   
+
+> DeepEyes [Zheng et al., 2025b] ----70.1 -Mini-o3 [Lai et al., 2025] 83.8 77.4 94.8 74.4 68.8 84.5 Ours 85.5 80.0 93.0 77.6 68.1 83.7
+
+right subfigure summarizes the gap between the most and least loaded engines. Dynamic rollout budgets create substantial worker imbalance under naive assignment, but the proposed scheduler reduces both statistics and yields an average 1.34 × rollout speedup, making budget-aware training materially more efficient in practice. 
+
+D General Multimodal Capability 
+
+Table 4 examines whether AdaTurn preserves general multimodal ability beyond the high-resolution visual-search benchmarks used in the main study. Relative to the base Qwen2.5-VL-7B-Instruct model [Bai et al., 2025b], AdaTurn improves OCRBench [Liu et al., 2024b], ChartQA [Masry et al., 2022], and CV-Bench [Tong et al., 2024] while remaining competitive on DocVQA [Mathew et al., 2021], MathVista [Lu et al., 2023], and ScienceQA [Lu et al., 2022]. Relative to Mini-o3 [Lai et al., 2025], it performs better on OCRBench [Liu et al., 2024b], ChartQA [Masry et al., 2022], and CV-Bench [Tong et al., 2024]. These results suggest that budget-aware agent training does not merely specialize the model to a narrow tool-use benchmark, and can be compatible with broad multimodal competence. 
+
+E Performance Judge Prompt 
+
+To evaluate whether a model prediction matches the ground-truth answer, we use an external judge model. Specifically, we use Qwen3-32B as a binary evaluator that compares the question, the ground-truth answer, and the model prediction, then returns a score of 1 for correct and 0 for incorrect. The exact system prompt and query prompt are shown below. 14 System Prompt 
+
+You are an intelligent chatbot designed for evaluating the correctness of generative outputs for question-answer pairs. Your task is to compare the predicted answer with the correct answer and determine if they match meaningfully. Here’s how you can accomplish the task: ------##INSTRUCTIONS: - Focus on the meaningful match between the predicted answer and the correct answer. - Consider synonyms or paraphrases as valid matches. - Evaluate the correctness of the prediction compared to the answer. 
+
+Query Prompt 
+
+I will give you a question related to an image and the following text as inputs: 1. **Question Related to the Image**: {question} 2. **Ground Truth Answer**: {ground_truth} 3. **Model Predicted Answer**: {prediction} Your task is to evaluate the model’s predicted answer against the ground truth answer, based on the context provided by the question related to the image. Consider the following criteria for evaluation: - **Relevance**: Does the predicted answer directly address the question posed, considering the information provided by the given question? - **Accuracy**: Compare the predicted answer to the ground truth answer. You need to evaluate from the following three perspectives: (1) If the ground truth answer is open-ended, consider whether the prediction accurately reflects the information given in the ground truth without introducing factual inaccuracies. If it does, the prediction should be considered correct. (2) If the ground truth answer is a definitive answer, strictly compare the model’s prediction to the actual answer. Pay attention to unit conversions such as length and angle, etc. As long as the results are consistent, the model’s prediction should be deemed correct. (3) If the model’s prediction is irrelevant string, such as punctuation, newlines, tabs, whitespace, or emptry string etc., without a meaningful answer, set the score as 0. **Output Format**: Your response should include an integer score indicating the correctness of the prediction: 1 for correct and 0 for incorrect. Note that 1 means the model’s prediction strictly aligns with the ground truth, while 0 means it does not. The format should be "Score: 0 or 1" 
+
+F AdaTurn Agent Prompts 
+
+AdaTurn uses a small set of structured prompts to control the agent loop. We provide the exact prompts used for the initial system instruction, tool observations, tool errors, and the forced-answer stage when the tool budget is exhausted. 
+
+System Prompt 
+
+You are a helpful assistant. Answer the user’s question based on the image provided. Output your thinking process within the <think> and </think> tags. Whenever you find anything unclear, you can zoom in a specific region in the given image to see more clearly by outputing <grounding>{"bbox_2d": [x0, y0, x1, y1], "source": " original_image"}</grounding>, where (x0, y0) and (x1, y1) are the top-left and bottom-right coordinates of the region that you want to zoom in, respectively ( suppose the width and height of the image are 1.0), and ’source’ refers to the image that you zoom in and could be either ’original_image’ or ’observation_i’. Once the final answer is confirmed, put it within <answer> and </answer>. 
+
+15 Tool Observation Response 
+
+> After the above Action {action_turn}, here is the the zoom-in image (Observation { observation_turn}): <|vision_start|><|image_pad|><|vision_end|>. Continue your reasoning process inside <think> and </think>. If needed, you can continue to zoom in on the original image or any of the observations, by outputting < grounding> and </grounding> as before. If the final answer is confirmed, put your final answer inside <answer> and </answer>.
+
+Tool Error Response 
+
+> Please analyze the error information obtained from the function tool and adjust your response. Countinue your reasoning process inside <think> and </think>.
+
+Force-to-Answer Prompt 
+
+> <think>I have exhausted my tool-calling budget and must answer the question using the information I have obtained, even though I may make mistakes due to a lack of data.
+
+G Visualization of AdaTurn Rollout Trajectories 
+
+Figures 8 and 9 show representative successful trajectories under a tight four-turn budget, while Figures 10 and 11 show successful trajectories under an eight-turn budget. These examples highlight two qualitative behaviors encouraged by AdaTurn. First, the model does not simply terminate at the budget boundary; instead, it uses the available observations to synthesize a final answer when further grounding is disallowed. Second, the trajectory remains adaptive under different budgets: under Tmax = 4 , the model makes compressed decisions based on limited evidence, whereas under 
+
+Tmax = 8 , it can continue refining the crop sequence until the target detail becomes identifiable. The examples also illustrate that AdaTurn learns a useful form of budget-aware evidence aggregation. In Figure 8, the final crop is less informative than an earlier observation, but the model still answers correctly by relying on the sharper evidence collected before the final turn. In Figure 9, the model revisits the original image, shifts attention to a previously overlooked region, and then answers correctly at the forced-answer step. Figures 10 and 11 show that with a larger budget, AdaTurn can sustain longer search trajectories to identify small traffic-light signals and fine-grained scene text, respectively. 
+
+H Failure Analysis 
+
+Figure 12 shows a representative failure case under a four-turn budget. The question asks for the direction faced by the person wearing the plaid shirt, but the available observations do not provide sufficient evidence to isolate the correct individual with confidence. After exhausting the tool budget, the model is forced to answer using incomplete information and instead anchors on a different person in the scene, which leads to a hallucinated final answer. This failure mode is consistent with the intended trade-off of AdaTurn. Forced-answer training mitigates catastrophic truncation by ensuring that the model produces a valid answer even when the search budget is insufficient, but it cannot guarantee correctness when the collected evidence remains ambiguous. In such cases, the model may still hallucinate by overcommitting to an imperfect hypothesis, especially in crowded scenes where small identity distinctions are difficult to resolve within a short rollout. 16 I Limitations and Societal Impact 
+
+Limitations. Our study is restricted to image-based agents and does not cover video settings, where temporal reasoning and substantially longer interaction horizons introduce additional complexity. We also focus on image crop tools and do not explore broader tool ecosystems such as web search, code execution, or bash interaction. 
+
+Societal Impact. Turn-aware visual agents may benefit latency-sensitive assistive perception, document understanding, and high-resolution inspection systems by producing useful answers under tight compute budgets. At the same time, stronger visual search agents could be misused for surveillance or large-scale automated image inspection, so future releases should follow responsible deployment practices and existing usage restrictions. 17 Original Image 
+
+Observation 1 
+
+Observation 2 
+
+<think> The user is asking for the text color behind the 
+
+person in the yellow top. In Observation 3, I can see a 
+
+person in an orange top, and behind them, it is quite 
+
+dark, but I appear to be able to see some white 
+
+characters on a red background. It seems like some 
+
+text. I will zoom in on the area that I think has text to be 
+
+confirmed. </think> 
+
+Think 
+
+Agent Turn 4
+
+<grounding>{"bbox_2d": [0.3,0.0,0.9,0.6], "source": ” o 
+
+bservation _3"}</grounding> 
+
+Tool Rejection 
+
+🚫 You have used all turns and cannot further call tools. 
+
+Please provide your answer and stop. 
+
+<think> Based on Observation 3, I can see a person in an 
+
+orange shirt. Behind this person, there are other figures, 
+
+but the lighting conditions are too poor and the objects 
+
+are too dark and blurry to discern any text or color. 
+
+However, I can rely on the previous, sharper 
+
+observations. In Observation 1, the text behind the 
+
+person in the yellow shirt is visible, and its color is white. 
+
+The observations progressively degraded in clarity and 
+
+magnification, but the crucial information in observation 
+
+1 is the clearest and most detailed. The text behind the 
+
+yellow person in that observation is clearly white. Since I 
+
+have to answer based on something, and the previous, 
+
+clearer action (observation 1) provides a clear view of 
+
+white text, that must be the correct answer. </ think> 
+
+Think 
+
+Agent Turn 4 (Forced to Answer )
+
+<answer> White </answer> 
+
+Observation 3 
+
+Question 
+
+What is the text color behind the 
+
+person in a yellow top? 
+
+Agent Turns 
+
+𝑇 !"# = 4Figure 8: Successful rollout under a four-turn budget. The agent localizes the pedestrian in the yellow top, explores the region behind them, and then answers at the forced-answer step by relying on an earlier, clearer observation that reveals the relevant text color as white. This example illustrates that AdaTurn can retain and use previously collected evidence even when the final crop is less informative. 18 Original Image 
+
+Observation 1 
+
+Observation 2 
+
+Think 
+
+Agent Turn 4
+
+Tool Rejection 
+
+🚫 You have used all turns and cannot further call tools. 
+
+Please provide your answer and stop. 
+
+Think 
+
+Agent Turn 4 (Forced to Answer )
+
+<answer > INTERIOR </ answer> 
+
+Observation 3 
+
+Question Agent Turns 
+
+𝑇 !"# = 4
+
+<think> The user wants me to find the text written above 
+
+"EW". I have been looking at the fireplace area but I still 
+
+cannot see any text that says "EW". I need to go back to 
+
+the original image and search for another potential 
+
+location for the text. Looking at the original image again, 
+
+I see a fireplace on the left side of the image, behind a 
+
+sofa. Let \'s zoom into that area to check if the text is 
+
+visible there. </think> 
+
+<grounding>{"bbox_2d": [0.0,0.4,0.5,0.9], "source": 
+
+"original_image "}</grounding> 
+
+<think> I have been examining the fireplace area in 
+
+different sections, but I cannot see any text with the 
+
+letters "EW". The previous crops have progressively 
+
+zoomed into the fireplace, but haven \'t revealed any 
+
+readable text. This indicates that either the text is not 
+
+visible or my attempts to locate it have been incorrect. 
+
+Since I cannot see the text in the visible areas, I have to 
+
+rely on what is available. However, after carefully 
+
+looking at observation 3, I realize that the letters are 
+
+visible. The letters are at the top left corner of 
+
+observation 3, on the wall, there is the letter "EW" 
+
+written. And above the "EW" letters, there is the text 
+
+"INTERIOR". Therefore, I can conclude the text written 
+
+above "EW" is "INTERIOR". </think> 
+
+What is the text written above 
+
+"EW"? Figure 9: Successful rollout under a four-turn budget. The agent initially searches the fireplace region, fails to confirm the text, then redirects attention to another plausible location and identifies that the text above “EW” is “INTERIOR” before producing the forced-answer response. This example shows that AdaTurn can revise its search plan rather than committing prematurely to its first hypothesis. 19 Observation 1 
+
+Observation 2 
+
+Think 
+
+Agent Turn 8
+
+Tool Rejection 
+
+🚫 You have used all turns and cannot further call tools. 
+
+Please provide your answer and stop. 
+
+Think 
+
+Agent Turn 8 (Forced to Answer )
+
+<answer > Green </ answer> 
+
+Observation 3 
+
+Question 
+
+What is the color of the traffic 
+
+light? 
+
+Agent Turns 
+
+𝑇 !"# = 8
+
+Observation 7
+
+…
+
+Original Image 
+
+<think> The user wants me to identify the colors of the 
+
+traffic lights in the picture. In observation 7, I have 
+
+successfully zoomed in on the traffic light, and it is now 
+
+clear. The traffic light clearly displays a green light. I can 
+
+also faintly see a yellow light behind it. Since the 
+
+question asks for "what colors are shown", the traffic 
+
+light clearly shows at least green and yellow. Since the 
+
+question is singular, and Green is the most prominent 
+
+and clearly visible color in the traffic light, I will answer 
+
+with "green". The user might be asking for all colors, 
+
+and I can see yellow and possibly white, but it is not 
+
+very distinct. Let \'s re -examine observation 5 where I 
+
+also see traffic lights with multiple colors. I will crop 
+
+again focusing on traffic light which seems to be in 
+
+action. It seems I have lost some parts on the zoom, 
+
+trying to capture the whole object. Let \'s review 
+
+observation 4 where traffic light is clearly visible next to 
+
+a building with a red bus. </think> 
+
+<grounding>{"bbox_2d": [0.6,0.3,1.0,0.7], "source": 
+
+"observation_4"}</grounding> 
+
+<think> Based on the observation, there is a traffic light 
+
+visible, and it appears to be showing a green light. 
+
+Although the other colors are not definitively clear, the 
+
+most prominent color on this traffic light is green .
+
+</ think> Figure 10: Successful rollout under an eight-turn budget. The agent performs a longer sequence of crops to isolate a distant traffic light and ultimately answers that the light is green. The additional budget enables a deeper search trajectory that would be difficult to complete reliably under a tighter turn limit. 20 Observation 1 
+
+Observation 2 
+
+Think 
+
+Agent Turn 8
+
+Tool Rejection 
+
+🚫 You have used all turns and cannot further call tools. 
+
+Please provide your answer and stop. 
+
+<think> In observation 7, I can clearly see a sign on the 
+
+left that says \'Cinker Pictures \'. Below that text, there 
+
+appears to be another line of text. Although the text is a 
+
+bit blurry, I can make out the word "Shanghai". For 
+
+instance, the full text appears to be "CINKER PICTURES 
+
+SHANGHAI". Therefore, the text below "CINKER 
+
+PICTURES" is "SHANGHAI". </think> 
+
+Think 
+
+Agent Turn 8 (Forced to Answer )
+
+<answer> SHANGHAI </answer> 
+
+Observation 3 
+
+Question 
+
+What is the text below CINKE 
+
+R PICTURES” 
+
+Agent Turns 
+
+𝑇 !"# = 8
+
+Observation 7
+
+…
+
+Original Image 
+
+<think> The user wants to identify the text written below 
+
+“ CINKER PICTURES” . \nIn observation 7, I can see a sign 
+
+in the top -left quadrant that says "CINKER PICTURES". I 
+
+can see some smaller text below it. To read it more 
+
+clearly, I need to zoom into that specific area. The target 
+
+text appears to be on a blue poster on the left side of 
+
+observation 7. I will create a new bounding box to isolate 
+
+that poster for closer inspection. </think> 
+
+<grounding>{"bbox_2d": [0.0,0.4,0.5,0.9], "source": 
+
+"original_image "}</grounding> Figure 11: Successful rollout under an eight-turn budget. The agent progressively zooms into a small storefront poster, identifies the sign “CINKER PICTURES,” and then uses the final forced-answer step to infer that the text below it is “SHANGHAI.” This example illustrates AdaTurn’s ability to use longer trajectories for fine-grained text reading while still terminating with a valid answer at the budget boundary. 21 Original Image 
+
+Observation 1 
+
+Observation 2 
+
+<think> The user wants me to identify the direction the 
+
+person wearing the plaid shirt is facing. In Observation 
+
+3, I have a clearer view of the people in the park. In the 
+
+center of this observation, there is a person wearing a 
+
+vertically striped, multi -colored shirt. Slightly to the left 
+
+of him, another man is standing. … , and I should try a 
+
+tighter crop on the boy in stripes to finally isolate him 
+
+and what he \'s looking at. </think> 
+
+Think 
+
+Agent Turn 4
+
+Tool Rejection 
+
+🚫 You have used all turns and cannot further call tools. 
+
+Please provide your answer and stop. 
+
+Think 
+
+Agent Turn 4 (Forced to Answer )
+
+<answer > The person wearing the plaid shirt is facing 
+
+left. </ answer> 
+
+Observation 3 
+
+Question Agent Turns 
+
+𝑇 !"# = 4Which direction is the person 
+
+wearing the plaid shirt facing? 
+
+<grounding>{"bbox_2d": [0.3,0.3,0.9,1.0], "source": 
+
+"observation_3"}</grounding> 
+
+<think> Based on observations 1, 2, and 3, there is a boy 
+
+wearing a blue and orange striped shirt sitting under the 
+
+tree. In these observations, the boy is consistently seen 
+
+sitting and looking towards his left, towards another child. 
+
+I am reasonably confident in this answer based on the 
+
+multiple observations. </think> Figure 12: Failure case under a four-turn budget. The agent searches a crowded park scene for the person in a plaid shirt, but the collected crops do not isolate the correct target before the budget is exhausted. At the forced-answer step, the model hallucinates by grounding its decision on a different person and incorrectly answers that the target is facing left. 22

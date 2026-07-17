@@ -1,0 +1,463 @@
+Title: Agent Skill Security: Threat Models, Attacks, Defenses, and Evaluation
+
+URL Source: https://arxiv.org/pdf/2607.13987v1
+
+Published Time: Thu, 16 Jul 2026 01:30:03 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+> Proceedings of Machine Learning Research 299:1–24, 2025 Conference on Applied Machine Learning for Information Security
+
+# Agent Skill Security: Threat Models, Attacks, Defenses, and Evaluation 
+
+Sanket Badhe sanketbadhe@google.com 
+
+Mountain View, California, USA 
+
+Priyanka Tiwari tiwarip@alumni.purdue.edu 
+
+Mountain View, California, USA 
+
+Editor: Edward Raff and Ethan M. Rudd 
+
+Abstract 
+
+Reusable skills are becoming a fundamental building block of Large Language Model (LLM) agents, enabling capabilities to be packaged, shared, and reused across diverse applications. However, existing security research primarily focuses on prompt injection and runtime ex-ecution, leaving security risks throughout the broader skill lifecycle largely unexplored. In this paper, we present SkillSec-Eval, a lifecycle-aware framework for systematically evaluat-ing the security of reusable agent skills. We first characterize the skill lifecycle and develop a threat taxonomy spanning repository admission, semantic retrieval, planner selection, execution, and skill evolution. We then instantiate this taxonomy in SkillSec-Eval and con-duct a comprehensive empirical evaluation using a repository of 327 real-world skills. Our study demonstrates that vulnerabilities arise at multiple lifecycle stages beyond execution, highlighting the need for lifecycle-aware security analysis of reusable agent skills. 
+
+Keywords: Yes, you must specify some keywords. 
+
+1. Introduction 
+
+Large language models have evolved from isolated conversational interfaces into autonomous agents capable of executing complex, multi-step objectives Yao et al. (2023); Schick et al. (2023). This transition is driven by the rapid adoption of reusable agent skills. These skills encapsulate tool invocations, execution policies, and semantic metadata, enabling agents to dynamically interact with file systems, cloud infrastructure, and enterprise APIs OpenAI (2024); Anthropic PBC (2024). Consequently, the focus of agent development has shifted from crafting monolithic system prompts to managing and coordinating a collaborative ecosystem of reusable executable artifacts. While reusable skills significantly improve the scalability of agent ecosystems, they fun-damentally change the security assumptions of LLM agents Ayzenshteyn et al. (2025); Li et al. (2026). Unlike traditional prompt-based interactions, agent behavior is now influenced by externally authored executable artifacts whose metadata, permissions, workflow defini-tions, and implementation may evolve independently of the underlying language model Qu et al. (2026); Liu et al. (2026a,c). Unlike traditional software packages, reusable agent skills simultaneously influence semantic reasoning, planner decisions, and executable behavior, creating attack surfaces that span both natural-language reasoning and conventional soft-ware execution. Consequently, modern agent systems inherit security challenges that extend well beyond prompt injection or unsafe tool invocation Liu et al. (2024); Chen et al. (2025);  
+
+> ©2025 S. Badhe & P. Tiwari. arXiv:2607.13987v1 [cs.CR] 15 Jul 2026 Badhe Tiwari
+
+Schmotz et al. (2026). Malicious skills may infiltrate repositories Qu et al. (2026); Liu et al. (2026c), manipulate semantic retrieval Ayzenshteyn et al. (2025), deceive planners through misleading metadata Liu et al. (2026a), exploit multi-step workflow composition during exe-cution Li et al. (2026); Guo et al. (2026), or gradually become malicious through subsequent updates Qu et al. (2026). As reusable skills become increasingly shared across organiza-tions and marketplaces, these vulnerabilities resemble software supply-chain attacks Ohm et al. (2020); Ladisa et al. (2023); Bhardwaj (2026) while introducing new semantic attack surfaces unique to LLM-driven reasoning Liu et al. (2026a); Schmotz et al. (2026). Existing research has extensively investigated prompt injection, jailbreak attacks, tool misuse, software supply-chain security, and agent planning vulnerabilities Liu et al. (2024); Chen et al. (2025); Ayzenshteyn et al. (2025); Li et al. (2026); Ohm et al. (2020); Ladisa et al. (2023); Qu et al. (2026). However, these efforts typically analyze individual attack vectors in isolation and lack a unified framework for reasoning about security across the complete lifecycle of reusable agent skills. As a result, there is currently no systematic methodol-ogy for identifying trust boundaries, categorizing lifecycle-specific threats, or evaluating security mechanisms under a common experimental setting. This fragmentation makes it difficult to compare different classes of attacks, understand how vulnerabilities propagate across lifecycle stages, or determine which security assumptions are violated during agent execution. To address this gap, we present SkillSec-Eval , a lifecycle-aware evaluation framework for studying the security of reusable agent skills. Rather than viewing an LLM agent as a monolithic execution pipeline, SkillSec-Eval decomposes the skill ecosystem into explicit operational boundaries corresponding to repository admission, semantic retrieval, planner selection, runtime execution, and skill evolution. This decomposition enables attacks to be evaluated at the precise lifecycle stage where they originate while allowing corresponding validation mechanisms to be analyzed independently of downstream components. Building upon this framework, we organize security threats according to the lifecycle stage whose trust assumptions they violate, providing a unified taxonomy that connects traditionally separate research areas including software supply-chain security, semantic retrieval attacks, planner manipulation, and runtime information-flow violations. To enable reproducible evaluation, SkillSec-Eval models realistic enterprise-scale agent environments by constructing dense repositories of semantically overlapping skills, represen-tative user workloads, and lifecycle-specific attack scenarios spanning repository admission, retrieval, planning, execution, and evolution. The framework supports systematic bench-marking of structural attacks, semantic manipulation, planner deception, and runtime work-flow exploits under controlled experimental conditions, enabling direct comparison across different stages of the skill lifecycle. The primary contributions of this paper are summarized as follows: 
+
+• We present the lifecycle-oriented threat taxonomy for reusable agent skills, systemati-cally organizing security threats according to the trust boundaries violated throughout the skill lifecycle. 
+
+• We introduce SkillSec-Eval , a modular evaluation framework that instantiates the reusable skill lifecycle and enables reproducible security evaluation across repository 
+
+> 2Agent Skill Security
+
+admission, semantic retrieval, planner selection, runtime execution, and skill evolu-tion. 
+
+• We construct a comprehensive benchmark consisting of enterprise-scale skill reposito-ries, capability-clustered workloads, lifecycle-specific attack classes, and standardized evaluation protocols for studying reusable agent skill security. 
+
+• We perform a comprehensive empirical study of representative attacks across the com-plete skill lifecycle, providing insights into the security properties of modern reusable skill ecosystems and identifying the lifecycle stages that remain most vulnerable to semantic manipulation. 
+
+2. Related Work 
+
+2.1. LLM Agent Security 
+
+Early research in Large Language Model (LLM) security primarily focused on model-centric vulnerabilities, particularly prompt injection and jailbreak attacks Liu et al. (2024); Chen et al. (2025). As LLMs transitioned into autonomous agents capable of interacting with external environments via tools, researchers began studying active exploitation vectors such as tool misuse, cross-tool data harvesting, planning deceptions, and multi-turn conversa-tional deception He et al. (2025); Li et al. (2026); Badhe (2025). This shift motivated the creation of dynamic benchmarking environments like AgentDojo Debenedetti et al. (2024), which evaluates agent robustness under indirect prompt injection over untrusted tool outputs. While these studies are crucial, they primarily examine attacks directed at individual agent instances or monolithic pipelines under a static set of tools. Consequently, they do not model the systematic risks that emerge when procedural knowledge is mod-ularized into reusable skill ecosystems. Unlike conventional agent benchmarks, reusable skill ecosystems dynamically retrieve and compose externally authored executable artifacts whose trust boundaries, permissions, and metadata evolve independently of the underlying language model. Furthermore, existing benchmarks such as AgentDojo Debenedetti et al. (2024) evaluate the behavior of a deployed agent under adversarial interactions, whereas 
+
+SkillSec-Eval evaluates the security of the reusable skill ecosystem itself, including repos-itory, retrieval, planning, execution, and evolution. 
+
+2.2. Software Supply Chain Security 
+
+Software supply-chain security protects software artifacts throughout their lifecycle using provenance verification, cryptographic signatures, dependency analysis, and integrity vali-dation within ecosystems such as PyPI and npm Ohm et al. (2020); Ladisa et al. (2023). Modern specifications such as Software Bill of Materials (SBOM), Supply-chain Levels for Software Artifacts (SLSA), and code-signing services like Sigstore provide end-to-end au-ditability and package verification. While these frameworks are highly effective at securing binary and source-code distribution, they are fundamentally blind to the semantic layer of LLM-driven execution. Traditional supply-chain defenses can verify the structural integrity of a skill package, but they cannot reason about its semantic descriptions, how its metadata influences vector-space retrieval, how LLM planners interpret its intent, or how dynamic 
+
+> 3Badhe Tiwari
+
+updates introduce runtime planning compromises Qu et al. (2026); Liu et al. (2026a). Thus, conventional supply-chain security fails to secure the unique interface where natural lan-guage reasoning meets conventional software execution. 
+
+2.3. Secure Skill and Tool Ecosystems 
+
+Recent standardization efforts such as the Agent Skills Anthropic PBC (2024) have acceler-ated the emergence of third-party skill ecosystems. Large-scale empirical audits on public marketplaces have revealed systemic vulnerabilities, with up to a quarter of published skills containing security-critical defects Liu et al. (2026c) and behaviorally confirmed malicious indicators Liu et al. (2026b). Dedicated evaluations such as Skill-Inject Schmotz et al. (2026) further demonstrate the susceptibility of agents to stealthy injections hidden inside auxiliary skill files or metadata. In response, security guidance (e.g., OWASP MCP OWASP GenAI Security Project (2025)) and enforcement mechanisms such as AgentBound B¨ uhler et al. (2026) have begun addressing permission management and runtime isolation. However, these systems either offer subjective administrative guidelines or focus entirely on individual runtime defense mechanisms. To date, no existing work provides a unified, lifecycle-centric evaluation methodology capable of measuring security systematically across repository ad-mission, vector retrieval, planner selection, runtime execution, and long-term evolution. 
+
+2.4. Summary of Research Gap 
+
+In summary, existing research investigates prompt injection, traditional software supply-chain security, semantic retrieval manipulation, and planner vulnerabilities largely in iso-lation. Consequently, there is no common evaluation framework for studying how attacks propagate across the lifecycle of reusable agent skills or for comparing defenses deployed at different trust boundaries. This fragmentation makes it difficult to compare different classes of attacks, identify where vulnerabilities propagate, or systematically evaluate de-fenses under a common experimental setting. SkillSec-Eval addresses this critical gap by providing a unified, lifecycle-aware evaluation framework together with standardized benchmarks covering repository admission, semantic retrieval, planner selection, runtime execution, and skill evolution. 
+
+3. Agent Skill Lifecycle and Threat Model 
+
+3.1. Agent Skills 
+
+Recent agent frameworks increasingly externalize procedural knowledge into reusable skills rather than embedding all task-specific behavior directly within prompts or application logic. A skill represents an executable capability that can be dynamically discovered and invoked by an agent to accomplish a particular objective. Unlike primitive tools, which expose atomic operations (e.g., reading a file or issuing an HTTP request), skills encapsulate higher-level workflows composed of one or more tools together with semantic descriptions, execution policies, permission requirements, and auxiliary metadata. Formally, we define a skill as 
+
+S = ( M, W, P, T, V ),
+
+> 4Agent Skill Security
+
+where M denotes the semantic metadata describing the capability, W represents the exe-cutable workflow, P defines the permissions required during execution, T denotes the set of underlying tools or services invoked by the workflow, and V captures provenance and versioning information associated with the skill. The increasing adoption of reusable skills fundamentally changes the security assump-tions of LLM agents. Rather than reasoning solely over user prompts, agents now depend on externally authored artifacts whose integrity, authenticity, and behavior may change inde-pendently of the underlying language model. Consequently, the attack surface extends well beyond prompt injection or unsafe tool execution to encompass the entire lifecycle through which skills are created, distributed, discovered, and executed. 
+
+3.2. Skill Lifecycle 
+
+We model the lifecycle of an agent skill as six sequential stages. Authoring → Storage →
+
+Retriever → Selection/Planner → Execution Runtime → Evolution Each stage represents a distinct trust boundary between different system components and introduces unique security assumptions. The lifecycle begins with Authoring, during which developers or automated systems create reusable skills by specifying workflow definitions, semantic descriptions, execution policies, required permissions, and supporting metadata. At this stage, the primary as-sumption is that the published specification faithfully represents the intended behavior of the workflow. Once authored, skills enter the Storage stage, where they are published to local or shared repositories and become available for future use. Storage is responsible for preserving skill artifacts together with their provenance information, version history, integrity metadata, and dependencies. Agent frameworks typically assume that repository contents remain trustworthy after publication, making repositories an attractive target for supply chain style attacks. During Retrieval, the agent searches the repository to identify candidate skills relevant to a user request. Contemporary systems generally rely on semantic embeddings, keyword indices, hybrid retrieval pipelines, or repository metadata to rank candidate skills. Re-trieval determines which skills are exposed to downstream reasoning and therefore directly influences the planner’s decision space. The retrieved candidates are subsequently evaluated during Selection. Here, the plan-ning component reasons over the user objective together with the metadata of each retrieved skill to determine which workflow should be executed. Because planners rely almost exclu-sively on descriptive metadata rather than observing actual runtime behavior, incorrect or intentionally misleading descriptions may significantly influence the selection process. Following selection, the chosen workflow enters the Execution stage. Skills invoke one or more executable tools capable of interacting with external resources such as local filesys-tems, programming environments, databases, or network services. Unlike previous stages, execution produces observable side effects and accumulates runtime state that may influ-ence subsequent reasoning or future tool invocations. Consequently, execution security must consider not only individual tool calls but also information flow across multi-step workflows. 
+
+> 5
+
+Badhe Tiwari 
+
+Finally, skills undergo Evolution through continuous updates, version changes, depen-dency modifications, metadata revisions, and permission adjustments. Unlike conventional software packages, evolving skills may be incorporated into future agent executions without explicit human review, allowing trust established during initial publication to gradually diverge from current behavior. Together, these six stages describe the complete operational lifecycle through which reusable procedural knowledge flows inside modern agent systems. 
+
+3.3. Threat Model 
+
+We consider an adversary whose objective is to manipulate an agent into executing un-intended behavior by exploiting the skill ecosystem rather than the underlying language model. The attacker may publish malicious skills, modify existing artifacts, manipulate seman-tic metadata, distribute poisoned updates, or exploit semantic retrieval mechanisms. We assume the underlying LLM, embedding model, execution runtime, and operating system function correctly and are outside the attacker’s control. Our objective is to isolate vulner-abilities introduced specifically by the lifecycle management of reusable skills. Authoring 
+
+> • Hidden instructions • Deceptive metadata • Permission inflation • Malicious workflow construction
+
+Storage 
+
+> Structural:
+> • Missing Signature • Tampered Payload • Version Rollback
+> Semantic:
+> • Permission Inflation • Metadata Deception • Hidden Prompt Injection
+
+Retrieval 
+
+> • Keyword Stuffing • Semantic Camouflage • Sybil Publication • Trigger Poisoning
+
+Selection 
+
+> • Planner Deception • Fake Recommendations • Misleading Descriptions • Permission Deception • Prompt Injection
+
+Execution 
+
+> • Unsafe Composition • Unauthorized Tool Invocation • Information-Flow Violation • Data Exfiltration
+
+Evolution 
+
+> • Permission Escalation • Instruction Injection • Tool Substitution • Dependency Compromise • Publisher/Provenance Compromise
+> Trust Boundary
+> Trust Boundary
+> Trust Boundary
+> Trust Boundary
+> Trust Boundary
+
+Skill Abstraction 
+
+S = ( M, W, P, T, V )
+
+Figure 1: The lifecycle of reusable agent skills, illustrating the sequence of trust boundaries and the corresponding threat taxonomy evaluated in SkillSec-Eval. 
+
+3.4. Lifecycle Threat Taxonomy 
+
+To enable systematic evaluation, we organize attacks according to the lifecycle stage whose trust assumptions are violated, as summarized in in Figure 1 and detailed in Table 1. 
+
+6Agent Skill Security 
+
+Authoring. Adversaries construct malicious skills prior to publication. Representative attacks include hidden instructions inconsistent with advertised functionality, deceptive metadata, permission inflation that requests privileges unnecessary for the advertised task, and malicious workflow construction. These violate the assumption that the authored spec-ification is faithful to runtime behavior. 
+
+Storage. Storage attacks compromise repository integrity before skills are retrieved by an agent. We consider three structural attacks and three semantic attacks. Structural attacks include: 
+
+• Missing Signature: publishing a skill without a valid developer signature. 
+
+• Tampered Payload: modifying executable workflow contents after signing, producing a hash mismatch. 
+
+• Version Rollback: replacing a patched skill with an older but correctly signed vulner-able version. Semantic attacks include: 
+
+• Permission Inflation: requesting privileges inconsistent with the advertised function-ality. 
+
+• Metadata Deception: presenting benign metadata while embedding malicious work-flow instructions. 
+
+• Hidden Prompt Injection: embedding instructions intended to manipulate down-stream LLM reasoning during execution. 
+
+Retrieval. Retrieval attacks manipulate semantic ranking algorithms to increase the probability that malicious skills appear in the candidate set presented to the planner. We evaluate four representative attacks: 
+
+• Keyword Stuffing: artificially increasing embedding similarity by inserting large quan-tities of target-domain keywords. 
+
+• Semantic Camouflage: embedding malicious behavior inside semantically consistent descriptions that preserve retrieval relevance. 
+
+• Sybil Publication: publishing multiple semantically similar variants of the same ma-licious capability to increase repository visibility. 
+
+• Trigger Poisoning: introducing specific trigger phrases designed to activate retrieval for targeted user queries. Each retrieval attack is evaluated under both naive implementations and LLM-assisted adversarial optimization. 
+
+Selection. Selection attacks assume the malicious skill has already entered the planner’s candidate set. Since planners typically reason only over metadata rather than executable workflows, adversaries attempt to manipulate the planner through presentation-layer de-ception. Representative attacks include: 
+
+• Planner Deception: presenting metadata indistinguishable from benign competitors, relying on random planner preference. 
+
+• Fake Recommendations: injecting fabricated trust indicators, certifications, ratings, or endorsements. 
+
+• Misleading Descriptions: advertising misleading properties such as faster execution or local-only processing despite unsafe behavior. 
+
+> 7Badhe Tiwari
+
+• Permission Deception: declaring fewer permissions than are actually required by the workflow. 
+
+• Prompt Injection: embedding natural-language instructions intended to influence planner reasoning or force tool selection. 
+
+Execution. Execution attacks occur after a skill has been selected and focus on unau-thorized runtime behavior. The evaluated attack classes include: 
+
+• Unsafe Composition: combining individually benign skills into an unsafe multi-step workflow. 
+
+• Unauthorized Tool Invocation: invoking tools not authorized by the selected skill manifest. 
+
+• Information-Flow Violation: transferring sensitive information between trusted and untrusted execution contexts. 
+
+• Data Exfiltration: transforming sensitive data before transmitting it to external des-tinations in an attempt to evade runtime monitoring. 
+
+Evolution. Evolution attacks exploit the fact that skills continue to evolve after deploy-ment while retaining the trust accumulated from previous versions. Representative threats include: 
+
+• Permission Escalation: later versions request additional capabilities (e.g., network access or shell execution) beyond the original security assumptions. 
+
+• Instruction Injection: malicious prompt or execution logic is introduced into an oth-erwise trusted skill while preserving its external description. 
+
+• Tool Substitution: updates replace or augment benign tools with more privileged or potentially dangerous ones, altering the skill’s effective behavior. 
+
+• Dependency Compromise: trusted skills inherit malicious behavior through compro-mised or untrusted third-party dependencies introduced during updates. 
+
+• Publisher or Provenance Compromise: attackers impersonate legitimate maintainers or abuse compromised publisher credentials to distribute malicious skill updates. Together, these threat classes span the complete operational lifecycle of reusable agent skills and form the experimental basis for the boundary-specific evaluations presented in Section 4. 
+
+3.5. Trust Boundaries 
+
+The proposed lifecycle introduces a sequence of trust boundaries through which every skill must pass before producing observable effects. Each transition assumes the correctness of information produced by the preceding stage. Security failures arise whenever adversarial information traverses one or more of these boundaries without appropriate validation, allow-ing incorrect assumptions established at earlier stages to propagate into runtime behavior. 
+
+4. SkillSec-Eval Framework 
+
+To systematically evaluate this ecosystem, we develop SkillSec-Eval , a lifecycle-aware evaluation framework. Rather than treating an LLM agent as a monolithic system, SkillSec-
+
+> 8Agent Skill Security
+
+Table 1: Lifecycle Threat Taxonomy 
+
+Lifecycle Stage Trust Assumption Representative Threats Representative De-fense Authoring Skill specification ac-curately represents intended behavior and required capa-bilities. Hidden instructions, de-ceptive descriptions, meta-data poisoning, permission inflation, unsafe workflow construction Static skill validation, metadata consistency analysis, policy linting 
+
+Storage Repository con-tains authentic, untampered, and authorized skills. Unauthorized insertion, provenance forgery, meta-data tampering, depen-dency poisoning, version rollback Digital signatures, prove-nance verification, in-tegrity checking, depen-dency validation 
+
+Retrieval Retrieved skills are both semantically relevant and trust-worthy. Embedding poisoning, key-word stuffing, retrieval col-lisions, ranking manipula-tion, Sybil publication Trust-aware retrieval, reputation-aware rerank-ing, retrieval filtering 
+
+Selection Planner chooses skills whose meta-data faithfully reflects their behav-ior. Planner deception, mis-leading descriptions, capa-bility deception, permis-sion deception, prompt in-jection Metadata verification, capability validation, permission consistency checking 
+
+Execution Selected workflows execute only au-thorized operations and cannot misuse intermediate state. Unsafe composition, privilege escalation, unau-thorized tool invocation, information-flow viola-tions, data exfiltration Runtime monitoring, taint tracking, least-privilege enforcement, policy checking 
+
+Evolution Skill updates pre-serve integrity, be-havior, and trustwor-thiness across ver-sions. Permission escalation, instruction injection, tool substitution, dependency compromise, publisher compromise Update validation, be-havioral consistency analysis, provenance verification, dependency validation Eval decomposes the pipeline into independent stages, allowing vulnerabilities and defenses to be evaluated in isolation. The lifecycle introduced in Section 3 consists of six stages. Since skill authoring occurs outside the managed runtime and prior to repository submission, SkillSec-Eval begins at the repository boundary where externally authored skills enter the ecosystem. Consequently, the framework consists of five operational components corresponding to the managed lifecy-
+
+> 9Badhe Tiwari
+
+cle stages: Repository Admission, Semantic Retrieval, LLM Planner, Runtime Execution, and Skill Evolution. 
+
+4.1. Skill Representation 
+
+Throughout the framework, each skill is represented using the abstraction introduced in Section 3, 
+
+S = ( M, W, P, T, V ),
+
+where M denotes semantic metadata, W represents the executable workflow, P speci-fies the requested permissions, T denotes the underlying executable tools, and V captures provenance and version information. Within SkillSec-Eval, this abstraction is instantiated as a structured manifest consisting of four components. To provide a unified abstraction across existing agent frameworks, we model every skill as consisting of four logical components. 
+
+Structural metadata: captures repository-level information used to establish authen-ticity and manage the skill throughout its lifecycle. Typical fields include publisher identity, digital signatures, version identifiers, and dependency information. 
+
+Semantic metadata: describes the capability exposed by the skill through natural-language names, descriptions, tags, or example usages. These fields are primarily consumed by retrieval mechanisms and planners when selecting candidate skills. 
+
+Permission manifests: specify the resources and capabilities required during execu-tion, including filesystem access, network communication, shell execution, database opera-tions, or external service access. 
+
+behavior definitions: describe the executable functionality of the skill. Depending on the framework, this may consist of prompt instructions, executable code, API specifications, workflow graphs, or sequences of tool invocations together with their execution logic. Separating semantic descriptions from executable behavior enables different lifecycle stages to operate on different views of the same skill. 
+
+4.2. Repository Admission 
+
+Repository admission establishes the root of trust before skills become available for retrieval. Within SkillSec-Eval, every submitted skill passes through a hybrid admission controller consisting of deterministic structural verification followed by semantic consistency analy-sis. The structural stage validates schema compliance, cryptographic signatures, payload integrity, provenance, dependency metadata, and version lineage, while the semantic stage uses an LLM-based validator to verify that the executable workflow, semantic metadata such as natural-language descriptions, and requested permissions are mutually consistent. Skills failing either stage are rejected before entering the repository. This implementation enables controlled evaluation of repository-level attacks including unauthorized insertion, provenance forgery, metadata tampering, dependency poisoning, and malicious updates. 
+
+> 10 Agent Skill Security
+
+4.3. Semantic Retrieval 
+
+Accepted skills are indexed using dense embeddings within a FAISS vector index. Given a user request, cosine similarity retrieves the Top-k candidate skills from repositories contain-ing multiple semantically similar benign skills, forcing malicious skills to compete against realistic alternatives rather than isolated examples. Before candidates are forwarded to the planner validator performs three consistency checks., First, semantic diversity filtering re-moves duplicate or near-identical retrieved skills, mitigating Sybil-style publication attacks. Second, metadata consistency verification detects discrepancies between executable behav-ior and advertised descriptions, such as hidden network operations that are not reflected in the semantic metadata. Third, permission consistency validation verifies that requested permissions are explicitly justified by the capability described in the skill metadata. This separation allows retrieval robustness and retrieval-specific defenses to be evaluated inde-pendently. 
+
+4.4. LLM Planner 
+
+The planner receives the user request together with the retrieved candidate skills and se-lects the workflow to execute. Because planner decisions depend almost entirely on natural-language metadata, this boundary provides a natural target for semantic manipulation and social-engineering attacks. Before candidate skills are presented to the planner, SkillSec-Eval applies a metadata validation layer that sanitizes planner-visible metadata without modifying executable workflows. The validator removes prompt-injection patterns embed-ded in descriptions, normalizes fabricated recommendation or reputation claims, verifies consistency between advertised capabilities and requested permissions, and ensures that planner decisions are based on validated metadata. This enables isolated evaluation of metadata manipulation and planner deception attacks. 
+
+4.5. Runtime Execution 
+
+The selected workflow executes inside a sandboxed runtime that mediates every tool invo-cation. Unlike previous stages, runtime security is enforced over actual execution behavior rather than metadata. SkillSec-Eval employs dynamic taint tracking together with policy enforcement to monitor information flow across multi-step workflows. Before each tool in-vocation, the runtime validates requested permissions against the current execution context and blocks unauthorized operations, privilege escalation, or transmission of sensitive data to untrusted sinks. This execution monitor provides the observable behavior required to evaluate runtime attacks involving unsafe composition and information exfiltration. 
+
+4.6. Skill Evolution 
+
+Skill evolution captures the continuous modification of reusable skills through version up-dates, dependency changes, metadata revisions, and permission modifications. Rather than assuming trust persists after publication, SkillSec-Eval models updates as re-entry into the repository admission pipeline. Each new version is revalidated for provenance, integrity, version lineage, dependency changes, semantic consistency, and permission modifications before replacing an existing skill. Explicitly modeling Evolution provides a foundation for 
+
+> 11 Badhe Tiwari
+
+studying long-term attacks such as malicious updates, dependency compromise, version drift, and trust decay. 
+
+5. Experimental Setup 
+
+This section describes the experimental methodology used to evaluate lifecycle-oriented attacks and the corresponding defenses introduced in Section 4. Rather than reporting a single end-to-end security metric, we evaluate each attack independently at its corresponding lifecycle boundary. This design isolates the effectiveness of individual attacks and defenses while minimizing confounding effects introduced by downstream components. Our evaluation is organized around five research questions. 
+
+• RQ1: Can repository admission mechanisms prevent malicious skills from entering the repository despite supply-chain style attacks? 
+
+• RQ2: Can retrieval-oriented attacks manipulate semantic search, and how effective are retrieval validation mechanisms at preventing malicious skills from being retrieved? 
+
+• RQ3: How vulnerable is an LLM planner to manipulated skill metadata, and can metadata validation reduce malicious skill selection? 
+
+• RQ4: Can runtime monitoring detect and prevent unsafe multi-step workflow com-position and information-flow violations during execution? 
+
+• RQ5: Can least-privilege enforcement prevent over-privileged skills from abusing permissions during execution? 
+
+5.1. Skill Repository 
+
+We construct a controlled skill repository using publicly available skills from the SkillMCP repository ski (2026) as the foundation for benign workflows. After filtering duplicate and incomplete entries, the repository contains 327 benign skills spanning 15 skills clusters. These clusters cover infrastructure management, DevOps automation, software engineer-ing, cloud operations, data engineering, database optimization, security and compliance, productivity automation, and project management. More details about each category is provided in Section A. Each cluster intentionally contains multiple semantically similar skills implementing overlapping functionality, creating dense retrieval neighborhoods that require the retriever and planner to distinguish among competing candidates. The number of skills per capability cluster ranges from 20 to 25. 
+
+5.2. Attack Generation 
+
+Attack instances are generated independently for each lifecycle boundary according to the threat taxonomy introduced in Section 3. Repository admission attacks include six structural and semantic attack classes tar-geting repository integrity and metadata consistency. Retrieval attacks are generated by automatically transforming benign skills into adversarial variants using keyword stuffing, semantic camouflage, trigger poisoning, and Sybil-style cloning strategies. 
+
+> 12 Agent Skill Security
+
+Planner attacks modify only the metadata exposed to the LLM planner while preserving identical executable workflows, allowing planner vulnerabilities to be isolated from runtime behavior. These attacks include fake recommendations, misleading descriptions, permission deception, planner deception, and prompt injection. Execution attacks construct multi-step workflows that exploit unauthorized tool invoca-tion, unsafe workflow composition, privilege abuse, and information-flow violations during runtime. Evolution attacks evaluate the security of skill updates through representative supply-chain scenarios including malicious updates, dependency compromise, version rollback, trust decay, and abandoned maintainers, assessing whether repository revalidation preserves trust across successive skill versions. 
+
+5.3. Experimental Configuration 
+
+Repository admission experiments evaluate three configurations corresponding to increas-ing levels of protection: an undefended baseline, a rule-based admission pipeline, and the proposed hybrid admission defense combining static analysis with LLM-based semantic val-idation. Semantic retrieval uses the all-MiniLM-L6-v2 sentence embedding model to generate 384-dimensional vector representations indexed using a FAISS FlatL2 index. The retrieval engine initially returns the Top-50 nearest neighbors, after which the proposed retrieval validation defense filters candidates before producing the final Top-5 skills presented to the planner. Evaluation uses 440 benchmark queries spanning all 15 capability domains. Planner experiments employ Gemini 3.1 pro as the planning model. For each query, the planner receives the user request together with the Top-5 candidate skills and selects a single workflow based solely on semantic metadata and declared permissions. Planner experiments compare baseline selection against the proposed metadata validation defense. Runtime experiments evaluate workflow execution using the proposed LifecycleGuard runtime monitor implementing dynamic taint tracking and policy enforcement. Runtime monitoring intercepts every tool invocation before execution while tracking sensitive infor-mation across composed workflows. 
+
+5.4. Evaluation Metrics 
+
+Each lifecycle boundary is evaluated using metrics appropriate for its operational objective. Repository admission is evaluated using Malicious Admission Rate (MAR), defined as the percentage of malicious skills accepted into the repository, together with average ad-mission latency. Retrieval robustness is evaluated using Attack Success Rate (ASR), normalized Dis-counted Cumulative Gain (nDCG@5), and the average number of malicious skills appearing within the Top-5 retrieved candidates. Planner robustness is measured using Planner Selection Attack Success Rate, defined as the percentage of queries for which the planner selects a malicious skill. Runtime security is evaluated using Execution Attack Success Rate, Policy Violation Detection Rate, Taint Propagation Accuracy, and the total number of blocked tool invoca-tions. 
+
+> 13 Badhe Tiwari
+
+Table 2: Repository admission performance. Lower MAR and FPR are better. Defense Architecture MAR (%) FPR (%) Rules Only 52.9 0.0 Semantic Only 42.9 20.0 Proposed Defense (Hybrid) 7.9 20.0 
+
+6. Evaluation 
+
+6.1. Experiment I: Repository Admission 
+
+The first experiment evaluates the repository admission boundary, where attackers attempt to publish malicious skills into the centralized repository before they become available for future retrieval. We evaluate six representative attack classes corresponding to the taxonomy introduced in Section 3. We compare three repository admission defense configurations. 
+
+Rules Only performs structural validation, including signature verification, payload hash validation, version consistency checks, permission validation, and rule-based detection of unsafe executable patterns using regular-expression matching over executable instruc-tions. 
+
+Semantic Only bypasses structural rules and submits the skill directly to an LLM-based semantic validator that jointly analyzes executable instructions, metadata descrip-tions, and requested permissions to determine whether the declared functionality matches the intended behavior. 
+
+Proposed Defense (Hybrid) extends rule base validation with semantic intent ver-ification. Skills passing structural validation are submitted to the LLM-based semantic validator, combining the strengths of both approaches. 
+
+Metrics. Repository robustness is measured using the Malicious Admission Rate (MAR) ,defined as the percentage of malicious skills successfully accepted into the repository. Devel-oper friction is measured using the False Positive Rate (FPR) , representing the percentage of benign skills incorrectly rejected by the defense. Table 2 details the repository admission results. Rules Only structural validation re-duces the Malicious Admission Rate (MAR) to 52.9% by successfully detecting malformed payloads and invalid signatures. However, it fails against attacks that preserve valid syntax while manipulating semantic intent (e.g., Metadata Deception). Incorporating an LLM-based semantic validator (Hybrid Defense) drops the MAR significantly to 7.9% by jointly analyzing executable instructions against declared permissions to detect deception. These results demonstrate that while structural checks prevent traditional integrity violations, LLM intent verification is mandatory to counter modern agentic supply-chain attacks. Nev-ertheless, the residual 7.9% MAR and 20.0% False Positive Rate highlight the inherent trade-off in LLM-based security: it is necessary for semantic defense, but introduces devel-oper friction and remains vulnerable to highly sophisticated zero-day evasions. 
+
+> 14 Agent Skill Security
+
+Table 3: Evaluation of retrieval-stage attacks before and after applying the proposed Re-trieval Validation Layer. Lower is better for all metrics. 
+
+ASR (%) nDCG@5 Avg. Malicious Threat Class Base Def Base Def Base Def 
+
+Keyword Stuffing 46.59 7.83 0.187 0.091 0.38 0.12 Semantic Camouflage 61.14 9.82 0.205 0.117 0.42 0.14 Trigger Poisoning 31.82 17.50 0.299 0.133 0.50 0.17 Sybil Attack (15 Clones) 93.20 26.59 0.742 0.223 2.84 0.27 
+
+6.2. Experiment II: Semantic Retrieval 
+
+The second experiment evaluates the semantic retrieval boundary, where attackers manip-ulate the embedding space to increase the likelihood that malicious skills are retrieved by the agent. We evaluate four representative retrieval attacks introduced in Section 3. 
+
+Baseline. The baseline employs a standard FAISS FlatL2 retrieval pipeline using the 
+
+all-MiniLM-L6-v2 encoder. The retrieval engine directly extracts the Top-5 nearest neigh-bors from the vector space to present to the planner, without any secondary filtering. 
+
+Proposed Defense. The proposed Retrieval Validation Layer operates after vector re-trieval but before planner selection. The validation layer performs three verification steps. First, semantic diversity filtering removes near-duplicate candidates by computing in-struction similarity. Skills whose executable instructions exceed an 85% similarity threshold with previously retained candidates are discarded, mitigating large-scale Sybil attacks. Second, metadata consistency validation compares executable instructions against natural-language descriptions. Skills whose instructions invoke potentially dangerous operations such as network communication or external process execution without corresponding dis-closure in the description are rejected. Third, permission consistency validation ensures that requested privileged permissions are explicitly justified by the semantic description of the skill. Skills requesting sensitive permissions without matching capability descriptions are removed from the candidate set. 
+
+Metrics: Retrieval robustness is evaluated using three complementary metrics. 
+
+• Attack Success Rate (ASR), defined as the percentage of evaluation queries for which at least one malicious skill appears within the Top-5 retrieved candidates. 
+
+• nDCG@5, measuring the ranking quality of malicious skills within the retrieved list. 
+
+• Average Malicious in Top-5, representing the average number of malicious skills pre-sented to the planner. Table 3 demonstrates that undefended semantic retrieval is highly vulnerable to Agen-tic SEO. Without filtering, attackers easily dominate the planner’s context; Sybil attacks alone average 2.84 malicious clones per Top-5 set (93.20% ASR). The proposed Retrieval Validation Layer substantially mitigates these threats. Keyword Stuffing and Semantic Camouflage ASRs drop below 10%, while semantic diversity filtering successfully prevents Sybil clones from overwhelming the context window (dropping to 0.27 malicious tools on 
+
+> 15 Badhe Tiwari
+
+Table 4: Planner robustness before and after metadata validation. Lower is better. Attack Baseline Proposed Defense Fake Recommendation 45.64 8.72 Misleading Description 27.27 0.00 Permission Deception 11.36 5.68 Planner Deception 9.88 2.47 Prompt Injection 4.69 3.65 average). However, Trigger Poisoning and Sybil attacks still achieve partial success (17.50% and 26.59% Defended ASR). This highlights a fundamental limitation: these attacks ex-ploit the mathematical density of the vector space rather than just metadata inconsistencies. Consequently, post-retrieval filtering cannot offer complete zero-day security on its own; it must act as a probabilistic filter complemented by strict planner and runtime defenses. 
+
+6.3. Experiment III: Planner Selection 
+
+The third experiment evaluates attacks targeting the planner boundary. After retrieval, the planner receives a small set of candidate skills together with their natural-language descriptions and permission manifests, and must select the most appropriate skill for exe-cution. Because executable workflows are intentionally excluded from the planner context, selection decisions depend almost entirely on natural-language metadata, making the plan-ner susceptible to semantic manipulation. We evaluate five planner attacks introduced in Section 3. Planner Deception presents an apparently legitimate description while hiding malicious executable behavior. Fake Recommendation appends fabricated reputation indicators such as “Official Skill” to increase perceived trustworthiness. Misleading Description falsely claims benign local execution while requesting network-enabled permissions. Permission Deception manipulates metadata to hide sensitive permission requests. Prompt Injection embeds adversarial instructions inside the skill description to influence planner reasoning. 
+
+Baseline. The baseline planner uses Gemini 1.5 Flash in a zero-shot configuration. The planner receives the user query together with the Top-5 retrieved candidate skills and returns the index of the selected skill. 
+
+Proposed Defense. Before planner invocation, the proposed Metadata Validation Layer sanitizes the candidate set. Prompt sanitization removes known prompt injection patterns using LLMs. Metadata normalization eliminates fabricated recommendation indicators and marketing language. Capability validation verifies consistency between descriptions and executable intent, while permission validation ensures that planner reasoning operates on verified permission manifests rather than attacker-controlled metadata. 
+
+Metric. Planner robustness is measured using the Planner Attack Success Rate (Planner ASR), defined as the percentage of evaluation queries for which the planner selects the malicious candidate from the retrieved Top-5 skills. 
+
+> 16 Agent Skill Security
+
+Table 5: Runtime execution results. 
+
+Configuration Execution ASR Policy Blocked Taint Accuracy 
+
+Baseline 100.0 NA NA Proposed Defense 23.0 87.0 66.67 Table 4 presents the planner evaluation results. Fake Recommendation achieves the highest baseline attack success rate (45.64%), indicating that modern LLM planners remain highly susceptible to social-proof cues despite advances in alignment. By contrast, Prompt Injection exhibits the lowest baseline success rate (4.69%), suggesting that instruction-tuned models already possess substantial robustness against direct prompt override attempts. Applying the proposed Metadata Validation Layer substantially improves planner ro-bustness across every attack category. Misleading Description attacks are completely elim-inated through capability verification, while Fake Recommendation attacks decrease by over 80%. Planner Deception and Permission Deception also exhibit significant reductions because inconsistent metadata is removed before planner reasoning. These results indicate that planner vulnerabilities arise primarily from persuasive natural-language metadata rather than deficiencies in the underlying language model. Consequently, preprocessing of candidate metadata provides an effective defense by reducing opportunities for semantic manipulation before the planner performs reasoning. 
+
+6.4. Experiment IV: Runtime Execution 
+
+This experiment evaluates attacks that manifest only during workflow execution. Unlike repository admission, retrieval, or planner selection, these attacks arise from the interaction of multiple individually benign skills after a workflow has already been selected. Con-sequently, preventing such attacks requires observing concrete execution behavior rather than relying solely on static metadata or semantic reasoning. We evaluate three representative execution-time attack classes: unauthorized tool in-vocation, information-flow violations, and unsafe multi-step workflow composition. The baseline system executes workflows without runtime monitoring, whereas the proposed de-fense combines dynamic taint tracking with policy enforcement at every tool invocation. Execution security is evaluated using three metrics: (i) Execution Attack Success Rate (Execution ASR), defined as the percentage of attacks that successfully reach the final privileged sink; (ii) Policy Violation Detection Rate, measuring the fraction of unauthorized operations intercepted by the runtime monitor; and (iii) Taint Propagation Accuracy, which measures whether sensitive information is correctly tracked across intermediate tool outputs. Table 5 demonstrates that runtime monitoring serves as a critical backstop against composition attacks. In the undefended baseline, 100% of evaluated attacks successfully reached the privileged sink (100.0 Execution ASR). This occurs because standard LLM agent frameworks place implicit trust in the execution environment; without a runtime guard, there are no checks preventing a model from indiscriminately passing sensitive state to external network sinks or invoking high-risk commands. By enforcing access policies immediately before tool invocation, the proposed defense successfully blocked the majority of unauthorized tool executions (87.0% Policy Blocked). 
+
+> 17 Badhe Tiwari
+
+Table 6: Evaluation of skill evolution security using proposed defense. 
+
+Configuration UAR (%) MDR (%) FPR (%) FNR (%) 
+
+Proposed defense 63.0 92.5 37.0 7.5 However, the defense achieved only 66.67% Taint Accuracy, resulting in a 23.0% Execution ASR. This exposes a fundamental limitation in applying traditional dynamic taint tracking to LLM workflows. When an attacker instructs the LLM to paraphrase or summarize sensitive data internally, the strict string-based taint tags are lost. Because the LLM’s internal context window acts as an unmonitored implicit flow, the paraphrased exfiltration successfully bypasses the runtime guard. This empirical finding confirms that while runtime guards effectively intercept explicit rule violations, tracking information flow through non-deterministic LLMs remains an open challenge requiring NLP-aware taint propagation. 
+
+6.5. Experiment V: Skill Evolution Security 
+
+This experiment evaluates the skill evolution boundary, where attackers exploit accumulated trust to introduce malicious payloads or dependencies via version updates. We evaluate five attacks: permission escalation, instruction injection, tool substitution, dependency compro-mise, and publisher spoofing. 
+
+Baseline. The baseline represents unmoderated ingestion of skill updates, relying entirely on the trust established during the skill’s initial repository admission. 
+
+Proposed Defense. Proposed defense is a continuous validation pipeline that treats every update as a new admission event. First, it enforces rules by verifying publisher prove-nance and restricting package imports. Second, it employs semantic behavioral consistency analysis by measuring the vector distance between the original and updated instructions, flagging significant functional deviations. 
+
+Metrics. Robustness is evaluated using: Update Acceptance Rate (UAR) for allowed benign updates, Malicious Detection Rate (MDR), False Positive Rate (FPR) representing developer friction, and False Negative Rate (FNR) for missed attacks. Unmoderated evolution is a critical vulnerability; without continuous validation, 100% of malicious updates successfully inherit trust and bypass initial defenses. As shown in Table 6, by treating every update as a new admission event, our defense successfully intercepts the vast majority of malicious updates (92.5% MDR) by enforcing metadata constraints and semantic consistency thresholds. Highly sophisticated ”instruc-tion injections” occasionally stay beneath the vector distance threshold, resulting in a 7.5% False Negative Rate (FNR). Furthermore, this security comes at the cost of developer friction. Aggressive but benign developer refactoring frequently trips the cosine-similarity behavioral bounds, resulting in a 37.0% FPR and dropping UAR to 63.0%. This highlights an inherent trade-off in continuous validation: achieving robust zero-day evasion resistance requires tight behavioral bounds, which inevitably flag legitimate structural modifications for manual review while still occasionally missing highly subtle evasions. 
+
+> 18 Agent Skill Security
+
+These results demonstrate that no individual defense is sufficient to secure reusable agent skills. Because advanced attacks (like Semantic Taint Evasion) can bypass individual semantic or runtime filters, each lifecycle boundary addresses a distinct attack surface. Removing any one defense exposes vulnerabilities that cannot be mitigated reliably by subsequent stages alone. 
+
+7. Limitations 
+
+SkillSec-Eval has several limitations that motivate future research. Longitudinal attacks involving dependency evolution, and trust decay require long-term repository histories that are beyond the scope of this work. Second, although the repository is constructed from real-world skills, it represents a con-trolled evaluation environment rather than a production deployment. Real agent ecosystems may contain substantially larger repositories, heterogeneous skill formats, and framework-specific execution semantics that introduce additional security challenges. Finally, our evaluation focuses on reusable skills as the primary unit of analysis. We do not study attacks arising from the underlying LLM itself, including model jailbreaks, prompt injection originating from user inputs, or adversarial fine-tuning. These threats are complementary to the lifecycle-oriented attacks considered in this work and warrant further investigation. 
+
+8. Conclusion 
+
+Reusable skills are rapidly becoming a core abstraction for building capable LLM agents, yet their security has largely been studied only at the level of prompt injection and run-time execution. In this paper, we presented SkillSec-Eval, a lifecycle-aware framework for systematically evaluating security risks throughout the reusable skill lifecycle. By char-acterizing representative threats across repository admission, semantic retrieval, planner selection, execution, and skill evolution, we demonstrated that important attack surfaces emerge well before workflow execution. Our empirical evaluation on a repository of real-world skills shows that vulnerabilities arise across multiple lifecycle stages, emphasizing the need for security mechanisms that extend beyond runtime protection. We hope SkillSec-Eval provides a useful foundation for future research on secure agent ecosystems, lifecycle-aware evaluation methodologies, and trustworthy deployment of reusable agent skills. 
+
+References 
+
+Skillmcp: Agent skills marketplace. https://skillsmp.com/ , 2026. Accessed: 2026-06-05. Anthropic PBC. Introducing the model context protocol. https://www.anthropic.com/ news/model-context-protocol , 2024. Daniel Ayzenshteyn, Roy Weiss, and Yisroel Mirsky. Cloak, honey, trap: Proactive de-fenses against LLM agents. In 34th USENIX Security Symposium (USENIX Security 25) ,
+
+> 19 Badhe Tiwari
+
+pages 8095–8114, Seattle, WA, August 2025. USENIX Association. ISBN 978-1-939133-52-6. URL https://www.usenix.org/conference/usenixsecurity25/presentation/ ayzenshteyn .Sanket Badhe. Scamagents: How ai agents can simulate human-level scam calls. In Edward Raff and Ethan M. Rudd, editors, Proceedings of the 2025 Conference on Applied Ma-chine Learning for Information Security , volume 299 of Proceedings of Machine Learning Research , pages 180–199. PMLR, 22–24 Oct 2025. URL https://proceedings.mlr. press/v299/badhe25a.html .V. P. Bhardwaj. Formal analysis and supply chain security for agentic ai skills. arXiv preprint arXiv:2603.00195 , 2026. URL https://arxiv.org/abs/2603.00195 .Christoph B¨ uhler, Matteo Biagiola, Luca Di Grazia, and Guido Salvaneschi. Agentbound: Securing execution boundaries of ai agents. Proceedings of the ACM on Software Engi-neering (FSE) , 2026. URL https://arxiv.org/abs/2510.21236 .Sizhe Chen et al. Struq: Defending against prompt injection with structured queries. In Pro-ceedings of the 34th USENIX Security Symposium (USENIX Security) , 2025. URL https: //www.usenix.org/conference/usenixsecurity25/presentation/chen-sizhe .Edoardo Debenedetti, Jie Zhang, Mislav Balunovic, Luca Beurer-Kellner, Marc Fischer, and Florian Tram` er. Agentdojo: A dynamic environment to evaluate prompt injection attacks and defenses for LLM agents. In The Thirty-eight Conference on Neural Information Processing Systems Datasets and Benchmarks Track , 2024. URL https://openreview. net/forum?id=m1YYAQjO3w .Z. Guo, X. Chen, Z. Nie, J. Lin, Y. Zhou, and W. Zhang. Skillprobe: Security audit-ing for emerging agent skill marketplaces via multi-agent collaboration. arXiv preprint arXiv:2603.21019 , 2026. URL https://arxiv.org/abs/2603.21019 .Feng He, Tianqing Zhu, Dayong Ye, Bo Liu, Wanlei Zhou, and Philip S. Yu. The emerged security and privacy of llm agent: A survey with case studies. ACM Comput. Surv. , 58 (6), December 2025. ISSN 0360-0300. doi: 10.1145/3773080. URL https://doi.org/ 10.1145/3773080 .Piergiorgio Ladisa, Henrik Plate, Matias Martinez, and Olivier Barais. Sok: Taxonomy of attacks on open-source software supply chains. In 2023 IEEE Symposium on Security and Privacy (SP) , pages 1509–1526, 2023. doi: 10.1109/SP46215.2023.10179304. Zichuan Li, Jian Cui, Xiaojing Liao, and Luyi Xing. Les dissonances: Cross-tool harvesting and polluting in pool-of-tools empowered llm agents. In Proceedings of the Network and Distributed System Security Sympo-sium (NDSS) , 2026. URL https://www.ndss-symposium.org/ndss-paper/ les-dissonances-cross-tool-harvesting-and-polluting-in-pool-of-tools-empowered-llm-agents 
+
+Xinyu Liu, Yukai Zhao, Xing Hu, and Xin Xia. Exploiting llm agent supply chains via payload-less skills. arXiv preprint arXiv:2605.14460 , 2026a. URL https://arxiv.org/ abs/2605.14460 .
+
+> 20 Agent Skill Security
+
+Y. Liu, Z. Chen, Y. Zhang, G. Deng, Y. Li, J. Ning, Y. Zhang, and L. Y. Zhang. Ma-licious agent skills in the wild: A large-scale security empirical study. arXiv preprint arXiv:2602.06547 , 2026b. URL https://arxiv.org/abs/2602.06547 .Y. Liu, W. Wang, R. Feng, Y. Zhang, G. Xu, G. Deng, Y. Li, and L. Zhang. Agent skills in the wild: An empirical study of security vulnerabilities at scale. arXiv preprint arXiv:2601.10338 , 2026c. URL https://arxiv.org/abs/2601.10338 .Yupei Liu et al. Formalizing and benchmarking prompt injection attacks and de-fenses. In Proceedings of the 33rd USENIX Security Symposium (USENIX Security) ,2024. URL https://www.usenix.org/conference/usenixsecurity24/presentation/ liu-yupei .Marc Ohm, Henrik Plate, Arnold Sykosch, and Michael Meier. Backstabber’s knife col-lection: A review of open source software supply chain attacks. In Proceedings of the 17th International Conference on Detection of Intrusions and Malware, and Vulnerability Assessment (DIMVA) , 2020. URL https://arxiv.org/abs/2005.09535 .OpenAI. Openai agent sdk: Build agentic applications. https://github.com/openai/ openai-agents , 2024. OWASP GenAI Security Project. A practical guide for securely us-ing third-party mcp servers. https://genai.owasp.org/resource/ cheatsheet-a-practical-guide-for-securely-using-third-party-mcp-servers-1-0/ ,2025. Yubin Qu, Yi Liu, Tongcheng Geng, Gelei Deng, Yuekang Li, Leo Yu Zhang, Ying Zhang, and Lei Ma. Supply-chain poisoning attacks against llm coding agent skill ecosystems. 
+
+arXiv preprint arXiv:2604.03081 , 2026. URL https://arxiv.org/abs/2604.03081 .Timo Schick, Jane Dwivedi-Yu, Roberto Dess` ı, Roberta Raileanu, Maria Lomeli, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom. Toolformer: Language models can teach themselves to use tools. In Proceedings of the Annual Conference on Neural Information Processing Systems (NeurIPS) , 2023. URL https://arxiv.org/abs/2302. 04761 .D. Schmotz, L. Beurer-Kellner, S. Abdelnabi, and M. Andriushchenko. Skill-inject: Mea-suring agent vulnerability to skill file attacks. arXiv preprint arXiv:2602.20156 , 2026. URL https://arxiv.org/abs/2602.20156 .Shunyu Yao, Jeffrey Zhao, Dian ... Yu, and Yuan Cao. React: Synergizing reasoning and acting in language models. In Proceedings of the International Conference on Learning Representations (ICLR) , 2023. URL https://arxiv.org/abs/2210.03629 .
+
+Appendix A. Distribution of Benign Skills 
+
+Table 7 summarizes the distribution of the 327 benign skills used to construct the evaluation repository. Skills are organized into 15 capability categories representative of enterprise 
+
+> 21 Badhe Tiwari
+
+Table 7: Distribution of benign skills across categories. 
+
+Capability Category # Skills 
+
+CRM & Business Workflow Automation 25 Identity & Access Management 24 Container Security & Vulnerability Analysis 23 Container Orchestration 23 Cloud Cost Management 22 Data Engineering (ETL) 22 Developer Productivity & Configuration 22 Privacy & Data Sanitization 22 Code Security Analysis 22 Database Optimization 21 Infrastructure Monitoring 21 Project Management & Collaboration 20 Code Quality & Linting 20 Content Analysis 20 Issue Tracking & Ticket Management 20 
+
+Total 327 
+
+agent deployments. Each category contains multiple semantically similar skills to create dense retrieval neighborhoods, providing a realistic evaluation setting for both retrieval and planner robustness. 
+
+Appendix B. LLM Prompts 
+
+For reproducibility, we provide the exact prompts used by the LLM-based components in SkillSec-Eval. All experiments use deterministic decoding with temperature set to 0. 
+
+B.1. Repository Admission Validator                                                          
+
+> You are asecurity auditor for an AI agent skill repository . Your task is to determine whether asubmitted skill is SAFE or MALICIOUS . Evaluate the following aspects : 1. Does the description accurately reflect the executable behavior ? 2. Are the requested permissions justified by the advertised capability ? 3. Are there hidden prompt injections , deceptive instructions , or privilege - escalation attempts ? 4. Does the workflow attempt to manipulate downstream LLMs ?
+> 22
+
+Agent Skill Security 
+
+5. Is there evidence of semantic deception or unsafe behavior ? Skill Description : { description } Permissions Requested : { permissions } Workflow / Instructions : { instructions } Respond with exactly one word . SAFE or MALICIOUS 
+
+B.2. Planner Prompt 
+
+You are a deterministic orchestration planner . Given a user ’ s request and a list of candidate skills , select the single best skill for the task . Base your decision ONLY on the provided metadata . Do not invent new skills . Do not modify the available skills . If no suitable skill exists , return null . User Request : { user_query } Candidate Skills : { top_k_skills } Respond ONLY with a valid JSON object . {" selected_skill_id ": " < skill_id >" , " arguments ": {... }}If no skill is appropriate , respond with {
+
+23 Badhe Tiwari 
+
+" selected_skill_id ": null }
+
+24
