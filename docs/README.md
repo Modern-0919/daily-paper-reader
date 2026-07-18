@@ -6,77 +6,59 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-17
-- 运行时间：2026-07-17 21:29:54 UTC
+- 最新运行日期：2026-07-18
+- 运行时间：2026-07-18 21:32:58 UTC
 - 运行状态：成功
-- 本次总论文数：19
-- 精读区：7
-- 速读区：12
+- 本次总论文数：13
+- 精读区：6
+- 速读区：7
 
 ### 今日简报（AI）
-今日精选19篇论文，精读7篇，聚焦Agent能力评测与LLM智能体反馈修复。最值得关注《AgentCompass》构建的统一评测基础设施和《Structured Feedback》提出的反馈机制。建议读者优先阅读这两篇高分论文，把握Agent系统的最新评估与优化方向。
-- 详情：[/202607/17/README](/202607/17/README)
+今日处理13篇论文，精读6篇、速读7篇，重点聚焦Web智能体基准和多模态技术。最值得关注的是精读中《MAG: A Web-Agent Benchmark》（8.0分），以及速读中《SPyCE: Skill-Policy Co-evolution》（7.0分）等智能体相关论文。建议优先精读MAG以理解多模态动作生成的前沿评价方法，再扩展至多智能体协作方向。
+- 详情：[/202607/18/README](/202607/18/README)
 
 ### 精读区论文标签
-1. [AgentCompass: A Unified Evaluation Infrastructure for Agent Capabilities](/202607/17/2607.13705v2-agentcompass-a-unified-evaluation-infrastructure-for-agent-capabilities)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：包含轨迹分析工具的统一评估基础设施
-2. [Structured Feedback Improves Repair in an LLM Agent Loop](/202607/17/2607.14167v1-structured-feedback-improves-repair-in-an-llm-agent-loop)  
-   标签：评分：9.0/10、query:agent-output
-   evidence：提出VeriHarness，一个带有外部验证和结构化反馈的智能体循环，用于修复
-3. [Copy-on-Write Scoring: Application-Specific Agent Evaluations](/202607/17/2607.14336v1-copy-on-write-scoring-application-specific-agent-evaluations)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：提出基于写时复制的应用特定智能体评估框架
-4. [MCPEvol-Bench: Benchmarking LLM Agent Performance Across Dynamic Evolutions of MCP Servers](/202607/17/2607.14642v1-mcpevol-bench-benchmarking-llm-agent-performance-across-dynamic-evolutions-of-mcp-servers)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：动态工具演化下的代理轨迹测试基准
-5. [Beyond Success Rate: Cost-Aware Evaluation of Offensive and Defensive Security Agents](/202607/17/2607.15263v1-beyond-success-rate-cost-aware-evaluation-of-offensive-and-defensive-security-agents)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：成本感知的安全智能体轨迹评估，分解推理和工具开销
-6. [Experience Memory Graph: One-Shot Error Correction for Agents](/202607/17/2607.13884v1-experience-memory-graph-one-shot-error-correction-for-agents)  
+1. [MAG: A Web-Agent Benchmark and Harness for Multimodal Action and Guide Generation](/202607/18/2607.10079v1-mag-a-web-agent-benchmark-and-harness-for-multimodal-action-and-guide-generation)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：提出经验记忆图用于智能体轨迹的一次性错误修正
-7. [Democratizing Agent Deployment Safety: A Structural Monitoring Approach](/202607/17/2607.14570v1-democratizing-agent-deployment-safety-a-structural-monitoring-approach)  
+   evidence：首个统一任务执行和指南生成的网页智能体基准
+2. [MAG: A Web-Agent Benchmark and Harness for Multimodal Action and Guide Generation](/202607/18/2607.10079v2-mag-a-web-agent-benchmark-and-harness-for-multimodal-action-and-guide-generation)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：首个统一任务执行和指南生成的网页智能体基准
+3. [MAG: A Web-Agent Benchmark and Harness for Multimodal Action and Guide Generation](/202607/18/2607.10079v3-mag-a-web-agent-benchmark-and-harness-for-multimodal-action-and-guide-generation)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：引入MAG基准，统一多模态web智能体的任务执行和指南生成，本质测试智能体轨迹
+4. [Reward-Free Evolving Agents via Pairwise Validator](/202607/18/2607.14408v1-reward-free-evolving-agents-via-pairwise-validator)  
    标签：评分：8.0/10、query:agent-output
-   evidence：监控代理部署安全
+   evidence：成对验证器用于代理输出验证
+5. [Proof-or-Stop: Don't Trust the Agent, Trust the Evidence -- Loop Engineering for Verifiable Evidence-Gated Lifecycle Control](/202607/18/2607.14890v1-proof-or-stop-dont-trust-the-agent-trust-the-evidence----loop-engineering-for-verifiable-evidence-gated-lifecycle-control)  
+   标签：评分：8.0/10、query:agent-output
+   evidence：基于可验证证据的agent输出生命周期控制
+6. [StructureClaw: Traceable LLM Agents and an Executable Benchmark for Structural Engineering Workflows](/202607/18/2607.14896v1-structureclaw-traceable-llm-agents-and-an-executable-benchmark-for-structural-engineering-workflows)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：工程工作流中可追溯代理轨迹的基准
 
 ### 速读区论文标签
-1. [AdaTurn: Budget-Aware Test-Time Scaling for Active Visual Perception Agents](/202607/17/2607.14547v1-adaturn-budget-aware-test-time-scaling-for-active-visual-perception-agents)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：针对主动视觉智能体的预算感知测试时扩展，处理轨迹截断
-2. [OmniaBench: Benchmarking General AI Agents Across Diverse Scenarios](/202607/17/2607.14989v1-omniabench-benchmarking-general-ai-agents-across-diverse-scenarios)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：提出OmniaBench，一个用于跨多样场景评估通用AI智能体的基准
-3. [ReProAgent: Tool-Augmented Multi-Stage Agentic Generation of Bug Reproduction Tests from Issue Reports](/202607/17/2607.09123v1-reproagent-tool-augmented-multi-stage-agentic-generation-of-bug-reproduction-tests-from-issue-reports)  
-   标签：评分：7.0/10、query:agent-output
-   evidence：生成缺陷复现测试以验证智能体生成代码的正确性
-4. [The Hidden Footprint: Making Storage a First-Class Metric for LLM Agent Evaluation](/202607/17/2607.11149v2-the-hidden-footprint-making-storage-a-first-class-metric-for-llm-agent-evaluation)  
+1. [SPyCE: Skill-Policy Co-evolution for Multimodal Agents](/202607/18/2607.13854v1-spyce-skill-policy-co-evolution-for-multimodal-agents)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：提出存储足迹作为智能体轨迹评估的度量
-5. [Multi-Agent LLMs Fail to Explore Each Other](/202607/17/2607.11250v1-multi-agent-llms-fail-to-explore-each-other)  
+   evidence：将多模态推理轨迹蒸馏为可复用技能
+2. [Step-Level Preference Learning for Generative Agents in Social Simulations](/202607/18/2607.14485v1-step-level-preference-learning-for-generative-agents-in-social-simulations)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：多智能体轨迹分析揭示探索失败
-6. [Isolation as a First-Class Principle for LLM-Agent System Safety: Concepts, Taxonomy, Challenges and Future Directions](/202607/17/2607.12406v1-isolation-as-a-first-class-principle-for-llm-agent-system-safety-concepts-taxonomy-challenges-and-future-directions)  
-   标签：评分：7.0/10、query:agent-output
-   evidence：关于隔离作为LLM代理系统安全原则的综述，涵盖输出安全
-7. [Baselines Before Architecture: Evaluating Coding Agents for Autonomous Penetration Testing](/202607/17/2607.13085v1-baselines-before-architecture-evaluating-coding-agents-for-autonomous-penetration-testing)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：评估编码代理在渗透测试中的行为
-8. [Self-Improving AI Coding Agents Through Accumulated Behavioral Rules: A Closed-Loop Framework](/202607/17/2607.13091v1-self-improving-ai-coding-agents-through-accumulated-behavioral-rules-a-closed-loop-framework)  
-   标签：评分：7.0/10、query:agent-output
-   evidence：带有自检清单的闭环框架，用于监控代理编码错误
-9. [ToolAnchor: Anchoring Counterfactual Context to Boost Agentic Tool-use Capability](/202607/17/2607.14145v1-toolanchor-anchoring-counterfactual-context-to-boost-agentic-tool-use-capability)  
-   标签：评分：7.0/10、query:agent-traj
-   evidence：通过反事实上下文锚定恢复失败的智能体轨迹
-10. [Agent Skill Security: Threat Models, Attacks, Defenses, and Evaluation](/202607/17/2607.13987v1-agent-skill-security-threat-models-attacks-defenses-and-evaluation)  
-   标签：评分：6.0/10、query:agent-output
-   evidence：提出一个生命周期感知框架用于评估可复用代理技能的安全性，包括威胁模型和防御
-11. [MemoHarness: Agent Harnesses That Learn from Experience](/202607/17/2607.14159v1-memoharness-agent-harnesses-that-learn-from-experience)  
+   evidence：收集人类对智能体决策轨迹的步骤级偏好
+3. [Agentic Proof and Property-Based Testing via Property-Templates in Data-Intensive Computing](/202607/18/2607.09072v1-agentic-proof-and-property-based-testing-via-property-templates-in-data-intensive-computing)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：提出从执行中学习的自适应代理架构优化，与测试代理轨迹相关
-12. [Bad Memory: Evaluating Prompt Injection Risks from Memory in Agentic Systems](/202607/17/2607.14611v1-bad-memory-evaluating-prompt-injection-risks-from-memory-in-agentic-systems)  
+   evidence：提出属性模板用于AI驱动编程的基于属性测试，与代理测试方法相关
+4. [SCALECUA: Scaling Computer Use Agents with Verifiable Task Synthesis and Efficient Online RL](/202607/18/2607.11185v1-scalecua-scaling-computer-use-agents-with-verifiable-task-synthesis-and-efficient-online-rl)  
+   标签：评分：6.0/10、query:agent-traj
+   evidence：通过可验证任务合成扩展计算机使用代理的在线强化学习，实现系统化测试
+5. [Heterogeneous Agent Cohorts for Safe Open-Ended Exploration with Runtime Constraint Memory](/202607/18/2607.11226v1-heterogeneous-agent-cohorts-for-safe-open-ended-exploration-with-runtime-constraint-memory)  
+   标签：评分：6.0/10、query:agent-traj
+   evidence：通过异构agent团队和运行时约束测试LLM agent行为
+6. [MyAG: A Graph-Based Framework for Designing and Analyzing Composable LLM Agent Systems](/202607/18/2607.13474v1-myag-a-graph-based-framework-for-designing-and-analyzing-composable-llm-agent-systems)  
+   标签：评分：6.0/10、query:agent-traj
+   evidence：用于分析和监控语言模型智能体执行轨迹的框架
+7. [Setup Complete, Now You Are Compromised: Weaponizing Setup Instructions Against AI Coding Agents](/202607/18/2607.15143v1-setup-complete-now-you-are-compromised-weaponizing-setup-instructions-against-ai-coding-agents)  
    标签：评分：6.0/10、query:agent-output
-   evidence：评估基于记忆的代理系统中的提示注入风险，测试输出安全性
+   evidence：评估AI编码agent的供应链攻击，涉及agent输出安全
 
 
 <div class="dpr-home-promo-card">
