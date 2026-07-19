@@ -1,0 +1,416 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-07-19T21:19:40.031573+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 2,
+    "deep_divecandidates": 3,
+    "deep_cap": 7,
+    "deep_selected": 3,
+    "quick_candidates": 6,
+    "quick_skim_target": 12,
+    "quick_selected": 6
+  },
+  "deep_dive": [
+    {
+      "id": "2607.14275v1",
+      "source": "arxiv",
+      "title": "AI Agents Do Not Fail Alone:The Context Fails First",
+      "abstract": "Context engineering has become central to building reliable AI agents, yet it remains largely unmeasured. Agents do not fail in isolation: their behavior is shaped by the instructions, tools, memory, retrieved knowledge, guardrails, and untrusted inputs accumulated in their context. When this context is weak, agents drift, hallucinate, misuse tools, ignore constraints, become vulnerable to injection, and waste tokens. This paper validates context-engineering quality as an independent leading indicator of agent reliability. We implement the measurement in ProofAgent-Harness, an open-source infrastructure for AI agent evaluation that uses multi-juror, consensus-based scoring. The harness assesses context across seven criteria: role clarity, guardrail coverage, instruction consistency, tool schema quality, grounding sufficiency, injection hardening, and token efficiency. Crucially, the context score is isolated from behavioral metrics and release decisions, enabling a non-circular validation. Through a controlled context-quality study across regulated agent domains, holding frontier LLM agents fixed and varying only their operating context, we show that context-quality criteria consistently predict their corresponding behavioral outcomes. Grounding sufficiency predicts hallucination resistance, guardrail coverage predicts manipulation resistance, instruction consistency predicts instruction following, and tool-schema quality predicts tool use. These findings establish context measurement as a validated preflight signal for agent reliability and position context engineering as an auditable layer of agent evaluation and governance.",
+      "authors": [
+        "Fouad Bousetouane"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.MA"
+      ],
+      "published": "2026-07-15T18:33:02+00:00",
+      "link": "https://arxiv.org/pdf/2607.14275v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "detecting anomalous agent outputs via context engineering measurement",
+      "llm_evidence_cn": "通过上下文工程测量检测异常智能体输出",
+      "llm_evidence": "通过上下文工程测量检测异常智能体输出",
+      "canonical_evidence": "通过上下文工程测量检测异常智能体输出",
+      "llm_tldr_en": "Validates context-engineering quality as leading indicator of agent reliability, implementing ProofAgent-Harness to assess context across seven criteria.",
+      "llm_tldr_cn": "该论文验证了上下文工程质量作为智能体可靠性的独立领先指标。实现了开源基础设施ProofAgent-Harness，使用多裁判共识评分，从角色清晰度、护栏覆盖等七个维度评估上下文，检测智能体输出中的异常行为如漂移、幻觉、工具误用等。",
+      "llm_tldr": "该论文验证了上下文工程质量作为智能体可靠性的独立领先指标。实现了开源基础设施ProofAgent-Harness，使用多裁判共识评分，从角色清晰度、护栏覆盖等七个维度评估上下文，检测智能体输出中的异常行为如漂移、幻觉、工具误用等。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "techniques for detecting anomalous agent outputs",
+      "matched_requirement_id": "req-14",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.12747v1",
+      "source": "arxiv",
+      "title": "Tracing Agentic Failure from the Flow of Success",
+      "abstract": "Failure attribution for LLM-based agentic systems, i.e., identifying which steps in a failure trajectory caused the task to fail, is critical for debugging and improving these systems. Existing approaches either rely on prompting-based pipelines, which are computationally expensive, or require post-training on failure trajectories with step-level error annotations, which are costly to collect and difficult to scale. We argue that a practical failure attribution model should be lightweight and trainable without step-level supervision on failure data. To this end, we address unsupervised failure attribution, i.e., training exclusively on successful trajectories and identifying error steps at inference time given a failure trajectory. We propose OAT, which casts this problem as one-class learning with neural controlled differential equations, modeling the dynamical pattern of successful trajectories in latent space. At inference time, each step in a failure trajectory is assigned an anomaly score based on its deviation from the dynamics learned on successful trajectories, which is then used to form a set of error steps. With training on only 100 successful trajectories, experiments show that OAT is 200--5000 $\\times$ faster than prompting-based baselines, and, at the same time, consistently outperforms them in both in-domain and out-of-distribution datasets with +20% and +7% F1 scores, respectively, demonstrating that OAT is a promising and efficient direction for diagnosing agentic system failures.",
+      "authors": [
+        "Samuel Yeh",
+        "Yiwen Zhu",
+        "Shaleen Deep",
+        "Sharon Li"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-07-14T13:16:14+00:00",
+      "link": "https://arxiv.org/pdf/2607.12747v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "unsupervised failure attribution by learning from successful trajectories to identify error steps in failures",
+      "llm_evidence_cn": "通过成功轨迹学习无监督地识别失败轨迹中的错误步骤",
+      "llm_evidence": "通过成功轨迹学习无监督地识别失败轨迹中的错误步骤",
+      "canonical_evidence": "通过成功轨迹学习无监督地识别失败轨迹中的错误步骤",
+      "llm_tldr_en": "OAT achieves unsupervised failure attribution by training only on successful trajectories and identifying error steps at inference, enabling lightweight trajectory evaluation.",
+      "llm_tldr_cn": "针对LLM智能体系统的失败归因问题，本文提出无监督方法OAT。该方法仅利用成功轨迹进行训练，在推理时识别失败轨迹中的错误步骤，避免了昂贵的步骤级标注。OAT将问题转化为异常检测，实验证明其有效性。该工作为智能体轨迹的自动评估和调试提供了低成本、可扩展的解决方案。",
+      "llm_tldr": "针对LLM智能体系统的失败归因问题，本文提出无监督方法OAT。该方法仅利用成功轨迹进行训练，在推理时识别失败轨迹中的错误步骤，避免了昂贵的步骤级标注。OAT将问题转化为异常检测，实验证明其有效性。该工作为智能体轨迹的自动评估和调试提供了低成本、可扩展的解决方案。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.13920v1",
+      "source": "arxiv",
+      "title": "DeepStress: Stress-Testing Deep Search Agents",
+      "abstract": "While search agents demonstrate impressive capabilities in multi-step question answering, their robustness to poor-quality evidence remains under-explored. This phenomenon occurs rarely in realistic benchmarks but can lead to dramatic failure in real life applications. Therefore in this study we propose DeepStress, a stress testing framework that controls the frequency of challenging evidence by replacing the retrieval module of search agents with a controlled synthetic environment. We use this framework to control three dimensions that can affect document reliability: trustworthiness, relevance, and factuality. Testing several search agents on HotpotQA and BrowseCompPlus, we demonstrate that agents exhibit substantial differences in their ability to handle unreliable information and propose new metrics that better document systems outcomes as well as the interactions between conflicting parametric and retrieved knowledge.",
+      "authors": [
+        "Ismael Rousseau",
+        "Geraldine Damnati",
+        "Frederic Bechet"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-07-15T14:59:29+00:00",
+      "link": "https://arxiv.org/pdf/2607.13920v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "stress-testing framework for search agents by controlling evidence quality dimensions",
+      "llm_evidence_cn": "通过控制证据质量维度对搜索智能体进行压力测试",
+      "llm_evidence": "通过控制证据质量维度对搜索智能体进行压力测试",
+      "canonical_evidence": "通过控制证据质量维度对搜索智能体进行压力测试",
+      "llm_tldr_en": "DeepStress stress-tests deep search agents by replacing retrieval with a controlled synthetic environment that varies evidence trustworthiness, relevance, and factuality.",
+      "llm_tldr_cn": "本文针对搜索智能体在现实应用中因低质量证据而失效的问题，提出DeepStress压力测试框架。该框架通过替换检索模块为受控合成环境，系统性地操纵文档的可靠性、相关性和事实性三个维度。在HotpotQA和BrowseCompPlus上的测试表明，不同智能体在处理不可靠信息时存在显著差异。该框架为评估智能体鲁棒性提供了有效工具。",
+      "llm_tldr": "本文针对搜索智能体在现实应用中因低质量证据而失效的问题，提出DeepStress压力测试框架。该框架通过替换检索模块为受控合成环境，系统性地操纵文档的可靠性、相关性和事实性三个维度。在HotpotQA和BrowseCompPlus上的测试表明，不同智能体在处理不可靠信息时存在显著差异。该框架为评估智能体鲁棒性提供了有效工具。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2607.10534v1",
+      "source": "arxiv",
+      "title": "Cross-Layer Misalignment Detection in Agent Skills: A Progressive Loading-Aware Contrastive Learning Approach",
+      "abstract": "Large language model (LLM) agents are increasingly extended through Agent Skills, reusable artifacts that package natural-language metadata, procedural instructions, and execution-time resources for runtime use. As open-source skill marketplaces expand, users and agents increasingly rely on brief metadata to select third-party skills, making it difficult to detect inconsistencies between a skill's description and its true behavior, a problem we call cross-layer misalignment. To address this issue, we propose Progressive Loading-Aware Hierarchical Contrastive Learning (PL-HCL), an LLM-based framework that detects misalignment by modeling the layered structure of Agent Skills and learning cross-layer consistency. Using a normalized corpus of over 264,000 open-source skills and a human-verified challenge set, PL-HCL improves Macro-F1 from approximately 0.45 for unadapted baselines to 0.87-0.89 across evaluated LLM backbones. This approach offers an effective screening tool for users and operators, as well as design principles for detecting inconsistencies in layered digital artifacts.",
+      "authors": [
+        "Chengjun Zhang",
+        "Yang Gao",
+        "Jianna Hur",
+        "Jingjing Zhang",
+        "Sagar Samtani"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CR",
+        "cs.LG"
+      ],
+      "published": "2026-07-12T02:07:37+00:00",
+      "link": "https://arxiv.org/pdf/2607.10534v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "detecting misalignment between skill description and behavior",
+      "llm_evidence_cn": "检测技能描述与行为之间的不一致",
+      "llm_evidence": "检测技能描述与行为之间的不一致",
+      "canonical_evidence": "检测技能描述与行为之间的不一致",
+      "llm_tldr_en": "Proposes PL-HCL, an LLM-based framework to detect cross-layer misalignment in Agent Skills by modeling layered structure and learning consistency. It addresses the problem of inconsistent skill metadata and behavior.",
+      "llm_tldr_cn": "本文提出渐进式加载感知层次对比学习（PL-HCL）框架，用于检测智能体技能中描述与真实行为之间的交叉层不一致。该方法通过建模技能的层次结构并学习跨层一致性来识别异常，有效解决了开源技能市场中元数据误导问题，为智能体输出一致性检查提供了新思路。",
+      "llm_tldr": "本文提出渐进式加载感知层次对比学习（PL-HCL）框架，用于检测智能体技能中描述与真实行为之间的交叉层不一致。该方法通过建模技能的层次结构并学习跨层一致性来识别异常，有效解决了开源技能市场中元数据误导问题，为智能体输出一致性检查提供了新思路。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "techniques for detecting anomalous agent outputs",
+      "matched_requirement_id": "req-14",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.10374v1",
+      "source": "arxiv",
+      "title": "Navigating the Crowd: Non-linear MPC with Social Forces Dynamics for Human-Aware Robot Navigation",
+      "abstract": "Safe and socially compliant navigation remains a fundamental challenge for autonomous robots operating in human-populated environments. Beyond collision avoidance, robots must anticipate human motion and respect personal space to ensure human comfort. Model Predictive Control (MPC) offers a robust alternative to classical and data-driven methods, although its effectiveness strongly depends on accurate human motion prediction and efficient computation. This paper introduces SFM-NMPC, a Social Force Model-based Non-linear Model Predictive Control framework that embeds human motion prediction directly within the optimization loop. By incorporating the Social Force Model into the dynamic model of surrounding agents, the controller jointly predicts the trajectories of humans and robots over the prediction horizon, thereby enabling socially-aware planning. A tailored set of social cost functions guides the optimization toward human-compliant behaviors. Despite the increased model complexity, the proposed formulation runs in real time at 20 Hz. Extensive simulated testing in crowded environments demonstrates that SFM-NMPC outperforms state-of-the-art baselines in social compliance metrics while maintaining efficient and smooth navigation. Visual trajectory analysis and an ablation study further highlight the contribution of the embedded SFM dynamics and social cost terms, confirming the effectiveness of the proposed approach for real-world social navigation.",
+      "authors": [
+        "Stefano Trepella",
+        "Andrea Ostuni",
+        "Mauro Martini",
+        "Pablo Pueyo",
+        "Noé Pérez-Higueras",
+        "Marcello Chiaberge",
+        "Fernando Caballero",
+        "Luis Merino"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.HC"
+      ],
+      "published": "2026-07-11T15:57:33+00:00",
+      "link": "https://arxiv.org/pdf/2607.10374v1",
+      "tags": [
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "testing behavior of autonomous agents through navigation with social force model MPC",
+      "llm_evidence_cn": "通过社会力模型MPC测试自主智能体的导航行为",
+      "llm_evidence": "通过社会力模型MPC测试自主智能体的导航行为",
+      "canonical_evidence": "通过社会力模型MPC测试自主智能体的导航行为",
+      "llm_tldr_en": "Proposes SFM-NMPC for human-aware robot navigation, embedding human motion prediction within MPC to test and improve autonomous agent behavior.",
+      "llm_tldr_cn": "该论文提出基于社会力模型的非线性模型预测控制框架（SFM-NMPC），用于人感知机器人导航。通过将社会力模型嵌入到优化环中预测周围智能体的运动，实现了安全且符合社会规范的导航。该方法测试了自主智能体在人群中的行为，验证了其有效性。",
+      "llm_tldr": "该论文提出基于社会力模型的非线性模型预测控制框架（SFM-NMPC），用于人感知机器人导航。通过将社会力模型嵌入到优化环中预测周围智能体的运动，实现了安全且符合社会规范的导航。该方法测试了自主智能体在人群中的行为，验证了其有效性。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2607.10891v1",
+      "source": "arxiv",
+      "title": "SETA: Scaling Environments for Terminal Agents",
+      "abstract": "Large language models (LLMs) are rapidly shifting toward agents that solve tasks through diverse interfaces, including web and graphical user interfaces (GUIs). Among these, the terminal command line provides a text-based, general-purpose interface, covering tasks from system operations to data science and machine learning. However, scaling terminal-agent training remains challenging, as it requires diverse and coherent task instructions, executable environments, and reliable verification, while lacking naturally grounded supervision data. In this work, we propose SETA, a scalable framework for generating verifiable terminal environments for reinforcement learning (RL). The framework consists of two pipelines sharing a unified verification mechanism: SETA-Synth converts diverse sources into standardized RL environments, and SETA-Evol further expands from existing environments with adaptive control of difficulty and diversity. Together, we construct and release SETA-Env, the largest open-source verifiable terminal RL dataset to date, containing over 4,500 environments. We evaluate our dataset by training Qwen3-8B with GRPO on SETA-Env, achieving 12% pass rate on Terminal-Bench 2.0, the best reported result for an RL-trained model at the 8B scale. We further observe gains on DeepSeek-V4-Flash under the same terminal agent harness, with pass@1 on Terminal-Bench 2.0 improving from 40% to 43% and pass@5 improving from 54% to 58%. These results demonstrate that SETA- Env provides high-quality training environments for terminal agents and serves as a valuable resource for advancing research on terminal-based agent learning.",
+      "authors": [
+        "Qijia Shen",
+        "Zhiqi Huang",
+        "Vamsidhar Kamanuru",
+        "Aznaur Aliev",
+        "Jay Rainton",
+        "Ahmed Awelkair",
+        "Zhichen Zeng",
+        "Jiajun Li",
+        "Shi Dong",
+        "Yueming Yuan",
+        "Boyuan Ma",
+        "Qizheng Zhang",
+        "Jiwei Fu",
+        "Yuzhen Mao",
+        "Wendong Fan",
+        "Ping Nie",
+        "Philip Torr",
+        "Bernard Ghanem",
+        "Changran Hu",
+        "Jonathan Lingjie Li",
+        "Urmish Thakker",
+        "Guohao Li"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-12T19:40:27+00:00",
+      "link": "https://arxiv.org/pdf/2607.10891v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "scalable framework for generating verifiable terminal environments for agent training",
+      "llm_evidence_cn": "为终端Agent生成可验证环境的可扩展框架",
+      "llm_evidence": "为终端Agent生成可验证环境的可扩展框架",
+      "canonical_evidence": "为终端Agent生成可验证环境的可扩展框架",
+      "llm_tldr_en": "SETA generates verifiable terminal environments for RL training of LLM agents, providing a scalable way to create diverse task instructions and reliable verification, directly enabling benchmark construction for trajectory testing.",
+      "llm_tldr_cn": "SETA提出一个可扩展框架，用于生成可验证的终端环境，以支持基于强化学习的LLM Agent训练。该框架包含两个共享统一验证机制的流水线，能够自动生成多样化且连贯的任务指令、可执行环境以及可靠验证。这为构建Agent轨迹测试基准提供了关键基础设施，解决了训练数据匮乏和验证困难的问题。实验表明SETA能高效生成高质量环境，促进终端Agent的规模化训练。",
+      "llm_tldr": "SETA提出一个可扩展框架，用于生成可验证的终端环境，以支持基于强化学习的LLM Agent训练。该框架包含两个共享统一验证机制的流水线，能够自动生成多样化且连贯的任务指令、可执行环境以及可靠验证。这为构建Agent轨迹测试基准提供了关键基础设施，解决了训练数据匮乏和验证困难的问题。实验表明SETA能高效生成高质量环境，促进终端Agent的规模化训练。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.14047v2",
+      "source": "arxiv",
+      "title": "Zero2Skill: Bootstrapping Robot Skills through Autonomous Data Collection, Training, and Deployment",
+      "abstract": "Autonomous data collection governs the volume and quality of real-world trajectories for manipulation policy learning. Existing pipelines reduce human effort via self-resetting, VLM verification, or language-guided correction, yet episode-scoped fixes must be reissued whenever the same failure recurs, so oversight cost grows with session length rather than with the number of distinct problems. We present Zero2Skill, a human-robot symbiotic agentic system in which corrections are retained and reused across rounds. The collection loop collects, verifies, and resets autonomously, pausing for a remote operator only when a phase exhausts an explicit retry budget. An LLM parser maps each natural-language utterance to a structured adjustment stored in Corrective Memory, so addressed failure modes typically need not be corrected again under the same conditions. On a real-robot desktop-clearing testbed, Zero2Skill matches teleoperation episode success while reducing human working time to 16%. Language corrections improve verifier-human agreement in all four evaluated settings and raise average single-attempt success from 12.5% to 47.5% (arm-selection: 20.0% to 50.0%). Policies fine-tuned on Zero2Skill data match teleoperation-trained policy success at a fraction of collection human cost.",
+      "authors": [
+        "Boyuan Wang",
+        "Zhenyuan Zhang",
+        "Zhiqin Yang",
+        "Peijun Gu",
+        "Shuya Wang",
+        "Xiaofeng Wang",
+        "Xianghui Ze",
+        "Yifan Chang",
+        "Guosheng Zhao",
+        "Jiangnan Shao",
+        "Guan Huang",
+        "Hengyu Liu",
+        "Yonggang Zhang",
+        "Wei Xue",
+        "Chunyuan Guan",
+        "Chenglin Pu",
+        "Yike Guo",
+        "Xingang Wang",
+        "Zheng Zhu"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.HC",
+        "eess.SY"
+      ],
+      "published": "2026-07-15T17:16:24+00:00",
+      "link": "https://arxiv.org/pdf/2607.14047v2",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "autonomous data collection and verification of real-world trajectories",
+      "llm_evidence_cn": "真实世界轨迹的自主数据收集与验证",
+      "llm_evidence": "真实世界轨迹的自主数据收集与验证",
+      "canonical_evidence": "真实世界轨迹的自主数据收集与验证",
+      "llm_tldr_en": "Zero2Skill autonomously collects verifies and resets robot manipulation trajectories, retaining human corrections across rounds to reduce oversight cost and improve deployment.",
+      "llm_tldr_cn": "针对机器人操作策略学习中自主数据收集的验证和纠错成本高的问题，该论文提出Zero2Skill人机共生代理系统。系统自主执行收集、验证和重置循环，仅在耗尽重试预算时暂停请求远程操作员。使用LLM解析器将自然语言纠正映射为结构化指令并跨回合复用。实验表明该方法显著降低人工监督成本，同时提升轨迹质量和策略学习效果。",
+      "llm_tldr": "针对机器人操作策略学习中自主数据收集的验证和纠错成本高的问题，该论文提出Zero2Skill人机共生代理系统。系统自主执行收集、验证和重置循环，仅在耗尽重试预算时暂停请求远程操作员。使用LLM解析器将自然语言纠正映射为结构化指令并跨回合复用。实验表明该方法显著降低人工监督成本，同时提升轨迹质量和策略学习效果。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2607.14393v1",
+      "source": "arxiv",
+      "title": "An offline approach to fNIRS-guided reinforcement learning for robot behavior",
+      "abstract": "Human-in-the-loop Reinforcement Learning has become a popular approach to training, finetuning, and aligning robot behavior with user preferences. Our paper explores the feasibility of using brain signals via functional near-infrared spectroscopy (fNIRS) to modulate robot learning in simulation. We compare agents trained on passive (observational) versus active (demonstrative) interaction tasks, and test multiple methods for enhancing the RL algorithm with the neural signal, focusing on parameter augmentation rather than replacement. We further examine how model granularity and noise affect agent learning. Our results show that this framework is effective: the neural signal improves learning when augmenting trajectory priorities and state-action q-values. Additionally, the framework learns successfully from offline data, offering a practical alternative for settings where real-time BCI setups are impractical or only limited data is available.",
+      "authors": [
+        "Julia Santaniello",
+        "Madelaine Brower",
+        "Benson Jiang",
+        "Donatello Sassaroli",
+        "Robert Jacob",
+        "Jivko Sinapov"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO",
+        "cs.AI"
+      ],
+      "published": "2026-07-15T22:12:39+00:00",
+      "link": "https://arxiv.org/pdf/2607.14393v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "reinforcement learning trajectory analysis using fNIRS to augment trajectory priorities",
+      "llm_evidence_cn": "使用fNIRS增强轨迹优先级的强化学习轨迹分析",
+      "llm_evidence": "使用fNIRS增强轨迹优先级的强化学习轨迹分析",
+      "canonical_evidence": "使用fNIRS增强轨迹优先级的强化学习轨迹分析",
+      "llm_tldr_en": "Explores using brain signals (fNIRS) to modulate RL agent learning, showing improvement when augmenting trajectory priorities and state-action pairs.",
+      "llm_tldr_cn": "该论文探索利用功能性近红外光谱脑信号来调节强化学习智能体的学习过程。在仿真中比较了被动观察和主动演示任务，发现通过参数增强方式将神经信号融入RL算法，在增强轨迹优先级和状态-动作对时能有效提升学习效果。研究考察了模型粒度和噪声的影响，证明了该框架的有效性。",
+      "llm_tldr": "该论文探索利用功能性近红外光谱脑信号来调节强化学习智能体的学习过程。在仿真中比较了被动观察和主动演示任务，发现通过参数增强方式将神经信号融入RL算法，在增强轨迹优先级和状态-动作对时能有效提升学习效果。研究考察了模型粒度和噪声的影响，证明了该框架的有效性。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.14277v1",
+      "source": "arxiv",
+      "title": "Multi-Head Latent Control: A Unified Interface for LLM Agent Decision Making",
+      "abstract": "Large language models are increasingly deployed as agents, but reliable agentic behavior requires more than next-token prediction. At inference time, it is preferred that an agent can decide whether to proceed with its current reasoning, defer to a stronger model, request additional information, invoke external tools, or abstain under the given setup. Existing approaches address these decisions through prompt-level routing, external orchestration, or task-specific fine-tuning, which primarily rely on input-side signals, and are often costly and difficult to maintain as model backbones evolve. We ask whether such control decisions can be inferred directly from a model's latent generation process. We introduce Multi-Head Latent Control, a lightweight layer that reads hidden-state trajectories from a frozen LLM or VLM to produce deployment-time control signals. A Capability Head predicts whether the current model can solve the instance or should defer to a stronger collaborator, while a Resolution Head predicts appropriate resolution decision Clarification, Tool Use, Abstention, or Direct Answering. Both heads are trained only on latent traces from the same frozen LLM backbone, enabling post hoc adaptation without modifying the model. Across language and vision-language settings, Multi-Head Latent Control consistently improves the quality-cost tradeoff of multi-model systems, enabling early handoff from partial generations and more accurate intervention decisions. In routed execution (small + large model), it reduces large-model usage by up to 90.7 percent on AndroidWorld and 27-53 percent on average across benchmarks, while retaining most of large-model performance. Additionally, the learned control signals improve tool-use decision quality, yielding up to +158 percent relative score gain and 65.5 percent fewer missed-required tool calls.",
+      "authors": [
+        "Amirhosein Ghasemabadi",
+        "Ruichen Chen",
+        "Bahador Rashidi",
+        "Di Niu"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL"
+      ],
+      "published": "2026-07-15T18:36:54+00:00",
+      "link": "https://arxiv.org/pdf/2607.14277v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "unified interface for LLM agent decision making including verification-related actions",
+      "llm_evidence_cn": "为LLM Agent决策提供统一接口，包含验证相关动作",
+      "llm_evidence": "为LLM Agent决策提供统一接口，包含验证相关动作",
+      "canonical_evidence": "为LLM Agent决策提供统一接口，包含验证相关动作",
+      "llm_tldr_en": "Multi-Head Latent Control infers agent control decisions (e.g., defer, abstain, invoke tools) directly from model latent states, offering a lightweight method for verifying and monitoring agent responses at inference time.",
+      "llm_tldr_cn": "该论文提出多头部潜在控制（Multi-Head Latent Control），直接从LLM的潜在生成过程中推断控制决策，例如是否继续推理、延迟、请求额外信息或弃权。这种方法避免了外部路由或特定微调的开销，提供了一种轻量级的Agent输出验证手段。实验表明该接口能有效提升Agent行为的可靠性与安全性，为Agent输出检测和正确性验证提供了新的思路。",
+      "llm_tldr": "该论文提出多头部潜在控制（Multi-Head Latent Control），直接从LLM的潜在生成过程中推断控制决策，例如是否继续推理、延迟、请求额外信息或弃权。这种方法避免了外部路由或特定微调的开销，提供了一种轻量级的Agent输出验证手段。实验表明该接口能有效提升Agent行为的可靠性与安全性，为Agent输出检测和正确性验证提供了新的思路。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "verification of agent generated responses",
+      "matched_requirement_id": "req-10",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    }
+  ]
+}

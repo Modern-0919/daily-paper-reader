@@ -6,59 +6,47 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-18
-- 运行时间：2026-07-18 21:32:58 UTC
+- 最新运行日期：2026-07-19
+- 运行时间：2026-07-19 21:26:16 UTC
 - 运行状态：成功
-- 本次总论文数：13
-- 精读区：6
-- 速读区：7
+- 本次总论文数：9
+- 精读区：3
+- 速读区：6
 
 ### 今日简报（AI）
-今日处理13篇论文，精读6篇、速读7篇，重点聚焦Web智能体基准和多模态技术。最值得关注的是精读中《MAG: A Web-Agent Benchmark》（8.0分），以及速读中《SPyCE: Skill-Policy Co-evolution》（7.0分）等智能体相关论文。建议优先精读MAG以理解多模态动作生成的前沿评价方法，再扩展至多智能体协作方向。
-- 详情：[/202607/18/README](/202607/18/README)
+今日推荐两篇Agent系统核心论文：精读《Tracing Agentic Failure from the Flow of Success》与《DeepStress: Stress-Testing Deep Search Agents》，均获8.0高分，聚焦Agent失败溯源与压力测试。速读中《Cross-Layer Misalignment Detection》和《SETA: Scaling Environments for Terminal Agents》提供额外维度。建议优先精读这两篇，把握Agent鲁棒性与扩展性前沿。
+- 详情：[/202607/19/README](/202607/19/README)
 
 ### 精读区论文标签
-1. [MAG: A Web-Agent Benchmark and Harness for Multimodal Action and Guide Generation](/202607/18/2607.10079v1-mag-a-web-agent-benchmark-and-harness-for-multimodal-action-and-guide-generation)  
+1. [Tracing Agentic Failure from the Flow of Success](/202607/19/2607.12747v1-tracing-agentic-failure-from-the-flow-of-success)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：首个统一任务执行和指南生成的网页智能体基准
-2. [MAG: A Web-Agent Benchmark and Harness for Multimodal Action and Guide Generation](/202607/18/2607.10079v2-mag-a-web-agent-benchmark-and-harness-for-multimodal-action-and-guide-generation)  
+   evidence：通过成功轨迹学习无监督地识别失败轨迹中的错误步骤
+2. [DeepStress: Stress-Testing Deep Search Agents](/202607/19/2607.13920v1-deepstress-stress-testing-deep-search-agents)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：首个统一任务执行和指南生成的网页智能体基准
-3. [MAG: A Web-Agent Benchmark and Harness for Multimodal Action and Guide Generation](/202607/18/2607.10079v3-mag-a-web-agent-benchmark-and-harness-for-multimodal-action-and-guide-generation)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：引入MAG基准，统一多模态web智能体的任务执行和指南生成，本质测试智能体轨迹
-4. [Reward-Free Evolving Agents via Pairwise Validator](/202607/18/2607.14408v1-reward-free-evolving-agents-via-pairwise-validator)  
+   evidence：通过控制证据质量维度对搜索智能体进行压力测试
+3. [AI Agents Do Not Fail Alone:The Context Fails First](/202607/19/2607.14275v1-ai-agents-do-not-fail-alonethe-context-fails-first)  
    标签：评分：8.0/10、query:agent-output
-   evidence：成对验证器用于代理输出验证
-5. [Proof-or-Stop: Don't Trust the Agent, Trust the Evidence -- Loop Engineering for Verifiable Evidence-Gated Lifecycle Control](/202607/18/2607.14890v1-proof-or-stop-dont-trust-the-agent-trust-the-evidence----loop-engineering-for-verifiable-evidence-gated-lifecycle-control)  
-   标签：评分：8.0/10、query:agent-output
-   evidence：基于可验证证据的agent输出生命周期控制
-6. [StructureClaw: Traceable LLM Agents and an Executable Benchmark for Structural Engineering Workflows](/202607/18/2607.14896v1-structureclaw-traceable-llm-agents-and-an-executable-benchmark-for-structural-engineering-workflows)  
-   标签：评分：8.0/10、query:agent-traj
-   evidence：工程工作流中可追溯代理轨迹的基准
+   evidence：通过上下文工程测量检测异常智能体输出
 
 ### 速读区论文标签
-1. [SPyCE: Skill-Policy Co-evolution for Multimodal Agents](/202607/18/2607.13854v1-spyce-skill-policy-co-evolution-for-multimodal-agents)  
+1. [Cross-Layer Misalignment Detection in Agent Skills: A Progressive Loading-Aware Contrastive Learning Approach](/202607/19/2607.10534v1-cross-layer-misalignment-detection-in-agent-skills-a-progressive-loading-aware-contrastive-learning-approach)  
+   标签：评分：7.0/10、query:agent-output
+   evidence：检测技能描述与行为之间的不一致
+2. [SETA: Scaling Environments for Terminal Agents](/202607/19/2607.10891v1-seta-scaling-environments-for-terminal-agents)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：将多模态推理轨迹蒸馏为可复用技能
-2. [Step-Level Preference Learning for Generative Agents in Social Simulations](/202607/18/2607.14485v1-step-level-preference-learning-for-generative-agents-in-social-simulations)  
+   evidence：为终端Agent生成可验证环境的可扩展框架
+3. [An offline approach to fNIRS-guided reinforcement learning for robot behavior](/202607/19/2607.14393v1-an-offline-approach-to-fnirs-guided-reinforcement-learning-for-robot-behavior)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：收集人类对智能体决策轨迹的步骤级偏好
-3. [Agentic Proof and Property-Based Testing via Property-Templates in Data-Intensive Computing](/202607/18/2607.09072v1-agentic-proof-and-property-based-testing-via-property-templates-in-data-intensive-computing)  
+   evidence：使用fNIRS增强轨迹优先级的强化学习轨迹分析
+4. [Navigating the Crowd: Non-linear MPC with Social Forces Dynamics for Human-Aware Robot Navigation](/202607/19/2607.10374v1-navigating-the-crowd-non-linear-mpc-with-social-forces-dynamics-for-human-aware-robot-navigation)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：提出属性模板用于AI驱动编程的基于属性测试，与代理测试方法相关
-4. [SCALECUA: Scaling Computer Use Agents with Verifiable Task Synthesis and Efficient Online RL](/202607/18/2607.11185v1-scalecua-scaling-computer-use-agents-with-verifiable-task-synthesis-and-efficient-online-rl)  
+   evidence：通过社会力模型MPC测试自主智能体的导航行为
+5. [Zero2Skill: Bootstrapping Robot Skills through Autonomous Data Collection, Training, and Deployment](/202607/19/2607.14047v2-zero2skill-bootstrapping-robot-skills-through-autonomous-data-collection-training-and-deployment)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：通过可验证任务合成扩展计算机使用代理的在线强化学习，实现系统化测试
-5. [Heterogeneous Agent Cohorts for Safe Open-Ended Exploration with Runtime Constraint Memory](/202607/18/2607.11226v1-heterogeneous-agent-cohorts-for-safe-open-ended-exploration-with-runtime-constraint-memory)  
-   标签：评分：6.0/10、query:agent-traj
-   evidence：通过异构agent团队和运行时约束测试LLM agent行为
-6. [MyAG: A Graph-Based Framework for Designing and Analyzing Composable LLM Agent Systems](/202607/18/2607.13474v1-myag-a-graph-based-framework-for-designing-and-analyzing-composable-llm-agent-systems)  
-   标签：评分：6.0/10、query:agent-traj
-   evidence：用于分析和监控语言模型智能体执行轨迹的框架
-7. [Setup Complete, Now You Are Compromised: Weaponizing Setup Instructions Against AI Coding Agents](/202607/18/2607.15143v1-setup-complete-now-you-are-compromised-weaponizing-setup-instructions-against-ai-coding-agents)  
+   evidence：真实世界轨迹的自主数据收集与验证
+6. [Multi-Head Latent Control: A Unified Interface for LLM Agent Decision Making](/202607/19/2607.14277v1-multi-head-latent-control-a-unified-interface-for-llm-agent-decision-making)  
    标签：评分：6.0/10、query:agent-output
-   evidence：评估AI编码agent的供应链攻击，涉及agent输出安全
+   evidence：为LLM Agent决策提供统一接口，包含验证相关动作
 
 
 <div class="dpr-home-promo-card">
