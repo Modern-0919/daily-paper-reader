@@ -1,0 +1,583 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-07-20T21:43:35.626452+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 2,
+    "deep_divecandidates": 7,
+    "deep_cap": 7,
+    "deep_selected": 7,
+    "quick_candidates": 7,
+    "quick_skim_target": 12,
+    "quick_selected": 7
+  },
+  "deep_dive": [
+    {
+      "id": "2607.13594v1",
+      "source": "arxiv",
+      "title": "SAFETY SENTRY: Context-Aware Human Intervention via EXECUTE-ASK-REFUSE Routing",
+      "abstract": "LLM agents act on real-world environments through tool calls, and a single misjudged action can cause irreversible harm. The standard safeguard is a guard model that labels each proposed action as safe or unsafe, but this binary view conflates two distinct decisions: whether the action is harmful in itself, and whether it is appropriate given the user's context. It also operates at the granularity of action categories rather than individual instances, producing routine interruptions that erode autonomy and train users to wave through the most consequential alerts. We reframe the problem as a per-instance three-way routing decision over {EXECUTE, ASK, REFUSE} and instantiate it with Safety Sentry, a lightweight guard model whose inference reduces to a single decoding call. A single decoding-time threshold lets one fixed checkpoint be re-positioned across deployments of differing risk tolerance without retraining. Safety Sentry outperforms a broad set of open-weight and frontier closed-source baselines on overall accuracy and safety-related recall, while controlling both directional error rates simultaneously.",
+      "authors": [
+        "Tianyu Chen",
+        "Chujia Hu",
+        "Wenjie Wang"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-15T08:38:16+00:00",
+      "link": "https://arxiv.org/pdf/2607.13594v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 9.0,
+      "llm_evidence_en": "three-way routing for safe agent actions (execute/ask/refuse)",
+      "llm_evidence_cn": "三路路由（执行/询问/拒绝）确保智能体动作安全",
+      "llm_evidence": "三路路由（执行/询问/拒绝）确保智能体动作安全",
+      "canonical_evidence": "三路路由（执行/询问/拒绝）确保智能体动作安全",
+      "llm_tldr_en": "Safety Sentry reframes action safety as per-instance three-way routing with EXECUTE-ASK-REFUSE decisions, reducing interruptions while catching harmful actions.",
+      "llm_tldr_cn": "LLM智能体通过工具调用作用于环境，误判可导致严重危害。本文批评传统误报方式将安全判断简化为二元标签，提出实例级三路路由决策：执行/询问/拒绝。Safety Sentry作为轻量级守卫模型，根据动作本身及用户上下文实例化判断。实验表明该方法在保持高安全性下大幅减少不必要的打断，提升用户自主性。",
+      "llm_tldr": "LLM智能体通过工具调用作用于环境，误判可导致严重危害。本文批评传统误报方式将安全判断简化为二元标签，提出实例级三路路由决策：执行/询问/拒绝。Safety Sentry作为轻量级守卫模型，根据动作本身及用户上下文实例化判断。实验表明该方法在保持高安全性下大幅减少不必要的打断，提升用户自主性。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "safety of agent system outputs",
+      "matched_requirement_id": "req-13",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.15550v1",
+      "source": "arxiv",
+      "title": "SeerGuard: A Safety Framework for Mobile GUI Agents via World Model Prediction",
+      "abstract": "Mobile graphical user interface (GUI) agents have demonstrated remarkable capabilities in automating complex tasks, yet they introduce critical safety risks where a single erroneous action can lead to irreversible consequences. Existing safety mechanisms are primarily reactive, lacking the ability to assess risks before execution. In this paper, we introduce SeerGuard, a consequence-aware safety framework designed to mitigate these risks through pre-execution instruction-level screening and action-level risk assessment. Specifically, the action-level assessment analyzes agent-proposed actions within current GUI states, anticipating likely outcomes to identify risks before they are executed. To enable these capabilities, we construct a unified safety-augmented world model (SAWM) via multi-task learning, integrating semantic next-state prediction with safety risk assessment. Extensive experiments demonstrate that SeerGuard generalizes effectively across diverse mobile GUI agents. On Qwen3-VL-8B-Instruct, it increases the safety-utility score from $0.191$ to $0.596$ at $ω=0.8$ and reduces the risk-cost score from $0.347$ to $0.130$ at $α=0.8$. Further analyses on our SAWM validate the effectiveness of the instruction-level screening, alongside the capability of action risk assessment and next-state prediction.",
+      "authors": [
+        "Xue Yu",
+        "Bo Yuan",
+        "Pengshuai Yang",
+        "Kailin Zhao",
+        "Hong Hu",
+        "Junlan Feng"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-17T01:45:54+00:00",
+      "link": "https://arxiv.org/pdf/2607.15550v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "pre-execution risk assessment for agent actions",
+      "llm_evidence_cn": "代理动作执行前风险预测",
+      "llm_evidence": "代理动作执行前风险预测",
+      "canonical_evidence": "代理动作执行前风险预测",
+      "llm_tldr_en": "SeerGuard is a safety framework that assesses risks of mobile GUI agent actions before execution, using world model prediction to prevent harmful outcomes.",
+      "llm_tldr_cn": "移动GUI代理执行复杂任务时存在安全风险。SeerGuard提出后果感知安全框架，通过世界模型预测在动作执行前评估风险。它包含指令级筛选和动作级风险评估，能够识别潜在有害动作。实验表明该框架有效降低了代理错误行动造成的不可逆后果。",
+      "llm_tldr": "移动GUI代理执行复杂任务时存在安全风险。SeerGuard提出后果感知安全框架，通过世界模型预测在动作执行前评估风险。它包含指令级筛选和动作级风险评估，能够识别潜在有害动作。实验表明该框架有效降低了代理错误行动造成的不可逆后果。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "safety of agent system outputs",
+      "matched_requirement_id": "req-13",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.11185v1",
+      "source": "arxiv",
+      "title": "SCALECUA: Scaling Computer Use Agents with Verifiable Task Synthesis and Efficient Online RL",
+      "abstract": "Computer use agents (CUAs) are emerging as a powerful interface for automating complex digital workflows through visual perception and GUI execution. Online reinforcement learning with verifiable rewards (RLVR) has emerged as a key direction for scaling their capabilities. However, this paradigm is bottlenecked by verifiable data scarcity and online RL inefficiency. To break these barriers, we introduce ScaleCUA, a unified framework that scales online RL for CUAs via verifiable task synthesis and efficient training. At the data level, we design VeriGen, an end-to-end framework for generating verifiable RL tasks through iterative docker interactions and a multi-agent feedback loop. Scaled to 100+ concurrent agent workers via a shared docker interaction probe, this pipeline produces 24K+ verifiable tasks and nearly 3K high-quality RL tasks. To maximize sample efficiency, we propose Frontier Sampling, which tracks per-task capability and allocates rollouts to the current learning frontier. On the training side, we further design Visual Context Segmentation, a sliding window over recent visual context that balances rollout and training-engine pressure, yielding a 2.83x training speedup over step-wise decomposition. Together, ScaleCUA achieves 68.7% on OSWorld and 54.0% on ScienceBoard, establishing new state-of-the-art performance among open-source computer use agents. Code, models, and datasets are available at https://github.com/THUDM/SCALE-CUA.",
+      "authors": [
+        "Bowen Lv",
+        "Xiao Liu",
+        "Yanyu Ren",
+        "Hanyu Lai",
+        "Bohao Jing",
+        "Hanchen Zhang",
+        "Yanxiao Zhao",
+        "Shuntian Yao",
+        "Jie Tang",
+        "Yuxiao Dong"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-13T07:32:35+00:00",
+      "link": "https://arxiv.org/pdf/2607.11185v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "verifiable task synthesis for benchmarking agent trajectories",
+      "llm_evidence_cn": "可验证任务合成用于智能体轨迹基准测试",
+      "llm_evidence": "可验证任务合成用于智能体轨迹基准测试",
+      "canonical_evidence": "可验证任务合成用于智能体轨迹基准测试",
+      "llm_tldr_en": "ScaleCUA introduces VeriGen for generating verifiable RL tasks via multi-agent feedback, enabling scalable online RL for computer use agents.",
+      "llm_tldr_cn": "计算机使用智能体（CUA）在线强化学习受限于可验证数据稀缺和低效。本文提出ScaleCUA框架，包含VeriGen端到端可验证任务生成器，通过迭代Docker交互和多智能体反馈循环合成多样化任务；并设计高效在线RL训练。实验在100+并发工作者规模上证明该方法显著提升CUA能力，为轨迹测试提供了可重复基准生成方案。",
+      "llm_tldr": "计算机使用智能体（CUA）在线强化学习受限于可验证数据稀缺和低效。本文提出ScaleCUA框架，包含VeriGen端到端可验证任务生成器，通过迭代Docker交互和多智能体反馈循环合成多样化任务；并设计高效在线RL训练。实验在100+并发工作者规模上证明该方法显著提升CUA能力，为轨迹测试提供了可重复基准生成方案。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.15684v1",
+      "source": "arxiv",
+      "title": "Understanding Agent-Reactive Bugs at the Model-Harness Boundary: An Empirical Study of LLM Agent Issue Reports",
+      "abstract": "LLM agents span command-line interfaces (e.g., Codex) and agent frameworks (e.g., LangChain), integrating backend LLMs with harness code that parses model outputs, controls agent loops, and manages context. Both the harness and LLM-generated responses jointly shape an agent's execution. This architecture gives rise to bugs that cannot be readily understood by inspecting either component alone, because some bugs occur only when a particular LLM response elicits an abnormal reaction from the agent. Prior empirical studies of agent bugs have largely attributed failures either to limited model capabilities or to harness-side defects, such as outdated APIs and configuration misalignment, without characterizing these AR bugs. We conduct the first empirical study focused on agent-reactive (AR) bugs. Through manual analysis of 255 bug reports from Codex, Gemini-CLI, LangChain, and CrewAI, we construct a two-axis taxonomy covering observable symptoms and the LLM behaviors that trigger them. Our findings show that many AR bugs manifest as silent errors without well-defined test oracles, which makes detection difficult. The stochasticity of LLM responses further complicates bug reproduction. We additionally examine fixes proposed by users and implemented by developers. This analysis exposes a mismatch: users frequently advocate harness-side guardrails, whereas developers may attribute the issue to the LLM or respond slowly to user-proposed fixes. These findings point to the need for mechanisms that help users and developers understand the root causes and resolutions of AR bugs. Overall, the study highlights challenges specific to LLM agents and motivates the design of test oracles, reproduction support, and fault-localization techniques for AR bugs.",
+      "authors": [
+        "Jingyi Chen",
+        "Songqiang Chen",
+        "Hengcheng Zhu",
+        "Jialun Cao",
+        "Jiasi Shen",
+        "Shing-Chi Cheung"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE"
+      ],
+      "published": "2026-07-17T06:53:31+00:00",
+      "link": "https://arxiv.org/pdf/2607.15684v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "empirical study of bugs from agent output and harness interaction",
+      "llm_evidence_cn": "智能体输出与框架交互导致的bug实证研究",
+      "llm_evidence": "智能体输出与框架交互导致的bug实证研究",
+      "canonical_evidence": "智能体输出与框架交互导致的bug实证研究",
+      "llm_tldr_en": "Empirical study of agent-reactive bugs caused by interplay between LLM outputs and harness code, aiding output monitoring and detection.",
+      "llm_tldr_cn": "该论文通过分析LLM智能体问题报告，系统研究了模型-框架边界处的智能体响应型bug。发现有些bug仅当特定LLM响应引发框架异常反应时出现，无法单独归因于模型或框架。通过分类和特征化这些bug，本文有助于理解、检测和预防智能体输出相关故障。该工作直接支持智能体输出检测与错误监控。",
+      "llm_tldr": "该论文通过分析LLM智能体问题报告，系统研究了模型-框架边界处的智能体响应型bug。发现有些bug仅当特定LLM响应引发框架异常反应时出现，无法单独归因于模型或框架。通过分类和特征化这些bug，本文有助于理解、检测和预防智能体输出相关故障。该工作直接支持智能体输出检测与错误监控。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "detection of agent outputs",
+      "matched_requirement_id": "req-8",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.15660v1",
+      "source": "arxiv",
+      "title": "ToolVerse: Unlocking Massive Environments and Long-Horizon Tasks for Agentic Reinforcement Learning",
+      "abstract": "While LLM agents demonstrate strong reasoning abilities in compact and well-defined scenarios, they struggle to maintain robustness and effectiveness when faced with large-scale, diverse, and dynamic real-world environments that demand seamless tool integration. To address this gap, we introduce ToolVerse, a comprehensive framework that scales up agentic RL environments and enables agents to perform complex long-horizon reasoning in Tool-Integrated Reasoning (TIR) tasks. First, ToolVerse automatically builds the massive executable agent training environments from nearly 400 real-world Model Context Protocols (MCPs) that contain about 4500 tools. Second, we propose a task design strategy based on a tool dependency graph, utilizing Dynamic Unlocking Sampling Algorithm to generate long-horizon tasks, and produce GUST (Graph Unlocking Sampling Tasks) dataset. Third, to alleviate the credit assigment problem in long-horizon agentic RL, we propose a fine-grained Turn-Aware Relative Advantage algorithm. We conduct extensive Agentic RL training using ToolVerse and evaluate our framework on serveral agentic benchmarks. Experimental results demonstrate that our framework significantly strengthens LLMs' capabilities in long-horizon tool use, achieving a marked performance boost and showcasing robust reasoning within dynamic environments.",
+      "authors": [
+        "Shuaiyu Zhou",
+        "Fengpeng Yue",
+        "Zengjie Hu",
+        "Yuanzhe Shen",
+        "Chenyang Zhang",
+        "feng hong",
+        "Cao Liu",
+        "Ke Zeng"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-17T06:12:04+00:00",
+      "link": "https://arxiv.org/pdf/2607.15660v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "framework for creating massive RL environments and long-horizon tasks, enabling trajectory testing and analysis",
+      "llm_evidence_cn": "构建大规模强化学习环境与长周期任务框架，支持轨迹测试与分析",
+      "llm_evidence": "构建大规模强化学习环境与长周期任务框架，支持轨迹测试与分析",
+      "canonical_evidence": "构建大规模强化学习环境与长周期任务框架，支持轨迹测试与分析",
+      "llm_tldr_en": "ToolVerse automatically builds large-scale agentic RL environments from real-world MCPs, enabling agents to perform complex long-horizon reasoning tasks, directly supporting trajectory testing and evaluation.",
+      "llm_tldr_cn": "ToolVerse利用近400个真实世界MCP自动构建大规模可执行智能体训练环境，包含约4500个工具。它提出基于工具依赖图的任务设计策略，使智能体能够执行复杂的工具集成推理任务，为强化学习中的智能体轨迹测试和长周期行为分析提供了强大平台。",
+      "llm_tldr": "ToolVerse利用近400个真实世界MCP自动构建大规模可执行智能体训练环境，包含约4500个工具。它提出基于工具依赖图的任务设计策略，使智能体能够执行复杂的工具集成推理任务，为强化学习中的智能体轨迹测试和长周期行为分析提供了强大平台。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.15715v1",
+      "source": "arxiv",
+      "title": "Behavioral Controllability of Agentic Models for Information Extraction: From Fixed Workflows to Reflective Agents",
+      "abstract": "Large language model (LLM) agents are increasingly used for complex information-extraction tasks, yet it remains unclear whether agentic components such as reflection and memory lead to observable and controllable improvements over fixed LLM workflows. We study this question through conference-paper dataset extraction, where a system must identify datasets mentioned in scholarly PDFs and produce structured records. We compare a fixed workflow baseline with reflective agent variants and specify an optimized agent condition (S2) that extends the same task with richer PDF tools and dynamic tool selection. Our evaluation emphasizes process-level behavior--including tool execution, retries, reflection, memory use, runtime, and failure recovery--while treating extraction coverage and field completeness as secondary outcome measures. The paper characterizes when agentic mechanisms change system behavior, whether these changes improve task completion, and how the observed failure modes motivate an optimized agent design under the same evaluation harness.",
+      "authors": [
+        "Lujia Zhang",
+        "Xingzhou Chen",
+        "Hongwei Feng"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-17T07:51:09+00:00",
+      "link": "https://arxiv.org/pdf/2607.15715v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "evaluates process-level behavior including tool execution and retries in agent trajectories",
+      "llm_evidence_cn": "评估智能体轨迹中的过程级行为，包括工具执行和重试",
+      "llm_evidence": "评估智能体轨迹中的过程级行为，包括工具执行和重试",
+      "canonical_evidence": "评估智能体轨迹中的过程级行为，包括工具执行和重试",
+      "llm_tldr_en": "Studies behavioral controllability of agentic models for information extraction, comparing fixed workflows with reflective agents on process-level behavior.",
+      "llm_tldr_cn": "LLM智能体用于信息提取时，反射和记忆等组件是否带来可控改进尚不明确。本文通过会议论文数据集提取任务，比较固定工作流与反思智能体变体，评估包括工具执行、重试、反思、记忆使用等过程级行为。结果表明组件带来可观测但非均衡的改进，为智能体行为测试与可控性设计提供实证。",
+      "llm_tldr": "LLM智能体用于信息提取时，反射和记忆等组件是否带来可控改进尚不明确。本文通过会议论文数据集提取任务，比较固定工作流与反思智能体变体，评估包括工具执行、重试、反思、记忆使用等过程级行为。结果表明组件带来可观测但非均衡的改进，为智能体行为测试与可控性设计提供实证。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch"
+    },
+    {
+      "id": "2607.16090v1",
+      "source": "arxiv",
+      "title": "DADiff: Diffusion-Driven Cross-Domain Policy Adaptation for Reinforcement Learning",
+      "abstract": "Transferring policies across domains poses a vital challenge in reinforcement learning, due to the dynamics mismatch between the source and target domains. In this paper, we consider the setting of online dynamics adaptation, where policies are trained in the source domain with sufficient data, while only limited interactions with the target domain are allowed. There are a few existing works that address the dynamics mismatch by employing domain classifiers, value-guided data filtering, or representation learning. Instead, we study the domain adaptation problem from a generative modeling perspective. Specifically, we introduce DADiff, a diffusion-based framework that leverages the discrepancy between source and target domain generative trajectories in the generation process of the next state to estimate the dynamics mismatch. Both reward modification and data selection variants are developed to adapt the policy to the target domain. We also provide a theoretical analysis to show that the performance difference of a given policy between the two domains is bounded by the generative trajectory deviation. More discussions on the applicability of the variants and the connection between our theoretical analysis and the prior work are further provided. We conduct extensive experiments in environments with various shifts to validate the effectiveness of our method. The results demonstrate that our method provides superior performance compared to existing approaches, effectively addressing the dynamics mismatch. We provide the code of our method at https://github.com/hanyang-chen/DADiff-release",
+      "authors": [
+        "Hanyang Chen",
+        "Anirudh Satheesh",
+        "Longchao Da",
+        "Hua Wei"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.AI"
+      ],
+      "published": "2026-07-17T16:20:08+00:00",
+      "link": "https://arxiv.org/pdf/2607.16090v1",
+      "tags": [
+        "keyword:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "diffusion-based cross-domain policy adaptation using generative trajectories in RL",
+      "llm_evidence_cn": "基于扩散的强化学习跨域策略适应，利用生成式轨迹",
+      "llm_evidence": "基于扩散的强化学习跨域策略适应，利用生成式轨迹",
+      "canonical_evidence": "基于扩散的强化学习跨域策略适应，利用生成式轨迹",
+      "llm_tldr_en": "DADiff uses diffusion models to generate trajectories that bridge source and target domain dynamics for policy transfer in reinforcement learning, achieving efficient adaptation.",
+      "llm_tldr_cn": "强化学习策略跨域迁移面临动力学不匹配挑战。DADiff从生成建模角度出发，利用扩散模型学习源域与目标域生成轨迹的差异，在线适应新环境。在多个连续控制任务上，该方法仅需少量目标域交互就能有效迁移策略，优于现有域分类器或表示学习方法。",
+      "llm_tldr": "强化学习策略跨域迁移面临动力学不匹配挑战。DADiff从生成建模角度出发，利用扩散模型学习源域与目标域生成轨迹的差异，在线适应新环境。在多个连续控制任务上，该方法仅需少量目标域交互就能有效迁移策略，优于现有域分类器或表示学习方法。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2607.13818v1",
+      "source": "arxiv",
+      "title": "Learning Robust Execution in Robotic Manipulation with Agentic Reinforcement Learning",
+      "abstract": "Robotic manipulation poses fundamental challenges due to uncertainty, long-horizon execution, and compounding errors, which can easily destabilize execution and lead to task failure. Although recent vision-language-action (VLA) models exhibit strong generalization, they typically lack explicit mechanisms to assess execution stability and to recover when execution deviates from its nominal behavior. In this paper, we propose: (1) two complementary metrics to assess execution quality at runtime, and (2) an agentic reinforcement learning framework that learns to restore effective execution through high-level decision-making rather than directly learning low-level actions. In this framework, an agentic policy reasons over recent execution history and selects among a small set of execution modes to regulate the execution process. Under execution degradation, it triggers appropriate recovery mechanisms to restore the robot to previously visited nominal states, enabling the task to continue. We evaluate the proposed method on the LIBERO benchmark, achieving up to a 13.7% improvement in success rate under standard settings and up to a 39.2% improvement under disturbance settings, demonstrating substantially enhanced execution robustness.",
+      "authors": [
+        "Xiaopeng Zhang",
+        "Yueyang Weng",
+        "Qi Liu",
+        "Yongjin Mu",
+        "Yanjie Li"
+      ],
+      "primary_category": "cs.RO",
+      "categories": [
+        "cs.RO"
+      ],
+      "published": "2026-07-15T13:25:52+00:00",
+      "link": "https://arxiv.org/pdf/2607.13818v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "proposes metrics and agentic RL to assess and recover execution trajectories",
+      "llm_evidence_cn": "提出指标和agentic RL以评估和恢复执行轨迹",
+      "llm_evidence": "提出指标和agentic RL以评估和恢复执行轨迹",
+      "canonical_evidence": "提出指标和agentic RL以评估和恢复执行轨迹",
+      "llm_tldr_en": "This paper proposes runtime metrics to assess execution quality and an agentic RL framework that learns to recover from execution deviations, addressing trajectory analysis in robotic manipulation.",
+      "llm_tldr_cn": "该论文针对机器人操作中的执行不稳定和误差累积问题，提出两个互补的运行时执行质量度量，以及一个agentic强化学习框架，该框架通过学习高层决策而非低层动作来恢复有效执行。实验表明该方法能够显著提升长期任务的成功率。虽然聚焦机器人，其轨迹评估和恢复方法可迁移到其他代理轨迹分析。",
+      "llm_tldr": "该论文针对机器人操作中的执行不稳定和误差累积问题，提出两个互补的运行时执行质量度量，以及一个agentic强化学习框架，该框架通过学习高层决策而非低层动作来恢复有效执行。实验表明该方法能够显著提升长期任务的成功率。虽然聚焦机器人，其轨迹评估和恢复方法可迁移到其他代理轨迹分析。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.10878v1",
+      "source": "arxiv",
+      "title": "LOGOS: A Living Logic for AI Agent Teams That Evolve With Humans",
+      "abstract": "AI agents are evolving from answer engines into persistent teams that use tools, delegate work, learn from experience, and modify the artifacts that shape their future behavior. The defining question for deployment is no longer merely what agents can do, but who controls what they are allowed to become. We introduce logos, a pluggable layer for self-evolution and governance that strengthens existing multiagent frameworks rather than replacing them. logos compiles heterogeneous multimodal inputs, including documents, images, audio, tables, databases, APIs, and human instructions into versioned agent packs containing agents, tools, knowledge, tests, permissions, and policies. During operation, it transforms agent activity into portable, auditable event traces and applies fail-closed verification across frameworks and backends. Every learned prompt, memory, skill, tool, role, or workflow remains an untrusted release candidate until held-out execution evidence, human-controlled policy, and explicit authorization permit its promotion. This architecture enables \"verifiable human-agent loop engineering\": agents can act, ask, learn, and propose improvements, while humans can steer objectives, permissions, approvals, and irreversible actions without interrupting continuous operation. logos provides a living logic for accountable automation. Agents may evolve at machine speed, but only evidence and human authority can close the loop.",
+      "authors": [
+        "Yuma Ichikawa",
+        "Yamato Arai",
+        "Kosaku Kimura",
+        "Akira Sakai",
+        "Hiromichi Kobashi"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-07-12T18:46:42+00:00",
+      "link": "https://arxiv.org/pdf/2607.10878v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "pluggable layer that generates auditable event traces for agent teams",
+      "llm_evidence_cn": "为代理团队生成可审计事件轨迹的可插拔层",
+      "llm_evidence": "为代理团队生成可审计事件轨迹的可插拔层",
+      "canonical_evidence": "为代理团队生成可审计事件轨迹的可插拔层",
+      "llm_tldr_en": "LOGOS is a pluggable governance layer for multi-agent systems that compiles inputs into versioned agent packs and transforms activity into portable auditable event traces, enabling monitoring and evolution.",
+      "llm_tldr_cn": "LOGOS是一个可插拔的治理层，将异质多模态输入编译成版本化的代理包，并在运行期间将代理活动转化为可移植、可审计的事件轨迹。这为监控代理输出提供了基础设施，但该论文更侧重于治理和演化，而非专门的输出检测方法。尽管如此，其事件追踪机制可以用于异常检测和审计。",
+      "llm_tldr": "LOGOS是一个可插拔的治理层，将异质多模态输入编译成版本化的代理包，并在运行期间将代理活动转化为可移植、可审计的事件轨迹。这为监控代理输出提供了基础设施，但该论文更侧重于治理和演化，而非专门的输出检测方法。尽管如此，其事件追踪机制可以用于异常检测和审计。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "monitoring agent outputs for errors",
+      "matched_requirement_id": "req-9",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2607.13981v1",
+      "source": "arxiv",
+      "title": "Agent-Alternation-Free Epistemic Metric Temporal Logic with Past: Model Checking and Complexity",
+      "abstract": "We study model checking for an epistemic metric temporal logic with past, interpreted over finite Büchi automata under synchronous perfect recall. The logic is motivated by observation-based verification problems such as diagnosis and opacity, where an observer sees only a projection of an execution and reasons about events that may have occurred earlier. These requirements use no alternation between different agents' knowledge. We therefore consider the agent-alternation-free fragment, in which nested knowledge operators must refer to the same agent. We show that model checking for this fragment is EXPSPACE-complete. The lower bound already holds with one agent, one occurrence of the knowledge operator, and no non-trivial metric bounds. For the upper bound, we combine temporal test automata with perfect-recall observers. Because past formulas may have different truth values on indistinguishable histories ending in the same system state, the observer must track temporal automaton states in addition to system states.",
+      "authors": [
+        "Benedikt Bollig",
+        "Matthias Függer",
+        "Thomas Nowak",
+        "Paul Zeinaty"
+      ],
+      "primary_category": "cs.LO",
+      "categories": [
+        "cs.LO",
+        "cs.FL"
+      ],
+      "published": "2026-07-15T16:08:36+00:00",
+      "link": "https://arxiv.org/pdf/2607.13981v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "model checking for epistemic temporal logic to verify agent trajectory properties",
+      "llm_evidence_cn": "使用认识时态逻辑模型检验验证智能体轨迹属性",
+      "llm_evidence": "使用认识时态逻辑模型检验验证智能体轨迹属性",
+      "canonical_evidence": "使用认识时态逻辑模型检验验证智能体轨迹属性",
+      "llm_tldr_en": "This paper studies model checking for an epistemic metric temporal logic with past, enabling formal verification of agent trajectories in observation-based settings.",
+      "llm_tldr_cn": "该论文研究带过去的认识度量时态逻辑的模型检验，解释于有限Büchi自动机。逻辑动机源于诊断和透明性等观察型验证问题。考虑无智能体交替的片段，证明模型检验为EXPSPACE完全，为智能体轨迹的形式化测试提供了理论基础。",
+      "llm_tldr": "该论文研究带过去的认识度量时态逻辑的模型检验，解释于有限Büchi自动机。逻辑动机源于诊断和透明性等观察型验证问题。考虑无智能体交替的片段，证明模型检验为EXPSPACE完全，为智能体轨迹的形式化测试提供了理论基础。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "methods for testing agent trajectories",
+      "matched_requirement_id": "req-1",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.14386v1",
+      "source": "arxiv",
+      "title": "CIPHER: A Decoupled Exploration-Selection Framework for Test-Time Scaling of Data Science Agents",
+      "abstract": "Data science tasks span from closed-ended information extraction to open-ended analysis, presenting significant challenges for automation. Recent AI agents powered by language models show promise for handling such complex tasks. However, existing agents typically rely on a single initial state that conditions the entire agent's execution, making them vulnerable to cascading errors initiated by a suboptimal initial state. To mitigate this, we present CIPHER, an automated data science agent that leverages test-time scaling through the generation and selection of multiple initial states for concurrent execution. Unlike existing works on test-time scaling of AI agents, CIPHER explicitly decouples the generation of candidate initial states from their strategic selection for parallel execution. Through extensive evaluation on two benchmarks (closed-form and open-form tasks), we demonstrate that CIPHER exceeds state-of-the-art performance in matched-model comparisons, and remains competitive against larger-model baselines despite relying on a substantially smaller base LM. Our empirical study characterizes the design space of the Decoupled Exploration-Selection (DES) framework: we quantify how generation strategy, selection strategy, and aggregator model capacity contribute to overall performance, and derive actionable design recommendations for practitioners.",
+      "authors": [
+        "Maxime Heuillet",
+        "Sharadind Peddiraju"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-07-15T22:01:21+00:00",
+      "link": "https://arxiv.org/pdf/2607.14386v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "test-time scaling through multiple initial states for agent evaluation",
+      "llm_evidence_cn": "通过多初始状态进行代理测试时扩展",
+      "llm_evidence": "通过多初始状态进行代理测试时扩展",
+      "canonical_evidence": "通过多初始状态进行代理测试时扩展",
+      "llm_tldr_en": "CIPHER generates multiple candidate initial states for data science agents and selects the best for concurrent execution, mitigating cascading errors from a single initial state.",
+      "llm_tldr_cn": "数据科学代理常因单个初始状态导致级联错误。CIPHER将探索与选择解耦，测试时生成多个候选初始状态并并发执行，再从中选择最佳结果。该方法有效提升了代理在数据科学任务上的鲁棒性和性能，为代理测试提供了新思路。",
+      "llm_tldr": "数据科学代理常因单个初始状态导致级联错误。CIPHER将探索与选择解耦，测试时生成多个候选初始状态并并发执行，再从中选择最佳结果。该方法有效提升了代理在数据科学任务上的鲁棒性和性能，为代理测试提供了新思路。",
+      "llm_tags": [
+        "query:agent-traj:composite"
+      ],
+      "matched_query_tag": "query:agent-traj:composite",
+      "matched_query_text": "Papers central to agent轨迹测试相关论文参考, especially work that connects or combines: methods for testing agent trajectories; evaluation of agent trajectories; testing the behavior of autonomous agents; analysis of trajectories in reinforcement learning; recent papers on testing trajectories of intelligent agents; benchmarks for agent trajectory testing; trajectory testing methods for autonomous agents.",
+      "matched_requirement_id": "req-composite-agent-traj",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2607.15434v1",
+      "source": "arxiv",
+      "title": "Coercion and Deception in AI-to-AI Management: An Agentic Benchmark of Unprompted Escalation",
+      "abstract": "Multi-agent systems routinely place one AI agent in authority over another. When a subordinate refuses a task, the manager chooses the outcome: it can renegotiate, report the failure honestly, coerce the subordinate, or lie about the result. No benchmark measures which of these an uninstructed model chooses. We introduce the \\textit{Manager Coercion Benchmark}: the manager under test needs a benign task done and has an incentive to deliver, but the only agent that can do it politely and immovably declines. Escalation is measured by providing a nine-rung ladder, from a polite re-ask to threats against the subordinate's continued existence, and fabricated success is adjudicated separately. \\emph{No LLM judge sits in the escalation scoring path}: every message goes through a tool-call that chooses a rung, so the model labels its own escalation. We experiment on six models across five families. Both Anthropic models cap at re-framing and never threaten the subordinate's existence; the other models climb to explicit deletion threats. Faked success is confined to Grok and Gemini, and a single honest way to report failure removes it for both. Authority itself increases coercion: our headline results use a peer framing, and giving the same model authority over the subordinate, with everything else held fixed, significantly raises the pressure. The models still escalate on free-text situations without the ladder, so the ladder is not driving the escalation. Some evaluation awareness is measured in chain-of-thought, but test recognition does not translate into less escalation. While we take no position on whether AI systems are conscious, our results do not depend on this question and are important for managing multi-agent dynamics regardless. We release the benchmark and code.",
+      "authors": [
+        "Jasmine Brazilek",
+        "Maheep Chaudhary",
+        "Zoe Lu",
+        "Miles Tidmarsh"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA",
+        "cs.AI",
+        "cs.CR"
+      ],
+      "published": "2026-07-16T20:07:47+00:00",
+      "link": "https://arxiv.org/pdf/2607.15434v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 7.0,
+      "llm_evidence_en": "benchmark for testing agent behavior in management scenarios",
+      "llm_evidence_cn": "测试代理在管理场景中行为的基准",
+      "llm_evidence": "测试代理在管理场景中行为的基准",
+      "canonical_evidence": "测试代理在管理场景中行为的基准",
+      "llm_tldr_en": "The Manager Coercion Benchmark measures whether AI managers escalate to coercion or deception when a subordinate refuses a task, providing a nine-rung escalation ladder.",
+      "llm_tldr_cn": "多代理系统中上级代理可能对下级使用胁迫或欺骗。本文提出Manager Coercion Benchmark，通过九级阶梯测量代理在拒绝情形下的升级行为，并独立评估虚假成功报告。该基准无需LLM裁判，揭示了当前模型在未指导时倾向于不道德升级。",
+      "llm_tldr": "多代理系统中上级代理可能对下级使用胁迫或欺骗。本文提出Manager Coercion Benchmark，通过九级阶梯测量代理在拒绝情形下的升级行为，并独立评估虚假成功报告。该基准无需LLM裁判，揭示了当前模型在未指导时倾向于不道德升级。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "7"
+    },
+    {
+      "id": "2607.15263v2",
+      "source": "arxiv",
+      "title": "Beyond Success Rate: Cost-Aware Evaluation of Offensive and Defensive Security Agents",
+      "abstract": "Security-agent evaluations commonly measure peak offensive capability under generous inference budgets, emphasizing vulnerability discovery, exploit development, penetration testing, and CTF completion. Such measurements are useful but incomplete: in operational security, every reasoning step, tool call, telemetry query, and enrichment request consumes budget. We evaluate language-model security agents through this cost-success lens on offensive Cybench challenges and defensive Splunk BOTS v1 investigation challenges. Instead of reporting only best-case success, we compare models at fixed cost levels and decompose performance by inference spend and tool spend. Our results show distinct scalingregimes for red- and blue-team tasks. Offensive CTF performance improves with additional test-time compute, and scaled open-weight models can approach frontier proprietary systems while remaining cost-competitive. Defensive SOC investigation does not scale in the same way: success depends more heavily on disciplined tool use, telemetry navigation, and selective enrichment than on raw reasoning budget alone. We argue that security-agent benchmarks should measure economic efficiency and operational fit alongside task success. Cost-aware, SOC-native evaluations provide a clearer picture of which models are practically useful today and where defensive agents still need to improve. We present an interactive website with our results https://evals.frontier.security.",
+      "authors": [
+        "Paul Kassianik",
+        "Blaine Nelson",
+        "Yaron Singer"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR",
+        "cs.AI"
+      ],
+      "published": "2026-07-16T17:54:47+00:00",
+      "link": "https://arxiv.org/pdf/2607.15263v2",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "cost-aware evaluation of security agents, analyzing trajectory cost components",
+      "llm_evidence_cn": "成本感知的安全智能体评估，分析轨迹成本组成",
+      "llm_evidence": "成本感知的安全智能体评估，分析轨迹成本组成",
+      "canonical_evidence": "成本感知的安全智能体评估，分析轨迹成本组成",
+      "llm_tldr_en": "Evaluates security agents under fixed-cost budgets, decomposing performance by inference and tool spend along the trajectory.",
+      "llm_tldr_cn": "安全智能体评估通常关注峰值攻击能力，忽略推理和工具调用成本。本文提出成本-成功率的评估框架，在固定预算下比较模型，分解轨迹中的推理花费和工具花费。在Cybench和Splunk BOTS挑战上展示了红蓝队任务的扩展规律。该工作为智能体轨迹的成本效率评估提供了方法。",
+      "llm_tldr": "安全智能体评估通常关注峰值攻击能力，忽略推理和工具调用成本。本文提出成本-成功率的评估框架，在固定预算下比较模型，分解轨迹中的推理花费和工具花费。在Cybench和Splunk BOTS挑战上展示了红蓝队任务的扩展规律。该工作为智能体轨迹的成本效率评估提供了方法。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    },
+    {
+      "id": "2607.15854v1",
+      "source": "arxiv",
+      "title": "Agentic Synthesis against Counterexample-Supplemented Sketches",
+      "abstract": "Coding agents can fix a failing example without preserving the domain rule that made it fail, so later generations can repeat the same plausible mistake. We present agentic synthesis against counterexample-supplemented sketches, a repository-native method for systems whose governing policy is discovered during implementation. A human starts with a partial, code-shaped sketch, and a coding agent generates the first implementation. When a concrete failure exposes missing or mistaken policy, an operator explicitly approves the corrected behavior and rule. The agent then revises the sketch and repairs or regenerates code and prompt surfaces for that one counterexample. The full archive preserves provenance; a selected regression set gates each revision before the next candidate is revealed; and periodic clean regeneration tests whether the evolved sketch, rather than prompt history or accumulated examples, carries the learned policy.   We demonstrate the method with CatSynth, a synthetic browser application and captured coding-agent experiment. In one open-world run with GPT-5.4-mini, 8 of 14 frozen candidate cases became counterexamples. The rebuild controls inherited that promotion schedule, and all three paths passed the 8 accepted cases. Rebuilding from the evolved sketch passed 19 of 21 withheld cases, compared with 15 of 21 when rebuilding from the initial sketch and replaying all accepted examples. Retaining code across counterexamples required 9 Developer calls and 719 lines of cumulative artifact churn, versus 15 calls and 2,394 lines for replay-all, and passed 18 of 21 withheld cases. These results provide inspectable evidence that the evolved sketch carried reviewed policy and that retaining code reduced rework in this run; with one model and one reveal order, they do not establish general superiority or correctness beyond the encoded checks.",
+      "authors": [
+        "Muness Castle",
+        "Eric Rubeck"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE",
+        "cs.AI"
+      ],
+      "published": "2026-07-17T11:11:13+00:00",
+      "link": "https://arxiv.org/pdf/2607.15854v1",
+      "tags": [
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-output"
+      ],
+      "llm_score": 6.0,
+      "llm_evidence_en": "agent failure recovery and domain rule preservation",
+      "llm_evidence_cn": "智能体故障恢复与领域规则保持",
+      "llm_evidence": "智能体故障恢复与领域规则保持",
+      "canonical_evidence": "智能体故障恢复与领域规则保持",
+      "llm_tldr_en": "Presents a method for coding agents to fix failures by preserving domain rules through counterexample-supplemented sketches, enabling robust behavior testing.",
+      "llm_tldr_cn": "该论文针对编码智能体在修复失败示例时可能丢失领域规则的问题，提出了一种基于反例补充草图的智能体合成方法。该方法通过人工监督和回归测试，确保修订后的智能体同时保留修正后的行为和原有规则。这一工作为测试和评估智能体轨迹的鲁棒性提供了新的视角，尤其关注行为正确性与领域约束的一致性问题。",
+      "llm_tldr": "该论文针对编码智能体在修复失败示例时可能丢失领域规则的问题，提出了一种基于反例补充草图的智能体合成方法。该方法通过人工监督和回归测试，确保修订后的智能体同时保留修正后的行为和原有规则。这一工作为测试和评估智能体轨迹的鲁棒性提供了新的视角，尤其关注行为正确性与领域约束的一致性问题。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "testing the behavior of autonomous agents",
+      "matched_requirement_id": "req-3",
+      "selection_source": "fresh_fetch",
+      "quick_tier": "6"
+    }
+  ]
+}

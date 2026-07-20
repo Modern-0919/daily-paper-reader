@@ -1,0 +1,1652 @@
+Title: Agent-Alternation-Free Epistemic Metric Temporal Logic with Past: Model Checking and Complexity
+
+URL Source: https://arxiv.org/pdf/2607.13981v1
+
+Published Time: Thu, 16 Jul 2026 01:19:31 GMT
+
+Number of Pages: 31
+
+Markdown Content:
+# Agent-Alternation-Free Epistemic Metric Temporal Logic with Past: Model Checking and Complexity 
+
+# Benedikt Bollig #
+
+Université Paris-Saclay, CNRS, ENS Paris-Saclay, LMF, Gif-sur-Yvette, France 
+
+# Matthias Függer #
+
+Université Paris-Saclay, CNRS, ENS Paris-Saclay, LMF, Gif-sur-Yvette, France 
+
+# Thomas Nowak #
+
+Université Paris-Saclay, CNRS, ENS Paris-Saclay, LMF, Gif-sur-Yvette, France Institut Universitaire de France, Paris, France 
+
+# Paul Zeinaty #
+
+Université Paris-Saclay, CNRS, ENS Paris-Saclay, LMF, Gif-sur-Yvette, France Direction Générale de l’Armement, Paris, France 
+
+Abstract 
+
+We study model checking for an epistemic metric temporal logic with past, interpreted over finite Büchi automata under synchronous perfect recall. The logic is motivated by observation-based verification problems such as diagnosis and opacity, where an observer sees only a projection of an execution and reasons about events that may have occurred earlier. These requirements use no alternation between different agents’ knowledge. We therefore consider the agent-alternation-free fragment, in which nested knowledge operators must refer to the same agent. We show that model checking for this fragment is EXPSPACE -complete. The lower bound already holds with one agent, one occurrence of the knowledge operator, and no non-trivial metric bounds. For the upper bound, we combine temporal test automata with perfect-recall observers. Because past formulas may have different truth values on indistinguishable histories ending in the same system state, the observer must track temporal automaton states in addition to system states. 
+
+2012 ACM Subject Classification Theory of computation → Modal and temporal logics; Theory of computation → Logic and verification 
+
+Keywords and phrases temporal logic, epistemic logic, metric temporal logic, perfect recall, model checking, EXPSPACE, domino tiling 
+
+# 1 Introduction 
+
+Many verification questions concern not only the behavior of a system, but also what can be inferred from a partial observation of its execution. This perspective is standard in discrete-event systems. Diagnosability asks whether an observer can detect an unobservable fault after a bounded delay [22]. Decentralized diagnosis considers several local observers with different projections of the same execution [10]. Opacity imposes the dual confidentiality requirement: the observations should not reveal that a secret event has occurred. Representative works include [6, 8]. See also the survey [14]. A related pattern appears in runtime verification [3, 17]. A monitor reads a finite observation prefix and produces a verdict only when it is justified by every execution compatible with the observations. This quantification over indistinguishable histories is captured by knowledge under perfect recall [11]. Temporal operators describe the execution, while a knowledge operator quantifies over executions with the same observation history. This gives a common logical formulation of diagnosis and opacity. A diagnosis requirement states that the observer eventually knows that a fault occurred. An opacity requirement states that it never knows that a secret occurred. For a given system, both become model-checking questions for epistemic temporal formulas. Monitorability is related but not identical: it arXiv:2607.13981v1 [cs.LO] 15 Jul 2026 2 Epistemic Metric Temporal Logic with Past 
+
+quantifies over possible continuations of every observation prefix and is therefore a property of the observation tree rather than the truth of one formula at the initial position [20]. We use runtime verification as additional motivation, but the formal applications developed below are diagnosis and opacity. Past operators are essential for these applications. A diagnoser need not know that a fault holds at the current position. It must know that a fault occurred at some earlier position. Likewise, opacity commonly protects the occurrence of a past secret. Metric constraints (encoded in binary) express timing requirements, such as diagnosis within D ∈ N steps or secrecy for a prescribed window. We work in discrete time, with distances counted in steps. This restriction is important: in dense time, opacity is already undecidable [7], by reduction from universality of timed automata [2]. Our logic therefore combines future and past temporal operators with strict first-time semantics, integer metric bounds, and synchronous perfect-recall knowledge. Under strict first-time semantics, a metric operator constrains the distance to the first position satisfying its argument, rather than to an arbitrary such position. We adopt it because the knowledge-free metric fragment is then only PSPACE [1], whereas standard metric operators already make it EXPSPACE -complete [16], so that the complexity we prove arises only from past and knowledge rather than from the metric. Existing results do not determine the complexity of this combination. For epistemic LTL with future operators and no metric constraints, perfect-recall model checking is nonelementary in general and PSPACE -complete at knowledge-alternation depth one [5]. The pure past fragment under synchronous perfect recall, without future or metric operators, has been studied in [9]. For the future-only metric logic with strict first-time semantics, satisfiability is PSPACE -complete [1]. Metric temporal logic with knowledge over timed interpreted systems has been studied via bounded model checking, with a different, state-based epistemic semantics and no past operators [18, 24]. The logic KLTL, with future and past operators under synchronous perfect recall, forms the basis of a richer counterfactual logic [12] that is decidable over finite-state systems but whose exact complexity is left open. Temporal epistemic logic has been applied to fault diagnosis: the FDI framework of [4] specifies bounded-delay alarm requirements in temporal epistemic logic with past, using finite unfoldings rather than primitive binary metric operators, and without a complexity analysis for the logic considered here. We prove that model checking is EXPSPACE -complete at alternation depth one. The lower bound uses only the unbounded interval N. Thus EXPSPACE -hardness already appears when past is added to the PSPACE -complete metric-free future epistemic fragment, without positive metric constants. A related succinctness phenomenon is known without knowledge: the work [15] shows that adding a forgettable-past operator to LTL with past yields EXPSPACE -complete satisfiability and model checking. Our lower bound adapts its tiling reduction. The paper makes four contributions. 
+
+(1) We define the logic KMTL , with future and past operators, binary-encoded metric intervals, strict first-time semantics, and synchronous perfect-recall knowledge, together with its agent-alternation-free fragment KMTL 1.
+
+(2) We express centralized diagnosis, decentralized diagnosis, and opacity in KMTL 1.
+
+(3) We give an EXPSPACE lower bound by reduction from exponential-width corridor tiling. The formula has one occurrence of a knowledge operator and only the interval N.
+
+(4) We give a matching upper bound. The observer records sets of pairs of a system state and a temporal automaton state, distinguishing histories that end in the same system state but disagree on past formulas. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 3Outline 
+
+Section 2 introduces the logic KMTL and its fragment KMTL 1. Section 3 relates it to diagnosability and opacity. Section 4 proves the EXPSPACE lower bound and Section 5 the matching upper bound. We conclude in Section 6. 
+
+Acknowledgments 
+
+This work was partly supported by the “France 2030” government investment plan managed by ANR, under the reference ANR-23-PEIA-0006. 
+
+# 2 The Logic KMTL and its Fragment KMTL 1
+
+The syntax and semantics are parameterized by finite sets AP of atomic propositions and 
+
+Ag of agents. Both are part of the model-checking instance (Definition 6). We write 
+
+Σ = 2 AP , viewing a letter σ ∈ Σ as the set of propositions true at one position. Positions are numbered from 1. Thus an infinite word is written w = σ1σ2 . . . ∈ Σω . For i ∈ N, let 
+
+w≤i = σ1 . . . σ i ∈ Σ∗, with w≤0 the empty word. A pointed word is a pair (w, i ) with i ≥ 1.Temporal operators move the distinguished position along w, while knowledge compares 
+
+(w, i ) with pointed words having the same observation history. Formulas are interpreted over the language of a Büchi automaton: 
+
+▶ Definition 1 (Büchi automata) . A (nondeterministic finite) Büchi automaton over Σ is a tuple 
+
+A = ( S, S 0, δ, F )
+
+where S is a finite set of states, S0 ⊆ S is the set of initial states, δ ⊆ S × Σ × S is the transition relation, and F ⊆ S is the set of accepting states. A run over w = σ1σ2 . . . ∈ Σω
+
+is an infinite sequence s0s1s2 . . . with s0 ∈ S0 and (si, σ i+1 , s i+1 ) ∈ δ for all i ≥ 0. It is accepting if si ∈ F for infinitely many i. The language L(A) is the set of words admitting an accepting run. A run prefix over a finite word σ1 . . . σ m ∈ Σ∗ is a finite sequence s0 . . . s m
+
+with s0 ∈ S0 and (si, σ i+1 , s i+1 ) ∈ δ for 0 ≤ i < m , also written 
+
+s0
+
+> σ1
+
+−→ · · · σm
+
+−−→ sm.
+
+A generalized Büchi automaton has a finite family F = {F1, . . . , F m} of accepting sets instead of one set F . A run is accepting if, for every j, it visits Fj infinitely often. 
+
+A standard round-robin construction turns a generalized Büchi automaton into an ordinary one with at most m · | S| states. A model is a Büchi automaton over Σ = 2 AP . We write it as M = ( Q, Q 0, ∆, F M) and reserve S, S 0, δ, F for automata constructed in the proofs, which use the same definition over alphabets of the form 2AP ′
+
+. Formulas are interpreted over L(M) ⊆ Σω , and the finite transition structure of M is the input representation used by the algorithms. 
+
+▶ Definition 2 (Observations and synchronous perfect recall) . Each agent a ∈ Ag comes with a set AP a ⊆ AP of propositions visible to a. The observation of a letter σ ∈ 2AP is 
+
+obs a(σ) = σ ∩ AP a.
+
+For a finite word u = σ1 . . . σ i, define obs a(u) = obs a(σ1) . . . obs a(σi). Two pointed words 
+
+(w, i ) and (w′, i ′) are synchronously indistinguishable for a, written (w, i ) ∼a (w′, i ′), if 
+
+i = i′ and obs a(w≤i) = obs a(w′≤i).4 Epistemic Metric Temporal Logic with Past 
+
+Metric constraints use nonempty intervals I ⊆ N of the form [ℓ, h ] = {n ∈ N | ℓ ≤ n ≤ h}
+
+or [ℓ, ∞) = {n ∈ N | ℓ ≤ n}. Finite bounds are encoded in binary. Note that our lower-bound proof uses only the unbounded interval N = [0 , ∞).
+
+▶ Definition 3 (KMTL formulas) . The formulas of KMTL are generated by 
+
+φ ::= ⊤ | p | ¬ φ | φ ∧ φ | Xφ | Y φ | φ U 1 
+
+> I
+
+φ | φ S 1 
+
+> I
+
+φ | Kaφ, 
+
+where p ∈ AP , a ∈ Ag , and I is an interval. The classical Boolean connectives ∨, →, and ↔
+
+are defined as abbreviations. 
+
+Following [1], the superscript 1 denotes strict first-time semantics. The formula φ U 1 
+
+> I
+
+ψ
+
+requires the first ψ-position at or after the current position to occur at a distance in I, with 
+
+φ holding before it. Dually, φ S 1 
+
+> I
+
+ψ refers to the most recent ψ-position. In terms of classical metric until, φ U 1 
+
+> I
+
+ψ is equivalent to (φ ∧ ¬ ψ) UI ψ. The formal semantics is as follows. 
+
+▶ Definition 4 (Satisfaction) . Fix a Büchi automaton M. Satisfaction w, i |=M φ at a pointed word (w, i ), for w = σ1σ2 . . . ∈ L(M) and i ≥ 1, is defined inductively as follows: 
+
+w, i |=M ⊤ always ,w, i |=M p if p ∈ σi,w, i |=M ¬φ if w, i ̸ |=M φ, w, i |=M φ ∧ ψ if w, i |=M φ and w, i |=M ψ, w, i |=M Xφ if w, i + 1 |=M φ, w, i |=M Y φ if i > 1 and w, i − 1 |=M φ, w, i |=M φ U 1 
+
+> I
+
+ψ if there is j ≥ i with j − i ∈ I, w, j |=M ψ, and 
+
+w, k |=M φ ∧ ¬ ψ for all i ≤ k < j, w, i |=M φ S 1 
+
+> I
+
+ψ if there is j ≤ i with i − j ∈ I, w, j |=M ψ, and 
+
+w, k |=M φ ∧ ¬ ψ for all j < k ≤ i, w, i |=M Kaφ if w′, i |=M φ for all w′ ∈ L(M) with (w, i ) ∼a (w′, i ).
+
+We also use the following abbreviations, for any interval I:
+
+♢I φ := ⊤ U 1 
+
+> I
+
+φ, ♢φ := ♢Nφ, □φ := ¬♢¬φ, 
+
+♢− 
+
+> I
+
+φ := ⊤ S1 
+
+> I
+
+φ, ♢−φ := ♢− 
+
+> N
+
+φ, □−φ := ¬♢−¬φ. 
+
+Note that ♢I φ says that the first position satisfying φ lies in the window I. For I = N this is the usual eventuality, and □ and □− are the usual universal modalities. For k ∈ N, Xkφ
+
+denotes k iterated applications of X, with X0φ = φ.We restrict alternation between knowledge operators of different agents. 
+
+▶ Definition 5 (Agent-alternation-free fragment KMTL 1). A KMTL formula is agent-alternation-free if along every chain of nested knowledge operators the agent does not change. We write KMTL 1 for the set of agent-alternation-free KMTL formulas. 
+
+Equivalently, no Kb with b̸ = a may occur in the scope of Ka. Same-agent nesting is allowed, and non-nested knowledge subformulas may refer to different agents. This is knowledge-alternation depth at most one in the sense of [5]. The subscript in KMTL 1 records this depth. By contrast, the subscript in the metric logic MTL 1 of [1] refers to first-time semantics, which we mark directly on the temporal operators. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 5
+
+▶ Definition 6 (Model checking) . An instance of the (universal) model-checking problem consists of finite sets AP and Ag , observation sets (AP a)a∈Ag , a Büchi automaton M over the alphabet Σ = 2 AP , and a formula φ over AP and Ag . It asks whether 
+
+M | = φ meaning ∀w ∈ L(M) : w, 1 |=M φ. 
+
+▶ Remark 7 (State-based observations and Büchi acceptance). The paper [5] uses state-based observations on Kripke structures and quantifies over all paths. Our observations are letter-based, and knowledge ranges over the accepted language L(M). These choices do not affect the cited PSPACE comparison. State-based and letter-based observations are polynomially interreducible. To encode a state equivalence ∼a by letters, use at most ⌈log 2 |Q|⌉ propositions visible to a that record the current class. Conversely, store the last emitted letter in the state and let ∼a compare its AP a-projection. Büchi acceptance can be relativized in the formula. Let Fair := □♢ acc , where the fresh proposition acc marks accepting states and is visible to no agent. Translate knowledge recursively by Kaψ 7 → Ka(Fair → ψ′) and use Fair → φ′ at the top level. The resulting formula considers only accepting paths, both globally and inside knowledge operators, and preserves agent alternation depth. 
+
+# 3 Motivating Examples from Diagnosis and Opacity 
+
+Diagnosis and opacity are defined through partial observations. At a given position, an observer must consider every execution compatible with the observation prefix. Knowledge captures this quantification, while past operators describe the event to be inferred, such as an earlier fault or secret. Classical definitions are usually phrased in terms of diagnosers and indistinguishable runs. Diagnosis has also been formalized in temporal epistemic logic, notably in the FDI framework of [4], and opacity has been expressed epistemically as □¬K sec [19]. We show below that centralized diagnosis, decentralized diagnosis, and past-event opacity are all expressed by shallow epistemic temporal formulas with past. The examples account for past, metric bounds, and multiple agents while staying inside KMTL 1.
+
+Bounded diagnosis 
+
+Let a ∈ Ag be an observing agent and let f ∈ AP \ AP a be an unobservable proposition marking a fault occurrence. For a trace w and a position i, the formula ♢−f says that a fault occurred in the prefix w≤i. Let D ∈ N be a delay. In the classical sense of [22], a D-delay diagnoser for a given model M is a function 
+
+diag : (2 AP a )+ → { 0, 1}
+
+from observation prefixes to alarms such that: 
+
+(i) if a finite prefix u of some w ∈ L(M) is fault-free, then diag (obs a(u)) = 0 .
+
+(ii) if w ∈ L(M) has a fault at position i, then diag (obs a(w≤j )) = 1 for all j ≥ i + D.The first clause forbids false alarms. The second requires the alarm to stay on from D steps after every fault onward, matching the uniform-delay condition of [22]. 
+
+▶ Lemma 8 (Bounded diagnosis as knowledge) . For every D ∈ N, the system M has a 
+
+D-delay diagnoser for observer a and fault f iff M | = φ≤D
+
+> diag
+
+, where 
+
+φ≤D 
+
+> diag
+
+:= □(f → ♢[0 ,D ]Ka♢−f ).6 Epistemic Metric Temporal Logic with Past 
+
+Proof. Write α := Ka♢−f for the alarm predicate. It depends only on the observation prefix, since indistinguishable positions have the same a-class, and it is monotone under perfect recall (once the fault is known it stays known). Since ♢[0 ,D ]α requires α at some position within D steps and α persists once true, φ≤D 
+
+> diag
+
+requires the alarm to hold from position i + D
+
+onward after any fault at i.Suppose the formula holds. Set diag (u) = 1 iff α holds after some (equivalently every) trace prefix with observation u, and diag (u) = 0 for observations not realized by any trace prefix. A fault-free prefix is an indistinguishable non-faulty witness, so α is false there and there are no false alarms. After a fault at i the formula gives α from i + D onward, hence 
+
+diag (obs a(w≤j )) = 1 for all j ≥ i + D.Conversely, let diag be a D-delay diagnoser and let f occur at position i of w. Detection by the diagnoser gives diag (obs a(w≤i+D )) = 1 , so every trace prefix w′≤i+D with the same observation is faulty (otherwise the no-false-alarm rule would force diag = 0 ). Thus w, i +D |=
+
+α, which lies in the window [0 , D ], so φ≤D 
+
+> diag
+
+holds. ◀
+
+The unbounded eventual-diagnosis formula φdiag := □(f → ♢Ka♢−f ) drops the delay bound and captures the qualitative requirement. The bound can also be written with iterated next as □(f → XD Ka♢−f ). By monotonicity of Ka♢−f , this is equivalent to φ≤D
+
+> diag
+
+, but it expresses the delay D in unary, whereas the metric constant in ♢[0 ,D ] is binary. 
+
+▶ Example 9 (Diagnosis, perfect recall, and delay) . Let AP = {p, r, f } and AP a = {p, r }, so the fault f is unobservable. Consider three systems whose trace languages are given by the following ω-regular expressions over Σ = 2 AP , in which each set, such as {p} or {p, f }, is a single letter: 
+
+L(M1) = {p}ω + {p}∗{p, f }{ p}ω ,L(M2) = {p}ω + {p}∗{f }{ p}ω ,L(M3) = {p}ω + {p}∗{p, f }{ p}∗{r}ω .
+
+Agent a observes {f } as ∅ and {p, f } as {p}. In M1, faulty and fault-free traces have the same observation {p}ω , so the fault is never known: M1̸ |= φdiag . In M2, the fault position is observed as ∅, which cannot occur on the fault-free trace. Hence the fault is known immediately and M2 |= φ≤0
+
+> diag
+
+. Perfect recall preserves this knowledge after the observation returns to {p}, whereas a memoryless observer would lose it. In M3, the fault becomes known only when the observation switches to {r}ω . The switch occurs on every faulty trace, but after an arbitrarily long prefix indistinguishable from the fault-free trace. Therefore 
+
+M3 |= φdiag , while M3̸ |= φ≤D 
+
+> diag
+
+for every D.
+
+Decentralized diagnosis 
+
+The translation extends to decentralized diagnosis. Suppose several agents observe different projections, f / ∈ AP a for every a ∈ Ag , and no fixed agent is required to diagnose every fault. Under the codiagnosability notion of [21], implemented by the disjunctive protocol of [10], a fault is detected once at least one agent can infer it from its local observations. A D-delay decentralized diagnoser is a family (diag a)a∈Ag of local alarm functions diag a : (2 AP a )+ →{0, 1}, each subject to the no-false-alarm clause (i) above for its own observation alphabet, such that whenever w ∈ L(M) has a fault at position i, then for every j ≥ i + D at least one a ∈ Ag has diag a(obs a(w≤j )) = 1 .B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 7
+
+▶ Lemma 10 (Decentralized diagnosis as knowledge) . For every D ∈ N, the model M has a 
+
+D-delay decentralized diagnoser for fault f iff 
+
+M | = □
+
+f → ♢[0 ,D ]
+
+∨
+
+> a∈Ag
+
+Ka♢−f
+
+ .
+
+Proof. The argument is the same as that of Lemma 8, now with one alarm diag a per agent, firing on the prefixes where Ka♢−f holds. The disjunction provides detection by at least one agent within D steps, monotonicity keeps that agent’s alarm on, and the no-false-alarm requirement rules out an alarm along a fault-free prefix. ◀
+
+This formula uses several knowledge operators, but they are not nested. Hence decentral-ized diagnosis remains in our fragment KMTL 1.
+
+Opacity 
+
+Let sec ∈ AP \ AP a be an unobservable secret event. The standard trace view of opacity says that every secret observation prefix must also be compatible with a non-secret prefix [6]. For past-event opacity this becomes: for every w ∈ L(M) and position i, if w, i |= ♢−sec , then there exists w′ ∈ L(M)
+
+with (w, i ) ∼a (w′, i ) and w′, i ̸ |= ♢−sec .
+
+▶ Lemma 11 (Opacity as lack of knowledge) . System M satisfies the trace condition above iff 
+
+M | = □¬Ka♢−sec .
+
+Proof. The proof is immediate: at a position with ♢−sec , the formula ¬Ka♢−sec states exactly the existence of an indistinguishable non-secret witness, and at a position without 
+
+♢−sec it holds trivially, witnessed by the trace itself. ◀
+
+The formula contains no metric operator. Recall that, over dense-time models with observable time stamps, however, the corresponding requirement is already undecidable by reduction from timed automaton universality [2, 7]. Discrete time is therefore an important restriction. The formula □¬Ka♢−sec prevents the observer from becoming certain that the secret occurred, but it does not prevent certainty that it did not occur. Two-sided opacity is expressed by 
+
+□¬(Ka♢−sec ∨ Ka¬♢−sec ).
+
+For a confidential binary value encoded at the beginning of a run, this requires both values to remain compatible with the observations. Metric variants can restrict the protection requirement to a bounded window. 
+
+Alternation depth one 
+
+The formulas above contain no nesting between different agents’ knowledge. They therefore belong to KMTL 1. The lower bound shows that adding past to this shallow epistemic fragment already yields EXPSPACE -hardness. 8 Epistemic Metric Temporal Logic with Past                                     
+
+> 01· · · i· · · 2m−101· · · i· · · 2m−1##· · ·
+> LU
+> first later cell with the same counter =the cell one row above
+> row j(counter runs 0, . . . , 2m−1)row j+1
+> first #:evaluate here
+> Figure 1 Hidden-tag test on a row-major trace. The column counter cycles through 0, . . . , 2m−1
+> in each row, so the next cell with the same counter is in the next row. The hidden tags Land U
+> select a candidate vertical edge. At the first #-position, knowledge quantifies over all tag placements, where Pair identifies actual vertical edges and Good checks their colors.
+
+# 4 EXPSPACE Lower Bound 
+
+We reduce from exponential-width corridor tiling. An instance asks for a tiling of a grid of width 2m and arbitrary finite height, with matching horizontal and vertical colors and prescribed corner tiles. The model emits the grid in row-major order, from the bottom row upward. Each cell is represented by a block containing an m-bit column counter and a tile. After the last row, the trace enters a terminal #ω loop. A single agent a observes all propositions except two auxiliary tags. See Figure 1 for an illustration. The counter, corner constraints, and horizontal compatibility are checked on the visible trace by a polynomial-size formula. Vertical compatibility is the only condition involving cells separated by an entire row. Their distance is 2m cells, so expanding this distance with next operators would require an exponential-size formula, and a metric operator does not provide the direct comparison either (cf. Remark 15). We check vertical compatibility with one knowledge operator. Two propositions L and 
+
+U are hidden from a and may each mark at most one cell start. A placement with L on a cell and U on the cell in the next row selects a vertical edge. At the first #-position, all placements over the same visible prefix are indistinguishable to a. Thus Ka quantifies over every candidate placement. A bad vertical edge yields an indistinguishable placement for which the test fails. Past operators compare the counter at the L-cell with later cells: the first later occurrence of the same counter is the cell in the next row. Figure 1 shows the construction. We state the reduction here and give the formulas and their semantic proofs in Appendix A. The source problem is the standard exponential-width corridor-tiling problem (cf. [15]). An instance 
+
+T = ( C, T, m, d init , d final )
+
+is given by a finite color set C, a set T ⊆ C4 of tiles, each with a bottom, left, top, and right color, a width parameter m ≥ 1 in unary, and two corner dominoes dinit , d final ∈ T . It asks for a height n ≥ 1 and a tiling of {0, . . . , 2m − 1} × { 0, . . . , n − 1} by dominoes from T so that adjacent tiles agree on the color of their shared edge, the bottom-left tile is dinit , and the top-right tile is dfinal . Since m is in unary, the width 2m is exponential in the size of T , and the problem is EXPSPACE -complete. The structure follows the tiling reduction of [15]. Their forgettable-past operator is used to compare cells in adjacent rows, whereas our reduction instead uses hidden tags quantified by knowledge. For such an instance we build a polynomial-size tagged Büchi automaton Mtag  
+
+> T
+
+in which all states are accepting. Its visible propositions are the counter bits, the domino propositions, B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 9
+
+the terminal marker #, and a marker End that flags the first #-position. The only invisible propositions are L and U. The system ensures that the visible trace is a sequence of complete cell blocks followed, when it stops, by #ω , that End holds exactly at the first #, and that each hidden tag occurs at most once and only at a cell start. Apart from those regular restrictions, the tags can be assigned arbitrarily. The reduction formula is 
+
+ΦT := Φ base ∧ ♢(End ∧ Φcol ), Φcol := Ka(Pair → Good ).
+
+The visible marker End occurs at the first #-position, where Φcol is evaluated. The formula 
+
+Φbase checks the two corners, the modulo-2m column counter, and horizontal compatibility. The formula Pair holds when L marks a cell and U marks the first later cell with the same counter. Under Φbase , these cells are vertical neighbors. The formula Good checks their tile colors. All formulas have size polynomial in m + |T |, and their definitions are given in Appendix A. 
+
+▶ Lemma 12 (Hidden-tag column test) . Let w ∈ L(Mtag  
+
+> T
+
+) such that w, 1 |= Φ base , and let e
+
+be the first #-position. Then 
+
+w, e |= Ka(Pair → Good )
+
+iff all vertical neighbors in the visible grid prefix of w are compatible. 
+
+Proof sketch. If some vertical edge is bad, place L on its lower endpoint and U on its upper endpoint. This changes only invisible propositions, so the resulting word is indistinguishable for a at e. In that word Pair holds and Good fails, hence Ka(Pair → Good ) is false. Conversely, if all vertical edges are good, then every indistinguishable word differs only by the hidden tag placement. Whenever its tags satisfy Pair , they select a real vertical edge, and that edge satisfies Good . ◀▶ Theorem 13 (Reduction correctness) . The tiling instance T has a valid tiling of width 2m
+
+and some height n ≥ 1 iff there exists w ∈ L(Mtag  
+
+> T
+
+) such that 
+
+w, 1 |=Mtag 
+
+> T
+
+ΦT .
+
+Proof sketch. If a valid tiling exists, encode it row by row, followed by #ω , and choose any legal hidden tag placement. The visible part satisfies Φbase . All vertical adjacencies are compatible, so Lemma 12 gives Φcol = Ka(Pair → Good ) at the first #-position. Conversely, if some trace satisfies ΦT , then Φbase extracts a row-major grid with the right corners and all horizontal constraints, while Lemma 12 provides all vertical constraints. Thus the visible prefix before the first #-position is a valid tiling. ◀▶ Theorem 14 (EXPSPACE -hardness) . Model checking for KMTL 1 over finite Büchi automata under synchronous perfect-recall knowledge is EXPSPACE -hard. The lower bound already holds when all states of the automaton are accepting and the formula has one agent, one occurrence of Ka, all past operators inside the scope of Ka, and only the unbounded interval N.
+
+Proof. The construction T 7 → M tag  
+
+> T
+
+is polynomial in the size of the tiling instance. The formula ΦT has size polynomial in m + |T |: all iterations Xk satisfy k ≤ m + 1 , the same-column test has m conjuncts, and Good has at most |T |2 disjuncts. By Theorem 13, T has a valid tiling iff there is some trace satisfying ΦT . Therefore, for the model-checking problem, 
+
+T is positive ⇐⇒ Mtag 
+
+> T
+
+̸ |= ¬ΦT .10 Epistemic Metric Temporal Logic with Past 
+
+Since the source tiling problem is EXPSPACE -complete and EXPSPACE is closed under complement, model checking is EXPSPACE -hard. ◀
+
+The formula also satisfies the syntactic restriction stated in Theorem 14: all past operators occur inside the sole Ka. The evaluation point is marked by End rather than by a past modality. 
+
+▶ Remark 15 (Metric-freeness). With standard metric until, a binary constant for the distance between two vertically adjacent cell blocks would allow a direct comparison. Strict first-time semantics does not provide such random access: a formula ♢[k,k ]ψ also requires the position at distance k to be the first future ψ-position. Accordingly, the direct exact-distance encoding is unavailable. This is consistent with the PSPACE upper bound for satisfiability of the knowledge-free strict first-time fragment [1]. Our reduction uses past and knowledge instead of positive metric constants. 
+
+# 5 EXPSPACE Upper Bound 
+
+The future-only strict first-time metric logic has a PSPACE satisfiability procedure based on exponential-size temporal automata [1]. We extend this construction with forward-propagated counters for past operators. Since the target bound is exponential space, it is enough to obtain exponential-size pointed automata whose local predicates are testable in polynomial space. Let θ be knowledge-free. The automaton Aθ stores one counter for each metric scheme, namely a metric subformula with its finite bound replaced by a placeholder (Definition 29). A scheme is future or past according to whether it comes from an until or a since operator, and upper-bound or lower-bound according to whether its interval bounds the distance to the witness from above or from below. Under strict first-time semantics, all concrete bounds for the same scheme are determined by one witness distance. Each counter uses O( log B) bits, where B is the largest finite bound, and there are polynomially many schemes. Lower-bound and unbounded future obligations are handled by a generalized Büchi condition, which is then converted into an ordinary Büchi condition. Appendix B gives the construction. After reading w≤i, the automaton state contains the temporal information relevant at position i. A set Cθ marks the states in which θ holds. Since Aθ is nondeterministic, truth at a pointed word is characterized by an accepting run whose state at the distinguished position belongs to Cθ .
+
+Past operators 
+
+For a past scheme γ with arguments φ and ψ, write ci(γ) for its counter after reading position i. It records the capped distance from position i back to the most recent ψ-position, provided that φ ∧ ¬ ψ holds at every intervening position. At position 1, the counter is 0 if ψ
+
+holds and ⊥ otherwise. For i ≥ 1,
+
+ci+1 (γ) = 
+
+
+
+0 if ψ holds at position i + 1 ,ci(γ) ⊕γ 1 if φ ∧ ¬ ψ holds at position i + 1 ,
+
+⊥ otherwise ,
+
+where z ⊕γ 1 is the increment of z capped so as never to exceed the largest finite bound B,with ⊥ ⊕ γ 1 = ⊥. For an upper-bound scheme it becomes ⊥ once the distance exceeds B, in B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 11 
+
+which case ⊥ represents either the absence of a witness or a witness beyond every relevant upper bound. For a lower-bound scheme it saturates at B.Unlike a future counter, a past counter is determined by the prefix already read. Its value is fixed at position 1 and propagated forward, so past schemes need no fairness condition. The Büchi condition is used only for future lower-bound schemes, where it rules out runs that keep an obligation active forever without reaching its witness. Counting per scheme rather than per interval bound is the essential step in building the automaton. For future operators, this counting is due to [1]. We extend it to past operators, which the applications require and which their future-only construction does not cover. The extension keeps Aθ exponential in size and its local tests in polynomial space, as stated in the following lemma. 
+
+▶ Lemma 16 (Pointed Büchi automata for the knowledge-free fragment) . Let AP ′ be a finite set of propositions and let θ be a knowledge-free KMTL formula over AP ′ with syntactically represented, binary-encoded metric intervals. There is a Büchi automaton 
+
+Aθ = ( Sθ , S 0,θ , δ θ , F θ )
+
+over 2AP ′
+
+, together with a set Cθ ⊆ Sθ , such that: 
+
+(i) |Sθ | ≤ 2poly (|θ|) for a fixed polynomial poly . States and the predicates for initial, trans-ition, accepting, and marked states are representable and testable in space polynomial in |θ| + |AP ′|.
+
+(ii) For every w ∈ (2 AP ′
+
+)ω and every i ≥ 1,
+
+w, i |= θ ⇐⇒ some accepting run s0s1s2 . . . of Aθ over w
+
+satisfies si ∈ Cθ .
+
+The marked state alone does not ensure that the model and the test automaton have compatible accepting continuations. Fix a model M = ( Q, Q 0, ∆, F M) over 2AP and a knowledge-free θ over AP , so that Lemma 16 applies with AP ′ = AP . Define Live M 
+
+> θ
+
+⊆ Q × Sθ
+
+by letting (q, s ) ∈ Live M 
+
+> θ
+
+if s ∈ Cθ and the product from (q, s ) has an infinite path that visits both acceptance components infinitely often. Its transitions are (q, s ) → (q′, s ′) whenever some σ ∈ 2AP satisfies (q, σ, q ′) ∈ ∆ and (s, σ, s ′) ∈ δθ . Membership is a generalized Büchi nonemptiness test in the exponential product. Each product state has polynomial size and the transition relation is polynomial-space testable, so the test runs in polynomial space. Consequently, a run prefix 
+
+q0
+
+> σ1
+
+−→ q1 · · · σi
+
+−→ qi
+
+of M extends to an accepted word satisfying θ at position i iff Aθ has a run on σ1 . . . σ i ending in some s with (qi, s ) ∈ Live M 
+
+> θ
+
+. For formulas with past, the state s contains information about the prefix that cannot be recovered from qi.
+
+▶ Example 17 (Why system states do not suffice) . Let AP = {p} and let p be invisible to agent a, so AP a = ∅. Consider a model with two initial branches 
+
+q0
+
+> {p}
+
+−−→ q1
+
+> ∅
+
+−→ q, q′
+
+> 0
+> ∅
+
+−→ q′
+
+> 1
+> ∅
+
+−→ q, 
+
+followed in both cases by the loop q ∅
+
+−→ q. All states are accepting. After two letters, the two runs have the same observation history and end in the same state q. Nevertheless, ♢−p is true on the first run and false on the second. 12 Epistemic Metric Temporal Logic with Past 
+
+An observer represented only by a set of model states maps both histories to the information set {q}, thereby losing the distinction needed to evaluate Ka♢−p. In the product observer, the two histories reach different states of the temporal test automaton. Its information set contains two pairs 
+
+(q, s seen ) and (q, s unseen ),
+
+where the second components record whether p occurred earlier. This is why the observers will use subsets of Q × S¬♢−p rather than of Q.
+
+Epistemic observers 
+
+First consider Kaψ with knowledge-free ψ, and put χ = ¬ψ. For a realized observation prefix 
+
+u ∈ (2 AP a )+, define 
+
+Oa,ψ (u) ⊆ Q × Sχ
+
+as the set of pairs reachable by a run prefix of M with observation u and a simultaneous run prefix of Aχ on the same model letters (Definition 36 in the appendix). This is the perfect-recall information set over Q×Sχ, rather than over Q alone. The temporal component distinguishes histories that reach the same model state but differ on past formulas. The set is updated incrementally by a subset construction (Lemma 37). For w ∈ L(M), i ≥ 1, and u = obs a(w≤i), the knowledge test is 
+
+w, i |=M Kaψ ⇐⇒ Oa,ψ (u) ∩ Live M 
+
+> χ
+
+= ∅
+
+(see Lemma 38 in the appendix). A pair in the intersection represents an indistinguishable prefix with an accepting continuation on which ¬ψ holds at position i.
+
+Same-agent blocks 
+
+Our fragment KMTL 1 excludes nesting between different agents, but permits repeated nesting for the same agent. For fixed a, the truth of Kaξ is invariant on an a-observation class: 
+
+(w, i ) ∼a (w′, i ) =⇒ (w, i |=M Kaξ ⇐⇒ w′, i |=M Kaξ).
+
+We therefore process an a-local block from the inside out. For a knowledge block η = Kaψ,let ̂ ψ be the formula obtained by replacing the immediate inner knowledge subformulas by fresh propositions. Their valuations depend only on the current observation prefix, and ̂ ψ
+
+is knowledge-free over the extended proposition set. The counterexample automaton for η
+
+is built for χη := ¬̂ψ and reads each model letter together with the values of these fresh propositions provided by the inner observers. 
+
+Relative liveness 
+
+The preceding observer handles the prefix up to the current position. If ̂ ψ contains an inner knowledge proposition below a future operator, its value is also needed along a possible counterexample continuation. That value depends on the continuation of the observation history, not only on the pair (q, s ).For this reason, the liveness graph for η = Kaψ uses configurations (q, s, I), where I
+
+contains the observers for every knowledge subformula strictly inside ψ. All nesting levels are retained because an observer can be updated only after the observers inside its own body B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 13 
+
+have provided their current truth values. A transition chooses a model letter τ , advances 
+
+q, and updates I on obs a(τ ) from the innermost observer outward. The updated tuple I′
+
+determines the valuation κI′ of the immediate inner propositions read by Aχη . We write 
+
+Live M 
+
+> a,ψ
+
+(q, s, I)
+
+when the resulting graph has a continuation from (q, s, I) that is accepting in both M and 
+
+Aχη . At every future position, the inner valuation is shared by exactly the runs with the same extended observation prefix. If ψ contains no knowledge subformula, I is empty and the definition reduces to Live M 
+
+> χη
+
+(q, s ). Formal definitions and correctness are given in Appendix B. 
+
+▶ Example 18 (Two inner observers) . Consider 
+
+□ Ka
+
+(♢ Ka(r ∧ ♢ Kap
+
+︸︷︷︸ 
+
+> x2
+
+)
+
+︸ ︷︷ ︸
+
+> x1
+
+)︸ ︷︷ ︸
+
+> x0
+
+.
+
+Introduce fresh propositions from the innermost block outward: 
+
+x0 := Ka(♢ x1), x1 := Ka(r ∧ ♢ x2), x2 := Kap, 
+
+leaving the knowledge-free top formula θtop = □ x0. To evaluate x0, write x0 = Kâ ψ with ̂
+
+ψ = ♢x1. An indistinguishable counterexample is recognized by Aχ for χ = ¬̂ψ ≡ □¬x1. As it moves forward, this automaton needs the value of x1 at every position, while x1 = Ka(r ∧♢x2)
+
+in turn depends on x2. Hence the relative liveness state for the outer block carries both inner observers: 
+
+I(u) = (Oa, r ∧♢x2 (u), O a,p (u)).
+
+Here Oa,p (u) ⊆ Q × S¬p decides x2, while Oa, r ∧♢x2 (u) ⊆ Q × S¬(r∧♢x2) decides x1. Aconfiguration of the relative-liveness graph for x0 is (q, s, I), where s is a state of Aχ. One future step on a letter τ proceeds from the innermost block outward: 
+
+(1) advance Oa,p on obs a(τ ) and determine x2.
+
+(2) advance Oa, r ∧♢x2 on the letter enriched with the new value of x2, and determine x1.
+
+(3) feed Aχ the letter enriched with the new value of x1.Thus Oa, r ∧♢x2 cannot be advanced unless Oa,p has already supplied x2. The resulting value of x1 is then read by the counterexample automaton used to decide x0.
+
+Global search 
+
+We refute M | = φ by searching for a word satisfying ¬φ. Replace every maximal knowledge subformula η of ¬φ by a fresh proposition pη , obtaining the knowledge-free formula θtop . A global configuration is 
+
+(q, t, O),
+
+where q ∈ Q, t ∈ Sθtop , and O contains the observer sets for all knowledge subformulas, including nonmaximal descendants, which are needed to evaluate the maximal blocks. The knowledge tests compute from O a valuation κO of the fresh propositions. For a block 
+
+η = Kaψ, the proposition pη is true exactly when its observer contains no pair (q, s )
+
+satisfying Live M 
+
+> a,ψ
+
+(q, s, I), where I is the tuple of strictly inner observers. 14 Epistemic Metric Temporal Logic with Past 
+
+An initial configuration chooses a first model transition (q0, σ, q ) ∈ ∆ with q0 ∈ Q0. The observers are initialized on σ from the innermost blocks outward, yielding κO . We then choose the first state t of the top automaton so that 
+
+(t0, σ ∪ κO , t ) ∈ δθtop 
+
+for some t0 ∈ S0,θ top , with t ∈ Cθtop . A successor chooses (q, σ ′, q ′) ∈ ∆, updates all observers on σ′ to O′, computes κO′ , and takes a transition 
+
+(t, σ ′ ∪ κO′ , t ′) ∈ δθtop .
+
+The global acceptance condition requires both the model component and the top automaton component to be accepting. Acceptance conditions of inner temporal automata are checked only inside the relative liveness predicates. The next lemma relates the three components of a global run. 
+
+▶ Lemma 19 (Global run invariant) . Let an accepting run of the global product follow 
+
+w = σ1σ2 . . . ∈ L(M), and write (qi, t i, Oi) for its configuration after reading w≤i. For every 
+
+i ≥ 1:
+
+(i) qi is the endpoint of the selected run prefix of M on w≤i.
+
+(ii) for every knowledge block η = Kaψ, the corresponding component of Oi is 
+
+Oa,ψ 
+
+(obs a(w≤i)).
+
+(iii) for every fresh proposition pη occurring in θtop ,
+
+pη ∈ κOi ⇐⇒ w, i |=M η. 
+
+(iv) ti is reachable in Aθtop after reading the enriched prefix 
+
+(σ1 ∪ κO1 ) . . . (σi ∪ κOi ).
+
+Proof. Items (i), (ii), and (iv) follow by induction on i. The model component is updated by the chosen transition of M, each observer component by the incremental subset construction, and the top component reads the letter enriched with the newly computed valuation. For item (iii), the induction is on the nesting depth of η. When η has no inner knowledge, this is Lemma 38 (in the appendix) with an empty inner tuple. Otherwise, the induction hypothesis gives the correct values of all strictly inner knowledge propositions, so the relative liveness test feeds the counterexample automaton exactly the enriched continuation that the semantics requires. Lemma 38 (appendix) then yields the stated equivalence for η. ◀
+
+By item (iii), at every position the enriched word read by the top automaton carries the correct truth values of the knowledge subformulas that were replaced. An induction on the structure of ¬φ therefore shows that the enriched word satisfies θtop at position 1 iff 
+
+w, 1 |=M ¬φ. Together with item (iv) and Lemma 16, this shows that the global product is nonempty exactly when some w ∈ L(M) satisfies w, 1 |=M ¬φ.
+
+▶ Theorem 20 (EXPSPACE upper bound) . Model checking for KMTL 1 over Büchi automata, with past and binary-encoded metric intervals, is in EXPSPACE .
+
+Proof. Let n be the size of the model and formula. We construct a pointed automaton for 
+
+θtop and for the abstracted counterexample body of every knowledge subformula. There are B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 15          
+
+> Table 1 Model checking for KMTL 1and neighboring fragments. The last row is the result of this paper.
+> Logic Problem Complexity
+> Epistemic LTL, future, perfect recall, unrestricted alternation [5] model checking nonelementary Epistemic LTL, future, perfect recall, alternation depth one [5] model checking PSPACE -complete Metric temporal logic, future, strict first-time, no knowledge [1] satisfiability, model checking
+> PSPACE -complete LTL with past and a forgettable-past operator [15] satisfiability, model checking
+> EXPSPACE -complete
+> KMTL 1: past, metric intervals, perfect recall, al-ternation depth one model checking EXPSPACE -complete
+
+linearly many such formulas. By Lemma 16, every automaton has at most 2poly (n) states, and one state and all local predicates use polynomial space. An observer is a subset of Q×Sθ and can therefore be represented by a bit vector of length at most 2poly (n). Since the number of knowledge subformulas is linear, a global configuration uses exponential space. Successors of a global configuration are generated in exponential space. The procedure chooses the next model transition, updates the observer bit vectors, and computes the fresh knowledge propositions. To evaluate one such proposition, it scans the corresponding observer and tests relative liveness for each candidate pair. A relative-liveness configuration 
+
+(q, s, I) also has an exponential-space representation. Its successor procedure updates the inner observers and may call only liveness tests for strictly smaller knowledge blocks. The recursion depth is at most linear, so the entire test remains in exponential space. The implicit global graph consequently has at most 22poly (n)
+
+configurations and an exponential-space successor procedure. Nonemptiness is checked by guessing a lasso through the two Büchi acceptance components. Only a constant number of configurations and a path-length counter of exponentially many bits are stored. This yields a nondeterministic exponential-space procedure, which lies in deterministic EXPSPACE by Savitch’s theorem [23]. By Lemma 39 in the appendix, the global product is nonempty exactly when some w ∈ L(M)
+
+satisfies ¬φ at position 1, so M | = φ holds iff the product is empty. Since EXPSPACE is closed under complement, model checking is in EXPSPACE . ◀▶ Corollary 21 (Main complexity theorem) . Model checking for KMTL 1 over Büchi automata, with past and binary-encoded metric intervals, is EXPSPACE -complete. 
+
+Proof. The lower bound is Theorem 14. The upper bound is Theorem 20. ◀
+
+Table 1 situates this result among related logics. For the knowledge-free metric fragment, satisfiability is PSPACE -complete [1], and the model-checking result follows using the standard product construction. 16 Epistemic Metric Temporal Logic with Past 
+
+# 6 Discussion and Conclusion 
+
+In diagnosis and opacity, information sets over system states are insufficient: they cannot distinguish observation-equivalent histories with different pasts. We therefore let observers range over pairs of system states and temporal automaton states. The lower bound uses one agent, one knowledge occurrence, and only the unbounded interval N, so metric constants are not the source of hardness. Under standard, non-first-time metric operators the knowledge-free fragment is already EXPSPACE -complete [16], and we conjecture the full problem to be 2-EXPSPACE -complete. Monitorability suggests a separate, apparently harder problem: after every reachable observation prefix, is there a finite continuation forcing a definitive verdict? Over dense time it is undecidable for nondeterministic timed-automaton specifications [13], and its discrete-time complexity is open. 
+
+References 
+
+1 Eric Alsmann and Martin Lange. Metric linear-time temporal logic with strict first-time semantics. In Thierry Vidal and Przemyslaw Andrzej Walega, editors, 32nd International Symposium on Temporal Representation and Reasoning, TIME 2025, Queen Mary University of London, UK, August 27-29, 2025 , volume 355 of LIPIcs , pages 3:1–3:14. Schloss Dagstuhl -Leibniz-Zentrum für Informatik, 2025. URL: https://doi.org/10.4230/LIPIcs.TIME.2025. 3, doi:10.4230/LIPICS.TIME.2025.3 .
+
+2 Rajeev Alur and David L. Dill. A theory of timed automata. Theor. Comput. Sci. , 126(2):183– 235, 1994. doi:10.1016/0304-3975(94)90010-8 .
+
+3 Andreas Bauer, Martin Leucker, and Christian Schallhart. Runtime verification for LTL and TLTL. ACM Trans. Softw. Eng. Methodol. , 20(4):14:1–14:64, 2011. doi:10.1145/2000799. 2000800 .
+
+4 Marco Bozzano, Alessandro Cimatti, Marco Gario, and Stefano Tonetta. Formal design of asynchronous fault detection and identification components using temporal epistemic logic. 
+
+Log. Methods Comput. Sci. , 11(4), 2015. doi:10.2168/LMCS-11(4:4)2015 .
+
+5 Laura Bozzelli, Bastien Maubert, and Aniello Murano. On the complexity of model checking knowledge and time. ACM Trans. Comput. Log. , 25(1):8:1–8:42, 2024. doi:10.1145/3637212 .
+
+6 Jeremy W. Bryans, Maciej Koutny, Laurent Mazaré, and Peter Y. A. Ryan. Opacity generalised to transition systems. Int. J. Inf. Sec. , 7(6):421–435, 2008. URL: https://doi.org/10.1007/ s10207-008-0058-x , doi:10.1007/S10207-008-0058-X .
+
+7 Franck Cassez. The dark side of timed opacity. In Advances in Information Security and Assurance, Third International Conference and Workshops, ISA 2009, Seoul, Korea, June 25-27, 2009. Proceedings , Lecture Notes in Computer Science, pages 21–30. Springer, 2009. 
+
+doi:10.1007/978-3-642-02617-1\_3 .
+
+8 Franck Cassez, Jérémy Dubreil, and Hervé Marchand. Dynamic observers for the synthesis of opaque systems. In Zhiming Liu and Anders P. Ravn, editors, Automated Technology for Verification and Analysis, 7th International Symposium, ATVA 2009, Macao, China, October 14-16, 2009. Proceedings , volume 5799 of Lecture Notes in Computer Science , pages 352–367. Springer, 2009. doi:10.1007/978-3-642-04761-9\_26 .
+
+9 Mika Cohen and Alessio Lomuscio. Non-elementary speed up for model checking synchronous perfect recall. In Helder Coelho, Rudi Studer, and Michael J. Wooldridge, editors, ECAI 2010 - 19th European Conference on Artificial Intelligence, Lisbon, Portugal, August 16-20, 2010, Proceedings , volume 215 of Frontiers in Artificial Intelligence and Applications , pages 1077–1078. IOS Press, 2010. doi:10.3233/978-1-60750-606-5-1077 .
+
+10 Rami Debouk, Stéphane Lafortune, and Demosthenis Teneketzis. Coordinated decentralized protocols for failure diagnosis of discrete event systems. Discret. Event Dyn. Syst. , 10(1-2):33– 86, 2000. doi:10.1023/A:1008335115538 .B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 17 
+
+11 Ronald Fagin, Joseph Y. Halpern, Yoram Moses, and Moshe Y. Vardi. Reasoning About Knowledge . MIT Press, 1995. URL: https://doi.org/10.7551/mitpress/5803.001.0001 ,
+
+doi:10.7551/MITPRESS/5803.001.0001 .
+
+12 Bernd Finkbeiner and Julian Siber. Explainability requirements as hyperproperties. Acta Informatica , 62(4):38, 2025. URL: https://doi.org/10.1007/s00236-025-00507-w , doi: 10.1007/S00236-025-00507-W .
+
+13 Thomas Møller Grosen, Sean Kauffman, Kim G. Larsen, and Martin Zimmermann. Time for timed monitorability. In Patricia Bouyer and Jaco van de Pol, editors, 36th In-ternational Conference on Concurrency Theory, CONCUR 2025, Aarhus, Denmark, Au-gust 26-29, 2025 , volume 348 of LIPIcs , pages 19:1–19:20. Schloss Dagstuhl - Leibniz-Zentrum für Informatik, 2025. URL: https://doi.org/10.4230/LIPIcs.CONCUR.2025.19 ,
+
+doi:10.4230/LIPICS.CONCUR.2025.19 .
+
+14 Stéphane Lafortune, Feng Lin, and Christoforos N. Hadjicostis. On the history of diagnosability and opacity in discrete event systems. Annu. Rev. Control. , 45:257–266, 2018. URL: https: //doi.org/10.1016/j.arcontrol.2018.04.002 , doi:10.1016/J.ARCONTROL.2018.04.002 .
+
+15 François Laroussinie, Nicolas Markey, and Philippe Schnoebelen. Temporal logic with for-gettable past. In 17th IEEE Symposium on Logic in Computer Science (LICS 2002), 22-25 July 2002, Copenhagen, Denmark, Proceedings , pages 383–392. IEEE Computer Society, 2002. 
+
+doi:10.1109/LICS.2002.1029846 .
+
+16 François Laroussinie, Nicolas Markey, and Philippe Schnoebelen. Efficient timed model checking for discrete-time systems. Theor. Comput. Sci. , 353(1-3):249–271, 2006. URL: 
+
+https://doi.org/10.1016/j.tcs.2005.11.020 , doi:10.1016/J.TCS.2005.11.020 .
+
+17 Martin Leucker and Christian Schallhart. A brief account of runtime verification. J. Log. Algebraic Methods Program. , 78(5):293–303, 2009. URL: https://doi.org/10.1016/j.jlap. 2008.08.004 , doi:10.1016/J.JLAP.2008.08.004 .
+
+18 Alessio Lomuscio, Wojciech Penczek, and Bozena Wozna. Bounded model checking for knowledge and real time. Artif. Intell. , 171(16-17):1011–1038, 2007. URL: https://doi.org/ 10.1016/j.artint.2007.05.005 , doi:10.1016/J.ARTINT.2007.05.005 .
+
+19 Bastien Maubert, Sophie Pinchinat, and Laura Bozzelli. Opacity issues in games with imperfect information. In Giovanna D’Agostino and Salvatore La Torre, editors, Proceedings of Second International Symposium on Games, Automata, Logics and Formal Verification, GandALF 2011, Minori, Italy, 15-17th June 2011 , volume 54 of EPTCS , pages 87–101, 2011. 
+
+doi:10.4204/EPTCS.54.7 .
+
+20 Amir Pnueli and Aleksandr Zaks. PSL model checking and run-time verification via testers. In Jayadev Misra, Tobias Nipkow, and Emil Sekerinski, editors, FM 2006: Formal Methods, 14th International Symposium on Formal Methods, Hamilton, Canada, August 21-27, 2006, Proceedings , volume 4085 of Lecture Notes in Computer Science , pages 573–586. Springer, 2006. doi:10.1007/11813040\_38 .
+
+21 Wenbin Qiu and Ratnesh Kumar. Decentralized failure diagnosis of discrete event systems. 
+
+IEEE Trans. Syst. Man Cybern. Part A , 36(2):384–395, 2006. doi:10.1109/TSMCA.2005. 853503 .
+
+22 Meera Sampath, Raja Sengupta, Stéphane Lafortune, Kasim Sinnamohideen, and Demosthenis Teneketzis. Diagnosability of discrete-event systems. IEEE Trans. Autom. Control. , 40(9):1555– 1575, 1995. doi:10.1109/9.412626 .
+
+23 Walter J. Savitch. Relationships between nondeterministic and deterministic tape complexities. 
+
+J. Comput. Syst. Sci. , 4(2):177–192, 1970. doi:10.1016/S0022-0000(70)80006-X .
+
+24 Bozena Wozna-Szczesniak and Andrzej Zbrzezny. Checking EMTLK properties of timed interpreted systems via bounded model checking. Stud Logica , 104(4):641–678, 2016. URL: 
+
+https://doi.org/10.1007/s11225-015-9637-9 , doi:10.1007/S11225-015-9637-9 .18 Epistemic Metric Temporal Logic with Past 
+
+# A Lower-Bound Details 
+
+We give the formulas used in Section 4 and prove the properties claimed there. Fix a tiling instance 
+
+T = ( C, T, m, d init , d final ),
+
+where T ⊆ C4 and m ≥ 1. For d ∈ T , write ddown , d left , d up , d right for its four colors. 
+
+# A.1 Visible Grid Encodings 
+
+Let 
+
+Main = {b+ 
+
+> i
+
+, b − 
+
+> i
+
+| 1 ≤ i ≤ m} ∪ T ∪ { #, End }
+
+be a set of propositions. The visible proposition End marks the first #-position. A cell is represented by a block of length m + 1 :
+
+{b± 
+
+> 1
+
+} { b± 
+
+> 2
+
+} . . . {b±
+
+> m
+
+} { d}.
+
+At position i of the block, exactly one of b+ 
+
+> i
+
+and b− 
+
+> i
+
+is visible, and the last position carries exactly one tile proposition d ∈ T . The least significant bit is b1. Encoding one bit per position keeps the number of propositions, and hence the automaton constructed below, polynomial in m + |T |.The visible part of a finite grid is listed row by row, from left to right and from the bottom row upwards. It is followed by #ω . At a cell-start position, put 
+
+Cell := b+1 ∨ b− 
+
+> 1
+
+.
+
+For 1 ≤ r ≤ m and d ∈ T , define 
+
+Bit + 
+
+> r
+
+:= Xr−1b+ 
+
+> r
+
+, Bit − 
+
+> r
+
+:= Xr−1b− 
+
+> r
+
+, Tile d := Xmd. 
+
+Evaluated at a cell start, Bit ± 
+
+> r
+
+and Tile d thus refer to the r-th counter bit and the tile of that cell. Finally, let 
+
+Zero := 
+
+> m
+
+∧
+
+> r=1
+
+Bit − 
+
+> r
+
+, Max := 
+
+> m
+
+∧
+
+> r=1
+
+Bit + 
+
+> r
+
+.
+
+# A.2 The Tagged System 
+
+We now extend the set of propositions with the two hidden tags: 
+
+AP T = Main ∪ { L, U}.
+
+There is one agent a, with 
+
+AP a = Main .
+
+Hence a observes the complete grid encoding but not the tags. 
+
+▶ Definition 22 (Tagged automaton) . The tagged model Mtag  
+
+> T
+
+is a Büchi automaton over 
+
+2AP T with all states accepting, specified by the regular language it recognizes: the infinite words satisfying the following conditions: B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 19 
+
+(a) The word either consists of an infinite sequence of complete cell blocks, or of a finite sequence of complete cell blocks followed by the terminal segment described in (b). 
+
+(b) Within a cell block, the visible letters have the form specified above. At the first position of the terminal loop, the visible letter is {#, End }, and at every later position it is {#}.
+
+(c) Neither tag occurs at a #-position. 
+
+(d) Each of L and U occurs at most once, and only at a cell-start position. 
+
+To recognize this language, Mtag  
+
+> T
+
+needs only to record the position within a cell block, whether the terminal loop has started, and whether each tag has already occurred, so it has polynomially many states. Its transition relation is polynomial as well. Although the alphabet 2AP T is exponential, the encoding of one bit per position enables at each state only the O(|T |) letters that carry a single counter bit or a single tile, together with one of the constantly many admissible tag placements. Every other letter has no outgoing transition and is rejected, so δ is never enumerated over the full alphabet. Hence Mtag  
+
+> T
+
+has size polynomial in m + |T |. Traces containing no #-position are allowed, but cannot satisfy the eventual 
+
+End -requirement in ΦT .
+
+▶ Lemma 23 (Tag completeness) . Let w ∈ L(Mtag  
+
+> T
+
+), let e be its first #-position, and let 
+
+c, c ′ < e be cell-start positions. There is a word w′ ∈ L(Mtag  
+
+> T
+
+) with the same visible projection as w such that L occurs exactly at c, U occurs exactly at c′, and 
+
+(w, e ) ∼a (w′, e ).
+
+Proof. Keep the projection to Main unchanged and place L at c and U at c′. Since the language consists of all words satisfying conditions (a)–(d), and this placement respects (c) and (d), the resulting w′ is accepted. As neither tag is visible to a, the observation prefixes of w and w′ up to position e coincide. ◀
+
+# A.3 The Base Formula 
+
+The base formula checks the visible constraints that do not compare adjacent rows. For 
+
+1 ≤ r ≤ m, let 
+
+Carry r := ∧
+
+> s<r
+
+Bit + 
+
+> s
+
+,
+
+where Carry 1 = ⊤, and put 
+
+NextCell (φ) := Xm+1 φ. 
+
+Define 
+
+Inc := 
+
+> m
+
+∧
+
+> r=1
+
+(( Carry r → (NextCell (Bit + 
+
+> r
+
+) ↔ Bit − 
+
+> r
+
+)) ∧ (¬Carry r → (NextCell (Bit + 
+
+> r
+
+) ↔ Bit + 
+
+> r
+
+))) .
+
+At a cell start, Inc states that the counter in the next cell is the current counter plus one modulo 2m.Horizontal compatibility is expressed by 
+
+Horiz := □
+
+Cell ∧ ¬ Max → ∧
+
+> d∈T
+
+Tile d → ∨
+
+> d′∈Tdright =d′
+> left
+
+NextCell (Tile d′ )
+
+ .20 Epistemic Metric Temporal Logic with Past 
+
+Now let 
+
+Φbase := ( Cell ∧ Zero ∧ Tile dinit ) ∧ ♢(Cell ∧ Max ∧ Tile dfinal ∧ NextCell (End )) 
+
+∧ □(Cell ∧ NextCell (¬#) → Inc ) ∧ Horiz .
+
+▶ Lemma 24 (Meaning of the base formula) . Let w ∈ L(Mtag  
+
+> T
+
+). Then w, 1 |=Mtag 
+
+> T
+
+Φbase iff w
+
+has a first #-position and the visible prefix before it is a nonempty sequence of complete rows of width 2m, listed in row-major order, such that: 
+
+(i) its first cell has counter 0 and tile dinit ,
+
+(ii) its last cell has counter 2m − 1 and tile dfinal , and 
+
+(iii) horizontally adjacent tiles have matching colors. 
+
+Proof. The first conjunct of Φbase fixes the first counter and tile. Before the terminal loop, the increment conjunct forces each successive cell counter to increase by one modulo 2m.The conjunct containing End requires the terminal loop to begin immediately after a cell with counter 2m − 1 and tile dfinal . The number of cells before the loop is therefore a positive multiple of 2m, and these cells form complete rows. Finally, Horiz checks precisely the edges between consecutive columns, but it does not compare the last cell of one row with the first cell of the next. The converse follows by evaluating the four conjuncts on any prefix with the stated properties. ◀
+
+# A.4 The Hidden-Tag Column Check 
+
+The vertical test is evaluated at the first #-position. At a cell start, the following formula compares the current counter with that of the L-marked cell: 
+
+SameL := Cell ∧ ♢−(L ∧ Cell ) ∧
+
+> m
+
+∧
+
+> r=1
+
+(Bit + 
+
+> r
+
+↔ ♢−(L ∧ Cell ∧ Bit + 
+
+> r
+
+)) .
+
+Define 
+
+Pair := ♢− (L ∧ Cell ∧ NextCell ((¬# ∧ ¬ SameL ) U 1 
+
+> N
+
+(U ∧ Cell ∧ SameL ))) .
+
+In the left-hand argument, ¬SameL fails at any earlier cell that shares the counter of the 
+
+L-cell. Consequently, Pair holds exactly when U marks the first later cell whose counter agrees with that of the L-cell. Vertical color compatibility is expressed by 
+
+Good := ♢−
+
+U ∧ Cell ∧ ∨
+
+> d,d ′∈Tdup =d′
+> down
+
+(Tile d′ ∧ ♢−(L ∧ Cell ∧ Tile d)) .
+
+Finally, set 
+
+Φcol := Ka(Pair → Good ), ΦT := Φ base ∧ ♢(End ∧ Φcol ).
+
+▶ Lemma 25 (Same-column predicate) . Suppose w ∈ L(Mtag  
+
+> T
+
+) has a unique L-marked cell at position c. For every cell-start position x ≥ c,
+
+w, x |=Mtag 
+
+> T
+
+SameL 
+
+iff the cells at c and x carry the same counter. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 21 
+
+Proof. For each r, the formula ♢−(L ∧ Cell ∧ Bit + 
+
+> r
+
+) holds at x iff bit r of the unique L-cell is 1. The r-th equivalence in SameL therefore states that the two cells agree on bit r. The initial Cell -conjunct ensures that the formula is true only at cell starts. ◀▶ Lemma 26 (Pair selects vertical neighbors) . Assume w, 1 |= Φ base , let e be the first #-position, and suppose that L and U occur uniquely at cell starts c and c′, respectively. Then 
+
+w, e |= Pair 
+
+iff c′ is the first cell start after c whose counter equals the counter at c. Whenever such a cell exists, it is the cell directly above c in the next row. 
+
+Proof. Since L occurs only at c, the outer ♢− can refer only to c, and NextCell moves to the start of the following cell. By Lemma 25, SameL holds at a later cell start exactly when its counter equals that of the L-cell. Before the first such cell, the left-hand argument 
+
+¬# ∧ ¬ SameL holds, and there it fails, so the strict first-time until can hold only if this cell also carries U. The guard ¬# excludes a witness in the terminal loop. Under Φbase , equal counters recur once per row, so the first recurrence lies in the next row. ◀▶ Lemma 27 (Good checks vertical compatibility) . Assume that w has unique tags and that 
+
+w, e |= Pair at its first #-position. Then 
+
+w, e |= Good 
+
+iff the tile at the L-cell is vertically compatible with the tile at the U-cell. 
+
+Proof. Since the tags are unique, w, e |= Good iff the U-cell carries a tile d′ and the L-cell carries a tile d with dup = d′
+
+> down
+
+. This is exactly vertical compatibility of the two tiles. ◀
+
+Proof of Lemma 12. Suppose that a vertical edge is incompatible, with lower endpoint c
+
+and upper endpoint c′. By Lemma 23, there is an a-indistinguishable word w′ with L at c
+
+and U at c′. Lemma 26 gives w′, e |= Pair , whereas Lemma 27 gives w′, e ̸ |= Good . Hence 
+
+w, e ̸ |= Ka(Pair → Good ).Conversely, assume that all vertical edges are compatible and let w′ satisfy (w, e ) ∼a (w′, e ).Since every grid proposition and # is visible, w′ has the same visible prefix as w up to e, and only the tag placement may differ. If w′, e ̸ |= Pair , the implication is true. If w′, e |= Pair ,Lemma 26 identifies a vertical edge of the common grid, and Lemma 27 yields w′, e |= Good .Thus every indistinguishable word satisfies the implication. ◀
+
+# B Upper-Bound Details 
+
+We now give the temporal test automata, the observer update, and the global product used in the upper bound. 
+
+# B.1 Knowledge-Free Temporal Automata 
+
+The construction below follows the future-operator temporal automata of [1], extended with forward-propagated counters for past operators. 
+
+▶ Definition 28 (Normal form) . A knowledge-free formula is in normal form if every interval is of the form [0 , h ] or [ℓ, ∞).22 Epistemic Metric Temporal Logic with Past 
+
+Strict first-time semantics gives the equivalences 
+
+φ U 1[ℓ,h ] ψ ≡ (φ U 1[0 ,h ] ψ) ∧ (φ U 1[ℓ, ∞) ψ),
+
+and, symmetrically, 
+
+φ S 1[ℓ,h ] ψ ≡ (φ S 1[0 ,h ] ψ) ∧ (φ S 1[ℓ, ∞) ψ).
+
+Indeed, both conjuncts refer to the same first future, respectively most recent past, occurrence of ψ. We represent the normalized formula as a directed acyclic graph and share the two arguments of each split. Normalization then adds only a constant number of nodes per metric subformula. In the notation below, 
+
+φ U 1 
+
+> ≤h
+
+ψ and φ U 1 
+
+> ≥ℓ
+
+ψ
+
+stand for the two simple forms, and similarly for S1. Negations are not pushed to the atoms, and truth values will be defined compositionally on the closure. 
+
+▶ Definition 29 (Metric schemes and counters) . Fix a normal-form formula θ. Let Bθ be the largest finite metric constant in θ, or 0 if no such constant occurs. With binary encoding, 
+
+Bθ < 2|θ|.
+
+A metric scheme is obtained from a metric subformula by replacing its finite bound with a placeholder: 
+
+φ U 1 
+
+> ≤∗
+
+ψ, φ U 1 
+
+> ≥∗
+
+ψ, φ S 1 
+
+> ≤∗
+
+ψ, φ S 1 
+
+> ≥∗
+
+ψ. 
+
+The first and third forms are upper-bound schemes , and the other two are lower-bound schemes . An unbounded subformula with interval [0 , ∞) is represented by a lower-bound scheme with bound 0.
+
+All concrete instances of one scheme have the same witness distance. A single counter for the scheme therefore determines the truth of every bound occurring in θ.
+
+▶ Definition 30 (Closure) . The closure FL (θ) contains the nodes of the normalized formula DAG, with each metric node represented by its scheme. Atomic propositions, Boolean formulas, next formulas, and yesterday formulas are called ordinary entries .
+
+The number of ordinary entries and schemes is polynomial in |θ|.
+
+▶ Definition 31 (Explicit-counter temporal types) . A temporal type for θ is a pair H = ( v, c ).The map v assigns a value in {0, 1} to every atomic proposition and every formula of the form Xφ or Y φ in FL (θ). The map c assigns to every metric scheme γ a value 
+
+c(γ) ∈ { 0, . . . , B θ } ∪ {⊥} .
+
+The value ⊥ means that no witness distance is represented. For an upper-bound scheme, this includes the case where a witness exists farther than Bθ .B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 23 
+
+For closure formulas and concrete instances of closure schemes, define H ⊩ δ recursively: 
+
+H ⊩ ⊤ always ,H ⊩ δ ⇐⇒ v(δ) = 1 , if δ is atomic, a next formula, or a yesterday formula ,H ⊩ φ U 1 
+
+> ≤h
+
+ψ ⇐⇒ c(γ)̸ = ⊥ and c(γ) ≤ h, H ⊩ φ U 1 
+
+> ≥ℓ
+
+ψ ⇐⇒ c(γ)̸ = ⊥ and c(γ) ≥ ℓ, H ⊩ φ S 1 
+
+> ≤h
+
+ψ ⇐⇒ c(γ)̸ = ⊥ and c(γ) ≤ h, H ⊩ φ S 1 
+
+> ≥ℓ
+
+ψ ⇐⇒ c(γ)̸ = ⊥ and c(γ) ≥ ℓ, H ⊩ ¬δ ⇐⇒ H ⊮ δ, H ⊩ δ1 ∧ δ2 ⇐⇒ H ⊩ δ1 and H ⊩ δ2,
+
+where γ is the scheme associated with the metric formula. Let Hθ be the set of all temporal types. 
+
+A type is represented by polynomially many bits for v and O(|θ|) bits per counter. Hence 
+
+|Hθ | ≤ 2poly (|θ|).
+
+We next specify the intended counter values. Fix a word w and arguments φ, ψ . The 
+
+future witness distance at position i is the unique d ∈ N, if it exists, such that 
+
+w, i + d |= ψ and w, k |= φ ∧ ¬ ψ for all i ≤ k < i + d. 
+
+The past witness distance is defined by 
+
+w, i − d |= ψ and w, k |= φ ∧ ¬ ψ for all i − d < k ≤ i. 
+
+For an upper-bound scheme, its truthful counter is d when d ≤ Bθ , and ⊥ otherwise. For a lower-bound scheme it is min (d, B θ ). In either case it is ⊥ when no witness exists. These capped values preserve every comparison with a bound occurring in θ.
+
+▶ Definition 32 (Initial and successor types) . For a scheme γ and z ∈ { 0, . . . , B θ } ∪ {⊥} ,define z ⊕γ 1 as follows: 
+
+⊥ ⊕ γ 1 = ⊥.
+
+If γ is an upper-bound scheme, then 
+
+z ⊕γ 1 = 
+
+{z + 1 if z + 1 ≤ Bθ ,
+
+⊥ otherwise .
+
+If γ is a lower-bound scheme, then 
+
+z ⊕γ 1 = min( z + 1 , B θ ).
+
+A type H = ( v, c ) is prefix-initial , written H ∈ Init θ , if 
+
+H ⊮ Y φ 
+
+for every yesterday formula in the closure and, for every past scheme γ = φ S 1 
+
+> ▷◁ ∗
+
+ψ,
+
+c(γ) = 
+
+{0 if H ⊩ ψ, 
+
+⊥ if H ⊮ ψ. 
+
+For types H = ( v, c ), H′ = ( v′, c ′), and a letter σ, write H σ
+
+−→θ H′ if all the following conditions hold. 24 Epistemic Metric Temporal Logic with Past 
+
+(i) For every atomic proposition p in the closure, 
+
+v′(p) = 1 ⇐⇒ p ∈ σ. 
+
+(ii) For every next formula Xφ ,
+
+H ⊩ Xφ ⇐⇒ H′ ⊩ φ. 
+
+(iii) For every yesterday formula Y φ ,
+
+H′ ⊩ Y φ ⇐⇒ H ⊩ φ. 
+
+(iv) For every future scheme γ = φ U 1 
+
+> ▷◁ ∗
+
+ψ,
+
+c(γ) = 
+
+
+
+0 if H ⊩ ψ, c′(γ) ⊕γ 1 if H ⊮ ψ and H ⊩ φ, 
+
+⊥ if H ⊮ ψ and H ⊮ φ. 
+
+(v) For every past scheme γ = φ S 1 
+
+> ▷◁ ∗
+
+ψ,
+
+c′(γ) = 
+
+
+
+0 if H′ ⊩ ψ, c(γ) ⊕γ 1 if H′ ⊮ ψ and H′ ⊩ φ, 
+
+⊥ if H′ ⊮ ψ and H′ ⊮ φ. 
+
+Here H describes the current position and H′ the next one, and the label σ is the letter at the next position. Future counters are guessed backward from a witness, while past counters are computed forward from the initial position. 
+
+▶ Definition 33 (Temporal Büchi automaton) . Let 
+
+C0 
+
+> θ
+
+= {H ∈ Hθ | H ⊩ θ}.
+
+For every lower-bound future scheme γ = φ U 1 
+
+> ≥∗
+
+ψ, define 
+
+Gγ = {H ∈ Hθ | c(γ) = ⊥ or H ⊩ ψ}.
+
+The type graph has state set Hθ , initial set Init θ , transitions H σ
+
+−→θ H′, and generalized Büchi family 
+
+Gθ = {Gγ | γ is a lower-bound future scheme }.
+
+Convert the generalized automaton by the usual round-robin construction and add a fresh pre-initial state ιθ . The resulting ordinary Büchi automaton is 
+
+Aθ = ( Sθ , S 0,θ , δ θ , F θ ), S0,θ = {ιθ }.
+
+On the first input letter σ, the automaton moves from ιθ to a state whose type component H
+
+is prefix-initial and satisfies 
+
+v(p) = 1 ⇐⇒ p ∈ σ
+
+for every atomic proposition in the closure. Later transitions follow H σ
+
+−→θ H′, together with the round-robin update. Let Cθ ⊆ Sθ consist of the non-initial states whose type component belongs to C0 
+
+> θ
+
+. If Gθ = ∅, all non-initial states may be declared accepting. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 25 
+
+The set Gγ rules out runs on which a saturated lower-bound counter stays active forever while ψ never holds. Upper-bound future counters need no acceptance set: once active, they decrease along the run and reach 0 within Bθ steps. Past counters are determined by the prefix already read and likewise need no acceptance set. 
+
+▶ Lemma 34 (Knowledge-free pointed testers) . Let AP ′ be a finite set of atomic propositions and let θ be a knowledge-free KMTL formula over AP ′ with syntactically represented, binary-encoded metric intervals. The preceding construction yields a Büchi automaton 
+
+Aθ = ( Sθ , S 0,θ , δ θ , F θ )
+
+over 2AP ′
+
+and a marked set Cθ ⊆ Sθ such that: 
+
+(i) |Sθ | ≤ 2poly (|θ|). States and the predicates for initial, successor, accepting, and marked states are representable and testable in space polynomial in |θ| + |AP ′|.
+
+(ii) For every w = σ1σ2 . . . and every i ≥ 1,
+
+w, i |= θ ⇐⇒ there is an accepting run s0s1s2 . . . of Aθ over w
+
+with si ∈ Cθ .
+
+Proof. The size statement follows from Definition 31, since all local tests inspect polynomially many Boolean entries and counters of O(|θ|) bits. For correctness, consider an accepting run of Aθ over w, and write Hi for the type component after reading σi. We prove, by structural induction on δ, that for every closure formula and every concrete instance of a closure scheme, 
+
+Hi ⊩ δ ⇐⇒ w, i |= δ. (*) The atomic case follows from the letter condition. Boolean formulas follow from the recursive definition of ⊩. Conditions (ii) and (iii) give the next and yesterday cases, and prefix-initiality supplies the false value of every yesterday formula at position 1.Consider a future scheme γ with arguments φ, ψ . By the induction hypothesis, the type and the word agree on both arguments at every position. If a witness occurs at distance d,condition (iv) fixes the counter to 0 at the witness and propagates it backward through the preceding φ ∧ ¬ ψ-positions. The value at position i is therefore the truthful capped distance. Suppose no witness exists. If ¬φ ∧ ¬ ψ first occurs at a position k ≥ i, condition (iv) sets the counter to ⊥ at k and propagates ⊥ back to i. Otherwise φ ∧ ¬ ψ holds forever. An active upper-bound counter would then have to decrease indefinitely along the run, which is impossible. An active lower-bound counter could remain at the cap, but the set Gγ is visited infinitely often. Since ψ never holds, some later counter value is ⊥, and the recurrence again propagates ⊥ back to i.For a past scheme, induction on the position gives the truthful counter directly. Prefix-initiality provides the correct value at position 1, and condition (v) updates the capped distance at each subsequent position. This proves (∗).If si ∈ Cθ , then Hi ⊩ θ, and (∗) gives w, i |= θ. This proves soundness. For completeness, define Hi from the semantic truth values of the atomic, next, and yesterday entries at (w, i ), and assign every scheme its truthful counter. The one-step equations in Definition 32 hold by the definition of witness distance. The first type is prefix-initial. Moreover, every set Gγ is visited infinitely often: whenever a truthful lower-bound future counter is active, its witness eventually reaches a ψ-position. When no witness exists, the counter is ⊥. The round-robin extension therefore gives an accepting run. If w, i |= θ,then its state at position i belongs to Cθ . ◀26 Epistemic Metric Temporal Logic with Past 
+
+This proves Lemma 16 of the main text, which states the same result in the notation used there. 
+
+The live predicate 
+
+Fix the input model M = ( Q, Q 0, ∆, F M) over 2AP . For a knowledge-free θ over AP , define 
+
+Live M 
+
+> θ
+
+⊆ Q × Sθ
+
+as follows. The product has transitions 
+
+(q, s ) −→ (q′, s ′)
+
+if some σ ∈ 2AP satisfies 
+
+(q, σ, q ′) ∈ ∆ and (s, σ, s ′) ∈ δθ .
+
+A pair (q, s ) belongs to Live M 
+
+> θ
+
+if s ∈ Cθ and the product has an infinite continuation from 
+
+(q, s ) that visits FM × Sθ and Q × Fθ infinitely often. Membership is a generalized Büchi nonemptiness test in the exponential graph. Each state has polynomial size and the transition relation is polynomial-space testable, so it is decidable in polynomial space. Let 
+
+q0
+
+> σ1
+
+−→ q1 · · · σi
+
+−→ qi
+
+be a run prefix of M. It extends to an accepting run whose word satisfies θ at position i iff 
+
+Aθ has a run on σ1 . . . σ i ending in a state s with (qi, s ) ∈ Live M 
+
+> θ
+
+. The forward implication follows from the completeness part of Lemma 34, and the reverse implication follows from soundness after joining the two prefixes to a live product continuation. 
+
+# B.2 Observers and Knowledge Tests 
+
+We first set up the notation for abstracting inner knowledge. Consider an occurrence 
+
+η = Kaψ. 
+
+Every knowledge operator nested in ψ is also indexed by a, because the formula is agent-alternation-free. Let Imm (η) be the knowledge-subformula occurrences in ψ that are not contained in another knowledge subformula of ψ. Assign a fresh proposition pζ to every 
+
+ζ ∈ Imm (η), and let ̂ ψ be obtained by replacing each such ζ with pζ . Then ̂ ψ is knowledge-free. Write 
+
+P in  
+
+> η
+
+= {pζ | ζ ∈ Imm (η)}, χη = ¬̂ψ, 
+
+and let 
+
+Aη = ( Sη , S 0,η , δ η , F η ), Cη ⊆ Sη ,
+
+be the pointed tester for χη . Since χη is knowledge-free over AP ∪ P in  
+
+> η
+
+, Lemma 16 applies with AP ′ = AP ∪ P in  
+
+> η
+
+, so δη ⊆ Sη × 2AP ∪P in  
+
+> η
+
+× Sη and each letter read by Aη has the form 
+
+τ ∪ κ′ with τ ∈ 2AP and κ′ ⊆ P in  
+
+> η
+
+. All fresh propositions are chosen outside AP and are distinct across knowledge-subformula occurrences. When the occurrence is clear, we also write 
+
+P in  
+
+> a,ψ
+
+= P in  
+
+> η
+
+, Oa,ψ = Oη , Live M 
+
+> a,ψ
+
+= Live M 
+
+> η
+
+,
+
+in agreement with the notation of the main text. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 27 
+
+▶ Lemma 35 (Same-agent invariance) . If (w, i ) ∼a (w′, i ), then 
+
+w, i |=M Kaξ ⇐⇒ w′, i |=M Kaξ. 
+
+Consequently, the truth of Kaξ at position i depends only on obs a(w≤i).
+
+Proof. Indistinguishable pointed words have the same a-equivalence class, and Kaξ univer-sally quantifies over that class. ◀
+
+Call u = o1 . . . o i ∈ (2 AP a )i realized if 
+
+u = obs a(w≤i)
+
+for some w ∈ L(M). For an immediate inner block ζ = Kaψζ , Lemma 35 makes its truth value a function of u. Let 
+
+κη (u) = {pζ ∈ P in  
+
+> η
+
+| w, i |=M ζ for some, equivalently every, w with obs a(w≤i) = u}.
+
+These valuations are defined by induction on knowledge-nesting depth. 
+
+▶ Definition 36 (Observer) . For a realized observation prefix u = o1 . . . o i, i ≥ 1, define 
+
+Oη (u) ⊆ Q × Sη
+
+to contain a pair (q, s ) iff there are run prefixes 
+
+q0
+
+> τ1
+
+−→ q1 · · · τi
+
+−→ qi
+
+of M and 
+
+s0s1 . . . s i
+
+of Aη such that 
+
+q0 ∈ Q0, qi = q, s0 ∈ S0,η , si = s, 
+
+and, for every 1 ≤ j ≤ i,
+
+obs a(τj ) = oj , (sj−1, τ j ∪ κη (o1 . . . o j ), s j ) ∈ δη .
+
+Thus Oη (u) contains the joint states reachable along all model prefixes with observation u,while Aη reads the corresponding model letters extended by the truth values of the immediate inner blocks. The model prefixes in this set need not themselves be live, and liveness is tested separately. For o ∈ 2AP a and κ′ ⊆ P in  
+
+> η
+
+, put 
+
+init η (o, κ ′) = {(q, s ) | ∃ q0 ∈ Q0, ∃τ ∈ 2AP , ∃s0 ∈ S0,η :(q0, τ, q ) ∈ ∆, obs a(τ ) = o, (s0, τ ∪ κ′, s ) ∈ δη },
+
+post η (O, o, κ ′) = {(q′, s ′) | ∃ (q, s ) ∈ O, ∃τ ∈ 2AP :(q, τ, q ′) ∈ ∆, obs a(τ ) = o, (s, τ ∪ κ′, s ′) ∈ δη }.
+
+▶ Lemma 37 (Observer recursion) . For every realized u = o1 . . . o i and every o such that uo 
+
+is realized, 
+
+Oη (o1) = init η (o1, κ η (o1)) ,
+
+and 
+
+Oη (uo ) = post η (Oη (u), o, κ η (uo )) .28 Epistemic Metric Temporal Logic with Past 
+
+Proof. For the first equality, unfold Definition 36 with i = 1 . For the second, split a joint run over uo after its prefix over u. The last model transition reads some τ with obs a(τ ) = o,and the last tester transition reads τ ∪ κη (uo ). The converse concatenation gives every pair in the stated post-image. ◀
+
+Relative liveness 
+
+The observer Oη (u) records the prefix up to the current position. Along a future counter-example continuation, the tester Aη must also receive the values of the propositions in P in  
+
+> η
+
+.Those values depend on the continued observation history. We therefore retain the observers of all knowledge blocks properly nested in η.Let Desc (η) be the set of all knowledge-subformula occurrences strictly inside η. For a realized observation prefix u, define the inner tuple 
+
+Iη (u) = (Oζ (u))
+
+> ζ∈Desc (η)
+
+.
+
+Here every ζ has agent a, so all components are indexed by the same observation prefix. The definitions below proceed by induction on the knowledge depth of η.For an abstract inner tuple I = ( Oζ )ζ , define the valuation of the immediate inner propositions by 
+
+pζ ∈ κη (I)
+
+iff no pair (˜ q, ˜s) ∈ Oζ satisfies 
+
+Live M 
+
+> ζ
+
+(˜ q, ˜s, Iζ ),
+
+where Iζ is the subtuple indexed by Desc (ζ). The predicate on the right concerns a block of strictly smaller knowledge depth. For o ∈ 2AP a , define post (I, o ) by updating its components from the deepest blocks outwards. When the component Oζ is updated, all components strictly inside ζ have already been updated and determine the new valuation κζ . The new component is then 
+
+post ζ (Oζ , o, κ ζ ).
+
+Define 
+
+Live M 
+
+> η
+
+(q, s, I)
+
+on configurations (q, s, I), where q ∈ Q, s ∈ Sη , and I is an inner tuple for η. There is a transition 
+
+(q, s, I) −→ (q′, s ′, I′)
+
+iff some τ ∈ 2AP satisfies 
+
+(q, τ, q ′) ∈ ∆, I′ = post (I, obs a(τ )) ,
+
+and 
+
+(s, τ ∪ κη (I′), s ′) ∈ δη .
+
+The predicate holds if s ∈ Cη and this graph has an infinite continuation visiting FM in the first component and Fη in the second component infinitely often. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 29 
+
+If η has no inner knowledge block, the tuple is empty and the definition is the ordinary live predicate for χη = ¬ψ. Otherwise, successor generation invokes liveness predicates only for proper descendants. An inner tuple has an exponential-space representation, and the recursion depth is linear in the formula size, so membership in Live M 
+
+> η
+
+is decidable in exponential space. 
+
+▶ Lemma 38 (Knowledge test) . Let η = Kaψ, let w ∈ L(M), and let i ≥ 1. Put 
+
+u = obs a(w≤i).
+
+Then 
+
+w, i |=M η
+
+iff no (q, s ) ∈ Oη (u) satisfies 
+
+Live M
+
+> η
+
+(q, s, Iη (u)).
+
+Proof. The proof is by induction on the knowledge depth of η. By the induction hypothesis, updating the descendant observers along any realized continuation produces the semantic truth values of the corresponding inner knowledge formulas. Hence Aη reads each model letter extended by the correct valuation of P in  
+
+> η
+
+.Suppose first that (q, s ) ∈ Oη (u) satisfies the relative live predicate. The observer supplies a model prefix with observation u and a compatible Aη -prefix ending in (q, s ). The live continuation extends both prefixes to accepting runs. Let w′ ∈ L(M) be the resulting model word and let ˜w′ be its extension by the fresh valuations. Since s ∈ Cη , soundness of Lemma 34 gives 
+
+˜w′, i |= χη .
+
+By the definition of the fresh valuations, this is equivalent to w′, i |=M ¬ψ. Moreover, 
+
+(w, i ) ∼a (w′, i ). Thus w, i ̸ |=M Kaψ.Conversely, suppose w, i ̸ |=M Kaψ. There is a word w′ ∈ L(M) such that 
+
+(w, i ) ∼a (w′, i ) and w′, i |=M ¬ψ. 
+
+Extend w′ at every position with the truth values of the immediate inner blocks. The resulting word satisfies χη at position i. Completeness of Lemma 34 yields an accepting run of Aη whose state at i lies in Cη . Its prefix, together with an accepting run of M over 
+
+w′, shows that the corresponding pair lies in Oη (u). The suffixes of the two runs, with the descendant observers updated along w′, witness the relative live predicate. ◀
+
+# B.3 Alternation Depth One and the Global Product 
+
+Let Know (φ) be the set of knowledge-subformula occurrences of φ. For each such occurrence, construct its observer and relative live predicate as above. Because φ ∈ KMTL 1, every descendant of a block Kaψ has the same agent a. Different agents may occur in separate, non-nested blocks. Replace every maximal knowledge subformula of ¬φ by its fresh proposition, obtaining a knowledge-free formula θtop . The observers of all nested descendants are retained because they are needed to evaluate the maximal blocks. 30 Epistemic Metric Temporal Logic with Past 
+
+A global configuration is 
+
+(q, t, O),
+
+where q ∈ Q, t ∈ Sθtop , and 
+
+O = ( Oη )η∈Know (φ)
+
+contains one observer set per knowledge block. The tuple determines a valuation κO of all fresh propositions that occur in θtop : the proposition for η is true iff its observer contains no pair satisfying the relative live predicate from the corresponding descendant subtuple. An initial configuration is obtained by choosing 
+
+(q0, σ, q ) ∈ ∆ with q0 ∈ Q0.
+
+Initialize all observer sets on σ, from the deepest blocks outwards. Each block uses the observation obs a(σ) of its own agent. This yields O and κO . Choose t0 ∈ S0,θ top and t ∈ Cθtop 
+
+such that 
+
+(t0, σ ∪ κO , t ) ∈ δθtop .
+
+From (q, t, O), choose a model transition 
+
+(q, σ ′, q ′) ∈ ∆.
+
+Update every observer on the observation of σ′ for its agent, again from the deepest blocks outwards, to obtain O′. Compute κO′ , and choose t′ with 
+
+(t, σ ′ ∪ κO′ , t ′) ∈ δθtop .
+
+The successor is (q′, t ′, O′). The acceptance condition requires the first component to visit 
+
+FM infinitely often and the second to visit Fθtop infinitely often. Acceptance conditions of the inner testers are checked within the relative live predicates and impose no additional condition on the global path. 
+
+▶ Lemma 39 (Global correctness) . The global product has an accepting run iff there is a word 
+
+w ∈ L(M) such that 
+
+w, 1 |=M ¬φ. 
+
+Proof. Consider a global run over a word w. By Lemma 37, the component for each block 
+
+η = Kaψ after position i is 
+
+Oη (obs a(w≤i)) .
+
+Lemma 38 therefore assigns every fresh proposition the truth value of the knowledge sub-formula it represents. Structural induction on the formula shows that the extended word satisfies θtop at a position iff w satisfies ¬φ there. If the global product has an accepting run, its first component is an accepting run of M
+
+over some w ∈ L(M). Its second component is an accepting run of Aθtop , and the initial global configuration ensures that its state at position 1 belongs to Cθtop . Soundness of Lemma 34 gives 
+
+w, 1 |=M ¬φ. B. Bollig, M. Függer, T. Nowak, and P. Zeinaty 31 
+
+Conversely, suppose w ∈ L(M) satisfies w, 1 |=M ¬φ, and fix an accepting run of M
+
+over w. The observer recursion determines O at every position, and the knowledge test gives the correct fresh valuation. Completeness of Lemma 34 supplies an accepting run of Aθtop 
+
+whose state at position 1 is marked. These components form an accepting run of the global product. ◀
