@@ -1,0 +1,261 @@
+Title: Agentic Code Review in the Terminal: A Trajectory-Level Analysis of Behavior, Cost, and Human-Alignment
+
+URL Source: https://arxiv.org/pdf/2607.16740v1
+
+Published Time: Tue, 21 Jul 2026 00:33:05 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+# Agentic Code Review in the Terminal: A Trajectory-Level Analysis of Behavior, Cost, and Human-Alignment 
+
+## Wachiraphan Charoenwet 
+
+The University of Melbourne Australia. 
+
+## Kla Tantithamthavorn 
+
+Monash University Australia. 
+
+## Patanamon Thongtanunam 
+
+The University of Melbourne Australia. 
+
+## Hong Yi Lin 
+
+The University of Melbourne Australia. 
+
+## Minwoo Jeong 
+
+Atlassian USA. 
+
+## Ming Wu 
+
+Atlassian USA. 
+
+Abstract 
+
+Agentic code review in terminal-based environments enables early feedback during local development before pull request creation. However, existing evaluations remain performance-centric and fail to capture the dynamic behaviors of repository-grounded agentic reviewers. Understanding these behaviors is critical for identify-ing how agentic reviewers succeed, fail, and incur hidden opera-tional costs in practice. Then, we analyze the reviewers’ behavior based on their trajectories. Our results show that agentic reviewers achieve higher review precision, but incur substantial exploration and validation overhead, while successful reviews are associated with stronger planning and less downstream validation. These find-ings highlight the potential benefits of trajectory-aware and cost-sensitive evaluation of future agentic code review systems. 
+
+ACM Reference Format: 
+
+Wachiraphan Charoenwet, Kla Tantithamthavorn, Patanamon Thongta-nunam, Hong Yi Lin, Minwoo Jeong, and Ming Wu. 2026. Agentic Code Review in the Terminal: A Trajectory-Level Analysis of Behavior, Cost, and Human-Alignment. In . ACM, New York, NY, USA, 5 pages. https: //doi.org/10.1145/nnnnnnn.nnnnnnn 
+
+1 Introduction 
+
+Agentic code review in the terminal moves review earlier in the software lifecycle, enabling developers to obtain feedback during local development before opening a pull request. Unlike static LLM-based review approaches that operate on fixed prompts based on the information within a Pull Request (PR), terminal-based agentic code reviewers can explore the surrounding context within the repository. Broadly speaking, agents can autonomously decide what 
+
+context in the repository to retrieve, where to look next, and which 
+
+tools to invoke to review the code. When effective, this repository-grounded approach can improve review relevance and precision; however, when ineffective, it incurs substantial overhead through inefficient navigation and unnecessary context retrieval. Existing code review benchmarks are not designed for this set-ting [ 3 , 15 ]. Most assume static evaluation and assess review quality solely from the final comments generated. This is mismatched to  
+
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> Conference’17, Washington, DC, USA
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 978-x-xxxx-xxxx-x/YYYY/MM https://doi.org/10.1145/nnnnnnn.nnnnnnn
+
+agentic code review, where performance depends not only on out-puts but also on repository-grounded behavior where the agent plans, navigates the repository, reasons over, and validates its gen-eration against the relevant context [ 4, 7, 9 ]. These intermediate actions and reasoning steps, as well as underlying processes and tool uses, are typically recorded as an agent trajectory , which remain largely unexamined in prior work. As a result, current eval-uations provide limited insight into whether repository context improves code review performance, how agentic reviewers allocate effort, and what costs arise from multi-step review behavior. In this paper, we investigate repository-grounded agentic code review in the terminal through the lens of agent behavior (i.e., trajec-tories), analyzing tool use, operational costs, and human alignment. To support this investigation, we reconstruct a repo-level, human-verified code review dataset in a terminal-based environment. Using this setup, we evaluate four state-of-the-art terminal-based agentic reviewers, Claude Code, Gemini CLI, Rovo Dev, and Code Rab-bit, against static LLM reviewers. Our results show that agentic reviewers improve review precision through repository-grounded exploration, but incur substantial exploration and validation over-head. Trajectory analysis further reveals that successful reviews are associated with stronger planning, while excessive validation often correlates with failure. Together, these trajectory-centric findings complement outcome-level benchmark results by revealing how reviewers arrive at review decisions and exposing trade-offs among exploration, deliberation, efficiency, and review quality. 
+
+Contributions. This paper makes the following contributions: 
+
+• AgenticCR-Verified, a human-verified real-world code review dataset, reconstructed for agentic code review. 
+
+• An empirical evaluation of agentic code review in terminal and static LLM reviewers based on agent behavior (trajectories), operational costs, and human alignment. 
+
+• An association between agentic trajectories and review success based on human alignment. 
+
+2 Background and Related Work 
+
+Agentic Code Reviews in a Nutshell. Agentic code review refers to LLM-driven code review in which an LLM agent autonomously retrieves repository context, invokes tools, and refines judgments before producing comments. Such agents can operate in IDEs, pull request interfaces, or command-line terminals. In this work, we focus on terminal-based agentic code review, where reviewers oper-ate directly within a local repository via a command-line interface (CLI), using commands such as grep , find , and cat to inspect code arXiv:2607.16740v1 [cs.SE] 18 Jul 2026 Conference’17, July 2017, Washington, DC, USA Wachiraphan Charoenwet, Kla Tantithamthavorn, Patanamon Thongtanunam, Hong Yi Lin, Minwoo Jeong, and Ming Wu Exploration         
+
+> Bash :
+> git -C repo diff
+> (Get uncommitted changes)
+> Planning
+> “Examine the di ff more
+> carefully to understand
+> the changes”
+> Generation
+> Write:
+> comments.json
+> (Produce review comments)
+> Validation
+> “Check similar implementation
+> to compare against best
+> practices”
+
+Figure 1: Representative examples of trajectory code review phase. Messages and tool calls are abbreviated for readability. 
+
+and gather evidence. Unlike static LLMs that generate a comment based on fixed inputs, terminal-based agentic reviewers follow an iterative observe–act loop, interleaving reasoning with tool use to retrieve repository context dynamically [ 5 , 8, 11 , 13 ]. This repository-grounded behavior helps explore and validate relevant evidence spanning across files, abstractions, and dependencies. 
+
+Agentic trajectory. A trajectory is the sequence of intermedi-ate actions and reasoning steps an agent performs while complet-ing a review task [ 4, 7 , 9]. Typically, a trajectory is composed of five phases: (1) initialization (task setup), (2) exploration (retriev-ing repository context), (3) planning (intermediate deliberation and decision-making steps), (4) generation (producing review com-ments), and (5) validation (verifying or refining findings). Figure 1 shows examples of the agent action in each phase recorded in a trajectory. This phase-level abstraction outlines how agents allocate actions and reasoning across a review task. 
+
+Code Review Automation Benchmark. Prior code review benchmarks typically assume static, direct prompting settings, where LLMs generate review comments from fixed inputs such as code diffs and limited pull-request context [ 3]. These approaches rely on single-pass prompting without additional repository explo-ration or iterative evidence gathering [ 1, 14 ]. As a result, evaluation primarily focuses on syntactic human alignment, i.e., the similarity between human-written and LLM-generated comments [ 3], and operational cost is based on input and output token usage [ 8], pro-viding limited insight into the underlying agent behaviors and rea-soning processes. Evaluating agent behaviors alongside outcomes deepens understanding of what makes reviews effective. 
+
+3 Toward Evaluating Agentic Code Review 
+
+In this section, we present our evaluation of agentic code review. 
+
+3.1 Dataset Construction 
+
+To construct our dataset, we began with Hu et al . [3] ’s dataset, which contains 68K code review discussions from 99 GitHub repos-itories across 10 programming languages. Each discussion is asso-ciated with a GitHub issue, pull request (PR), and diff hunks. Since the dataset of Hu et al . [3] is for evaluating static LLM code review, we reconstruct the dataset to suit the agentic code reviewer, which requires repository-level context by defining a code review task as: 
+
+𝑇 (𝑟𝑒𝑝𝑜, commit hash , diff hunks , 𝑖𝑠𝑠𝑢𝑒, 𝑃𝑅 → comments )
+
+where repo is the GitHub repository, commit hash identifies the reviewed commit, diff hunks denote code changes under review, and 
+
+issue and PR provide contextual information from the corresponding GitHub issue and pull request. The comments are developer-written review discussions on the diff hunks, used as ground truth. Across 68K review discussions, we identify 30K unique code review task candidates, i.e., unique triplets of (issue, PR, and commit) 
+
+and apply a three-stage filter. We first exclude repositories larger than 1GB for feasibility, retaining 90 repositories. Then, we retain only tasks whose commit IDs remain resolvable in the repository’s commit tree and whose diff hunks match the reviewed changes via token matching; most excluded tasks have commits that no longer exist or contain mismatched changes, reducing the dataset to 1,078 tasks. Finally, we stratify tasks by the size of diff hunk into Small–Medium ( ≤100 additions), Large (101–500), and Extra Large (>500) to capture variation in review complexity [ 10 ] and ensure balanced sampling, yielding 421 tasks. To reduce noise in the ground truth [ 6], we manually verify review comments and discard tasks with bot-generated or non-human comments, non-substantive remarks (e.g., acknowledgments or greetings), high-level discussions not tied to specific changes, or extreme commits (>2,000 LOC) where meaningful review is not realistic. After verification, the final dataset consists of 362 terminal-based code review tasks, each with a terminal-based environment, and the aligned diff hunks and developers’ comments. This structure enables both evaluation and trajectory analysis of agentic reviewers under a realistic repository-level context. 
+
+3.2 Experimental Design 
+
+3.2.1 Evaluation Harness. To ensure reproducible evaluation, we use Harbor as a unified execution harness [ 2 ]. Harbor provides a sandboxed terminal environment where an agentic reviewer exe-cutes a task and interacts with a repository. This setup is essential as agentic review involves repository exploration and environment in-teraction. Running all agents within the same harness standardizes execution conditions and reduces confounding variations. 
+
+3.2.2 Trajectory Representation. To understand how agentic re-viewers perform repository-grounded code review, we analyze their trajectories in addition to their final outputs. We represent trajec-tories using the ATIF (Agent Trajectory Interchange Format), 1 aJSON-based schema that records step-level interactions, including actions, intermediate signals (when available), and environment re-sponses, enabling consistent analysis across heterogeneous agents. 
+
+3.2.3 Phase Annotation. We identify the phases of an action or rea-soning step by matching keyword lists against each step’s message text, reasoning content, and tool call descriptions (e.g., read , grep ,or search map to exploration; write or generate to generation; verify 
+
+or check to validation; plan or next to planning). Given a trajectory, we identify the five common phases as described in Section 2. Explo-ration covers repository inspection, planning captures intent and sequencing, generation produces reviews, and validation involves verification and refinement. System messages are excluded. 
+
+3.2.4 Trajectory Metrics. We quantify agentic behavior using four phase-level signals: steps, tool calls, tokens, and cost. Specifically, we measure (1) steps per phase, capturing effort allocation; (2) tool  
+
+> 1https://github.com/harbor-framework/harbor/blob/main/rfcs/0001-trajectory-format.md Agentic Code Review in the Terminal: A Trajectory-Level Analysis of Behavior, Cost, and Human-Alignment Conference’17, July 2017, Washington, DC, USA
+
+calls per phase, indicating environment interaction (e.g., file access, search, execution); (3) input and output tokens per phase; and (4) estimated total cost based on token usage. This decomposition reveals how agents distribute effort and computational cost. 
+
+3.2.5 Code Review Evaluation Metrics. We evaluate agentic and static LLM reviewers at comment and task levels to support fine-grained review assessment and trajectory-level analysis. 
+
+Comment-Level Metrics. To compare agentic and static LLM reviewers, we adopt two metrics: localization , whether a generated comment falls within ±5 lines of a human comment, and human alignment , whether it identifies a relevant issue, evaluated using an LLM-as-a-Judge framework [12]. 
+
+Code Review-Level Outcomes. For trajectory analysis, we ag-gregate comment-level results into task level. A task is accomplished 
+
+if at least one generated comment satisfies both localization and human-alignment criteria. A task is partially accomplished if com-ments satisfy only one of the two criteria. A task is unaccomplished 
+
+if none of the generated comments satisfy either criterion. 
+
+3.2.6 Studied Code Reviewers. We study the following agentic code reviewers and static LLM reviewers. 
+
+• Agentic Code Reviewers : Gemini CLI , Claude Code , Rovo Dev , and CodeRabbit (specialized code review agent), all op-erating in terminal-based environments. Their main backend models are Gemini 2.5 Flash, Claude Sonnet 4.6 (for both Claude Code and Rovo Dev), and undisclosed model (for CodeRabbit). 
+
+• Static LLM Reviewers : agents that generate comments from fixed inputs (e.g., diffs and PR) without repository interactions. For the LLM models, we use GPT-5.4, GPT-5.2, Claude Sonnet 4.6, Claude Sonnet 4.5, and Gemini 2.5 Pro. These candidates are complementary: static LLM reviewers serve as a reference point for review without repository exploration, while agentic reviewers—the primary focus of this paper—represent production-grade, repository-aware agentic code review. 
+
+3.2.7 Code Review Task Instructions. To enable fair comparison, we standardize the review objective, directing agents to analyze code changes in the repository context and identify concrete and actionable issues. For agentic reviewers, we encode Harbor’s task instruction ( instruction.md ) through each reviewer’s native CLI, standardizing both the environment and review objective across agents. These controls allow us to compare agentic code review-ers and preserve their native interaction models. For static LLM reviewers, we use a similar prompt and experimental setup as Hu et al . [3] ’s work. To reduce non-determinism, we set temperature to 0 for all reviewers. 
+
+4 Experimental Results 
+
+We compare agentic reviewers against static LLM reviewers, then analyze agentic trajectories to understand underlying behaviors. 
+
+Overall Review Performance. Table 1 reports the percentage of comments with correct localization, human alignment, and over-all performance (both criteria satisfied). Agentic reviewers achieve the strongest results, with Rovo Dev and Claude Code reach-ing 5.81% and 5.60%, respectively, driven primarily by improved localization (>20% vs. 7%–9% for other reviewers). Notably, this 
+
+Table 1: Terminal-based code review performance. Overall performance denotes the percentage of generated comments satisfying both localization and human-alignment criteria.                                      
+
+> Code Reviewer # Com-ments % Localized Comments % Human Align. Comments Overall Per-formance Rovo Dev 0.13.61 860 20.93% 15.10% 5.81% Gemini CLI 0.32 392 12.24% 13.28% 2.30%
+> Claude Code 2.1.72 947 22.39% 14.37% 5.60%
+> CodeRabbit 0.3.7 803 7.22% 8.54% 1.37%
+> GPT-5.2 3180 7.86% 21.44% 2.61%
+> GPT-5.4 2305 9.15% 17.39% 2.43%
+> Gemini 2.5 Pro 3166 7.96% 18.71% 2.37%
+> Claude Sonnet 4.5 9060 7.70% 12.68% 1.72%
+> Claude Sonnet 4.6 4823 7.26% 14.65% 1.87%
+
+improvement occurs despite generating fewer comments, suggest-ing repository-grounded interaction improves comment quality rather than volume. The low absolute scores reflect the strictness of requiring both criteria simultaneously; agents may also identify valid issues not captured in the benchmark ground truth, which would appear as failures under our metric. We next investigate how agentic reviewers achieve these results through their trajectories, excluding CodeRabbit as it does not expose internal trajectories. 
+
+RQ1: How do agents allocate effort across review trajectory phases? Agentic code reviewers exhibit distinct trajectory strate-gies, with effort dominated by exploration and validation, while planning remains minimal. Figure 2 shows that in our repository-grounded setting, where agentic reviewers iteratively navigate and retrieve context from local codebases, effort distribution varies sub-stantially. Rovo Dev is strongly validation-driven (41% of steps, 46% of tool calls, 46% of cost), reflecting repeated verification and re-finement after generation. In contrast, Claude Code is exploration-centric, allocating most effort to repository traversal (58% of steps, 73% of tool calls, 51% of cost) with limited validation (11%–14%). 
+
+Gemini CLI shows a more balanced pattern across exploration (26%–28%), generation (21%–41%), and validation (18%–35%), and produces most outputs during generation (68% of output tokens), indicating a more direct context-to-response flow. Across agents, planning remains consistently low (<10%), de-spite the open-ended nature of the task. Exploration and validation dominate both interaction and cost, suggesting that performance in agentic code review depends more on managing repository navi-gation and verification than on explicit planning. 
+
+RQ2: How do agents operationalize command line tools in repository-grounded review? Tool usage patterns in Table 2 high-light how agents operationalize review trajectories. Rovo Dev relies heavily on general-purpose shell commands across exploration and validation, indicating low-level navigation (e.g., cd , grep , git ) and repeated context retrieval. Claude Code uses a more balanced mix of shell commands and structured tools (e.g., file reads and searches), reflecting a hybrid execution strategy. In contrast, Gem-ini CLI concentrates on a smaller set of specialized tools, mainly file reading and limited git operations, with low tool diversity. In general, exploration is driven by file inspection and search primitives, generation by file-based comment writing, and valida-tion by shell-based verification (e.g., git , grep ). Overall, reliance on general-purpose shell commands—especially in Rovo Dev and Conference’17, July 2017, Washington, DC, USA Wachiraphan Charoenwet, Kla Tantithamthavorn, Patanamon Thongtanunam, Hong Yi Lin, Minwoo Jeong, and Ming Wu 0% 20% 40% 60% 80% 100%                         
+
+> Proportion
+> rovodev
+> gemini-cli
+> claude-code
+> Step
+> 0% 20% 40% 60% 80% 100%
+> Proportion
+> Tool Calls
+> 0% 20% 40% 60% 80% 100%
+> Proportion
+> Input Tokens
+> 0% 20% 40% 60% 80% 100%
+> Proportion
+> Output Tokens
+> 0% 20% 40% 60% 80% 100%
+> Proportion
+> Total Token Costs
+> initialization exploration planning generation validation
+
+Figure 2: Phase-wise distribution of trajectory effort (mean across tasks). Rows denote agentic reviewers, subplots denote metrics (steps, tool calls, input and output tokens, cost). Segments indicate phase proportions. Table 2: Top frequently used tools (with representative com-mands) per phase and agent.                       
+
+> Phase Rovo Dev Gemini CLI Claude Code
+> Exploration Shell (cd, git, grep), File Ops, Search File Read, Shell (git), Search Shell (git, grep, cat), File Read, Search Planning Shell (git, cd), File Ops Shell (git) Shell (git), Task Planning Generation File Write, Shell (cd, cat, git) File Write File Write, Shell (git) Validation Shell (cd, git, grep), Search, File Ops Shell (git) Shell (grep, git), Execution Acc. Unacc.
+> 0.0
+> 0.1
+> 0.2
+> planning  *p=0.012
+> Acc. Unacc.
+> 0.0
+> 0.2
+> 0.4
+> *p=0.038
+> Acc. Unacc.
+> 0.0
+> 0.1
+> 0.2
+> Acc. Unacc.
+> 0.2
+> 0.4
+> generation
+> Acc. Unacc.
+> 0.25
+> 0.50
+> Acc. Unacc.
+> 0.2
+> 0.4
+> Acc. Unacc.
+> 0.0
+> 0.5
+> validation
+> Acc. Unacc.
+> 0.0
+> 0.2
+> 0.4
+> Acc. Unacc.
+> 0.00
+> 0.25
+> 0.50
+> rovodev gemini-cli claude-code
+
+Figure 3: Accomplished vs. unaccomplished trajectory effort by phase and agent; significant planning differences appear for Rovo Dev and Gemini CLI ( 𝑝 < 0.05 ). 
+
+Claude Code—suggests that agents often default to low-level exe-cution rather than structured tooling, contributing to higher explo-ration overhead and less organized review trajectories. 
+
+RQ3: How does computational cost incur during agentic code review? Trajectory analysis reveals clear efficiency trade-offs across agents. Rovo Dev produces the longest trajectories, averag-ing 7.4 validation and 5.5 exploration steps, and incurs the highest cost ($0.75 validation, $0.44 exploration) with over 10 validation tool calls per task. Claude Code exhibits similarly high exploration (7.5 steps) but substantially lower cost ($0.10), indicating more efficient context retrieval despite comparable steps. In contrast, Gemini CLI 
+
+operates with short trajectories ( ≤1 step per phase) and minimal cost across phases ( ≤$0.007), reflecting a lightweight interaction. In summary, exploration and validation dominate computational expenditure, highlighting that they are the primary cost drivers, while planning remains negligible (<1 step and near-zero cost). 
+
+RQ4: How do successful and unsuccessful review trajec-tories differ? We compare trajectories from accomplished and 
+
+unaccomplished reviews (as defined in Section 3.2.5), excluding partially accomplished cases to sharpen the contrast. Figure 3 shows that successful trajectories allocate significantly more effort to planning in Rovo Dev and Gemini CLI (𝑝 < 0.05 ,MWU-Test), suggesting that explicit deliberation is associated with better outcomes. Generation effort is also slightly higher in success-ful cases, but not statistically significant. In contrast, unsuccessful trajectories show higher validation effort, which often corresponds to re-checking of context (e.g., reopening diffs and relevant files) without improving results. Overall, successful trajectories are more strongly associated with planning rather than increased validation. 
+
+5 Implications and Conclusion 5.1 Implications 
+
+Our findings suggest the following implications for agentic code review and its evaluation. First, localization is the bottleneck. Im-proving repository navigation likely yields greater gains than scal-ing model capability. Second, planning is the strongest predictor of success, yet the least invested phase. Planning consumes less than 10% of effort despite being the only phase significantly asso-ciated with review success, suggesting agents are over-exploring and under-planning. Third, excessive validation signals weak initial grounding. Unsuccessful reviews exhibit heavier validation effort, yet repeated re-checking does not recover from poor plan-ning. Fourth, cost does not imply performance. The substantial cost gap between agents achieving comparable results highlights the need for cost-normalized evaluation metrics in future work. 
+
+5.2 Threats to Validity 
+
+Manual verification and LLM-as-a-Judge evaluation may introduce noise, although we use an evaluated judge [ 12 ]. Generated com-ments not aligned with ground truth should not be treated as in-correct, as agents may surface unforeseen issues. Trajectory phase labels rely on keyword-based heuristics, which may not fully cap-ture latent intent (e.g., the same text may serve different purposes), though they are manually validated. Finally, findings may not gener-alize to future agents and systems; we release a replication package to support verification and future work. 
+
+5.3 Conclusion 
+
+We present the first trajectory-level empirical study of agentic code review in terminal environments, finding that localization is the key differentiator of agentic over static review, and that planning— despite being the least invested phase—is most strongly associated with review success. 
+
+Data Availability Statement 
+
+The AgenticCR-Verified dataset, analysis scripts, and experimental results are available at https://doi.org/10.5281/zenodo.20131996. Agentic Code Review in the Terminal: A Trajectory-Level Analysis of Behavior, Cost, and Human-Alignment Conference’17, July 2017, Washington, DC, USA 
+
+References 
+
+[1] Fannar Steinn Aðalsteinsson, Björn Borgar Magnússon, Mislav Milicevic, Adam Nirving Davidsson, and Chih-Hong Cheng. 2025. Rethinking Code Review Workflows with LLM Assistance: An Empirical Study. In 2025 ACM/IEEE Interna-tional Symposium on Empirical Software Engineering and Measurement (ESEM) .488–497. doi:10.1109/ESEM64174.2025.00013 [2] Harbor Framework Team. 2026. Harbor: A framework for evaluating and opti-mizing agents and models in container environments . https://github.com/harbor-framework/harbor [3] Ruida Hu, Xinchen Wang, Xin-Cheng Wen, Zhao Zhang, Bo Jiang, Pengfei Gao, Chao Peng, and Cuiyun Gao. 2025. Benchmarking LLMs for Fine-Grained Code Review with Enriched Context in Practice. arXiv preprint arXiv:2511.07017 (2025). https://arxiv.org/abs/2511.07017 [4] Myeongsoo Kim, Dingmin Wang, Siwei Cui, Farima Farmahinifarahani, Shweta Garg, Baishakhi Ray, Terry Yue Zhuo, Rajdeep Mukherjee, and Varun Kumar. 2026. TRAJEVAL: Decomposing Code Agent Trajectories for Fine-Grained Diagnosis. arXiv:2603.24631 [cs.SE] https://arxiv.org/abs/2603.24631 [5] Yusong Lin, Haiyang Wang, Shuzhe Wu, Lue Fan, Feiyang Pan, Sanyuan Zhao, and Dandan Tu. 2026. CLI-Gym: Scalable CLI Task Generation via Agentic Environment Inversion. arXiv preprint arXiv:2602.10999 (2026). https://arxiv. org/abs/2602.10999 [6] Chunhua Liu, Hong Yi Lin, and Patanamon Thongtanunam. 2025. Too Noisy To Learn: Enhancing Data Quality for Code Review Comment Generation . In 2025 IEEE/ACM 22nd International Conference on Mining Software Repositories (MSR) .IEEE Computer Society, Los Alamitos, CA, USA, 236–248. doi:10.1109/MSR66628. 2025.00043 [7] Shuyang Liu, Yang Chen, Rahul Krishna, Saurabh Sinha, Jatin Ganhotra, and Reyhaneh Jabbarvand. 2026. Process-Centric Analysis of Agentic Software Sys-tems. Proc. ACM Program. Lang. 10, OOPSLA1, Article 163 (April 2026), 28 pages. doi:10.1145/3798271 [8] Mike A Merrill, Alexander G Shaw, Nicholas Carlini, Boxuan Li, Harsh Raj, Ivan Bercovich, Lin Shi, Jeong Yeon Shin, Thomas Walshe, E Kelly Buchanan, et al .2026. Terminal-bench: Benchmarking agents on hard, realistic tasks in command line interfaces. arXiv preprint arXiv:2601.11868 (2026). [9] Tianyue Ou, Wanyao Guo, Apurva Gandhi, Graham Neubig, and Xiang Yue. 2025. AgentDiagnose: An Open Toolkit for Diagnosing LLM Agent Trajectories. In 
+
+Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing: System Demonstrations , Ivan Habernal, Peter Schulam, and Jörg Tiede-mann (Eds.). Association for Computational Linguistics, Suzhou, China, 207–215. doi:10.18653/v1/2025.emnlp-demos.15 [10] Peter C. Rigby, Daniel M. German, Laura Cowen, and Margaret Anne Storey. 2014. Peer Review on Open-Source Software Projects. ACM Transactions on Software Engineering and Methodology (TOSEM) 23, 4 (9 2014). doi:10.1145/2594458 [11] Timo Schick, Jane Dwivedi-Yu, Roberto Dessí, Roberta Raileanu, Maria Lomeli, Eric Hambro, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom. 2023. Toolformer: language models can teach themselves to use tools. In Proceedings of the 37th International Conference on Neural Information Processing Systems (New Orleans, LA, USA) (NIPS ’23) . Curran Associates Inc., Red Hook, NY, USA, Article 2997, 13 pages. [12] Kla Tantithamthavorn, Hong Yi Lin, Patanamon Thongtanunam, Wachiraphan Charoenwet, Minwoo Jeong, and Ming Wu. 2026. HalluJudge: A Reference-Free Hallucination Detection for Context Misalignment in Code Review Automation. arXiv:2601.19072 [cs.SE] https://arxiv.org/abs/2601.19072 [13] Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. 2023. ReAct: Synergizing Reasoning and Acting in Language Models. arXiv:2210.03629 [cs.CL] https://arxiv.org/abs/2210.03629 [14] Daoan Zhang, Shuo Zhang, Zijian Jin, Jiebo Luo, Shengyu Fu, and Elsie Nallipogu. 2026. Sphinx: Benchmarking and Modeling for LLM-Driven Pull Request Review. arXiv:2601.04252 [cs.SE] https://arxiv.org/abs/2601.04252 [15] Lei Zhang, Yongda Yu, Minghui Yu, Xinxin Guo, Zhengqi Zhuang, Guoping Rong, Dong Shao, Haifeng Shen, Hongyu Kuang, Zhengfeng Li, Boge Wang, Guoan Zhang, Bangyu Xiang, and Xiaobing Xu. 2026. AACR-Bench: Evaluating Automatic Code Review with Holistic Repository-Level Context. arXiv preprint arXiv:2601.19494 (2026). https://arxiv.org/abs/2601.19494

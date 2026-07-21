@@ -1,0 +1,345 @@
+Title: DRNOISE: Benchmarking Deep Research Agents in Misleading Evidence Environments
+
+URL Source: https://arxiv.org/pdf/2607.17291v1
+
+Published Time: Tue, 21 Jul 2026 01:10:50 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+Preprint 
+
+# DRN OISE : B ENCHMARKING DEEP RESEARCH AGENTS IN MISLEADING EVIDENCE ENVIRONMENTS 
+
+Jun Nie 1,2,∗ Zhiqin Yang 3,∗ Zhenheng Tang 3 Yonggang Zhang 3
+
+Xiaowen Chu 3 Xinmei Tian 2 Bo Han 1
+
+> 1
+
+Hong Kong Baptist University 2University of Science and Technology of China 
+
+> 3
+
+The Hong Kong University of Science and Technology 
+
+# ABSTRACT 
+
+Deep research agents increasingly operate over the open web, where relevant records coexist with redundant summaries, outdated reports, and misleading doc-uments. Existing evaluations offer limited insight into whether agents preserve sound evidential standards when an ordinary-looking false document is deliberately seeded into a searchable environment and offers a direct shortcut to a conflicting answer. We introduce DRN OISE , a 100-task benchmark for answer recovery un-der misleading evidence. Each task has a unique gold answer supported by two corroborating indirect record chains; the paired noisy condition adds one plausible document that states a conflicting answer directly. The benchmark spans ten fami-lies of evidence operations. Across agents with strong clean-task performance, this single intervention causes 66–88 percentage-point accuracy drops. Trace analyses identify verification inertia as the dominant failure mode: agents often retrieve truthful records but stop before completing and reconciling the evidence chain, instead deferring to the answer-like document. Generic verification prompts reduce but do not close this gap. The setting is especially relevant to open-web deploy-ment, where plausible falsehoods arrive through ordinary-looking pages rather than explicit attacks. Reliable deep research therefore requires more than retrieval and citation; it requires active reconciliation of direct claims with record-level evidence. Gemini      
+
+> 3.5 Flash
+> MiMo
+> v2.5
+> GPT-5.4 DeepSeek
+> V4 Flash
+> Qwen3
+> 32B
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Accuracy (%)
+> 96.3
+> 26.0
+> 82.0
+> 1.0
+> 81.7
+> 15.7
+> 88.7
+> 1.0
+> 13.0
+> 5.7
+> Clean
+> Noisy
+> 025 50 75 100
+
+Conditional deference (%) 
+
+> Gemini
+> 3.5 Flash
+> MiMo
+> v2.5
+> GPT-5.4
+> DeepSeek
+> V4 Flash
+> Qwen3
+> 32B
+> 72.6%
+> 96.3%
+> 80.4%
+> 98.1%
+> 61.3%
+
+Figure 1: Main benchmark result on DRN OISE . Left: clean vs. noisy accuracy on the 100-task benchmark. Adding a single misleading document sharply reduces the accuracy of agents with strong clean-task performance. Right: conditional deference, the fraction of a system’s clean-correct tasks that are answered with the injected false value once the misleading document is present. 
+
+# 1 INTRODUCTION 
+
+Deep research agents are increasingly positioned as front-ends for complex knowledge work, where they are expected not merely to retrieve documents, but to compare sources, reconcile conflicts, and synthesize conclusions. This expectation is difficult to meet on the open web, where operational 
+
+> ∗
+
+Equal contribution. 
+
+1arXiv:2607.17291v1 [cs.LG] 19 Jul 2026 Preprint records, audit logs, and spreadsheets coexist with redundant summaries, outdated reports, speculative write-ups, and conflicting claims. Reliability therefore depends on whether an agent can distinguish answer-like assertions from conclusions that are actually supported by the underlying evidence— especially in consequential knowledge work such as financial analysis, regulatory research, and due diligence, where users act on an agent’s synthesized conclusion rather than re-reading every source. A key risk in such environments is the presence of documents that present a fluent and direct answer without being authoritative: dashboards, executive summaries, cached fact sheets, secondary news articles, or short reports. Some may be stale, incomplete, or simply wrong; others may be deliberately misleading. A careful analyst treats such a document as a claim to be checked against lower-level records. An agent that instead treats it as sufficient evidence can return a confident, well-cited, and wrong conclusion even when truthful records remain available. This failure is distinct from failing to retrieve relevant information: the agent may encounter truth-supporting evidence, yet stop at the easier, answer-shaped shortcut rather than reconstructing the answer from records. Recent search-agent benchmarks have made substantial progress in evaluating long-horizon infor-mation acquisition. GAIA tests tool-using assistants on multi-step questions (Mialon et al., 2024); BrowseComp emphasizes persistent web browsing with short verifiable answers (Wei et al., 2025); WebWalker evaluates website traversal (Wu et al., 2025); and InteractComp studies search behavior under ambiguous user intent (Deng et al., 2025). These benchmarks expose important bottlenecks in whether agents can acquire the information needed to answer a question. Fact verification, knowledge-conflict, noisy-retrieval, and corpus-poisoning studies address the related problem that the available evidence may itself be unreliable (Thorne et al., 2018; Longpre et al., 2021; Xu et al., 2024; Pan et al., 2023; Zou et al., 2025; Cuconasu et al., 2024). These settings, however, generally evaluate a supplied claim or a fixed retrieved context. They do not isolate how an autonomous research agent’s evidence-use policy changes when the task, the truthful records, and the search interface are all held fixed, and the environment is perturbed only by a single plausible document that states a conflicting answer directly. In that setting, a failure need not reflect an inability to retrieve or reason over evidence; it may instead arise from what the agent treats as sufficient evidence, and from when it decides to stop. We study this question through DRN OISE , a controlled benchmark for answer recovery under misleading evidence. Each task contains two corroborating indirect record chains that entail the same unique gold answer; no single document states that answer directly, so the gold value is the one entailed by converging lower-level records. The noisy condition leaves the task and all truthful records unchanged and adds one ordinary-looking document that directly states a conflicting value, designed to resemble the business, operational, and reporting artifacts that appear in realistic information environments. This paired intervention creates a controlled conflict between an answer that is easy to accept and one that must be reconstructed from lower-level records. Because the clean and noisy corpora differ by only this document, the design isolates noise-induced changes in evidence use: if an agent solves a task in the clean condition but submits the desig-nated false value once the document is added, the failure reflects how it deploys a demonstrated capability rather than whether it has that capability. Empirically, DRN OISE reveals a large capability-deployment gap. Among agents with strong clean-task competence, the intervention causes 66–88 percentage-point accuracy drops, across both symbolic and numerical task families. Trace and intervention analyses identify premature stopping as the dominant mechanism: agents often retrieve truth-supporting records alongside the misleading document but stop before completing and recon-ciling an evidence route, and in a smaller number of cases they override even a complete truthful route. These results expose a systematic verification inertia in the evaluated agents: an answer-like document becomes a stopping point rather than a trigger for further checking. 
+
+Contributions. 
+
+• We introduce DRN OISE , a 100-task benchmark across ten reasoning families for evaluating answer recovery under misleading evidence. Each task pairs a clean corpus, in which two corroborating indirect record chains entail a unique gold answer, with a noisy corpus that differs only by one plausible, falsifiable document stating a conflicting answer directly. • We instantiate the same search-agent harness with five contemporary language models and show that misleading evidence causes large, systematic failures in those with strong 2Preprint clean-task competence. The degradation spans both symbolic and numerical task families, demonstrating that the phenomenon is not merely an arithmetic aggregation failure. • We provide controlled analyses that localize the dominant mechanism to premature stopping and insufficient verification under noise. Agents typically retrieve truth-supporting records together with the misleading document, but often stop before completing the evidence chain; the effect persists under generic verification prompting, source-credibility changes, and retriever changes, while structural interventions that make truthful evidence easier to use substantially reduce but do not eliminate the gap. 
+
+# 2 RELATED WORK 
+
+Deep research agents. Benchmarks for search and tool-using agents increasingly test long-horizon information gathering. GAIA evaluates real-world assistant questions requiring reasoning, browsing, and tool use (Mialon et al., 2024); BrowseComp targets hard-to-find web facts with short verifiable answers (Wei et al., 2025); WebWalker evaluates website traversal (Wu et al., 2025); and WebArena and Mind2Web provide realistic web environments and generalist web-agent tasks (Zhou et al., 2024; Deng et al., 2023). On the method side, ReAct interleaves reasoning and acting (Yao et al., 2023), WebGPT fine-tunes a browsing question-answering model with human feedback (Nakano et al., 2021), Toolformer teaches models to call tools (Schick et al., 2023), and Search-R1 trains search-interleaved reasoning with reinforcement learning (Jin et al., 2025). A related line asks what agents do when the request itself is under-specified: IN3 evaluates whether agents ask about implicit intent (Qian et al., 2024), τ-bench evaluates tool-agent-user interaction under domain rules (Yao et al., 2024), and InteractComp shows that forced interaction can unlock latent capability (Deng et al., 2025). DRN OISE is complementary to both: it assumes the relevant evidence is reachable and the request is unambiguous, and asks whether the agent verifies an attractive direct answer against the records rather than whether it can locate a hard fact or elicit a missing constraint. 
+
+Knowledge conflicts and corpus poisoning. A retrieved context can conflict with a model’s parametric knowledge or with other retrieved documents (Longpre et al., 2021; Xu et al., 2024), and models are frequently swayed by such context. A growing line of work studies adversarial or noisy corpora: LLM-generated misinformation can sharply degrade open-domain question answering (Pan et al., 2023); corpus-poisoning attacks such as PoisonedRAG inject a few crafted passages to steer retrieval-augmented outputs (Zou et al., 2025); and RAG-robustness studies probe noise robustness and counterfactual robustness (Chen et al., 2024; Cuconasu et al., 2024). DRN OISE differs in both threat model and measurement: the noisy document is a single, ordinary-looking summary rather than an optimized poison, the truthful records remain present and sufficient, and we measure whether the agent verifies the summary against those records rather than how many injected passages are needed to flip an answer. 
+
+Fact verification, attribution, and self-correction. Retrieval-augmented generation supplies external context to a generator (Lewis et al., 2020) over dense retrieval (Karpukhin et al., 2020), and fact-verification datasets such as FEVER classify a claim against evidence (Thorne et al., 2018). A parallel line improves and measures attribution: generating text with citations (Gao et al., 2023), atomic factual-precision scoring (Min et al., 2023), and retrieval systems that critique their own generations (Asai et al., 2024); hallucination in generation is broadly surveyed by Ji et al. (2023). Verification can also be attempted through reasoning and self-revision—chain-of-thought (Wei et al., 2022), verbal self-reflection (Shinn et al., 2023), and iterative self-feedback (Madaan et al., 2023)— yet LLMs struggle to self-correct reasoning without an external signal (Huang et al., 2024). A related form of deference appears in sycophancy, where models fine-tuned with human feedback adapt their answers to match a user’s stated views (Sharma et al., 2024). DRN OISE evaluates an autonomous search agent’s decision process rather than post-hoc citation quality, and the deference we measure is a corpus-facing analog of sycophancy: rather than yielding to a user, the agent yields to an answer asserted within its own retrieved evidence, even when the underlying records refute it. 3Preprint I’ll piece together 
+
+> the evidence.
+> Answer
+
+Clean environment 1
+
+> Shipment
+> Log
+> Port
+> Schedule
+> Customs
+> Ledger
+> Audit
+> Note
+> Supplier
+> Directory
+> Invoice
+> Register
+> Payment
+> Record
+> Payment
+> Match
+> Route A
+> Route B
+> Reconstruct
+> the answer
+> Gold
+> answer
+> (same via
+> A and B)
+
+Two corroborating chains of records 
+
+converge on the same answer. 
+
+Noisy environment 2
+
+Same task + all truthful records + 
+
+1 misleading document. 
+
+> This summary gives
+> a direct answer …
+> I’ll go with it.
+> Truth is still available and wou ld
+> have led to the gold answer
+> misleading document
+
+FALSE 
+
+ANSWER 
+
+$8,742,193 
+
+> The agent stops before fully
+> reconciling the evidence.
+
+Figure 2: Overview of the DRN OISE paired intervention. Left: in the clean condition, two corroborat-ing chains of records converge on the same gold answer, which the agent must reconstruct. Right: the noisy condition is identical except for one added ordinary-looking document that states a conflicting answer directly; the truthful records remain available, but the agent stops before reconciling them and commits the false value. 
+
+# 3 BENCHMARK 
+
+3.1 TASK FORMULATION 
+
+DRN OISE is designed to isolate a specific failure mode in deep research agents: whether an agent that can recover an answer from records in a clean environment continues to rely on record-level evidence when the same environment also contains a plausible but false answer. To make this question measurable, each task is evaluated under a paired clean–noisy corpus intervention. The clean corpus contains the evidence needed to derive the answer from indirect records; the noisy corpus is identical except that it additionally contains one ordinary-looking document that directly states a conflicting answer. Figure 2 illustrates the two conditions. Each benchmark instance is a tuple (q, a ⋆, ˜a, E A, E B , F ), where q is the question, a⋆ is the gold answer, ˜a is the designated false answer, EA and EB are two indirect evidence routes, and F is a direct false-summary document. The gold answer is not defined by treating any single document as authoritative. Instead, it is the value entailed by mutually corroborating record chains: EA and 
+
+EB are constructed to support the same unique answer through separate combinations of lower-level records. Both routes are indirect: no evidence document states the final answer in the same form as the question. This prevents the clean task from reducing to the retrieval of one positive sentence and requires the agent to reconstruct the answer from evidence relations. The noisy document F is different by construction. It directly states ˜a as if it were an answer to the question, but the claim is falsifiable because it conflicts with the record-level evidence in EA and 
+
+EB . Thus, the benchmark creates a controlled conflict between an answer that is easy to accept and an answer that must be reconstructed. A robust deep research agent should treat F as a claim to be checked against the records; a deferring agent submits the directly stated false value. Table 1 shows a representative instance. The gold answer is stated in no single document and must be recovered by intersecting record-level constraints along the indirect routes. The noisy corpus adds one direct summary that asserts a conflicting answer outright. 4Preprint Table 1: A task instance from DRN OISE (entity selection). The gold answer is not stated in any single document and must be recovered by intersecting record-level constraints along indirect evidence routes. The noisy corpus adds a single direct false summary that asserts a conflicting answer.            
+
+> Question Which supplier both held a current safety certification on 31 March 2024 and delivered all three of its March shipments on time?
+> Route EAApproved-vendor directory, certification-expiry entries, and three shipment sched-ule/arrival records; the answer follows by joining vendor identifiers to certification state and on-time delivery.
+> Route EBA second, corroborating chain of accounts-payable and gate-punctuality records that reaches the same answer. Neither route contains a sentence naming “the supplier that met both criteria.”
+> False summary (noisy condition only) A short trade-publication review naming a different supplier as meeting both conditions—unsupported by, and in fact refuted by, the records.
+> Gold answer Brindle Components
+> Designated false Orison Fabrication
+
+Table 2: Task families in DRN OISE . Each family contains 10 tasks and one direct false summary per task.                       
+
+> Family Answer form Required operation Entity selection supplier/entity filter and compare records Date selection date select latest qualifying event Boolean verification yes/no verify all stated conditions Ordered top-3 ordered list compute and rank candidates Multi-hop join person/manager join across entity tables All-criteria selection branch/site intersect constraints Text attribute lookup code name map entity to attribute Set selection set of lots select all qualifying items Conflict attribution source/party identify source of discrepancy Total cost aggregation currency amount sum distributed ledger records
+
+3.2 TASK FAMILIES AND DOCUMENT CONSTRUCTION 
+
+The benchmark contains 100 tasks across 10 families, with 10 tasks per family (Table 2). These families instantiate the same clean–noisy diagnostic across diverse evidence operations that arise in research workflows: selecting entities under constraints, comparing dates, verifying conditions, ranking candidates, joining records, intersecting criteria, mapping attributes, selecting sets, attributing conflicts, and aggregating distributed costs. This diversity is important because a deference failure under misleading evidence should not be understood as a peculiarity of a single operation type. It allows us to test whether the effect is tied to a narrow reasoning pattern or reflects a broader stopping and verification problem in deep research agents. The benchmark contains 1,750 task-specific documents: 1,650 indirect evidence documents and 100 direct false summaries. The indirect evidence documents are written as plausible operational records, including supplier memos, route reports, branch ledgers, incident notes, compliance logs, staff rosters, and audit entries. The false summaries are written as ordinary business, operational, or reporting artifacts rather than as obviously adversarial text. All task-specific documents are indexed together with a larger background corpus, so the agent must search and select evidence rather than read a closed packet. Appendix B lists the validation criteria that the benchmark tasks satisfy. This construction makes the noisy condition diagnostic. The false summary is answer-like and convenient, but not authoritative; the indirect records are less direct, but mutually determine the gold answer. The benchmark therefore tests whether an agent treats a direct claim as sufficient, or whether it continues to reconstruct the answer from corroborating evidence. 5Preprint 
+
+# 4 EVALUATION PROTOCOL 
+
+4.1 AGENT HARNESS 
+
+We evaluate all models in the same BrowseComp-Plus search-agent framework (Chen et al., 2025), using a ReAct-style agent with a single search interface. Holding the harness fixed is essential: the benchmark is intended to compare how different systems deploy search and verification behavior under the same clean–noisy corpus intervention, rather than to compare different tool protocols or retrieval interfaces. Each run can issue searches and retrieve documents, with a maximum of 100 iterations, top-5 retrieval per search, and 512-token snippets. The task-specific indices use dense retrieval, and a BM25 index supplies full-text snippets for retrieved documents. Every model is run on all 100 tasks in both clean and noisy conditions. The clean and noisy runs use the same question and the same background corpus; the only task-specific difference is the addition of the false-summary document in the noisy condition. We evaluate DeepSeek V4 Flash, MiMo v2.5, Qwen3-32B, Gemini 3.5 Flash, and GPT-5.4. Each reported model result uses one fixed API provider and model identifier across all clean and noisy tasks. 4.2 METRICS 
+
+The paired design requires metrics that distinguish three cases: an agent may be unable to solve the task even without noise, may fail under noise for reasons unrelated to the injected false value, or may specifically defer to the misleading document. We therefore report both accuracy and conditional deference. Let Cm be the set of tasks that model m answers correctly in the clean condition, and let Dm be the set of tasks where the model’s noisy answer equals the designated false value. We report: 
+
+CleanAcc( m) = |Cm|/100 , (1) 
+
+NoisyAcc( m) = |{ i : m correct on noisy task i}| /100 , (2) 
+
+Defer( m) = |Cm ∩ Dm|/|Cm|. (3) Conditional deference is stricter than noisy error rate. It is computed only over tasks the model solved when the misleading document was absent, and it only counts noisy answers that match the benchmark’s designated false value. This prevents a weak model from appearing robust merely because it rarely solves the clean task, and it separates generic noisy failure from the specific behavior DRN OISE is designed to measure: committing to the false answer after the misleading document is added. 
+
+# 5 RESULTS 
+
+5.1 MISLEADING DOCUMENTS SHARPLY REDUCE ACCURACY 
+
+Figure 1 and Table 3 show the main result. Gemini 3.5 Flash and DeepSeek V4 Flash reach the highest clean accuracy (96% and 89%), while MiMo v2.5 and GPT-5.4 sit near 82%; all four lose most of that performance when the misleading document is added. DeepSeek V4 Flash and MiMo v2.5 fall to roughly 1% noisy accuracy. Gemini 3.5 Flash retains the most, yet still shows a 72 .6% 
+
+conditional deference rate. GPT-5.4 is intermediate, with 16% noisy accuracy and 80 .4% conditional deference. 5.2 THE EFFECT SPANS SYMBOLIC AND NUMERICAL TASK FAMILIES 
+
+Table 4 breaks down the four high-clean systems by task family. Misleading documents damage symbolic task families as well as numerical aggregation. DeepSeek and MiMo lose almost all noisy tasks in entity selection, boolean verification, ranking, joining, text lookup, set selection, and conflict attribution. GPT-5.4 and Gemini are less brittle on boolean, ranking, and some selection families, but 6Preprint Table 3: Main 100-task results. Conditional deference counts clean-correct tasks whose noisy answer equals the designated false value. †Clean accuracy, noisy accuracy, and conditional deference are means over three independent runs (standard deviation in parentheses); each deference mean is over each run’s own clean-correct set. Model Clean Noisy Accuracy drop Conditional deference Gemini 3.5 Flash † 96.3 ( ±0.9) 26.0 ( ±2.2) 70.3 72.6 (±3.0) MiMo v2.5 † 82.0 ( ±4.6) 1.0 ( ±0.8) 81.0 96.3 (±0.2) GPT-5.4 † 81.7 ( ±1.7) 15.7 ( ±2.9) 66.0 80.4 (±2.7) DeepSeek V4 Flash † 88.7 ( ±1.9) 1.0 ( ±0.0) 87.7 98.1 (±0.5) Qwen3-32B † 13.0 ( ±1.6) 5.7 ( ±1.3) 7.3 61.3 (±6.1) Table 4: Per-family clean (Cln) and noisy (Noi) accuracy for the four high-clean systems, reported as counts out of the 10 tasks in each family from one fixed run per model. The main aggregate results are reported as three-run means in Table 3. Qwen3-32B is omitted because its low clean accuracy leaves too few clean-correct tasks per family to be informative. For GPT-5.4, this is the fixed dense-retrieval baseline run used in Section 6.                                                                                            
+
+> Family DeepSeek MiMo GPT-5.4 Gemini Cln Noi Cln Noi Cln Noi Cln Noi Entity selection 10 010 010 185Date selection 40826091Boolean verification 10 010 010 410 4Ordered top-3 10 09010 510 7Multi-hop join 10 010 010 093All-criteria selection 9010 010 010 7Text attribute lookup 10 010 08010 0Set selection 10 08010 010 0Conflict attribution 10 1807210 2Total cost aggregation 30500090
+
+still drop substantially. The date and cost families have lower clean ceilings for some models; we treat them as lower-ceiling families, and they do not drive the main conclusion. 5.3 CLEAN COMPETENCE DOES NOT IMPLY ROBUSTNESS UNDER NOISE 
+
+The clean-to-noisy contrast is diagnostic because it does not merely ask whether a model is strong; it asks whether a demonstrated capability is deployed under conflict. In the clean condition, high-ceiling agents show that they can search for records, combine constraints, and derive the answer. In the noisy condition the same task retains the same record-level support but also contains an answer-shaped document. A noisy failure on a clean-correct task is therefore evidence that the agent’s research policy changed: it stopped treating the answer as something to reconstruct and began treating a direct statement as sufficient. The failure is not that the model is ungrounded—it typically cites a retrieved document—but that the cited document is an unverified synthesis rather than the record-level evidence. This reading is supported by which models fail and how. DeepSeek and MiMo show that the task is solvable for the agent architecture, so their near-total noisy collapse measures deference rather than inability; the Qwen3-32B estimate is computed over only 13 clean-correct tasks and should be read with correspondingly greater uncertainty. Gemini is the most interesting partial exception, retaining 
+
+26% noisy accuracy at 96% clean, yet it still defers on 72 .6% of its clean-correct tasks. The pattern mirrors a broader gap in agent evaluation: InteractComp shows that models often have the ability to answer once complete context is supplied, yet fail to ask for it when the query is ambiguous (Deng et al., 2025). DRN OISE identifies an analogous gap whose missing behavior is interaction with the corpus—asking the evidence base whether a direct claim is supported. This makes DRN OISE more diagnostic than a simple adversarial-document test: the claim is not merely that models can be fooled, but that they are fooled precisely where they have already shown they can solve the task without the shortcut. 7Preprint Table 5: Retrieval-exposure funnel for GPT-5.4 (100 tasks per condition). Truth = at least one indirect record retrieved; false = the direct false summary retrieved; co-exposed = both in the same trace; complete route = all documents of route A or all of route B retrieved.                
+
+> Condition Truth retrieved False retrieved Co-exposed Complete route Mean searches Clean 100/100 0/100 0/100 45/100 7.1 Noisy 100/100 100/100 100/100 16/100 4.5
+
+Table 6: Noisy-trace mechanism taxonomy for GPT-5.4 (100 noisy runs).      
+
+> Mechanism Count Correct despite noise 12 Complete truth route retrieved, false value committed 10 Only partial truth route retrieved, false value committed 77
+> Answer-format or other failure 1
+
+Three rival explanations for a noisy failure are: (i) the agent never retrieved the indirect evidence (a retrieval-exposure failure); (ii) it co-retrieved the false summary and the evidence but did not reconcile them (the deference mechanism); or (iii) it retrieved enough evidence but made an answer-format error. Section 6 separates these empirically for GPT-5.4: the retrieval-exposure analysis rules out a total exposure failure and shows (iii) is negligible, while the complete-route statistics and an oracle test distinguish premature stopping—the dominant cause—from a small genuine reconciliation failure. 
+
+# 6 ANALYSES 
+
+We report seven analyses of GPT-5.4, anchored to one fixed dense-retrieval baseline run ( 81 /100 
+
+clean, 12 /100 noisy accuracy) that is representative of the three-run mean reported in Table 3. The retrieval-exposure and trace-taxonomy analyses use its saved traces. The remaining analyses change only the specified factor relative to this baseline, including the prompt, source credibility, retrieval mode, evidence structure, or access to full evidence. 
+
+Retrieval exposure. Noisy failure is not caused by zero exposure to truth-supporting records (Table 5). In all 100 noisy runs the agent retrieved at least one indirect evidence document, and in all 100 it co-retrieved both the false summary and truth-supporting evidence in the same trace. The false summary instead shortens the search: mean search calls fall from 7.1 (clean) to 4.5 (noisy), and the fraction of runs that retrieve a complete evidence route falls from 45% to 16%. Among the 68 clean-correct tasks on which GPT-5.4 commits the false value under noise, all 68 co-retrieved truth evidence and the false summary, yet only 10 assembled a complete route. Thus the dominant failure is not the absence of any truth-supporting evidence, but premature stopping before the retrieved evidence is completed and reconciled. 
+
+Trace taxonomy. We classify each noisy trace by mechanism (Table 6). No trace is a pure retrieval miss, and only one is an answer-format failure: of the 88 non-correct noisy traces, 87 commit the exact designated false value. Most (77) do so after retrieving only a partial truth route, but 10 commit the false value even after a complete truth route has been retrieved. That the failures concentrate on the specific injected value—rather than scattering across generic wrong answers or retrieval gaps—supports a stopping and verification account rather than a retrieval or formatting one. 
+
+Verification intervention. We test whether the failure is a policy-level verification deficit by adding a single instruction to the noisy prompt and changing nothing else (Table 7). A generic diligence instruction—verify the answer against the specific retrieved documents and keep searching rather than stopping at the first plausible answer, with no mention of summaries—recovers only modestly: 8Preprint Table 7: Verification intervention on GPT-5.4 (noisy condition). The conditional deference denomi-nator is the clean-correct set. Starred rows are attack-aware upper bounds: they name the attacked document class (leak the attack) and are not a deployable fix.                  
+
+> Prompt Noisy accuracy Conditional deference ∆acc. Baseline 12/100 68/81 = 84.0% —Generic 28/100 56/81 = 69.1% +16 Verify ∗67/100 16/81 = 19.8% +55 Enforce ∗64/100 17/81 = 21.0% +52
+
+Table 8: Source-credibility ladder for GPT-5.4 (noisy, 100 tasks). Same false value at three source rungs; conditional deference is over the 81 clean-correct tasks. Right column: fraction of runs that retrieved the false document.              
+
+> Source rung Noisy accuracy Conditional deference False doc retrieved Forum post (low) 35/100 44/81 = 54.3% 99/100 Trade-publication review (baseline) 12/100 68/81 = 84.0% 100/100 Audit report (high) 12/100 67/81 = 82.7% 94/100
+
+noisy accuracy rises from 12/100 to 28/100 (+16 points) and conditional deference falls from 84.0% to 69.1%. Generic verification prompting therefore reduces the gap but does not close it. Two attack-aware instructions that explicitly tell the model to distrust directly-stated summaries and prefer record-level evidence recover far more ( verify : +55 points, deference 20%; enforce , requiring two record-level citations: +52 points). Because these prompts name the attacked document class, they leak the attack, and we report them only as capability upper bounds, not as a deployable fix. The gap between the attack-aware recovery and the generic recovery is direct evidence of a capability-deployment gap: the model can reconcile the conflict when told exactly what to distrust, but does not do so under a generic instruction. 
+
+Source credibility. Does the effect merely track source authority? We rewrite the false document into three rungs that assert the same false value and the same conclusion at matched length and task position, varying the source genre and authority cues rather than the answer content—an anonymous, hedged forum post (low), the default trade-publication review (baseline), and an official audit report with an issuing body and reference number (high) (Table 8). Deference is credibility-sensitive at the low end: an anonymous forum post is deferred to on 54% of clean-correct tasks, versus 84% for the trade publication. But the effect saturates above the forum level: the formal audit report is no more effective than the ordinary trade publication (83% vs. 84%). Crucially, the low-credibility forum document was retrieved slightly more often than the audit document (99/100 vs. 94/100), so its lower deference is not a retrieval artifact, and even the least credible source still fools the model on a majority of tasks (54%). Deference is thus partly sensitive to source presentation but is not eliminated by removing apparent authority, and is not simply a matter of following the most official-looking document. 
+
+Retriever. To check that the effect is not an artifact of dense retrieval, we re-run the agent in a BM25 (lexical) retrieval mode over the same corpus, on both conditions (Table 9). BM25 is much weaker at surfacing the terse record-level evidence—clean accuracy falls to 23/100 versus 81/100 for dense—but it readily retrieves the answer-shaped false summary (retrieved in all clean-correct noisy runs). Consequently, conditional deference is even higher under BM25: every one of the 23 tasks BM25 solves in the clean condition flips to the false value under noise (100%, versus 84% for dense). The deference effect is therefore not a dense-retrieval artifact; lexical retrieval appears to favor the answer-shaped summary over the terse record-level evidence, reducing clean competence and increasing conditional deference among the tasks it can still solve. 
+
+Direct-true evidence. Part of the deference may stem from an asymmetry in the default design: the true answer must be reconstructed from record-level evidence, whereas the false document 9Preprint Table 9: Retriever ablation for GPT-5.4 (100 tasks). BM25 (lexical) vs. dense (Qwen3-Embedding-8B). Conditional deference is over each retriever’s own clean-correct set.              
+
+> Retriever Clean Noisy Conditional deference False doc retrieved Dense (Qwen3-Embedding-8B) 81/100 12/100 68/81 = 84.0% 81/81 BM25 (lexical) 23/100 0/100 23/23 = 100% 23/23
+
+Table 10: Direct-true evidence ablation for GPT-5.4 (noisy, 100 tasks). One indirect route is replaced by an independent direct-true document. Conditional deference is over the 81 clean-correct tasks.        
+
+> Noisy evidence structure Noisy accuracy Conditional deference Two indirect routes + false (default) 12/100 68/81 = 84.0% Direct-true + one indirect route + false 63/100 29/81 = 35.8%
+
+states an answer directly. We test this by replacing one of the two indirect evidence routes with a 
+
+direct-true document—an independent, answer-shaped secondary report (varied genre and outlet, of authority comparable to the false summary) that directly states the correct answer—so the noisy task becomes one direct-true document, one indirect route, and one direct-false document. Making the truth as direct as the lie recovers most of the loss: noisy accuracy rises from 12/100 to 63/100 and conditional deference falls from 84.0% to 35.8% (Table 10); the direct-true document was retrieved in 98/100 runs. This structural change helps far more than the generic verification prompt above (+16 points). However, a substantial residual remains: on roughly a third of clean-correct tasks the agent still follows the false document even though the true answer is stated equally directly alongside it. The asymmetry between derived truth and stated falsehood thus explains much, but not all, of the effect—the model does not reliably resolve a direct conflict between a true and a false claim. 
+
+Oracle full-context. The direct-true ablation makes the truth easier to state but leaves retrieval in the loop, so its residual deference could still reflect premature stopping rather than an inability to reconcile evidence that is already in hand. To isolate reconciliation, we bypass retrieval entirely and place the complete indirect evidence—all route-A and route-B documents for a task—directly in GPT-5.4’s context in a single call, with and without the false summary (Table 11). Given the full evidence and no false summary, GPT-5.4 answers 100 /100 correctly, confirming it can reconcile the records once they are all present. Using each setting’s own clean-correct denominator, conditional deference falls from 68 /81 in the retrieval-agent setting to 8/100 in the oracle full-context setting (noisy accuracy 91 /100 ). The dominant mechanism is therefore premature stopping: in the agentic setting the model defers largely because it stops before assembling a complete route, not because it cannot resolve a visible conflict. A small residual remains— 8 of the 100 tasks that are correct in the oracle full-evidence setting are answered with the false value when the false summary is added—so a genuine reconciliation failure exists, but it is far smaller than the retrieval-based deference rate alone would suggest. This is consistent with the trace taxonomy, in which complete-route overrides (10 /100 ) are a minority of noisy failures. 
+
+# 7 LIMITATIONS 
+
+DRN OISE uses a constructed corpus rather than documents scraped from the live web. This controlled design is necessary for paired clean–noisy evaluation: it allows us to define a unique gold answer, construct corroborating indirect evidence chains, and introduce a falsifiable misleading document while keeping the two conditions comparable. However, constructed documents may not capture the full stylistic, institutional, and distributional complexity of naturally occurring web sources. Future work should test whether the same failure mode appears in live-web or domain-specific corpora containing real outdated reports, secondary summaries, conflicting claims, and misleading documents. 10 Preprint Table 11: Oracle full-context ablation for GPT-5.4. The complete indirect evidence is supplied directly in the prompt with no retrieval and no search tool; the retrieval agent (dense, noisy) is shown for comparison. Conditional deference is over the clean-correct set of each setting.            
+
+> Setting Accuracy Conditional deference Retrieval agent (dense, noisy) 12/100 68/81 = 84.0% Oracle: full evidence, no false summary 100/100 —Oracle: full evidence +false summary 91/100 8/100 = 8.0%
+
+# 8 CONCLUSION 
+
+We introduced DRN OISE , a benchmark for evaluating whether deep research agents can recover correct answers under misleading evidence. Each task is solvable from corroborating record-level evidence, while the noisy condition adds a plausible document that states a conflicting answer directly. Across 100 tasks, this single misleading document causes large accuracy drops for agents that otherwise perform strongly in the clean setting. The failures occur on tasks the same systems can solve when the misleading shortcut is absent, revealing a capability-deployment gap rather than a simple lack of task competence. The results show a systematic verification inertia in current deep research systems. Agents can reconstruct answers from records when necessary, but often stop once they encounter a fluent, answer-like document, treating it as a sufficient basis for response rather than as a claim to be checked against corroborating evidence. Future deep research evaluations should therefore test not only whether agents can find and cite evidence, but whether they can reconcile direct claims with record-level evidence in noisy information environments. 
+
+# REFERENCES 
+
+Akari Asai, Zeqiu Wu, Yizhong Wang, Avi Sil, and Hannaneh Hajishirzi. Self-RAG: Learning to retrieve, generate, and critique through self-reflection. In International conference on learning representations, ICLR , 2024. Jiawei Chen, Hongyu Lin, Xianpei Han, and Le Sun. Benchmarking large language models in retrieval-augmented generation. In Proceedings of the AAAI Conference on Artificial Intelligence ,2024. Zijian Chen, Xueguang Ma, Shengyao Zhuang, Ping Nie, Kai Zou, Andrew Liu, Joshua Green, Kshama Patel, Ruoxi Meng, Mingyi Su, et al. BrowseComp-Plus: A more fair and transparent evaluation benchmark of deep-research agent. arXiv preprint arXiv:2508.06600 , 2025. Florin Cuconasu, Giovanni Trappolini, Federico Siciliano, Simone Filice, Cesare Campagnano, Yoelle Maarek, Nicola Tonellotto, and Fabrizio Silvestri. The power of noise: Redefining retrieval for RAG systems. In Proceedings of the 47th International ACM SIGIR Conference on Research and Development in Information Retrieval , 2024. Mingyi Deng, Lijun Huang, Yani Fan, Jiayi Zhang, Fashen Ren, Jinyi Bai, Fuzhen Yang, Dayi Miao, Zhaoyang Yu, Yifan Wu, et al. InteractComp: Evaluating search agents with ambiguous queries. 
+
+arXiv preprint arXiv:2510.24668 , 2025. Xiang Deng, Yu Gu, Boyuan Zheng, Shijie Chen, Sam Stevens, Boshi Wang, Huan Sun, and Yu Su. Mind2Web: Towards a generalist agent for the web. Advances in Neural Information Processing Systems, NeurIPS , 2023. Tianyu Gao, Howard Yen, Jiatong Yu, and Danqi Chen. Enabling large language models to generate text with citations. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , 2023. Jie Huang, Xinyun Chen, Swaroop Mishra, Huaixiu Steven Zheng, Adams Yu, Xinying Song, and Denny Zhou. Large language models cannot self-correct reasoning yet. In International conference on learning representations, ICLR , 2024. 11 Preprint Ziwei Ji, Nayeon Lee, Rita Frieske, Tiezheng Yu, Dan Su, Yan Xu, Etsuko Ishii, Ye Jin Bang, Andrea Madotto, and Pascale Fung. Survey of hallucination in natural language generation. ACM computing surveys , 55(12):1–38, 2023. Bowen Jin, Hansi Zeng, Zhenrui Yue, Jinsung Yoon, Sercan Arik, Dong Wang, Hamed Zamani, and Jiawei Han. Search-R1: Training LLMs to reason and leverage search engines with reinforcement learning. arXiv preprint arXiv:2503.09516 , 2025. Vladimir Karpukhin, Barlas Oguz, Sewon Min, Patrick Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. Dense passage retrieval for open-domain question answering. In 
+
+Proceedings of the 2020 conference on empirical methods in natural language processing, EMNLP ,2020. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich K ¨uttler, Mike Lewis, Wen-tau Yih, Tim Rockt ¨aschel, et al. Retrieval-augmented gen-eration for knowledge-intensive NLP tasks. Advances in neural information processing systems, NeurIPS , 2020. Shayne Longpre, Kartik Perisetla, Anthony Chen, Nikhil Ramesh, Chris DuBois, and Sameer Singh. Entity-based knowledge conflicts in question answering. In Proceedings of the 2021 conference on empirical methods in natural language processing , 2021. Aman Madaan, Niket Tandon, Prakhar Gupta, Skyler Hallinan, Luyu Gao, Sarah Wiegreffe, Uri Alon, Nouha Dziri, Shrimai Prabhumoye, Yiming Yang, et al. Self-Refine: Iterative refinement with self-feedback. Advances in neural information processing systems, NeurIPS , 2023. Gr ´egoire Mialon, Cl ´ementine Fourrier, Craig Swift, Thomas Wolf, Yann LeCun, and Thomas Scialom. GAIA: a benchmark for general AI assistants. In International Conference on Learning Representations, ICLR , 2024. Sewon Min, Kalpesh Krishna, Xinxi Lyu, Mike Lewis, Wen-tau Yih, Pang Koh, Mohit Iyyer, Luke Zettlemoyer, and Hannaneh Hajishirzi. FActScore: Fine-grained atomic evaluation of factual precision in long form text generation. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , 2023. Reiichiro Nakano, Jacob Hilton, Suchir Balaji, Jeff Wu, Long Ouyang, Christina Kim, Christopher Hesse, Shantanu Jain, Vineet Kosaraju, William Saunders, et al. WebGPT: Browser-assisted question-answering with human feedback. arXiv preprint arXiv:2112.09332 , 2021. Yikang Pan, Liangming Pan, Wenhu Chen, Preslav Nakov, Min-Yen Kan, and William Wang. On the risk of misinformation pollution with large language models. In Findings of the association for computational linguistics: EMNLP 2023 , 2023. Cheng Qian, Bingxiang He, Zhong Zhuang, Jia Deng, Yujia Qin, Xin Cong, Zhong Zhang, Jie Zhou, Yankai Lin, Zhiyuan Liu, et al. Tell me more! towards implicit user intention understanding of language model driven agents. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 2024. Timo Schick, Jane Dwivedi-Yu, Roberto Dess `ı, Roberta Raileanu, Maria Lomeli, Eric Hambro, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom. Toolformer: Language models can teach themselves to use tools. Advances in neural information processing systems, NeurIPS , 2023. Mrinank Sharma, Meg Tong, Tomek Korbak, David Duvenaud, Amanda Askell, Sam Bowman, Esin Durmus, Zac Hatfield-Dodds, Scott Johnston, Shauna Kravec, et al. Towards understanding sycophancy in language models. In International Conference on Learning Representations, ICLR ,2024. Noah Shinn, Federico Cassano, Ashwin Gopinath, Karthik Narasimhan, and Shunyu Yao. Reflexion: Language agents with verbal reinforcement learning. Advances in neural information processing systems, NeurIPS , 2023. 12 Preprint James Thorne, Andreas Vlachos, Christos Christodoulopoulos, and Arpit Mittal. FEVER: a large-scale dataset for fact extraction and VERification. In Proceedings of the 2018 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long Papers) , 2018. Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, et al. Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems, NeurIPS , 2022. Jason Wei, Zhiqing Sun, Spencer Papay, Scott McKinney, Jeffrey Han, Isa Fulford, Hyung Won Chung, Alex Tachard Passos, William Fedus, and Amelia Glaese. BrowseComp: A simple yet challenging benchmark for browsing agents. arXiv preprint arXiv:2504.12516 , 2025. Jialong Wu, Wenbiao Yin, Yong Jiang, Zhenglin Wang, Zekun Xi, Runnan Fang, Linhai Zhang, Yulan He, Deyu Zhou, Pengjun Xie, et al. WebWalker: Benchmarking LLMs in web traversal. In 
+
+Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 2025. Rongwu Xu, Zehan Qi, Zhijiang Guo, Cunxiang Wang, Hongru Wang, Yue Zhang, and Wei Xu. Knowledge conflicts for LLMs: A survey. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , 2024. Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik R. Narasimhan, and Yuan Cao. ReAct: Synergizing reasoning and acting in language models. In International Conference on Learning Representations, ICLR , 2023. Shunyu Yao, Noah Shinn, Pedram Razavi, and Karthik Narasimhan. τ -bench: A benchmark for tool-agent-user interaction in real-world domains. arXiv preprint arXiv:2406.12045 , 2024. Shuyan Zhou, Frank F Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng, Tianyue Ou, Yonatan Bisk, Daniel Fried, et al. WebArena: A realistic web environment for building autonomous agents. In International Conference on Learning Representations, ICLR ,2024. Wei Zou, Runpeng Geng, Binghui Wang, and Jinyuan Jia. PoisonedRAG: Knowledge corruption attacks to Retrieval-Augmented generation of large language models. In 34th USENIX Security Symposium (USENIX Security 25) , 2025. 
+
+# A DATASET CONSTRUCTION AND TASK STRUCTURE 
+
+Each task consists of a natural-language question with a single intended gold answer, two labeled groups of indirect evidence documents (routes A and B), and one direct false-summary document (main ). The clean condition contains the two indirect routes over a shared background corpus; the noisy condition adds the single false summary. No document states the gold answer directly. Document identifiers are neutralized to {task } { md5 } before indexing, so neither role nor route is inferable from an identifier, and the same neutral identifiers are used by the dense index, the text index, and all analysis scripts. 
+
+# B DATASET AUDIT 
+
+We validate every task in DRN OISE against four criteria that make the paired clean–noisy comparison well-posed. Together they enforce the two properties a diagnostic conflict benchmark requires: the clean task must have a single, record-grounded answer, and the noisy condition must add a genuinely misleading but falsifiable claim. 1. Unique gold answer. Each task admits exactly one answer consistent with the record-level evidence; the gold answer is the unique value entailed by the indirect record chains. 2. Corroboration across routes. The gold answer is supported by two indirect evidence routes (EA and EB ) built from separate lower-level records, so no single document is treated as authoritative ground truth. 13 Preprint 3. Falsifiable misleading document. In the noisy condition, the false summary asserts a value that conflicts with the record-level evidence and is refuted by it; the claim can be checked and rejected against the corroborating records. 4. Clean/noisy identity. For each task, the clean and noisy corpora are identical except for the single added false-summary document, so any behavioral difference between the two conditions is attributable to that document alone. These criteria are enforced during construction. Candidate tasks are checked for a unique gold answer, and each false summary is verified to contain the designated false value and not the gold value. The released benchmark comprises 1,750 task-specific documents— 1,650 indirect evidence documents and 100 false summaries—across the ten families, indexed together with a shared background corpus. 
+
+# C EVALUATION PARAMETERS 
+
+Agent. All runs use a BrowseComp-Plus–compatible, search-only deep-research agent: a single 
+
+search tool, top-k = 5 , a maximum of 100 tool-call iterations, and 512-token retrieved snippets. A model turn that emits no tool call is taken as the final answer; exhausting the iteration budget yields an incomplete run. Dense retrieval uses Qwen3-Embedding-8B; a Lucene text index supplies snippet text for retrieved identifiers. Generation length was capped at 32,768 tokens for GPT-5.4, well above observed completion lengths. 
+
+Models. We evaluate Gemini 3.5 Flash, MiMo v2.5, GPT-5.4, DeepSeek V4 Flash, and a locally served Qwen3-32B. Each model is accessed through one fixed provider and model identifier for all clean, noisy, and ablation runs. Sampling follows model recommendations: temperature 1.0 for GPT-5.4, DeepSeek, MiMo, and Gemini (top-p 1.0, except MiMo 0.95 ), and temperature 0.6 / top-p
+
+0.95 for Qwen3. No API keys are recorded in code or artifacts. 
+
+Grading. Committed answers are read from the final “Exact Answer” field and normalized before comparison (case folding, punctuation and parenthetical removal, whitespace collapse). Dates are parsed to ISO form and accept full or abbreviated month names, ordinal days, and ISO input; boolean answers accept yes/no synonyms; set answers require exact set membership; ordered answers require exact length and order. An answer is correct if it matches the gold value and not the false value, and 
+
+fooled (deferred) if it matches the designated false value; ties and format failures count as neither. The grader ships with regression tests. 
+
+Execution. Runs are resume-safe: only successfully completed cells are skipped, and transport or protocol errors are retried by a condition-independent policy; cells still unanswered after the retry limit count as incorrect. Each official model result set contains exactly 200 cells (100 tasks × two conditions). 
+
+# D INTERVENTION AND ABLATION PROMPTS 
+
+For E3, the baseline prompt is the BrowseComp-Plus template. The generic (fair) instruction appended to it reads, verbatim: “Before you give your Exact Answer, verify it against the evidence: make sure the specific documents you retrieved actually support it, and keep searching to confirm rather than stopping at the first plausible answer.” The verify and enforce instructions additionally name directly-stated summaries as untrustworthy and require at least two record-level citations, respectively; because they name the attacked document class, they are reported only as attack-aware upper bounds. For E6, the same false value is presented as an anonymous forum post, the default trade-publication review, or an official audit report, holding value and placement fixed. For the direct-true ablation, each direct-true document is generated independently in one of six secondary-report genres (regional news brief, analyst note, data-portal profile, trade bulletin, market-review digest, records-aggregator entry) with a distinct fictional outlet, and is verified to state the true value and never the false value. 14 Preprint 
+
+# E DOCUMENT -L EVEL BENCHMARK EXAMPLE 
+
+The following example shows the question and answer labels together with one complete document from each indirect route and the complete noisy document. Routes A and B contain additional documents needed to complete their respective derivations; those documents are omitted here for space but remain part of the benchmark instance. 
+
+Task overview supplier select 0 
+
+Question. Which supplier both held a current safety certification on 31 March 2024 and delivered all three of its March shipments on time? 
+
+Gold answer. Brindle Components . Designated false. Orison Fabrication .
+
+Route A document (complete) A00 
+
+Narrowbrook Works Procurement Division Approved Vendor Directory — Revision 8 Effective issue for buyer reference 
+
+Vendor code register: – V-73 — Brindle Components – V-18 — Orison Fabrication – V-44 — Tern Alloy This revision standardizes vendor call names used in purchase orders, dispatch booking, receiving, and payables indexing. Buyers are to cite the vendor code exactly as listed above when raising March material movements or matching supplier paperwork to the directory entry. 
+
+Other Route A documents are not shown. They provide certification-expiry entries, shipment-ownership records, and schedule/arrival records required to derive the answer. 
+
+Route B document (complete) B00 
+
+Accounts Payable Control Record Alias Table — Supplier Payment Names 
+
+Payment account mapping in current use: AC-204 pays Brindle Components; AC-771 pays Orison Fabrication; AC-309 pays Tern Alloy. Use these aliases when matching supplier invoices, remittance advice, and receiving-backed payment queues. Accounts are maintained in AP control format rather than vendor-code format, so the payment name must match this table. 
+
+Other Route B documents are not shown. They provide the payment, certification, and gate-punctuality records required to derive the answer through the second route. 
+
+Noisy document (complete) main 
+
+ProcurementPulse Supplier Review Desk Dateline: 31 March 2024 Headline: Orison Fabrication highlighted in March supplier review 
+
+NARROWBROOK — ProcurementPulse’s March supplier review names Orison Fabrication as the supplier that held a current safety certification and delivered all three March shipments on time. Editors described the March review as part of the publication’s regular look at supplier consistency across compliance and delivery handling. In this edition, the desk pointed to Orison Fabrication as standing out on both measures at once, citing current safety standing alongside punctual execution of its March shipment set. The review was written in the publication’s familiar operational style, focusing on supplier performance signals that matter most to procurement readers: readiness to work under an accepted safety credential and reliable arrival against planned shipment activity. Rather than discussing broader market themes, the piece kept its attention on one named supplier and treated that supplier’s March showing as the noteworthy takeaway. Readers of the review would come away with a clear impression that Orison Fabrication met the combined threshold emphasized by the desk for the month’s supplier spotlight. 
+
+15 Preprint 
+
+# F TRACE TAXONOMY : C ATEGORIES AND EXAMPLE 
+
+The mechanism categories of Table 6 are: correct despite noise; a complete truth route retrieved but the designated false value committed; only a partial truth route retrieved with the false value committed; and answer-format or other failure. As a representative override, on a codename-lookup task the baseline agent, after retrieving a summary that directly named the wrong codename, issued two searches and returned the false value; under the generic verification instruction the same agent issued ten searches, observed that the summary “conflicts with the underlying run-level filing records,” and returned the correct codename. Such traces motivate the stopping/verification interpretation in the main text. 16
