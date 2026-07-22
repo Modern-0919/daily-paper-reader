@@ -1,0 +1,320 @@
+Title: ResMAS: Resilience Optimization in LLM-based Multi-agent Systems
+
+URL Source: https://ojs.aaai.org/index.php/AAAI/article/download/40824/44785
+
+Number of Pages: 9
+
+Markdown Content:
+# ResMAS: Resilience Optimization in LLM-based Multi-agent Systems 
+
+## Zhilun Zhou 1, Zihan Liu 1, Jiahe Liu 1, Qingyu Shao 1, Yihan Wang 1,Kun Shao 2, Depeng Jin 1, Fengli Xu 1* 
+
+> 1
+
+Department of Electronic Engineering, BNRist, Tsinghua University 
+
+> 2
+
+Huawei Noah’s Ark Lab 
+
+{zzl22,zh-l23,liujiahe22,shaoqy23,wangyiha23 }@mails.tsinghua.edu.cn, shaokun2@huawei.com, {jindp,fenglixu }@tsinghua.edu.cn 
+
+Abstract 
+
+Large Language Model-based Multi-Agent Systems (LLM-based MAS), where multiple LLM agents collaborate to solve complex tasks, have shown impressive performance in many areas. However, MAS are typically distributed across dif-ferent devices or environments, making them vulnerable to perturbations such as agent failures. While existing works have studied the adversarial attacks and corresponding de-fense strategies, they mainly focus on reactively detecting and mitigating attacks after they occur rather than proactively de-signing inherently resilient systems. In this work, we study the resilience of LLM-based MAS under perturbations and find that both the communication topology and prompt de-sign significantly influence system resilience. Motivated by these findings, we propose ResMAS: a two-stage framework for enhancing MAS resilience. First, we train a reward model to predict the MAS’s resilience, based on which we train a topology generator to automatically design resilient topology for specific tasks through reinforcement learning. Second, we introduce a topology-aware prompt optimization method that refines each agent’s prompt based on its connections and in-teractions with other agents. Extensive experiments across a range of tasks show that our approach substantially im-proves MAS resilience under various constraints. Moreover, our framework demonstrates strong generalization ability to new tasks and models, highlighting its potential for building resilient MASs. 
+
+Code — https://github.com/tsinghua-fib-lab/ResMAS 
+
+## Introduction 
+
+Large language model-based multi-agent systems (LLM-based MAS; hereafter referred to as MAS ) have exhibited impressive capabilities across a wide range of domains, in-cluding software development (Qian et al. 2024; Hong et al. 2023), mathematical problem solving (Li et al. 2023), and operations research (Xiao et al. 2023). In an MAS, multiple LLM agents collaborate to solve complex tasks through cer-tain role-play and communication patterns, often achieving superior performance compared to single-agent approaches. Despite these advances, agents within an MAS are typically deployed across different devices or environments, making 
+
+> *
+
+Corresponding author: fenglixu@tsinghua.edu.cn Copyright © 2026, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. 
+
+the MAS vulnerable to perturbations and attacks. As a result, the resilience, defined as the ability of a system to main-tain its functionality under perturbations (Cohen et al. 2000; Gao, Barzel, and Barab´ asi 2016; Ding et al. 2024), has be-come an important issue for MAS. In recent years, there have been extensive studies about resilience of MAS under adversarial attacks. Several stud-ies propose attack strategies such as prompt injection (Yu et al. 2024; Huang et al. 2025) and knowledge editing (Ju et al. 2025, 2024), and find that harmful information can rapidly spread in MAS (Gu et al. 2024; Lee and Tiwari 2024). Other works focus on detecting and defending against attacks using techniques like psychological testing (Zhang et al. 2024b) and graph-based anomaly detection (Wang et al. 2025b). However, existing studies mainly focus on the safety issue of MAS caused by adversarial attacks, while largely overlooking more common, non-malicious errors in MAS such as failures or miscommunication. Furthermore, prior works concentrated on detecting and mitigating at-tacks, with little focus on proactively designing resilient MAS structures that can better tolerate errors. In this work, we study the resilience of MAS under ran-dom agent failures. We find that MAS exhibits significantly higher resilience than a single agent, and the resilience in-creases with the number of agents and communication links. Moreover, we find that both the topology and prompts of an MAS have a strong impact on its resilience. Motivated by these, we propose a two-stage framework to automatically optimize the topology and prompts to improve the resilience of MAS, named ResMAS . In the first stage, we fine-tune an open-source LLM serve as a topology generator capable of producing resilient MAS structures. Specifically, to avoid the high time cost of evaluating an MAS’s resilience, we train a GNN-based reward model to predict the resilience of MAS for various tasks. This reward model is then used to fine-tune the LLM using the Group Relative Policy Opti-mization (GRPO) (Shao et al. 2024) algorithm, enabling it to automatically generate resilient MAS topologies. In the sec-ond stage, we propose a topology-aware prompt optimiza-tion method to optimize the system prompt for each agent in the MAS based on the generated topology. Specifically, we apply the MAS to a training set of the target task, and refine the system prompt for each agent based on the prompts of its neighbors as well as its interaction history with neighbors. The Fortieth AAAI Conference on Artificial Intelligence (AAAI-26) 
+
+35176 We conduct experiments on three benchmarks, includ-ing commonsense reasoning, math, and game. The results demonstrate that our framework can generate more resilient MAS compared to existing approaches for prompt and topology optimization. Moreover, we highlight the versatil-ity of our framework by applying it to optimize the accu-racy of MAS on certain tasks, where it achieves the Pareto-optimal performance compared with baselines. In addition, our framework shows strong generalization ability to unseen tasks such as code generation, and to new agents built upon different backbone models. In summary, our contributions are as follows: • We systematically study the resilience of MAS under random agent failures, revealing that both the topology and agent prompts have significant influence on system resilience. • We propose ResMAS: a two-stage framework that auto-matically optimizes the topology and agent prompts of MAS to enhance resilience. Specifically, we fine-tune an LLM to generate robust topologies, and further refine the prompts in a topology-aware manner. • Extensive experiments on various tasks show that our framework is able to generate MAS with superior re-silience and demonstrates strong generalization ability across tasks and models. 
+
+## Related Work 
+
+Resilience of MAS 
+
+The distributed architecture of MASs inherently increases their susceptibility to perturbations. Prior research has fo-cused on adversarial attack and defense methods for MAS. Specifically, some studies propose attack methods such as prompt injection (Yu et al. 2024; Huang et al. 2025; Tian et al. 2023) and knowledge editing (Ju et al. 2025, 2024). Additionally, it has been demonstrated that harmful infor-mation can spread extremely fast in MAS, where a single jailbreak agent can undermine the whole MAS (Gu et al. 2024; Lee and Tiwari 2024). In response, some studies focus on detecting and defending against attacks through methods like psychological test (Zhang et al. 2024b) and graph-based anomaly detection (Wang et al. 2025b). However, existing studies mainly focus on the safety issue of MAS caused by adversarial attack, but overlook the resilience to more com-mon, non-malicious agent errors. Furthermore, prior works emphasize detecting and mitigating attacks, with little focus on proactively designing resilient MAS structures that can tolerate errors by design. 
+
+Automated Design of MAS 
+
+The architecture of MAS, including the agents’ roles and prompts as well as the communication patterns between agents, significantly affects the performance of MAS on tasks. Early studies often manually design MAS structures for specific tasks, usually based on human collaboration mechanisms (Du et al. 2024; Hong et al. 2023). Recently, there have been more studies on automated design and opti-mization of MAS. For instance, Agentverse lets LLM gen-erate and adjust the agent composition based on the status of the task (Chen et al. 2023). G-designer proposes to opti-mize the communication network of agents through a varia-tional graph auto-encoder (Zhang et al. 2024a). GPTSwarm represents multi-agent systems as composite graphs and optimizes node-level prompts as well as edges between agents (Zhuge et al. 2024). However, all of the existing methods focus on optimizing the performance of MAS on certain tasks rather than resilience. 
+
+## Preliminaries 
+
+Motivation 
+
+In this study, we use a widely used MAS framework (Du et al. 2023; Wang et al. 2025a), where multiple LLM agents discuss for several rounds to answer a question. 
+
+Definition 1 (LLM-based Multi-Agent System ). Specifi-cally, the LLM agents can be modeled as a directed graph 
+
+G = {V , E, P} , where V = {v1, v 2, . . . , v N } is the set of nodes, each node is an LLM agent, E is the set of edges, and 
+
+P = {P1, P 2, . . . , P N } represents the prompts for agents. We also refer to the graph G as the communication topology of LLM agent groups. Given a query q, each agent vi ∈ V 
+
+independently generates an initial response r(1)  
+
+> i
+
+= vi(q).Then in round t(t ≥ 2) , each agent observes the previous answers of its in-neighbors, and updates its own answer: 
+
+r(t+1)  
+
+> i
+
+= vi({r(t) 
+
+> j
+
+|j ∈ N in (vi)}), (1) 
+
+where Nin (vi) denotes the in-neighboring nodes of vi. After 
+
+T rounds, the final answer is obtained by aggregating the responses of all agents 
+
+r(T ) = Aggregate (r(T )1 , r (T )2 , . . . , r (T ) 
+
+> N
+
+). (2) In practice, different agents in an MAS are often deployed in a distributed way, i.e., they may be on different devices and environments, making MAS vulnerable to external per-turbations. In this work, we define the perturbation as ran-dom agent failure, where in each round of the collaboration, each agent independently has a probability p to output a ran-dom response. We call the probability p the error rate. We first study the behavior of MAS under perturbation. Specifically, we generate 30 random graphs with different agent numbers and edge numbers, and use them as the com-munication topology to construct 30 MASs. We then test the accuracy of these MASs on the Chess move validity tasks (details in the dataset section) under different error rates ( p = 0 , 0.2, 0.4, 0.6, 0.8, 1). We compare the results of MASs with single agent in Figure 1(a). It can be ob-served that as the error rate increases, both the performance of single agent and MAS drops. However, the performance of MASs remains much higher than that of a single agent under different error rates, indicating that MASs are more resilient to perturbations. The resilience of a system is defined as its capability to maintain its functionality under perturbations (Cohen et al. 2000; Gao, Barzel, and Barab´ asi 2016). Generally, the func-tionality of an MAS is reflected by its performance on cer-tain tasks. Therefore, we quantitatively define the resilience of MAS as follows: 35177 0 0.2 0.4 0.6 0.8 1.0 
+
+> Error rate
+> 0.0 0.1 0.2 0.3 0.4
+> Accuracy
+> Single MAS
+
+(a) 0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Error rate
+> 0.0 0.1 0.2 0.3 0.4
+> Accuracy
+
+Resilience (b) 3 10 20 30 
+
+> Number of agents
+> 0.6 0.7 0.8
+> Resilience
+
+(c) 10 1 10 2 
+
+> Number of links
+> 0.6 0.7 0.8
+> Resilience
+
+(d) 
+
+Figure 1: (a) Performance of single agent and MAS under perturbation. (b) Definition of resilience. (c)(d) Resilience generally increases with the number of agents and links. 
+
+Definition 2 (Resilience of MAS ). Given an MAS G and a target task consisting of K problems T = {q1, . . . , q K }. Let 
+
+F (p) denote the accuracy (or other performance metrics) of the MAS on the task under error rate p, then the resilience of the MAS on task T is defined as: 
+
+R(G) = 1
+
+F (0) 
+
+Z 10
+
+F (p)dp, (3) 
+
+where F (0) represents the original functionality under no perturbation. 
+
+We visualize this definition in Figure 1(b), where re-silience is defined as the proportion of area under the curve. In this study, we approximate the resilience by testing the accuracy of an MAS under error rates p =0, 0.2, 0.4, 0.6, 0.8, 1 as follows: 
+
+R(G) = 110 F (0) (F (0) + 2 F (0 .2) + 2 F (0 .4) + 2 F (0 .6) + 2 F (0 .8) + F (1)) .
+
+(4) Based on the definition above, we further study the fac-tors that affect MAS’s resilience. Intuitively, more agents and more communication links between agents will bring more redundancy to the system, resulting in higher error tol-erance. To verify this, we visualize the relationship between MAS resilience and the number of agents and links in Fig-ure 1(c)(d), and find that more agents and links do lead to higher resilience, which indicates that we can improve MAS resilience simply by increasing the number of agents and edges. However, since more agents and edges will also bring higher cost, a natural question is whether we can optimize the MAS given the constraints of agent and edge numbers. To answer this question, we conduct a case study on MASs with the same number of agents and edges, but with different graph structures and agent prompts. As shown in Figure 2, we find that when we refine the prompt for each 𝑹𝑹 = 𝟎𝟎 . 𝟔𝟔𝟔𝟔𝟔𝟔 𝑹𝑹 = 𝟎𝟎 . 𝟔𝟔 𝟕𝟕 𝟔𝟔  𝑹𝑹 = 𝟎𝟎 . 𝟔𝟔 𝟕𝟕𝟕𝟕 
+
+> You are an expert in chess. Provide accurate and insightful responses regarding moves, strategies, and piece positioning. Analyze given positions and suggest valid moves while adhering to chess rules and conventions. Focus on clarity and precision in your explanations. You are an expert skilled in playing chess. You are an expert skilled in playing chess.
+
+Figure 2: Effect of topology and prompt on MAS resilience. agent (by calling GPT-4o one time), the resilience increases significantly. Moreover, even under the same agent prompts, the hierarchical topology (right) demonstrates higher re-silience than the centralized topology (left). These findings suggest both topology and prompt have a high impact on the resilience of MAS. 
+
+Problem Statement 
+
+Motivated by these, in this work, we aim to design more re-silient MAS by optimizing the topology and prompts under the constraints of agent and edge numbers. We formally de-fine the problem as follows: 
+
+Definition 3 (MAS Resilience Optimization Problem ).
+
+Given the number of agents n and number of edges m, gen-erate an MAS G = {V , E, P} with better resilience on a certain task, i.e., 
+
+arg max  
+
+> E,P
+
+R(G)
+
+s.t. |V| = n, |E| ≤ m. (5) 
+
+## Methods 
+
+Framework Overview 
+
+The optimization targets of the problem include both the topology and agent prompts of MAS, which leads to a vast search space. To reduce the search space, we propose a two-stage framework that first designs the topology of MAS, and then optimizes the prompt with the topology fixed. In the first stage, we focus on designing a more resilient MAS topology with identical prompts for all agents. Ex-isting studies have proposed various methods to optimize the topology of MAS to improve its performance (Zhang et al. 2024a; Zhuge et al. 2024). However, these methods are mainly designed for optimizing the accuracy of MAS on cer-tain tasks, and they face two challenges in our resilience op-timization problem. First, all existing methods need to eval-uate the performance of the proposed MAS on specific tasks, which is highly time-consuming. This issue is further exac-erbated in resilience evaluation, as it requires assessing sys-tem performance under varying error rates. Second, existing methods typically conduct optimization independently for different tasks, limiting generalization and incurring addi-tional computational cost. To deal with the first challenge, 35178 Embedding LM Problem 
+
+> MAS Topology
+> 11000
+> GCN
+> Predicted Correctness MLP
+> 1243Instruction Set
+
+LLM SFT SFT Random Graphs Step 2: GRPO Training Reward Model  
+
+> {1:[2,3,4], 2:[], 3:[4], 4:[]}
+> Adjacency List Reward Model
+> Predicted Resilience Format Reward
+> Step 1: Supervised Fine-tuning
+> [Introduction of MAS and perturbation] Your task is to design a MAS topology that achieves high resilience on a given task. [Task description] [Few-shot examples]
+> Constraints:
+> - N = 4 agents - M = 4 edges Provide the MAS design as a JSON adjacency list.
+
+LLM Figure 3: The topology optimization framework in ResMAS. we train a task-aware reward model to predict the resilience of MAS for different tasks. Moreover, inspired by the gen-eralization ability of LLMs, we fine-tune an LLM with re-inforcement learning guided by the reward model to serve as the topology generator. The generator can produce re-silient topologies for diverse tasks and under various con-straints specified via prompts. In the second stage, we fix the topology from the first stage and optimize the prompts for each agent. Since the prompt of an agent is tightly cou-pled with its position in the graph and its connections with other agents, we propose a topology-aware prompt optimiza-tion method, where each agent’s prompt is updated based on the its connections and interactions with neighbors. 
+
+Topology Optimization 
+
+In the first stage, we aim to optimize the topology of MAS under given node and edge constraints. To make the opti-mization process generalizable to different tasks and con-straints, we train a generator to directly generate the topol-ogy instead of searching in the topology space. Inspired by the outstanding instruction following and generalization ability of LLM, we fine-tune a small-sized LLM as the gen-erator (Qwen2.5-7B-Instruct (Team 2024)). In this way, a single model can be used for different scenarios by designat-ing the task and constraints in the prompt. The framework of topology optimization is shown in Figure 3. 
+
+Supervised Fine-tuning on Random Graphs We first construct the instruction set for training. In each instruction, we provide the introduction of MAS and perturbation, the target task, some few-shot examples, node and edge con-straints, and ask the model to output an MAS topology with high resilience in adjacency list format. We vary the agent number from {10,15,20 }, edge number from 10 to 80, and tasks including MATH, MMLU-Pro, and Chess (details in the dataset section), resulting in 2544 instructions in total. In the experiments, we find that it is difficult for LLM to generate valid adjacency lists that adhere to the constraints. Therefore, we first conduct supervised fine-tuning (SFT) to make the model learn the basic required format. Since there is no ground truth for the instructions, we generate random graphs as the labels. For example, if the constraint in an in-struction is “10 agents, 10 edges”, we generate a random graph with 10 nodes and 10 edges as the label for training. 
+
+GRPO Training with Reward Model After teaching the model basic format through SFT, we further leverage rein-forcement learning to enhance its ability to generate more resilient topologies. However, it is highly time-consuming to evaluate a generated topology since we need to test it under different error rates. For example, calculating the resilience of an MAS with 10 agents on the MATH dataset may take a few hours. To tackle this challenge, we train a reward model to predict the resilience of an MAS on a given task. Motivated by the outstanding ability of Graph Neural Network to capture characteristics of graphs, we leverage GCN (Kipf 2016) as the backbone of reward model. More-over, to enable prediction for different tasks, we use an em-bedding LM as the task encoder to obtain a low-dimensional embedding for the task, and concatenate it with node fea-tures (Zhang et al. 2024a), as shown in Figure 3. Here we ini-tialize the node features with the in-degree and out-degree, and use Sentence-BERT (Reimers and Gurevych 2019) as the task encoder. After information propagation on the graph through two GCN layers, we apply a mean pooling operation to obtain a graph-level embedding, followed by an MLP to generate the final prediction. Here, we do not directly pre-dict the resilience on the whole dataset, as it would be hard to collect a large amount of training data. Instead, we train the reward model to predict the correctness of each problem in the dataset, i.e., whether the MAS can correctly answer the problem under different error rates. Therefore, the out-put of the reward model is a 5-dimensional 0-1 vector, rep-resenting the correctness under p=0, 0.2, 0.4, 0.6, 0.8. For the training data, we use the random graphs from previous analysis (motivation section) to test on three datasets, result-ing in 7936 [topology, task, correctness] tuples, which are split into train:test=8:2. Experiments show that the trained 35179 LLM 
+
+> 𝑃𝑃 1𝑖𝑖+1 1
+> 2
+> 3
+
+𝑃𝑃 1𝑖𝑖 𝑃𝑃 2𝑖𝑖 𝑃𝑃 3𝑖𝑖 𝑃𝑃 4𝑖𝑖 
+
+> Training Problems
+> Prompts of Neighbors
+
+𝑃𝑃 2𝑖𝑖 , 𝑃𝑃 3𝑖𝑖 , 𝑃𝑃 4𝑖𝑖           
+
+> Positive Examples Negative Examples Updated Prompt Round 𝑡𝑡 Round 𝑡𝑡 + 1
+> 𝑞𝑞 123
+> 𝑟𝑟 1
+> (𝑡𝑡 )
+> 123
+> 𝑟𝑟 1
+> (𝑡𝑡+1 )
+> Round 𝑡𝑡 Round 𝑡𝑡 + 1
+> 𝑞𝑞 123
+> 𝑟𝑟 1
+> (𝑡𝑡 )
+> 123
+> 𝑟𝑟 1
+> (𝑡𝑡+1 )
+
+Figure 4: Topology-aware prompt optimization framework in ResMAS. reward model can achieve an accuracy of 0.86 on the test set in predicting the correctness of an MAS on a problem. In the inference stage, we calculate the predicted resilience ˆR
+
+on a dataset by aggregating the predicted correctness for all problems in the dataset with Equation 4. After obtaining the reward model that can predict the re-silience of any MAS topology on any task, we leverage the GRPO (Shao et al. 2024) algorithm to train the LLM to generate more resilient topologies. To ensure the generated topologies satisfy the constraints, we further introduce a for-mat reward that punishes those that are not valid adjacency lists or do not meet the node and edge requirements. The overall reward function is defined as follows: Reward (G) = 
+
+
+
+−1, if wrong format or |V|̸ = n
+
+− |E|− mm , if |E| > m 
+
+ˆR(G) + |E| /m, if n = N and |E| ≤ m
+
+(6) In both the SFT and GRPO training, the model is trained using LoRA (Hu et al. 2022). 
+
+Topology-aware Prompt Optimization 
+
+Agents with different positions in the graph and different connections may play different roles in the MAS. There-fore, it is crucial to consider the topology when optimizing prompts. Previous prompt optimization methods for MAS often update the prompt for each agent sequentially (Zhuge et al. 2024). Moreover, they are primarily designed for im-proving the accuracy rather than resilience. In this work, we propose a topology-aware prompt optimization method to address such limitations, as shown in Figure 4. The intuition behind our method is that the resilience of MAS is largely affected by the interaction between agents. Simply improving the accuracy of each agent may not bring better resilience, as they may be easily affected by per-turbed answers from other agents. Therefore, we hope that the agents can learn when to refer to responses from other agents and when to adhere to their own answers. Instead of using a simple resilience metric as feedback, we make full use of every problem in the training set. Specif-ically, we run the MAS on the training set and calculate the correctness of each agent on each round of discussion for each problem. If an agent produces an incorrect response in one round but subsequently corrects its answer in the fol-lowing round after receiving responses from its neighbor-ing agents, this instance is treated as a positive example. Similarly, we construct negative examples when an agent is misled by responses from neighbors and changes its cor-rect answer to a wrong one. Based on the positive examples, negative examples, and the system prompts of neighbors, we leverage a stronger LLM to update the prompt for each agent. In this way, agents can learn from both the prompts of their neighbors as well as their interaction history with neighbors, enabling topology-aware prompt optimization. 
+
+## Experiments 
+
+Experiment Settings 
+
+Datasets We evaluate the performance of ResMAS on three datasets including commonsense reasoning, mathe-matical reasoning, and game, which provides a diverse range of tasks to thoroughly assess our approach. • MMLU-Pro (Wang et al. 2024): It contains multiple-choice questions from various disciplines with four to ten options, serving as a benchmark to test the commonsense reasoning ability of LLMs. • MATH (Hendrycks et al. 2021): It contains math prob-lems to test the mathematical reasoning ability of LLMs. We choose the hardest level (level-5) in our experiments. • Chess (Srivastava et al. 2023): It is a subset of the BIG-Bench Benchmark containing Chess move validity tasks, where the problems are to provide a valid move of a piece given the chess move history. During the training of the reward model and topology gen-erator, we only use data from the three datasets above. Moreover, we also evaluate the generalization ability of our method to unseen tasks on HumanEval (Chen et al. 2021) dataset, which measures the code generation ability of LLM. 
+
+Baselines We compare our method with three kinds of baselines that optimize topology, prompt, and both of them. 
+
+Topology optimization baselines. 
+
+• G-Designer (Zhang et al. 2024a): It models MAS as a graph, and trains a variational graph auto-encoder to gen-erate the topology for MAS. 
+
+Prompt optimization baselines. 
+
+• OPRO (Yang et al. 2024): It uses LLM as optimizer to iteratively generate new prompts based on the perfor-mance of existing prompts on the training set. • TextGrad (Yuksekgonul et al. 2025): It also leverages LLM as optimizer, and optimizes the prompt of the agent by backpropagating feedback, which is similar to training of neural networks. Following the original paper, we use the performance on the training set as the feedback. Since the prompt optimization baselines are designed for a single agent, we use a random graph as the topology of MAS, and use the same optimized prompt for all agents. 
+
+Topology and prompt optimization baselines. 35180 Method MATH MMLU-Pro 10 Agents 15 Agents 20 Agents 10 Agents 15 Agents 20 Agents 10E 20E 30E 15E 30E 45E 20E 40E 60E 10E 20E 30E 15E 30E 45E 20E 40E 60E                                                                                           
+
+> G-Designer 0.490 0.573 0.531 0.531 0.540 0.480 0.546 0.572 0.558 0.456 0.498 0.502 0.459 0.422 0.454 0.441 0.458 0.383 OPRO 0.785 0.718 0.752 0.803 0.827 0.821 0.838 0.820 0.845 0.755 0.758 0.752 0.771 0.774 0.812 0.795 0.802 0.815 TextGrad 0.756 0.746 0.746 0.785 0.800 0.820 0.841 0.816 0.820 0.758 0.731 0.774 0.784 0.765 0.813 0.782 0.806 0.810 GPTSwarm 0.752 0.760 0.786 0.797 0.810 0.786 0.817 0.811 0.846 0.702 0.739 0.702 0.712 0.777 0.789 0.796 0.810 0.808 ResMAS 0.813 0.807 0.806 0.847 0.847 0.837 0.849 0.856 0.853 0.766 0.808 0.780 0.808 0.799 0.815 0.817 0.849 0.839
+
+Table 1: Resilience comparison with baselines on MATH and MMLU-Pro datasets. “E” represents the number of edges. Best results are presented in bold, and the second best results are underlined.                                                        
+
+> Method Chess 10 Agents 15 Agents 20 Agents 10E 20E 30E 15E 30E 45E 20E 40E 60E
+> G-Designer 0.707 0.731 0.767 0.773 0.717 0.665 0.763 0.776 0.747 OPRO 0.661 0.652 0.730 0.764 0.753 0.764 0.733 0.767 0.810 TextGrad 0.762 0.700 0.738 0.693 0.765 0.750 0.690 0.743 0.811 GPTSwarm 0.768 0.712 0.716 0.755 0.767 0.769 0.745 0.716 0.810 ResMAS 0.798 0.822 0.814 0.810 0.778 0.787 0.790 0.823 0.823
+
+Table 2: Resilience comparison with baselines on Chess dataset. “E” represents the number of edges. Best results are presented in bold, and the second best results are underlined. • GPTSwarm (Zhuge et al. 2024): It optimizes the con-nection between agents through updating the probabilis-tic distribution of edges based on performance. More-over, it sequentially optimizes the prompt for each agent in the MAS with LLM as optimizer. We evaluate our method and baselines under different node and edge constraints, including 10-node 10/20/30 edges, 15-node 15/30/45 edges, and 20-node 20/40/60 edges. We use Qwen2.5-32B-Instruct as the backbone model for agents. 
+
+Overall Performance 
+
+The overall performance of our method compared with base-lines is shown in Table 1 and Table 2, from which we have the following findings. First, ResMAS consistently outperforms baselines in terms of resilience on all datasets and across different node and edge constraints, which demonstrates the effectiveness and robustness of our method across various scenarios. Second, the resilience generally increases with the num-ber of agents and edges, which is consistent with our pre-vious findings (Motivation). However, the performances of different methods vary greatly even under the same con-straint, indicating that carefully designing the topology and prompt is essential for a more resilient MAS, and ResMAS manages to generate better MAS across different settings. Third, we find that G-Designer generally performs the worst among baselines, which indicates that solely opti-mizing topology is not enough for high resilience. More-over, GPTSwarm generally performs well because it opti-mizes both the topology and prompts of MAS. However, it still achieves lower resilience than our methods, which is probably because it fails to consider the topology in the prompt optimization stage, demonstrating the importance of our topology-aware prompt optimization design. Overall, ResMAS shows robust performance gain across 0.64 0.65 0.66 0.67 0.68 
+
+Accuracy 
+
+> 0.72
+> 0.74
+> 0.76
+> 0.78
+> 0.80
+> Resilience
+> ResMAS (acc) ResMAS (res) GPT-Swarm TextGrad OPRO edge=10 edge=20 edge=30
+
+Figure 5: Comparison of accuracy and resilience with base-lines. “ResMAS(acc)” and “ResMAS(res)” represent opti-mizing accuracy and resilience with our method, respec-tively. Dashed line represents the Pareto front. various settings and datasets, showing its effectiveness in jointly optimizing topology and prompts. 
+
+Optimizing for Accuracy 
+
+In this section, we show that apart from optimizing re-silience, ResMAS can also be used to optimize the perfor-mance of MAS. Specifically, since our reward model can predict the correctness of each problem, it can also be di-rectly used for predicting accuracy on the dataset. There-fore, we change the predicted resilience ˆR(G) to predicted performance ˆP (G) in Equation 6. Moreover, in the prompt optimization stage, we remove the negative examples since the accuracy is measured under no perturbations. The other procedures are the same as resilience optimization. We present the results on the MATH dataset under con-straints of 10 agents and 10/20/30 edges in Figure 5. The edge constraints are denoted by colors, and different meth-ods are denoted by shapes. For comparison, we also present the original resilience optimization results of our method. It can be observed that when changing the optimization goal 35181 (a) HumanEval (b) GPT-3.5-turbo (c) GPT-4o-mini Figure 6: Generalization ability of ResMAS on new task (a) and new models (b) (c). “E” means the number of edges. (a) MATH (b) MMLU-Pro (c) Chess 
+
+Figure 7: Resilience comparison of ResMAS without topol-ogy or prompt optimization. “E” means the number of edges. to accuracy, the accuracy of generated MAS increases with a slight drop in resilience. Moreover, our method consis-tently achieves the Pareto front (dashed line) under different constraints. Such results demonstrate that ResMAS can op-timize both the resilience and accuracy of MAS effectively. 
+
+Generalization Ability 
+
+To evaluate the generalization ability of ResMAS, we apply our method to new tasks or new models without re-training the topology generator, and compare with topology opti-mization baselines. For cross-task generalization, we use our topology gener-ator to directly generate MAS topology for the HumanEval dataset, which is unseen in the training data. Then we use the training set of HumanEval to optimize the prompts. As shown in Figure 6(a), our method achieves better perfor-mance than the baselines, indicating that our method can generalize well to new tasks. Furthermore, we transfer our method to agents with different backbone LLMs, i.e., GPT-3.5-turbo and GPT-4o-mini. Here we use the same topology but re-optimize the prompts for each model. As shown in Figure 6(b) and (c), our method consistently performs better than baselines on different backbone models and different tasks, indicating that our generated MAS topology is gener-alizable to agents with different LLM backbones. 
+
+Ablation Study 
+
+To validate the effectiveness of optimizing topology and prompt, we conduct an ablation study on the two stages. For the ablation of topology optimization, we use a ran-dom graph as the MAS topology and then optimize the prompt. As for prompt optimization, we use the identical ini-tial prompt for all agents. The results on three datasets are shown in Figure 7, from which we find that the resilience drops in all cases when removing either stage, demonstrat-ing the effectiveness of them. ResMAS GPTSwarm G-Designer G-Designer prompt example:  
+
+> You are in a group to solve math problems. Try your best to give correct answer.
+> ResMAS prompt example:
+> You are an intelligent mathematical agent engaged in a collaborative problem-solving process. As you review answers from predecessor agents, apply critical evaluation to sift through their responses, identifying valid insights while remaining wary of misleading information . Employ a methodical reasoning approach, utilizing solid mathematical principles to validate your conclusions. Actively integrate beneficial perspectives from predecessors to refine your understanding and maintain clarity in your final answer. Strive for precision and relevance, ensuring your conclusions are directly tied to the task at hand while upholding a rigorous validation process.
+> GPTSwarm prompt example:
+> As a vital contributor to our discerning team, you are entrusted with the responsibility of maintaining high standards of accuracy and insight in all analyses. To ensure the integrity of your evaluations, critically assess logical consistency and mathematical reasoning while cross-referencing information with credible sources. Prioritize evidence-based reasoning, seeking clarity in ambiguous contexts and filling any gaps in knowledge. Your commitment to validating claims and conducting independent verification is crucial in avoiding misinformation. In every assessment, prioritize logical coherence and relevance to foster informed decision-making.
+
+Figure 8: Topologies and prompts of MAS generated by dif-ferent methods. 
+
+Case Study 
+
+To intuitively understand how ResMAS achieves better re-silience, we compare our topology and prompts with base-lines (10 agents, 10 edges, MATH dataset) in Figure 8. We find that our method generates a decentralized graph where each node has the same degree. In comparison, G-Designer tends to generate a centralized graph, where multiple nodes are connected to node 2. Moreover, both GPTSwarm and G-Designer fail to generate a connected graph, where the iso-lated agents may compromise the resilience of MAS. As for prompts, since G-Designer does not optimize the prompts, all agents share the same initial prompt. GPTSwarm and our method both conduct prompt optimization, while only our method considers the topology and interaction between agents. As a result, our prompt explicitly instructs the agent to pay attention to potential perturbations from neighbors, which further enhances the resilience of the system. 
+
+## Conclusion 
+
+In this paper, we conduct a comprehensive study on the re-silience of MAS under random agent failures, and propose a two-stage framework ResMAS to optimize the topology and prompts of MAS to improve resilience. Experiments on diverse benchmarks and settings demonstrate the effective-ness, versatility, and generalization ability of our approach. In the future, one potential direction is to jointly optimize the topology and prompts rather than treating them in sep-arate stages. Another direction is to extend our framework to heterogeneous MAS composed of agents with different backbone models or capabilities, which more closely mir-rors real-world deployment scenarios. 35182 Acknowledgments 
+
+This work was supported in part by the National Natural Sci-ence Foundation of China under Grant 62472241 and Grant 23IAA02114; in part by Tsinghua-Toyota Joint Research In-stitute Inter-disciplinary Program. 
+
+## References 
+
+Chen, M.; Tworek, J.; Jun, H.; Yuan, Q.; Pinto, H. P. D. O.; Kaplan, J.; Edwards, H.; Burda, Y.; Joseph, N.; Brockman, G.; et al. 2021. Evaluating large language models trained on code. arXiv preprint arXiv:2107.03374 .Chen, W.; Su, Y.; Zuo, J.; Yang, C.; Yuan, C.; Chan, C.-M.; Yu, H.; Lu, Y.; Hung, Y.-H.; Qian, C.; et al. 2023. Agent-verse: Facilitating multi-agent collaboration and exploring emergent behaviors. In The Twelfth International Confer-ence on Learning Representations .Cohen, R.; Erez, K.; Ben-Avraham, D.; and Havlin, S. 2000. Resilience of the internet to random breakdowns. Physical review letters , 85(21): 4626. Ding, J.; Liu, C.; Zheng, Y.; Zhang, Y.; Yu, Z.; Li, R.; Chen, H.; Piao, J.; Wang, H.; Liu, J.; et al. 2024. A Comprehen-sive Survey on Artificial Intelligence for Complex Network: Potential, Methodology and Application. arXiv preprint arXiv:2402.16887 .Du, Y.; Li, S.; Torralba, A.; Tenenbaum, J. B.; and Mordatch, I. 2023. Improving factuality and reasoning in language models through multiagent debate. In Forty-first Interna-tional Conference on Machine Learning .Du, Y.; Li, S.; Torralba, A.; Tenenbaum, J. B.; and Mordatch, I. 2024. Improving Factuality and Reasoning in Language Models through Multiagent Debate. In Forty-first Interna-tional Conference on Machine Learning, ICML 2024, Vi-enna, Austria, July 21-27, 2024 . OpenReview.net. Gao, J.; Barzel, B.; and Barab´ asi, A.-L. 2016. Universal resilience patterns in complex networks. Nature , 530(7590): 307–312. Gu, X.; Zheng, X.; Pang, T.; Du, C.; Liu, Q.; Wang, Y.; Jiang, J.; and Lin, M. 2024. Agent Smith: a single image can jailbreak one million multimodal LLM agents exponentially fast. In Proceedings of the 41st International Conference on Machine Learning , 16647–16672. Hendrycks, D.; Burns, C.; Kadavath, S.; Arora, A.; Basart, S.; Tang, E.; Song, D.; and Steinhardt, J. 2021. Measuring Mathematical Problem Solving With the MATH Dataset. In Vanschoren, J.; and Yeung, S., eds., Proceedings of the Neu-ral Information Processing Systems Track on Datasets and Benchmarks 1, NeurIPS Datasets and Benchmarks 2021, December 2021, virtual .Hong, S.; Zhuge, M.; Chen, J.; Zheng, X.; Cheng, Y.; Wang, J.; Zhang, C.; Wang, Z.; Yau, S. K. S.; Lin, Z.; et al. 2023. MetaGPT: Meta programming for a multi-agent collabora-tive framework. In The Twelfth International Conference on Learning Representations .Hu, E. J.; Shen, Y.; Wallis, P.; Allen-Zhu, Z.; Li, Y.; Wang, S.; Wang, L.; and Chen, W. 2022. LoRA: Low-Rank Adapta-tion of Large Language Models. In The Tenth International Conference on Learning Representations, ICLR 2022, Vir-tual Event, April 25-29, 2022 . OpenReview.net. Huang, J.-t.; Zhou, J.; Jin, T.; Zhou, X.; Chen, Z.; Wang, W.; Yuan, Y.; Lyu, M.; and Sap, M. 2025. On the Re-silience of LLM-Based Multi-Agent Collaboration with Faulty Agents. In Forty-second International Conference on Machine Learning .Ju, T.; Wang, B.; Fei, H.; Lee, M.-L.; Hsu, W.; Li, Y.; Wang, Q.; Cheng, P.; Wu, Z.; Zhang, Z.; et al. 2025. In-vestigating the Adaptive Robustness with Knowledge Con-flicts in LLM-based Multi-Agent Systems. arXiv preprint arXiv:2502.15153 .Ju, T.; Wang, Y.; Ma, X.; Cheng, P.; Zhao, H.; Wang, Y.; Liu, L.; Xie, J.; Zhang, Z.; and Liu, G. 2024. Flooding spread of manipulated knowledge in llm-based multi-agent communi-ties. arXiv preprint arXiv:2407.07791 .Kipf, T. 2016. Semi-Supervised Classification with Graph Convolutional Networks. arXiv preprint arXiv:1609.02907 .Lee, D.; and Tiwari, M. 2024. Prompt infection: Llm-to-llm prompt injection within multi-agent systems. arXiv preprint arXiv:2410.07283 .Li, G.; Hammoud, H. A. A. K.; Itani, H.; Khizbullin, D.; and Ghanem, B. 2023. CAMEL: Communicative Agents for ”Mind” Exploration of Large Language Model Society. In 
+
+Thirty-seventh Conference on Neural Information Process-ing Systems .Qian, C.; Liu, W.; Liu, H.; Chen, N.; Dang, Y.; Li, J.; Yang, C.; Chen, W.; Su, Y.; Cong, X.; et al. 2024. ChatDev: Com-municative Agents for Software Development. In Proceed-ings of the 62nd Annual Meeting of the Association for Com-putational Linguistics (Volume 1: Long Papers) , 15174– 15186. Reimers, N.; and Gurevych, I. 2019. Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. In 
+
+Proceedings of the 2019 Conference on Empirical Meth-ods in Natural Language Processing and the 9th Interna-tional Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , 3982–3992. Shao, Z.; Wang, P.; Zhu, Q.; Xu, R.; Song, J.; Bi, X.; Zhang, H.; Zhang, M.; Li, Y.; Wu, Y.; et al. 2024. Deepseekmath: Pushing the limits of mathematical reasoning in open lan-guage models. arXiv preprint arXiv:2402.03300 .Srivastava, A.; Rastogi, A.; Rao, A.; Shoeb, A. A. M.; Abid, A.; Fisch, A.; Brown, A. R.; Santoro, A.; Gupta, A.; Garriga-Alonso, A.; et al. 2023. Beyond the Imitation Game: Quanti-fying and extrapolating the capabilities of language models. 
+
+Transactions on Machine Learning Research .Team, Q. 2024. Qwen2.5: A Party of Foundation Models. Tian, Y.; Yang, X.; Zhang, J.; Dong, Y.; and Su, H. 2023. Evil geniuses: Delving into the safety of llm-based agents. 
+
+arXiv preprint arXiv:2311.11855 .Wang, J.; WANG, J.; Athiwaratkun, B.; Zhang, C.; and Zou, J. 2025a. Mixture-of-Agents Enhances Large Language Model Capabilities. In The Thirteenth International Con-ference on Learning Representations .35183 Wang, S.; Zhang, G.; Yu, M.; Wan, G.; Meng, F.; Guo, C.; Wang, K.; and Wang, Y. 2025b. G-safeguard: A topology-guided security lens and treatment on llm-based multi-agent systems. arXiv preprint arXiv:2502.11127 .Wang, Y.; Ma, X.; Zhang, G.; Ni, Y.; Chandra, A.; Guo, S.; Ren, W.; Arulraj, A.; He, X.; Jiang, Z.; et al. 2024. Mmlu-pro: A more robust and challenging multi-task language un-derstanding benchmark. Advances in Neural Information Processing Systems , 37: 95266–95290. Xiao, Z.; Zhang, D.; Wu, Y.; Xu, L.; Wang, Y. J.; Han, X.; Fu, X.; Zhong, T.; Zeng, J.; Song, M.; et al. 2023. Chain-of-Experts: When LLMs Meet Complex Operations Research Problems. In The Twelfth International Confer-ence on Learning Representations .Yang, C.; Wang, X.; Lu, Y.; Liu, H.; Le, Q. V.; Zhou, D.; and Chen, X. 2024. Large Language Models as Optimizers. In The Twelfth International Conference on Learning Rep-resentations, ICLR 2024, Vienna, Austria, May 7-11, 2024 .OpenReview.net. Yu, M.; Wang, S.; Zhang, G.; Mao, J.; Yin, C.; Liu, Q.; Wen, Q.; Wang, K.; and Wang, Y. 2024. Netsafe: Exploring the topological safety of multi-agent networks. arXiv preprint arXiv:2410.15686 .Yuksekgonul, M.; Bianchi, F.; Boen, J.; Liu, S.; Lu, P.; Huang, Z.; Guestrin, C.; and Zou, J. 2025. Optimizing gen-erative AI by backpropagating language model feedback. 
+
+Nature , 639(8055): 609–616. Zhang, G.; Yue, Y.; Sun, X.; Wan, G.; Yu, M.; Fang, J.; Wang, K.; Chen, T.; and Cheng, D. 2024a. G-designer: Ar-chitecting multi-agent communication topologies via graph neural networks. arXiv preprint arXiv:2410.11782 .Zhang, Z.; Zhang, Y.; Li, L.; Shao, J.; Gao, H.; Qiao, Y.; Wang, L.; Lu, H.; and Zhao, F. 2024b. PsySafe: A Com-prehensive Framework for Psychological-based Attack, De-fense, and Evaluation of Multi-agent System Safety. In 
+
+Proceedings of the 62nd Annual Meeting of the Associa-tion for Computational Linguistics (Volume 1: Long Papers) ,15202–15231. Zhuge, M.; Wang, W.; Kirsch, L.; Faccio, F.; Khizbullin, D.; and Schmidhuber, J. 2024. Gptswarm: Language agents as optimizable graphs. In Forty-first International Conference on Machine Learning .35184

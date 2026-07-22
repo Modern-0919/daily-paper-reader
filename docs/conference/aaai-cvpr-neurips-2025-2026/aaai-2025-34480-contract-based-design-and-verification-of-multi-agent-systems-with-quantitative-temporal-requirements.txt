@@ -1,0 +1,628 @@
+Title: Contract-based Design and Verification of Multi-Agent Systems with Quantitative Temporal Requirements
+
+URL Source: https://ojs.aaai.org/index.php/AAAI/article/download/34480/36635
+
+Number of Pages: 8
+
+Markdown Content:
+# Contract-based Design and Verification of Multi-Agent Systems with Quantitative Temporal Requirements 
+
+# Rafael Dewes, Rayna Dimitrova 
+
+CISPA Helmholtz Center for Information Security 
+
+{rafael.dewes, dimitrova }@cispa.de 
+
+Abstract 
+
+Quantitative requirements play an important role in the con-text of multi-agent systems, where there is often a trade-off between the tasks of individual agents and the constraints that the agents must jointly adhere to. We study multi-agent sys-tems whose requirements are formally specified in the quan-titative temporal logic LTL[ F] as a combination of local task specifications for the individual agents and a shared safety constraint. The intricate dependencies between the individual agents entailed by their local and shared objectives make the design of multi-agent systems error-prone, and their verifica-tion time-consuming. In this paper we address this problem by proposing a novel notion of quantitative assume-guarantee contracts, that enables the compositional design and veri-fication of multi-agent systems with quantitative temporal specifications. The crux of these contracts lies in their abil-ity to capture the coordination between the individual agents to achieve an optimal value of the overall specification un-der any possible behavior of the external environment. We show that the proposed framework improves the scalability and modularity of formal verification of multi-agent systems against quantitative temporal specifications. 
+
+# 1 Introduction 
+
+Multi-agent systems (MAS) have become increasingly im-portant in various domains, such as robotics, distributed computing, and autonomous vehicles. In MAS (Wooldridge 2009), agents operate autonomously but may need to inter-act with each other to achieve shared objectives. Compared to larger monolithic systems, the ability of multiple agents to work collaboratively towards a common goal offers sig-nificant advantages in terms of efficiency and flexibility. Coordination in MAS is a major challenge, as it in-volves not only the synchronization of actions among agents but also handles interdependencies and emergent conflicts. While it is crucial for aligning strategies, it can also intro-duce overhead and complexity, especially in dynamic and unpredictable environments. Additionally, achieving shared goals often requires balancing individual agent preferences and global objectives, which can introduce conflict. To address these challenges, contract-based design (Ben-veniste et al. 2018) offers a structured way to define and 
+
+Copyright © 2025, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. 
+
+manage interactions between agents. Compositional design approaches employ different forms of contracts, such as assume-guarantee contracts (Benveniste et al. 2007). How-ever, traditional contract frameworks fall short in handling complex quantitative requirements and ensuring optimal collective performance, where agents must adapt to varying conditions and still aim for the best possible outcomes. In this paper, we tackle the problem of designing an ex-pressive contract framework for the compositional and best-effort satisfaction of quantitative specifications in MAS with collective goals. Our proposed framework extends tradi-tional contract-based methods by incorporating quantitative measures and best-effort guarantees. Agents must strive for best possible outcomes even when perfect satisfaction is not feasible, ensuring that the system remains functional and ef-fective in suboptimal environments. The approach includes formal verification methods to establish that the decompo-sition of global specifications into local contracts maintains the integrity of overall system goals, ensuring that individual agent behaviors align with the collective objectives. We consider compositional specifications in the quantita-tive temporal logic LTL [F] (Almagor, Boker, and Kupfer-man 2016), which extends linear temporal logic (LTL) with quality operators. For a given trace, an LTL [F] formula eval-uates to a value from a finite set of possible satisfaction val-ues. We focus on specifications combining requirements lo-cal to individual agents and shared requirements constrain-ing the agents’ interaction. Local requirements only include actions of the respective agent, while shared objectives can contain any actions but must be safety properties. Our frame-work ensures that individual agent behavior aligns with both local and shared system-wide objectives. Existing work mostly studies the qualitative case where agents have a com-mon objective. In our model agents are cooperative, unlike non-cooperative MAS where concepts like Nash equilibria are central (Kupferman, Perelli, and Vardi 2016). Closest to our approach is (Dewes and Dimitrova 2023), however our framework is more expressive and, unlike (Dewes and Dim-itrova 2023), our decomposition contracts are complete. We will highlight these differences in Section 4. Best-effort satisfaction means the highest satisfaction value enabled by the environment must be met by the sys-tem. In contrast to previous work, our contracts take this into account to allow for different levels of coordination based The Thirty-Ninth AAAI Conference on Artificial Intelligence (AAAI-25) 
+
+23152 on the inputs. It relates to the qualitative notion of domi-nant strategies (Damm and Finkbeiner 2014) that perform as good as the best alternative. We build on the idea of “good-enough” realizability (Almagor and Kupferman 2020) to en-compass quantitative compositional specifications. The following example illustrates how the best-effort interpretation of compositional quantitative specifications leads to conditional obligations in a MAS. 
+
+Example 1.1. In this example, we consider a MAS with three agents modelling vehicles: two of them (agents a1 and 
+
+a2) can transport goods to a construction site, and the third (agent a3) provides a visual feed. The desired behavior of the overall system is specified as an LTL [F] formula 
+
+Φ = 16 φ1 
+
+> local
+
+⊕ 16 φ2 
+
+> local
+
+⊕ 16 φ3 
+
+> local
+
+⊕ 12 Ψshared ,
+
+which is the weighted sum ( ⊕) of the sub-formulas φi
+
+> local
+
+and ψshared . Each agent ai has a local specification φi
+
+> local
+
+that prescribes their individual objectives. The shared re-quirement Ψshared encodes a task assigned collectively to all agents. Here, the local requirements are of equal prior-ity, while the shared requirement Ψshared is weighed higher. The agents operate in an environment that can issue calls to move to the site and send weather warnings, modeled with propositions call and badw respectively. Ψshared requires that after each call, a3 and at least one of a1 and a2 should respond in one or two time steps. According to φi 
+
+> local
+
+, vehi-cles a1 and a2 cannot travel from the base to the site in an instant, and it is undesirable to travel during bad weather. We also require that each of a1 and a2 spends two consecu-tive time steps at the base infinitely often. The vehicle mod-elled by a3 travels faster, and is unaffected by the weather, but it must be at the base infinitely often (to archive data). Best-effort satisfaction of Φ means that it must be satis-fied as well as possible under the current environment, by the system as a whole. Whenever call and badw occur to-gether, to satisfy Ψshared either a1 and a2 must travel in bad weather, thus lowering the overall value of Φ. If the fre-quency of this is high enough, then either both a1 and a2
+
+must travel in bad conditions, or one of them will be unable to stay at the base for two steps, violating φi 
+
+> local
+
+.There is an obvious need for coordination between the agents to collectively good-enough satisfy Φ. Here, the agents must distribute the tasks to satisfy Ψshared and agree on values with which the local specifications for a1 and a2
+
+are satisfied. Existing contract notions are not suitable for expressing this balancing of quantitative obligations. We present a framework for contract-based design that makes it possible to capture such coordination in the form of a contract. This enables independent design of the individual agents, leaving flexibility for the implementation of each agent outside of their shared obligations. 
+
+# 2 Preliminaries 
+
+In this section we recall definitions and notation necessary for presenting our framework, such as formal languages, the specification logic LTL [F], and the formalization of best-effort, or “good-enough”, satisfaction. 
+
+Languages Let Σ be a finite alphabet. The set of finite (infinite) words over Σ is denoted by Σ∗ (resp. Σω ). For 
+
+σ = σ0σ1σ2 . . . ∈ Σω , we denote σ[i] = σi, and with 
+
+σ[i, ∞) = σi, σ i+1 , . . . the suffix of σ starting at position i.For σ′ ∈ Σ∗ and σ′′ ∈ Σ∗ ∪ Σω , we denote with σ′ · σ′′ their concatenation. A language L ⊆ Σω is a safety language if and only if for every σ ∈ Σω \ L there exists a finite prefix 
+
+σ′ of σ such that σ′ · σ′′ ̸ ∈ L for every σ′′ ∈ Σω .For a set X, we denote with 2X the powerset of X. For a word σ over alphabet 2X and a subset Y ⊆ X we denote with proj (σ, Y ) the projection of σ onto the alphabet 2Y .For n ∈ N, we define [n] := {1, . . . , n }. Given disjoint sets 
+
+X1, . . . , X m and for each i ∈ { 1, . . . , m } a word σi over the alphabet 2Xi , we define the parallel composition ∥mi=1 σi of 
+
+σ1, . . . , σ m such that (∥mi=1 σi)[ j] = Smi=1 σi[j] for all j.
+
+The Specification Language LTL [F] We now recall the temporal logic LTL [F] introduced in (Almagor, Boker, and Kupferman 2016). Let AP be a set of Boolean atomic propo-sitions, and F ⊆ { f : [0 , 1] k → [0 , 1] | k ∈ N} a set of func-tions. The LTL [F] formulas are generated by the grammar 
+
+φ ::= p | true | false | f (φ1, . . . , φ k) | φ | φ1 U φ2,
+
+where p ∈ AP is an atomic proposition, and f ∈ F .We consider sets F that include functions representing the Boolean operators, i.e., {f¬, f ∧, f ∨} ⊆ F , where f¬(x) := 1 − x, f∧(x, y ) := min {x, y } and f∨(x, y ) := max {x, y }.For ease of notation, we use the operators ¬, ∧, ∨ instead of the corresponding functions. One useful function is the weighted average x ⊕λ y := λ · x + (1 − λ) · y, where λ ∈{0, 1}. Abusing notation, we often use ⊕ with more than two arguments. and U are the LTL next and until operators re-spectively (Baier and Katoen 2008). We define the usual de-rived temporal operators finally φ := true U φ and glob-ally φ := ¬( ¬φ). requires its argument to hold at every step from now on; requires that it holds at some point in the future; requires it to be true in the next step. The semantics of LTL [F] is defined with respect to words in (2 AP )ω , and maps an LTL [F] formula φ and a word σ ∈ (2 AP )ω , to a value Jφ, σ K ∈ [0 , 1] . For f ∈ F ,we define Jf (φ1, . . . , φ k), σ K := f (Jφ1, σ K, . . . , Jφk, σ K).The semantics of the until operator U is Jφ1 U φ2, σ K := max i≥0{min {Jφ2, σ [i, ∞)K, min 0≤j<i Jφ1, σ [j, ∞)K}} .
+
+We refer the reader to (Almagor, Boker, and Kupferman 2016) for the full definition of the semantics. We denote with Vals (φ) := {Jφ, σ K | σ ∈ (2 AP )ω } the set of possible values of an LTL [F] formula φ. (Almagor, Boker, and Kupferman 2016) showed that |Vals (φ)| ≤ 2|φ| for every LTL [F] formula φ, where |φ| is the formula’s description size. Thus, each formula’s set of possible values is finite. 
+
+Example 2.1. We formalize Example 1.1 using LTL [F].The location and movement of the vehicles are modelled by propositions at base i and at site i. For φi 
+
+> local
+
+for i ∈ { 1, 2}:
+
+φi 
+
+> local
+
+:= (¬at base i ∨ ¬ at site i)∧
+
+(at base i → ¬at site i)∧
+
+(at base i ∧ at base i)∧
+
+(badw → (( at base i ∨ at site i) ⊕ 12 ⊤)) .
+
+This formula evaluates to one of three values: It is 0 if any of the first three conjuncts are violated. Otherwise, it is 1 if 23153 agent ai never travels during bad weather, and 12 if it does (even just once). Further, φ3 
+
+> local
+
+:= ¬at site 3.
+
+Ψshared :=  call → W2
+
+> i=1
+
+(respond i, 3 ∨
+
+respond i, 3), where respond i, 3 := ¬at site i ∧
+
+at site i ∧ at site 3. Thus, vehicles must be at the site within two units of time. Vehicles a1 and a2 must arrive and not already be there, to model transporting goods. 
+
+# 3 Quantitative Temporal Specifications of Multi-Agent Systems 
+
+We now present a formal model of MAS and the notion of 
+
+compositional LTL [F] specifications of such systems intro-duced in (Dewes and Dimitrova 2023). 
+
+Formal Model for Multi-Agent Systems We consider MAS where agents interact both with each other and the ex-ternal environment via Boolean variables, i.e., atomic propo-sitions. We fix a set AP of atomic propositions such that 
+
+AP = I ⊎ O, for a finite set I of input atomic propositions 
+
+and a finite set O of output atomic propositions that are dis-joint, i.e., I ∩ O = ∅. The input propositions I are updated by the external environment and the output propositions O
+
+are updated by the agents in the system. We call words in 
+
+(2 I ∪O )ω (execution) traces and those in (2 I )ω input traces .An agent in the system is modelled as a Moore machine 
+
+M = ( IM , OM , S, s init , ρ, Out ), where IM and OM are 
+
+M ’s sets of input and output propositions, S is a finite set of states, with initial state sinit ∈ S, transition function 
+
+ρ : S × 2IM → S, and output labeling function Out : S →
+
+2OM . For input trace σIM ∈ (2 IM )ω , M produces the output trace M (σIM ) ∈ (2 OM )ω such that M (σIM )[ i] = Out (si),where the sequence of states s0s1 . . . ∈ Sω is such that 
+
+s0 = sinit , and si+1 = ρ(si, σ IM [i]) for all i.A multi-agent system (MAS) is a tuple S = ( I , O, M),where I and O are the sets of input and output propo-sitions respectively, M = ⟨M1, . . . M n⟩ is a tuple of Moore machines representing the agents, where Ma =(Ia, Oa, S a, s init a , ρ a, Out a) is such that (1) for every a, a ′ ∈
+
+[n] with a̸ = a′ it holds that Oa ∩ Oa′ = ∅, (2) Una=1 Oa =
+
+O, and (3) Ia = I ∪ (O \ Oa). Conditions (1) and (2) state that the sets of output propositions of the individual agents partition O. Condition (3) stipulates that each agent observes all input propositions I and all output propositions of the other agents. We denote with Agt := [ n] the set of all agents, and with Oa = S 
+
+> a′∈Agt \{ a}
+
+Oa′ the set of outputs of agents different from a. Our model uses a composition of Moore machines, similar to Moore synchronous game struc-tures in (Alur, Henzinger, and Kupferman 2002), however here each machine models the implementation of an agent. Given an input trace σI ∈ (2 I )ω , a MAS generates an out-put trace σO ∈ (2 O )ω , which we denote by (∥nc=1 Ma)( σI ),such that proj (σO , Oa) = Ma(σI ∥ proj (σO , Oa)) for all a. That is, (∥na=1 Ma)( σI ) is the composition of all the output traces of the agents in S. We define the set of traces L(Ma) ⊆ (2 I ∪O )ω as L(Ma) := {σ ∈ 2I ∪O )ω |
+
+Ma(proj (σ, Ia)) = proj (σ, Oa)}.
+
+Good-Enough Satisfaction of LTL [F] Specifications 
+
+Following (Almagor and Kupferman 2020), we consider 
+
+good-enough satisfaction of an LTL [F] specification Φ by a system S. Intuitively, we require that for every input trace, the system’s output results in the best value for Φ possible for this input trace. To formalize this, we use the notion of 
+
+v-hopeful input sequences (Almagor and Kupferman 2020). Those are the input sequences for which there exists output sequences such that Φ has value v in the resulting execu-tions. Formally, for v ∈ [0 , 1] , the set of v-hopeful input sequences for the formula Φ is Hopeful (v, Φ) := {σI ∈
+
+(2 I )ω | ∃ σO ∈ (2 O )ω . JΦ, (σI ∥ σO )K = v}.
+
+Definition 1 (Good-Enough Satisfaction) . Given an LTL [F]
+
+formula Φ over AP = I ⊎ O, and a MAS S = ( I , O, M),we say that S satisfies Φ, denoted M | = Φ , if and only if for every v ∈ [0 , 1] and every v-hopeful input sequence 
+
+σI ∈ Hopeful (v, Φ) , it holds that JΦ, σ I ∥ M (σI )K ≥ v.
+
+Compositional LTL [F] Specifications In this paper we focus on a particular class of LTL [F] specifications for MAS, called compositional specifications , introduced in (Dewes and Dimitrova 2023), which studies the problem of automatic synthesis of MAS from such specifications. Com-positional specifications are given as a combination of local specifications for the individual agents and a shared require-ment. Formally, a compositional specification is of the form 
+
+Φ = comb (φ1 
+
+> local
+
+, . . . , φ n 
+
+> local
+
+, Ψshared ) where (1) comb : [0 , 1] n+1 → [0 , 1] is non-decreasing in each subset of arguments: if comb (v′
+
+> 1
+
+, . . . , v ′
+
+> n+1
+
+) <
+
+comb (v1, . . . , v n+1 ), then, v′ 
+
+> i
+
+< v i for some i ∈ [n + 1] .(2) The shared specification Ψshared is a safety LTL [F] spec-ification. This means that for every σ ∈ (2 AP )ω and 
+
+v ∈ Vals (Ψ shared ), if JΨshared , σ K < v , then there exists a prefix σ′ of σ, such that JΨshared , σ ′ ·σ′′ K < v for every infinite continuation σ′′ ∈ (2 AP )ω of σ′.(3) For each agent a, the local specification φa 
+
+> local
+
+for agent 
+
+a refers only to atomic propositions in Oa ∪ I .Such specifications occur in MAS where we have task spec-ifications for individual agents describing their desired be-havior, as well as a shared safety constraint. Going for-ward, we write Φ to mean a compositional specification 
+
+Φ = comb (φ1 
+
+> local
+
+, . . . , φ n 
+
+> local
+
+, Ψshared ).
+
+# 4 Quantitative Assume-Guarantee Contracts 
+
+In this section we introduce a new notion of contracts for MAS with compositional LTL [F] specifications as defined in Section 3. These contracts, termed good-enough decom-position contracts (GEDC) can express coordination be-tween the agents while taking into account the quantita-tive nature of LTL [F] requirements. In contrast to traditional contracts used for compositional design and verification, the type of contracts we propose allows the specification of the quantitative contribution of each agent’s local requirements to the satisfaction value of the overall specification. This, in turn, allows for assumptions and guarantees that impose weaker restrictions on agents’ behavior by stating what the satisfaction values of the local specifications should be, and not how these values should be achieved. After introduc-ing GEDC, we define what it means for a MAS to satisfy a GEDC, and show that this notion is sound and complete. 23154 A GEDC for a compositional LTL [F] specification Φ
+
+consists of two components. The first, called allowed de-compositions map , specifies for each possible value v of Φ aset of value decompositions describing how the satisfaction of each local specification and the shared specification con-tribute to achieving value v for Φ. The second component of a GEDC associates with each value v an assume-guarantee contract that specifies, in terms of behaviors, how the agents cooperate to achieve the desired satisfaction values. We begin with the definition of value decompositions. Intuitively, the decompositions of v with respect to Φ = 
+
+comb (φ1 
+
+> local
+
+, . . . , φ n 
+
+> local
+
+, Ψshared ) are tuples of values for 
+
+φ1, . . . , φ n, Ψshared such that their combination results in 
+
+v. Formally, given v ∈ Vals (Φ) , a value decomposition of v
+
+is a vector d ∈ (×na=1 Vals (φa 
+
+> local
+
+)) × Vals (Ψ shared ) where 
+
+comb (d) = v. If d = ( ⟨ua⟩na=1 , w ), we denote the compo-nents of d by d[a] := ua for a ∈ [n], and d[s] := w. For every v ∈ Vals (Φ) , we denote with Dec (Φ , v ) ⊆ Rn+1 the set consisting of all possible value decompositions of v.Next, we define the notion of allowed decompositions map for Φ. Intuitively, the set ADec associates with each 
+
+v ∈ Vals (Φ) the value decompositions allowed by the con-tract for v-hopeful input sequences. To ensure generality, 
+
+ADec allow different sets of decompositions to be associ-ated with different subsets H of Hopeful (v, Φ) .
+
+Definition 2. An allowed decompositions map for Φ is a set 
+
+ADec ⊆ Vals (Φ) × 2((2 I )ω ) × 2S  
+
+> v∈Vals (Φ) Dec (Φ ,v )
+
+where: 1. (Input coverage) For every v ∈ Vals (Φ) and σI ∈
+
+Hopeful (v, Φ) , there exists (v′, H, D ) ∈ ADec such that 
+
+v′ ≥ v and σI ∈ H. This ensures that every v-hopeful in-put sequence is covered by some set H for value v′ ≥ v.2. (Satisfiable decompositions) For every (v, H, D ) ∈
+
+ADec , D ⊆ Dec (Φ , v ) and for every d ∈ D there ex-ists σ ∈ (2 I ∪O )ω such that JΨshared , σ K = d[s] and 
+
+Jφa 
+
+> local
+
+, σ K = d[a] for all a ∈ [n]. That is, D only con-tains satisfiable decompositions from Dec (Φ , v ).
+
+For every input sequence σI ∈ (2 I )ω and v ∈ Vals (Φ) 
+
+we define ADec (v, σ I ) := {d | ∃ (v, H, D ) ∈ ADec . σ I ∈
+
+H and d ∈ D} to be the set of decompositions of v al-lowed by ADec for the input sequence σI . Since every in-put sequence σI is hopeful for some value in Vals (Φ) , con-dition 1 in Definition 2 implies that ADec (v, σ I ) is non-empty for some v. This ensures that a system which con-forms with ADec has appropriate obligations w.r.t. every in-put sequence. Furthermore, condition 2 guarantees that these obligations are met by satisfiable value decompositons. For a given specification Φ, there may be multiple possi-ble allowed decompositions maps that differ in the obliga-tions they impose on the individual agents. Next, we show the possible value decompositions for the formula in Exam-ple 1.1 and one possible allowed decompositions map. 
+
+Example 4.1. The worst-case satisfaction value for Φ in Example 1.1 is 56 . If badw and call are constantly true, this is the best that can be achieved: Ψshared must be satisfied, meaning that a1 or a2 must travel in bad weather, or not be at the base often enough. The four potential value decom-positions for v = 56 are ( 12 , 12 , 1, 1) , (0 , 1, 1, 1) , (1 , 0, 1, 1) ,
+
+(1 , 1, 0, 1) . The last tuple is impossible to achieve in the described environment. ( 12 , 12 , 1, 1) corresponds to case where both a1 and a2 travel in bad weather. The other two, to either a1 or a2 not being at the base for two steps infinitely often. All three are possible for any 56 -hopeful input sequence. A most permissive ADec will thus contain 
+
+( 56 , Hopeful ( 56 ),{( 12 , 12 , 1, 1) ,(0 , 1, 1, 1) , (1 , 0, 1, 1) }). An alternative is to take a subset, enforcing specific priorities. 
+
+While allowed decompositions maps impose require-ments on the contribution by each agent to the overall satis-faction value, they do not specify how the agents cooperate to achieve these values. This is done by providing for each 
+
+v ∈ Vals (Φ) an assume guarantee contract which specifies what assumptions each agent makes on the behavior of other agents and what guarantees it provides in return. We recall the definition from (Dewes and Dimitrova 2023). 
+
+Definition 3. An assume-guarantee contract for n agents is a tuple ⟨(Aa, G a)⟩na=1 , where for every agent a ∈ Agt :
+
+• Aa, G a ⊆ (2 AP )ω are safety languages defining the as-sumption and guarantee, respectively, of agent a.
+
+• T 
+
+> a′∈{ 1,...,n }\{ a}
+
+Ga′ ⊆ Aa.
+
+• For every finite trace σ ∈ (2 AP )∗:1. If there exists an infinite word σ′ ∈ (2 AP )ω such that 
+
+σ·σ′ ∈ Aa, then, for every oa ∈ 2Oa , there exists σ′′ ∈
+
+(2 AP )ω with σ · σ′′ ∈ Aa and proj (σ′′ [0] , Oa) = oa.2. If there exists an infinite word σ′ ∈ (2 AP )ω such that 
+
+σ·σ′ ∈ Ga, then, for every oa ∈ 2Oa , there exists σ′′ ∈
+
+(2 AP )ω with σ · σ′′ ∈ Ga and proj (σ′′ [0] , Oa) = oa.
+
+The above conditions ensure two properties. Agent a can-not violate its own assumption Aa by selecting a bad output 
+
+oa. The remaining agents cannot violate the guarantee which agent a must provide by selecting a bad output oa.We are now ready to give the definition of a good-enough decomposition contract, which pairs up an allowed decom-positions map with a function mapping each v ∈ Vals (Φ) 
+
+to an assume-guarantee contract. As a result, for each v ∈
+
+Vals (Φ) , the contract prescribes allowed decompositions, depending on the v-hopeful input sequences, and an asso-ciated assume-guarantee contract ⟨(Ava, G va)⟩na=1 .
+
+Definition 4 (Good-Enough Decomposition Contract) . Let 
+
+Φ be a compositional LTL [F] specification over AP = I ⊎
+
+O, where O = O1, . . . , On is a partitioning of O among n
+
+agents. Let ADec be a map of allowed decompositions for 
+
+Φ, and let AG be a function that maps each v ∈ Vals (Φ) to an assume-guarantee contract ⟨(Ava, G va)⟩na=1 . We say that 
+
+(ADec , AG ) is a good-enough decomposition contract for 
+
+Φ and O1, . . . , On if and only if for every v ∈ Vals (Φ) and 
+
+σI ∈ Hopeful (v, Φ) , there exist (v′, H, D ) ∈ ADec , d ∈ D
+
+and σO ∈ (2 O )ω , such that v′ ≥ v and the following hold: 1. σI ∈ H, JΨshared , σ I ∥ σO K = d[s],2. Jφa 
+
+> local
+
+, σ I ∥ σO K = d[a] for all a ∈ [n], and 3. (σI ∥ σO ) ∈ T 
+
+> a∈{ 1,...,n }
+
+Av′ 
+
+> a
+
+.
+
+The conditions in Definition 4 ensure compatibility be-tween ADec and AG . More concretely, for each v-hopeful input sequence σI there exists a corresponding output trace 23155 that agrees with some allowed value decomposition for value v′ ≥ v, and, in addition is consistent with the as-sumptions of all agents associated with value v′. The next example illustrates the importance of these conditions. 
+
+Example 4.2. A GEDC for Φ in Example 1.1 combines some ADec with an assume-guarantee contract to cap-ture the coordination between the agents. First, in input se-quences where call is true at least once, each agent must rely on help from other agents to cover Ψshared . More concretely, agents a1 and a2 assume that a3 will always respond. When the best possible value is v = 56 , a1 and a2 must coordinate whether one of them should respond to all calls, or if both will reduce their local satisfaction value to 12 .This is reflected in ADec and the assume-guarantee con-tract. If agent a1 guarantees to cover all calls in bad weather for some input sequences, and agent a2 guarantees the same for all of the remaining input sequences, then value decom-position ( 12 , 12 , 1, 1) is not attainable, and both (0 , 1, 1, 1) 
+
+and (1 , 0, 1, 1) must be in ADec . Alternatively, if the as-sumptions and guarantees force a1 and a2 to alternate re-sponding to calls, with both potentially travelling in bad weather, then ( 12 , 12 , 1, 1) is the only matching value decom-position for value v = 56 .Since a GEDC associates assumptions with each value v,it can enforce coordination for worst-case input sequences, while giving the agents more freedom when the environment is more helpful (allows a higher satisfaction value). Remark. GEDC are more general than the contracts in (Dewes and Dimitrova 2023) in two key aspects. First, GEDC allow us to relate obligations to the hopefulness level of input sequences with respect to the overall specification, instead of being independent of the global combined value. Second, GEDC include explicit value decompositions which offer a more natural way to quantify the required contribu-tion of each agent, as well as flexibility in specifying obliga-tions. This results in a complete decomposition rule. The value decompositions of an allowed decompositions map ADec in a GEDC specify obligations for each agent a
+
+in terms of values for the local and the shared specification which a must ensure. An agent a should meet its obligation with respect to the value of Ψshared only if the other agents provide output sequences that permit that, that is, if behav-iors of the other agents are collaborative . Otherwise, a is expected to achieve the best possible value for φa 
+
+> local
+
+. We call a sequence σOa ∈ (2 Oa )ω D-collaborative for input se-quence σI , if there exists an output sequence σOa ∈ (2 Oa )ω
+
+for agent a and a value decomposition d ∈ D where • Jφa 
+
+> local
+
+, (σI ∥ σOa ∥ σOa )K ≥ d[a], and • JΨshared , (σI ∥ σOa ∥ σOa )K ≥ d[s].We denote by Collab (D, σ I )¯a the set of all such sequences. Intuitively, D-collaborative behaviors of a are those that permit agent a to provide output such that the resulting val-ues for φa 
+
+> local
+
+and Ψshared conform to at least one decompo-sition in D. This is illustrated by the following example. 
+
+Example 4.3. In the setting of Example 1.1, for input se-quences where call is always true and badw is always false, a value v = 1 for Φ is possible with D = {(1 , 1, 1, 1) }. In this case, the D-collaborative outputs for a1 are those where agents a2 and a3 take care of enough calls such that a1 can achieve full satisfaction of φ1 
+
+> local
+
+. More specifically, if a2 sets 
+
+at site 2 to true every k steps, that will give a1 enough free-dom to set at base 1 to true for two consecutive turns every 
+
+k steps, and still meet its obligations towards Ψshared .
+
+We will now state what it means for a MAS S to satisfy a GEDC. Intuitively, the implementation Ma of each agent 
+
+a should satisfy certain obligations for each v ∈ Vals (Φ) 
+
+and combination of v-hopeful input sequence σI with out-puts of the agents in a satisfying the assumption Ava. If the outputs of the agents in a are collaborative for σI and D, the obligation is determined by the value distributions in D, and otherwise, by the best value of φa 
+
+> local
+
+possible for σI .
+
+Definition 5 (GEDC Satisfaction) . Let Φ be a compositional LTL [F] specification over AP = I ⊎ O, O1, . . . , On be a partitioning of O, and let (ADec , AG ) be a GEDC for Φ
+
+and O1, . . . , On. We say that a MAS S = ( I , O, M) satis-fies a GEDC (ADec , AG ) iff for every agent a ∈ Agt , its implementation Ma satisfies the following condition. For every σI ∈ (2 I )ω and every sequence of outputs of the other agents σOa ∈ (2 Oa )ω , for every (v, H, D ) ∈ ADec 
+
+with σI ∈ H and (σI ∥ Ma(σI ∥ σOa ) ∥ σOa ) ∈ Ava,where AG (v) = ⟨(Ava, G va)⟩na=1 , all of the following hold: 1. If σOa ∈ Collab (D, σ I )¯a, then for all d ∈ D,if there is an output sequence σOa ∈ (2 Oa )ω , with 
+
+• Jφa 
+
+> local
+
+, (σI ∥ σOa ∥ σOa )K ≥ d[a], and 
+
+• JΨshared , (σI ∥ σOa ∥ σOa )K ≥ d[s],then, there exists d′ ∈ D where 
+
+• d′[a′] = d[a′] for all a′̸ = a, and 
+
+• Jφa 
+
+> local
+
+, (σI ∥ Ma(σI ∥ σOa ) ∥ σOa )K ≥ d′[a],
+
+• JΨshared , (σI ∥ Ma(σI ∥ σOa ) ∥ σOa )K ≥ d′[s].2. If σOa ∈ Collab (D, σ I )¯a, then the guarantee Gva is satisfied, that is, (σI ∥ Ma(σI ∥ σOa ) ∥ σOa ) ∈ Gva.3. If σOa̸ ∈ Collab (D, σ I )¯a, then for u ∈ Vals (φa 
+
+> local
+
+), if it holds that σI ∈ Hopeful (u, φ a 
+
+> local
+
+), then it also holds that Jφa 
+
+> local
+
+, (σI ∥ Ma(σI ∥ σOa ) ∥ σOa )K ≥ u.
+
+Generally, for the contract to be satisfied, the output 
+
+Ma(σI ∥ σOa ) produced by an agent a must 1 achieve best-effort satisfaction for φa 
+
+> local
+
+and Ψshared depending on σI ,in accordance with the decompositions d contained in ADec 
+
+and 2 satisfy the guarantees Gva as specified by the contract 
+
+(ADec , AG ). What section of the contract applies primarily depends on which set H the sequence σI belongs to. There are two exceptions to the above requirement, depending on the behavior σOa of other agents ¯a. First, if some of the as-sumptions Ava is violated, agent a is free from any obliga-tions. Second, as stated by 3, if σOa is not collaborative, agent a must only maximize the satisfaction of φa 
+
+> local
+
+.The next theorem states that GEDCs are sound . That is, a system that satisfies a GEDC (ADec , AG ) for a composi-tional LTL [F] specification Φ, is guaranteed to satisfy Φ.
+
+Theorem 1 (Soundness of GEDC) . Let Φ be a composi-tional LTL [F] specification and (ADec , AG ) be a GEDC for Φ. Then, for every MAS S = ( I , O, ⟨M1, . . . , M n⟩) it holds that if S | = ( ADec , AG ), then S | = Φ .23156 Proof Sketch. To show that S | = Φ , we show for every 
+
+σI ∈ Hopeful (v, Φ) that JΦ, σ I ∥ M (σI )K ≥ v. To do so, we prove that for some a ∈ Agt , the outputs of the other agents are D-collaborative for σI and some D, and satisfy the assumption Ava. Applying 1 in Definition 5 this yields 
+
+JΦ, σ I ∥ M (σI )K ≥ v. To establish the existence of agent 
+
+a with this property, we use the fact that Ψshared is a safety LTL [F] formula and that 3 enforces maximizing the satis-faction value of the local specifications for non-collaborative inputs, to show that the converse is impossible. GEDCs are also complete, i.e., if S | = Φ , then there exists a GEDC (ADec , AG ) for Φ with S | = ( ADec , AG ).
+
+Theorem 2. Let Φ be a compositional specification. If S =(I , O, ⟨M1, . . . , M n⟩) is a MAS with S |= Φ , then there exists a GEDC (ADec , AG ) for Φ where S | = ( ADec , AG ).Proof Sketch. S produces unique outputs for each input sequence, the resulting trace satisfying exactly one value decomposition d. ADec is chosen to contain exactly the finitely many value decompositions realized by S. The in-put traces matching each d form the respective set H. For 
+
+AG , we define each Gva as the safety language encoding the implementation Ma, and the assumption Ava as V  
+
+> a′̸=a
+
+Gva′ .Thus, AG prescribes the precise implementation Ma of each agent a. Full proof in (Dewes and Dimitrova 2024). 
+
+# 5 Compositional Verification 
+
+In this section we present an automata-theoretic method for checking contract satisfaction as formalized in Def-inition 5: Given a compositional LTL [F] specification 
+
+Φ, a GEDC (ADec , AG ) for Φ, and a system S =(I , O, ⟨M1, . . . , M n⟩), decide whether S | = ( ADec , AG ).Further, we show how to check whether a given pair 
+
+(ADec , AG ) is a GEDC for Φ, that is, it satisfies the con-ditions of Definition 2, Definition 3 and Definition 4. By Theorem 1, if S | = ( ADec , AG ), we can conclude that S | = Φ . We remark that the specification Φ can also be checked directly, using standard techniques, by constructing the product of M1, . . . , M n. This, however, is often undesir-able. Working with the full specification and the product sys-tem hampers scalability. Furthermore, a GEDC allows for the independent re-implementation of the individual agents as long as the conditions in Definition 5 are satisfied. 
+
+Procedure for Checking Contract Satisfaction We first recall necessary automata definitions and constructions. A generalized nondeterministic B¨ uchi automaton 
+
+(GNBA) over an alphabet Σ is a tuple A = (Σ , Q, δ, Q 0, α ),where Q is a finite set of states, Q0 ⊆ Q is a set of initial states, δ : Q × Σ → 2Q is the transition function, and α ⊆ 2Q a set of sets of accepting states. A run ρ
+
+of a GNBA is accepting iff for every F ∈ α, ρ visits F
+
+infinitely often. A word σ ∈ Σω is accepted by A if there exists an accepting run of A on σ. The language of A is 
+
+L(A) := {σ ∈ Σω | σ is accepted by A} .In (Almagor, Boker, and Kupferman 2016) it is shown that for any LTL [F] formula φ over AP , and V ⊆ Vals (φ),there exists a GNBA Aφ,V such that L(Aφ,V ) consists of the words σ ∈ (2 AP )ω with Jφ, σ K ∈ V , and Aφ,V has at most 
+
+2(|φ|2) states and at most |φ| sets of accepting states. We employ this construction to reduce the problem of checking contract satisfaction to checking emptiness of GNBA. For the remainder of this section we assume that 
+
+(ADec , AG ) is finitely represented using ω-automata. More concretely, the set H in each (v, H, D ) ∈ ADec is repre-sented by a GNBA H where L(H) = {σI ∥ σO ∈ (2 AP )ω |
+
+σI ∈ H}. For each v ∈ Vals (Φ) , the assume-guarantee contract AG (v) = ⟨(Ava, G va)⟩na=1 is represented by tuple of pairs of GNBA with alphabet 2AP , one for the assump-tion language Ava, and one for the complement 2AP \ Gva of the guarantee. We denote these automata by Ava and Gva . We assume that all automata in the contract are given as nonde-terministic B¨ uchi automata, i.e., have one accepting set. In the next proposition we outline the construction of a GNBA Ca for agent a, whose language consists of the traces that violate some of the conditions in Definition 5. The full construction is given in the extended version (Dewes and Dimitrova 2024). 
+
+Proposition 1. For each agent a ∈ Agt , we can construct a GNBA Ca such that for any σ = σI ∥ σO ∈ (2 AP )ω we have that σ ∈ L (Ca) if and only if there exists (v, H, D ) ∈ ADec 
+
+such that σI ∈ H, and σ ∈ Ava, and at least one of the conditions in Definition 5 is violated for agent a.Proof Sketch. From the formulas φa 
+
+> local
+
+and Ψshared ,we construct for ∼ ∈ { <, ≥, =}, u ∈ Vals (φa 
+
+> local
+
+) and 
+
+w ∈ Vals (Ψ shared ) the GNBA B∼ua , and B∼ws such that 
+
+σ ∈ L (B∼ua ) iff Jφa 
+
+> local
+
+, σ K ∼ u, and similarly for B∼ws .Next, we construct a GNBA Ca that characterizes the lan-guage of traces σ = σI ∥ σOa ∥ σOa such that there exists 
+
+(v, H, D ) ∈ ADec with σI ∈ H, and σ ∈ Ava, and some of the conditions 1, 2 or 3 in Definition 5 is violated. Ca is constructed from B∼ua , B∼ws , Ava, Gva and H using standard automata operations on GNBA. Using the automata Ca constructed in Proposition 1, we can automatically check whether S |= (ADec , AG ) by checking for each agent a ∈ Agt , whether the intersec-tion of the languages of Ca and the implementation Ma is empty. If L(Ca) ∩ L (Ma) = ∅, then Ma satisfies conditions of Definition 5, otherwise we find a counterexample. If for all a ∈ Agt we establish L(Ca) ∩ L (Ma) = ∅, we conclude that S | = ( ADec , AG ), and hence S | = Φ . Otherwise, we have that S̸ | = ( ADec , AG ). This, however, does not imply 
+
+S̸ | = Φ , since the GEDC might be insufficient to verify Φ.
+
+Remark. When checking whether L(Ca) ∩ L (Ma) = ∅,this can be done separately for each value v ∈ V als (Φ) ,and incrementally when constructing Ca. We further check emptiness on automata intersections in an on-the-fly manner. The number of states of the GNBA Ca is at most 
+
+22O(|φa  
+
+> local |2+|Ψshared |2)
+
+· P 
+
+> (v, H,D )∈ADec
+
+|H| · |A va| · |G av |.
+
+Checking contract satisfaction is done by checking for each agent the emptiness of the intersection of Ca and the respec-tive implementation Ma, which can be done in time linear in the size of their product (Baier and Katoen 2008). 
+
+Theorem 3 (Checking GEDC Satisfaction) . Checking if a MAS S = (I , O, ⟨M1, . . . , M n⟩) satisfies a GEDC 
+
+(ADec , AG ) for a compositional LTL [F] specification Φ23157 can be done for each agent a ∈ Agt in time linear in 
+
+|Ma|· 22O(|φa  
+
+> local |2+|Ψshared |2)
+
+·P 
+
+> (v, H,D )∈ADec
+
+|H|·|A va|·|G av |.
+
+Procedure for Checking (ADec , AG ) is a GEDC for Φ
+
+To check that (ADec , AG ) is a GEDC for Φ, we construct the automaton for Φ, of size at most 2(|Φ|2). The conditions are established by checking language inclusion and empti-ness for GNBA obtained from those for Φ and (ADec , AG ).Both can be done in time exponential in the size of the re-sulting automata, resulting in a procedure that for each entry 
+
+(v, H, D ) ∈ ADec runs in time exponential in the size of the automata H, Ava and Gav and double exponential in |Φ|2.
+
+Modular Verification The contract-based approach al-lows for modular verification and design. In a MAS that sat-isfies a given GEDC, the local modification of an agent’s im-plementation or specification can be analyzed without con-sidering the full specification or implementation. Consider a compositional specification Φ, a GEDC 
+
+(ADec , AG ) for Φ, and a MAS S = ( I , O, ⟨M1, . . . , M n⟩)
+
+such that S |= (ADec , AG ). Suppose that the local specification for agent a is modified from φa 
+
+> local
+
+to 
+
+bφa 
+
+> local
+
+, resulting in a revised global specification bΦ. Let 
+
+cMa be a new implementation of agent a, and bS =(I , O, ⟨M1, . . . cMa, . . . , M n⟩) the resulting MAS. In order to check whether bS |= ( ADec , AG ), it suffices to verify only the condition in Definition 5 pertaining to agent a, with respect to the new implementation cMa of agent a and the original local specification φa 
+
+> local
+
+. If this is the case, by The-orem 1, we can conclude that the modified system bS satisfies the original specification Φ. Otherwise, the new implemen-tation cMa of agent a is incompatible with the given contract. Considering the new local specification bφa 
+
+> local
+
+, if cMa sat-isfies the condition in Definition 5 with respect to bφa 
+
+> local
+
+,we can still conclude that cMa satisfies agent a’s obligation towards the remaining agents, but not necessarily bS | = bΦ.The reason is that if bφa 
+
+> local
+
+imposes weaker constraints on the coordination between agents than φa 
+
+> local
+
+, the old GEDC 
+
+(ADec , AG ) might be overly constraining and the overall system sub-optimal. This is illustrated in the next example. 
+
+Example 5.1. If the local requirements for an agent are tightened in the design process, the agent’s new specification might become incompatible with the existing contract, and thus require revision of the contract and the implementations of the other agents. If, on the other hand, the designer re-laxes the local requirements, the satisfaction of the existing contract becomes easier. However, the contract might not be a GEDC for the new specification bΦ, and the existing imple-mentation of the MAS might no longer be optimal with re-spect to bΦ. This is because in contrast to traditional require-ments, where weaker requirements are always satisfied by a stricter implementation, here we impose an optimality crite-rion. To see this, suppose that in the setting of Example 1.1, the local specification for agent a1 no longer reduces in value if the vehicle travels in bad weather. That is, bφ1 
+
+> local
+
+is obtained from φ1 
+
+> local
+
+by dropping the last conjunct. Regard-                                          
+
+> Example |Agt ||Φ||B Φ|Runtime Comp. Rev. Mono. delivery vehicles 3102 1974 329 24 TO tasks collab 4124 349 50 434
+> tasks scaled 6136 547 156 13 289
+> robots help a3 346 86 1.50.21.3
+> robots help a5 578 470 15 .73.19.1
+> synchr response 362 759 439 10 TO
+
+Table 1: Runtime for compositional, local revision and monolithic in seconds, with timeout of 30 minutes. 
+
+less of the given GEDC, any implementation for agent a1
+
+that conforms to the original contract clearly still satisfies the conditions of Definition 5 with respect to bφ1 
+
+> local
+
+. How-ever, if the given contract requires agent a2 to travel dur-ing bad weather, the current implementation does not good-enough satisfy the new specification bΦ and the contract is not a GEDC for bΦ. The reason is that bφ1 
+
+> local
+
+allows vehicle 
+
+a1 to travel in bad weather and still achieve local satisfac-tion of 1, making implementations where vehicle a2 travels in bad weather sub-optimal. Intuitively, relaxing the local specification for a1 enables the satisfaction of φ2 
+
+> local
+
+with a higher value than stipulated by the GEDC for Φ, resulting in a higher possible satisfaction value for the new specification 
+
+bΦ. As the old contract permits implementations that are not good-enough with respect to bΦ, it needs to be revised. 
+
+# 6 Experimental Evaluation and Conclusion 
+
+To evaluate our framework, we implemented the pro-posed compositional verification procedure in a prototype in Python using the Spot automata library (Duret-Lutz et al. 2022). We ran experiments on 6 MASs each with a number of agents between 3 and 6. The results, obtained on a con-sumer laptop with 16 GB of memory, are shown in Table 1. Benchmarks are provided in (Dewes and Dimitrova 2024). 
+
+Evaluation We evaluated the compositional verification (column “Comp.”) performed via checking GEDC satisfac-tion (including the verification that it is a GEDC for Φ), and compared that to direct monolithic verification of Φ (col-umn “Mono.”) by constructing the product system. For the more complex examples, only the compositional algorithm finishes within the time limit, as the automata grow too large, and are limited by memory. In the compositional case, we need to handle more but smaller automata. This addresses the memory consumption but involves more operations. The overhead causes the monolithic approach to be faster when the specifications are small enough. Overall, the modular ap-proach scales better. We report on the verification of local specification and implementation revision (column “Rev.”), which, as expected, is faster than full verification. 
+
+Conclusion We proposed a framework for modular design and analysis of multi-agent systems, based on good-enough decomposition contracts. It offers greater expressivity com-pared to existing notions of contracts, and we show that it en-hances scalability and modularity of verification. More gen-erally, our approach opens up a new direction in contract-based design of MAS, by extending it to the setting of quan-titative specifications and good-enough satisfaction. 23158 References 
+
+Almagor, S.; Boker, U.; and Kupferman, O. 2016. Formally Reasoning About Quality. J. ACM , 63(3): 24:1–24:56. Almagor, S.; and Kupferman, O. 2020. Good-Enough Syn-thesis. In Lahiri, S. K.; and Wang, C., eds., Computer Aided Verification - 32nd International Conference, CAV 2020, Los Angeles, CA, USA, July 21-24, 2020, Proceedings, Part II ,volume 12225 of Lecture Notes in Computer Science , 541– 563. Springer. Alur, R.; Henzinger, T. A.; and Kupferman, O. 2002. Alternating-time temporal logic. J. ACM , 49(5): 672–713. Baier, C.; and Katoen, J. 2008. Principles of model checking .MIT Press. ISBN 978-0-262-02649-9. Benveniste, A.; Caillaud, B.; Ferrari, A.; Mangeruca, L.; Passerone, R.; and Sofronis, C. 2007. Multiple Viewpoint Contract-Based Specification and Design. In de Boer, F. S.; Bonsangue, M. M.; Graf, S.; and de Roever, W. P., eds., For-mal Methods for Components and Objects, 6th International Symposium, FMCO 2007, Amsterdam, The Netherlands, Oc-tober 24-26, 2007, Revised Lectures , volume 5382 of Lec-ture Notes in Computer Science , 200–225. Springer. Benveniste, A.; Caillaud, B.; Nickovic, D.; Passerone, R.; Raclet, J.; Reinkemeier, P.; Sangiovanni-Vincentelli, A. L.; Damm, W.; Henzinger, T. A.; and Larsen, K. G. 2018. Con-tracts for System Design. Found. Trends Electron. Des. Au-tom. , 12(2-3): 124–400. Damm, W.; and Finkbeiner, B. 2014. Automatic Compo-sitional Synthesis of Distributed Systems. In Jones, C. B.; Pihlajasaari, P.; and Sun, J., eds., FM 2014: Formal Meth-ods - 19th International Symposium, Singapore, May 12-16, 2014. Proceedings , volume 8442 of Lecture Notes in Com-puter Science , 179–193. Springer. Dewes, R.; and Dimitrova, R. 2023. Compositional High-Quality Synthesis. In Andr´ e, ´ E.; and Sun, J., eds., Automated Technology for Verification and Analysis - 21st International Symposium, ATVA 2023, Singapore, October 24-27, 2023, Proceedings, Part I , volume 14215 of Lecture Notes in Com-puter Science , 334–354. Springer. Dewes, R.; and Dimitrova, R. 2024. Contract-based Design and Verification of Multi-Agent Systems with Quantitative Temporal Requirements (Extended Version). arXiv:2412.13114. Duret-Lutz, A.; Renault, E.; Colange, M.; Renkin, F.; Aisse, A. G.; Schlehuber-Caissier, P.; Medioni, T.; Martin, A.; Dubois, J.; Gillard, C.; and Lauko, H. 2022. From Spot 2.0 to Spot 2.10: What’s New? In Proceedings of the 34th International Conference on Computer Aided Verification (CAV’22) , volume 13372 of Lecture Notes in Computer Sci-ence , 174–187. Springer. Kupferman, O.; Perelli, G.; and Vardi, M. Y. 2016. Synthesis with rational environments. Ann. Math. Artif. Intell. , 78(1): 3–20. Wooldridge, M. J. 2009. An Introduction to MultiAgent Sys-tems, Second Edition . Wiley. ISBN 978-0-470-51946-2. 23159
