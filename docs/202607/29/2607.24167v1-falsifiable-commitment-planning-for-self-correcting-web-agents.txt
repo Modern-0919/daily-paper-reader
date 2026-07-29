@@ -1,0 +1,809 @@
+Title: Falsifiable Commitment Planning for Self-Correcting Web Agents
+
+URL Source: https://arxiv.org/pdf/2607.24167v1
+
+Published Time: Tue, 28 Jul 2026 01:43:25 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Falsifiable Commitment Planning for Self-Correcting Web Agents 
+
+## Guangyi Liu 1, Huan Zhao 2, Quanming Yao 1∗
+
+> 1
+
+Tsinghua University 2Noumena AI liugy24@mails.tsinghua.edu.cn, zhaohuan@noumena.com.cn, qyaoaa@tsinghua.edu.cn 
+
+Abstract 
+
+Long-horizon web agents often go off track before final failure: a trajectory can remain locally plausible even after the current state, reused skill, or plan assumption no longer supports the user instruction. Existing agents can plan, reflect, or reuse expe-rience, but their plans rarely specify the evidence under which an active step should still be trusted. We propose FCPAgent ,a falsifiable commitment planning framework for robust long-horizon web agents. FCPAgent represents each plan step as a Falsifiable Commitment Unit ( FCU ): a subgoal grounded in a reusable skill, together with confirming evidence, falsifying evidence, and a confidence score. Execution is organized as a plan-test-repair loop. The hybrid commitment testing module checks candidate actions before they modify the browser and checks observations after execution; for efficiency, it combines lightweight evidence matching with LLM-based diagnostic verification. When evidence falsifies a commitment, scope-aware repair localizes the contradiction to the execution, skill, or planning level and revises the smallest adequate part. On WebArena, FCPAgent achieves a 13.8% relative improvement in average success over the strongest baseline, with especially large gains on long-horizon tasks. 
+
+## 1 Introduction 
+
+Web browsers have become a universal interface for digital work, supporting tasks such as shopping, information search, and enterprise services. Recent LLM- and VLM-based agents can follow natural-language instructions to operate web inter-faces through clicks, typing, scrolling, form filling, and tool calls (Yao et al. 2023b; He et al. 2024; Zheng et al. 2024; Yang et al. 2025b), shifting web automation from hand-coded scripts to generalist multi-step agents. Yet reliable deployment remains difficult because web tasks are partially observed, dy-namically updated, and often require long chains of dependent decisions. A key obstacle is off-track execution before final failure. For example, an agent may enter a wrong branch of the website and repeatedly search pages that do not contain the information required. Each subsequent click can still look locally reasonable because the page labels are semantically related to the task, although the trajectory no longer supports the user’s instruction. Such trajectory deviation can arise when the next action targets the wrong element, when a 
+
+> ∗
+
+Corresponding author. 
+
+retrieved skill no longer fits the current layout or permission state, or when an earlier assumption invalidates the remaining plan. Recent methods improve robustness through progress reflection, dynamic replanning, and skill induction (Zhou et al. 2026; Yang et al. 2025a; Li et al. 2026), but their plans are usually not formulated as testable objects with explicit validity conditions. Without an explicit way to notice execution drift, an agent may continue following a plausible but stale routine after the active plan has become invalid. We argue that stable long-horizon web agents need plans that know when they are wrong. Cognitive theories of goal-directed behavior suggest that robust action is inherently anticipatory: agents act with expectations about what should happen next and revise behavior when observations violate those expectations (Miller, Galanter, and Pribram 1960). In-stead of treating a plan step as an executable recipe, the agent should treat it as a falsifiable commitment : a hypothesis that the plan remains valid and that execution is still progressing along a task-supporting path. Each commitment should indi-cate evidence for normal progress, as well as evidence that execution may have drifted. In this view, execution becomes online commitment testing: as the browser state evolves, the agent checks whether the active step remains supported or has been contradicted, allowing it to detect drift before final failure and trigger timely correction. We introduce FCPAgent , a Falsifiable Commitment Plan-ning framework for long-horizon web tasks. FCPAgent rep-resents a plan as a sequence of Falsifiable Commitment Units 
+
+(FCU s), each binding a subgoal to a reusable skill, expected progress evidence, hierarchical falsifiers, and a confidence score. The framework executes these commitments through a plan-test-repair loop: it generates falsifiable commitments, tests them before and after browser actions, and repairs the smallest violated part when evidence fails. A hybrid tester uses lightweight evidence matching for common confirmations and contradictions, while invoking LLM-based diagnostic ver-ification only for completion-like, risky, or ambiguous states. When a commitment is falsified, an experience-enhanced scope-aware repair module chooses an adequate revision, ranging from local action correction to skill switching, re-planning the remaining commitments, or restarting from a known safe state. After execution, FCPAgent distills suc-cessful trajectories into reusable skills and repaired or failed trajectories into failure-repair memories, making future com-arXiv:2607.24167v1 [cs.AI] 27 Jul 2026 mitments easier to write, test, and repair. Our contributions are summarized as follows: 
+
+• We formulate falsifiable commitment planning , which repre-sents each plan step as a testable commitment with explicit confirming and falsifying evidence, providing a runtime validity interface between high-level planning and low-level execution. 
+
+• We instantiate this formulation in FCPAgent , a plan–test– repair framework that tests commitments before and after browser actions and uses diagnosed violations to revise the smallest implicated execution, skill, or planning scope. 
+
+• We demonstrate consistent improvements on WebArena, including a 13.8% relative gain over the strongest baseline, and a 9.6% relative zero-shot gain on WebChoreArena, with the largest improvements on long-horizon tasks. 
+
+## 2 Related Work 
+
+LLM-based web agents 
+
+LLM-based web agents have evolved from reactive next-action prediction over textual or DOM observations into integrated systems that combine perception, planning, learning, memory, and tool use. Recent progress has followed several comple-mentary paths: improved observation and action abstractions for browser grounding (He et al. 2024; Zheng et al. 2024; Yang et al. 2025b); training-based agents using demonstra-tions, synthetic trajectories, or reinforcement learning (Lai et al. 2024; Qi et al. 2025); world-model-based agents that predict web-state transitions before acting (Chae et al. 2025); planning, decomposition, and reflection methods that revise task structure during execution (Shinn et al. 2023; Wang et al. 2026; Yang et al. 2025a); and memory or skill-augmented agents that reuse prior interaction knowledge (Wang et al. 2025b; Prabhu et al. 2026; Zhou et al. 2026). Across these directions, long-horizon reliability remains difficult because local action validity does not guarantee that the active plan remains valid. 
+
+Planning and reflection 
+
+Planning and reflection have been widely studied in LLM agents, such as Tree of Thoughts, Reflexion, and Self-Refine (Yao et al. 2023a; Shinn et al. 2023; Madaan et al. 2023). More recent web-agent methods make planning more adap-tive: Anticipatory Reflection (AR) anticipates potential action failures before execution by proposing backup actions that can be tried upon subsequent misalignment (Wang et al. 2024b); WebDART decomposes web tasks into navigation, extraction, and execution subtasks and updates the decomposition online (Yang et al. 2025a); ColorBrowserAgent uses progress sum-marization and environment adaptation to reduce trajectory deviation in long-horizon browsing (Zhou et al. 2026). These studies show that long-horizon web execution benefits from explicit task structure, progress assessment, and adaptive revision during interaction. 
+
+Skills and memory for agents 
+
+Skill and memory mechanisms reduce repeated reasoning by reusing prior experience, as in Voyager (Wang et al. (a) Ordinary Plan Step (Not Falsifiable)  (b) Falsifiable Plan Step (Testable Commitment)          
+
+> Subgoa l：Invite the specified users
+> During Execution
+> invite entry
+> not found
+> The validity of this plan step is implicit.
+> The agent is stuck in repeated wrong -page probes.
+> Attach Observable Evidence
+> Con firming Evidence
+> • An “Invite members” entry is
+> visible.
+> • The invitation dialog opens.
+> • Invited users appear in the
+> member list ...
+> Falsifying Evidence
+> • The current branch exposes
+> no invitation entry.
+> • Repeated navigation
+> produces no progress toward
+> invitation ...
+> Test the commitment
+> Evidence
+> falsifies the step
+> Drift
+> Infinite loop
+> Failure
+> Find the invitation entry and add the users.
+> Subgoa l：Invite the specified users
+> Linked Skill :Invite members to a GitLab group
+> +
+> During Execution
+> Fix the drift,
+> switch to the
+> correct page.
+> Success
+
+Figure 1: An off-track execution example. An ordinary plan leaves its runtime validity implicit and may loop on wrong pages. A falsifiable plan step attaches confirming and falsify-ing evidence, allowing FCPAgent to detect the drift, repair the navigation path, and complete the task successfully. 2024a), Agent Workflow Memory (Wang et al. 2025b), Skill-Weaver (Zheng et al. 2025), ASI (Wang et al. 2025a), Hi-erarchical Memory Tree (Tan, Gao, and Wu 2026), and ContractSkill (Lu et al. 2026). WALT (Prabhu et al. 2026) learns deterministic tools from websites, turning recurring site functions such as search or filtering into callable pro-cedures. SkillTracer (Li et al. 2026) represents composite skills as attributed plan graphs and localizes long-horizon failures to specific structural components, enabling targeted refinement rather than discarding the whole skill. 
+
+## 3 Motivational Example 
+
+Figure 1 illustrates a GitLab task that requires creating a group and inviting several specified users. After creating the group, an agent may enter the Group information branch while searching for the invitation entry. The invitation subgoal itself remains valid, and entering this branch appears locally plausible given its semantic relevance to the task. However, because the invitation control is available only from the group overview page, the agent may spend many steps exploring nearby pages without making progress. We call this failure mode off-track execution : locally reasonable actions continue even though the active state or plan step no longer supports task completion. Existing web agents can plan, reflect, and reuse previously learned skills, but the runtime validity of an active plan step is usually left implicit. A step such as invite members 
+
+states the intended operation, but does not specify what observable evidence indicates progress or what observation should make the agent stop trusting the current path. Because final task feedback is delayed and sparse, the agent lacks an operational boundary between acceptable execution variation and meaningful drift. Inspired by the Test–Operate–Test–Exit view of goal-directed behavior (Miller, Galanter, and Pribram 1960), we treat each plan step as a provisional commitment whose va-lidity should be tested as the execution situation evolves. A Input 
+
+> Query
+> Web
+> State
+
+1.  Falsifiable Commitment 
+
+Generation   
+
+> Skill
+> Library
+> FCU 1FCU nFCU 2…
+> Falsifiable Commitment
+> Unit (FCU)
+> Subgoal
+> Linked Skill
+> Confirming Evidence
+> Falsifying Evidence
+> Confidence
+
+2.  Runtime Commitment Testing   
+
+> Active
+> FCU iExecutor
+> Agent
+> Action
+> Action -
+> Level
+> Test New
+> State
+> State -
+> Level
+> Test
+> Hybrid Testing
+> Fast: Evidence Matching
+> Slow: LLM Diagnosis
+> Continue
+> Advance to next FCU
+> Task
+> Complete
+
+3. Commitment 
+
+Repair      
+
+> Drift Repair
+> Execution -level Local Repair
+> Skill -level Switch Skill
+> Plan -level Replan
+> Sever drift Restart
+> Experience
+> Distillation
+> Uncertain
+> Failure -
+> Repair
+> Library Skill
+> Library
+> Failure -
+> Repair
+> Library
+> Planner Agent
+
+Repair Agent Figure 2: FCPAgent casts web-agent execution as online testing of falsifiable commitments. Hybrid commitment testing checks actions and observations; scope-aware repair revises the smallest contradicted component. falsifiable plan step associates its intended operation with ob-servable evidence that either confirms or falsifies its continued validity. In the GitLab example, entering group-related pages without exposing an invitation entry satisfies an execution-level falsifier. The agent can then return to the group overview, find the correct invitation entry, and complete the task. By making such violations explicit, falsifiable commitment plan-ning enables agents to correct themselves before local drift compounds, improving stability over long-horizon execution. 
+
+## 4 Problem Formulation 
+
+A web task is specified by a natural-language instruction q.At step t, the agent observes a browser state ot, which may include an accessibility tree and screenshots, selects an action 
+
+at ∈ A , and receives a new observation ot+1 ∼ T (ot, a t).The resulting trajectory is τT = ( o0, a 0, o 1, . . . , a T −1, o T ),and task success is evaluated by a validator V (q, τ T ) ∈ { 0, 1}.Since this final feedback is delayed and sparse, the agent requires intermediate evidence for determining whether its active plan remains valid. 
+
+Definition 1 (Falsifiable Commitment Unit) . A Falsifiable Commitment Unit ( FCU ) for the i-th plan step is 
+
+ci = ( gi, s i, E + 
+
+> i
+
+, E − 
+
+> i
+
+, κ i), (1) where gi is the current subgoal, si is an optionally linked reusable skill, E+ 
+
+> i
+
+and E− 
+
+> i
+
+specify confirming and falsifying evidence, and κi ∈ [0 , 1] denotes commitment confidence. The unit represents a provisional and testable assertion that pursuing gi, optionally through si, remains appropriate at the current execution stage. Unlike an ordinary plan step that only specifies what to do, an FCU also specifies what should be observed if the step remains valid and what evidence should make the agent stop trusting it. Operationally, falsifiable commitment planning follows the principle 
+
+ci
+
+> runtime evidence
+
+−−−−−−−−−→
+
+proceed , if ci remains supported ,
+
+repair , if ci is falsified . (2) Here, proceed means either continuing the active plan step or advancing after its completion is confirmed, whereas repair 
+
+means revising the implicated part of the current execution. Thus, a commitment is not followed unconditionally; it is trusted only while runtime evidence continues to support it. The confirming evidence E+ 
+
+> i
+
+is organized stage-wise: pre-condition evidence checks whether the current page supports the subgoal, progress evidence checks whether execution follows an expected path, and completion evidence checks whether the subgoal has been achieved. The falsifying evi-dence E− 
+
+> i
+
+is organized hierarchically: execution-level falsi-fiers indicate local action or state drift, skill-level falsifiers indicate that the selected skill no longer fits the current site state, and planning-level falsifiers indicate that the subgoal or decomposition itself is suspect. Confirming evidence allows the agent to proceed while the commitment remains supported, whereas falsifying evidence indicates both when correction is needed and whether the execution, skill, or plan should be reconsidered. Together, they provide a shared diagnostic interface for planning, testing, and repair. 
+
+## 5 The Proposed Method 
+
+The formulation above specifies what a monitorable plan step should contain, but leaves three operational questions open: 
+
+• how to construct task-specific commitments ;
+
+• how to test their validity during execution ; and 
+
+• how to revise when a commitment is falsified .As illustrated in Figure 2, the following three subsections answer these questions in the same order. Falsifiable Commit-ment Generation uses reusable skills and past failure-repair experience to construct a compact commitment sequence 
+
+C = ( c1, . . . , c m). Runtime Commitment Testing examines both proposed actions and resulting browser states to de-termine whether the active commitment should continue, advance, or require repair. Repairing Falsified Commitments 
+
+then localizes a detected violation and revises the execution, skill, or planning scope as needed. Together, these components form the plan–test–repair loop of FCPAgent .
+
+5.1 Falsifiable Commitment Generation 
+
+The first question is how to construct task-specific commit-ments that are both procedurally grounded and risk-aware. Commitments generated only from the task instruction may contain evidence that is too generic to guide browser execu-tion, whereas commitments copied directly from reusable skills may overlook task-specific constraints and known failure modes. FCPAgent addresses this question by using successful experience as procedural priors and failure-repair experience as guardrails. Before test-time execution, FCPAgent distills successful training trajectories into a skill library S and failed or repaired trajectories into a failure-repair library F. Skills store reusable procedures and success conditions, whereas failure memories store failure patterns and repair lessons. Both libraries are built only from training trajectories and remain fixed during test-time evaluation. Given the task query q and initial browser state o0, the planner retrieves relevant skills Sq ⊆ S and failure-repair memories Fq ⊆ F , then generates a compact commitment sequence: 
+
+C = Planner  q, o 0, Sq , Fq
+
+.
+
+Each commitment ci specifies a subgoal gi, an optional linked skill si, confirming evidence E+ 
+
+> i
+
+, falsifying evidence E− 
+
+> i
+
+,and confidence κi. The retrieved skills provide candidate pro-cedures and observable success signals for recurring subgoals. The planner may link an FCU to a suitable skill, grounding its subgoal and confirming evidence in successful experience. Failure-repair memories expose known risks before execu-tion starts, allowing the planner to encode anticipated failure patterns as falsifiers. Thus, skills help specify what should work, while failure memories help specify what would make a commitment suspect. 
+
+5.2 Runtime Commitment Testing 
+
+The second question is how to determine whether an active commitment remains supported during execution. FCPAgent 
+
+answers this question through hybrid commitment testing: a lightweight tester frequently screens candidate actions and returned browser states, while an LLM-based verifier performs deeper diagnosis only when needed. This design detects local drift without requiring an expensive LLM judgment after every browser transition. 
+
+Lightweight Action- and State-Level Testing At time t,the executor proposes an action for the active commitment ci.Action-level testing checks the proposal before it modifies the browser, while state-level testing checks whether the returned observation ot+1 supports or contradicts ci.For state-level testing, let Tt and It denote the accessibility tree and screenshot, and let E± 
+
+> i
+
+denote either confirming evidence E+ 
+
+> i
+
+or falsifying evidence E− 
+
+> i
+
+. After rule-based anomaly checks, the lightweight tester computes both scores with 
+
+α± 
+
+> t
+
+= λ NLI( Tt, E ± 
+
+> i
+
+) + (1 − λ) ITM( It, E ± 
+
+> i
+
+),
+
+where λ balances textual entailment and image–text matching, instantiated with nli-deberta-v3-base and 
+
+SigLIP2 , respectively. In pre-action testing, Tt is replaced by the candidate reasoning–action pair and the visual term is omitted. The slow tester is invoked when the completion component of E+ 
+
+> i
+
+produces a strong positive score, E− 
+
+> i
+
+produces a strong falsification score, or the two scores conflict or lie near the routing thresholds; rule-detected execution anomalies are also escalated. Thus, completion-like, risky, or ambiguous cases are escalated to the LLM verifier, whereas routine cases with weak evidence continue directly. Confidence κi further adjusts the routing sensitivity. 
+
+LLM-Based Diagnostic Verification For each escalated case, the LLM verifier examines the task q, active commit-ment ci, recent trajectory τ≤t, relevant action or observation, and the lightweight tester’s routing signal. The lightweight scores serve only as routing cues rather than hard decisions. By reasoning over the recent trajectory and current browser context, the verifier distinguishes acceptable execution vari-ation from genuine falsification and identifies whether the contradiction is execution-level, skill-level, or planning-level. It returns 
+
+dt ∈ { continue , advance , repair },
+
+together with a diagnosis ut of the falsifying evidence pattern and its scope when dt = repair . A continue decision proceeds with ci; advance confirms completion, moves to the next commitment, and compresses the previous interactions into a short stage summary to keep the context compact; 
+
+repair passes ut to the scope-aware repair module. 
+
+5.3 Repairing Falsified Commitments 
+
+The third question is how to revise the appropriate part af-ter a commitment is falsified without discarding unaffected progress. When the verifier returns dt = repair , the diag-nosis ut identifies the evidence that contradicts the active commitment ci. This attribution matters because the same symptom, such as a missing control, may arise from an incor-rect action, an unsuitable skill, or an invalid plan and therefore require different repairs. FCPAgent answers this question through experience-enhanced scope-aware repair: relevant past failures suggest possible recovery strategies, while the diagnosed falsifier determines the smallest component that must be revised. At repair time, the repairer retrieves cases from the failure-repair library F using both the task q and diagnosis ut,matching task similarity and failure cause, respectively. Re-trieved cases provide strategies and lessons from analogous failures but serve only as soft guidance: the repair remains grounded in the active commitment ci, recent trajectory τ≤t,current browser state, and retrieved skills Sq .
+
+Scope-Aware Commitment Revision Let C =(c1, . . . , c i, . . . , c m) be the current sequence. The re-pairer preserves the completed prefix (c1, . . . , c i−1).Execution-level falsifiers preserve ci and revise the immedi-ate action or path; skill-level falsifiers preserve gi but replace 
+
+si and update the affected evidence; planning-level falsifiers Method ETPC EDD MSFA AGR AgentOccam × × × ×
+
+AWM × × × ×
+
+WebDART × ✓ × ×
+
+WALT × × × ×
+
+ContractSkill × ✓ × ✓
+
+ColorBrowserAgent × ✓ × ×
+
+FCPAgent (Ours) ✓ ✓ ✓ ✓
+
+Table 1: Comparison along four long-horizon reliability di-mensions. ETPC: explicit task-progress criteria; EDD: explicit drift detection; MSFA: multi-scope failure attribution; AGR: attribution-guided recovery. rewrite ci and the affected suffix. This hierarchy expands the revision scope only when a smaller correction is inadequate. Revision scope and recovery depth are determined sepa-rately. The diagnosed falsifier determines what should change, whereas state severity determines whether execution resumes locally or first backtracks to a known safe state. The revised sequence is then returned to the executor, completing the plan–test–repair loop of FCPAgent .Further implementation details, including skill and failure-repair record formats, experience retrieval and induction, and hybrid testing and routing, are provided in the Appendix. 
+
+5.4 Comparison with Related Work 
+
+Table 1 organizes representative methods according to four general requirements for reliable long-horizon execution. Sev-eral methods provide explicit runtime monitoring: WebDART updates its task decomposition when execution no longer supports the current plan, while ColorBrowserAgent com-bines progress assessment with environment adaptation (Yang et al. 2025a; Zhou et al. 2026). ContractSkill further localizes violations within structured skill representations and perform targeted skill-level repair (Lu et al. 2026). FCPAgent differs in the scope of the monitored object and diagnosis: it speci-fies task-specific progress and falsification criteria for each active plan step, attributes violations across execution, skill, and planning scopes, and uses the attributed source to select recovery. Its distinction therefore lies not in drift detection or localized repair alone, but in unifying task-specific valid-ity criteria, multi-scope attribution, and attribution-guided recovery. Detailed comparisons are provided in the Appendix. 
+
+## 6 Experiments 
+
+6.1 Setup 
+
+Benchmark. We evaluate on WebArena, which provides functional success validators over 6 realistic web applica-tions (Zhou et al. 2024). The main metric is task success rate. Following prior work (Zhou et al. 2026), we use Open-StreetMap as the live map environment for map-related tasks. Dataset statistics and the evaluation protocol are provided in the Appendix. 
+
+Baselines. We compare FCPAgent with ReAct (Yao et al. 2023b), AWM (Wang et al. 2025b), AgentOccam (Yang et al. 2025b), WebDART (Yang et al. 2025a), WALT (Prabhu et al. 2026), and ColorBrowserAgent (Zhou et al. 2026). For fairness, the skill and failure-repair libraries are built offline from training trajectories and remain fixed during test evaluation. Baselines that require offline preparation (e.g., AWM (Wang et al. 2025b)) are given the same data budget. 
+
+Implementation details. We use Qwen3.5-397B-A17B as the backbone model (Qwen Team 2026) via API call for all methods, with the temperature set to 1. We typically set the number of retrieved skills K = 3 , the number of retrieved failure experiences P = 2 , and the hyperparameter λ = 0 .8.Additional setup and implementation details are provided in the Appendix. 
+
+6.2 Main Results 
+
+Table 2 shows that FCPAgent consistently improves over prior systems. Compared with the strongest baseline, Color-BrowserAgent, FCPAgent raises average success from 57.4% to 65.3%, a 13.8% relative improvement. The gain is largest on GitLab, where success improves from 63.4% to 75.5%, and is also substantial on Shopping and Admin. These results suggest that falsifiable commitments help not only with deep reasoning, but also with keeping reused skills and intermedi-ate page states aligned with the active subgoal. The absolute scores on Map and Cross remain lower than those on other domains. Following prior work, we use OpenStreetMap as a real map website environment; as a result, some measured map attributes can deviate from the benchmark references, making these tasks less stable under automatic validation. 
+
+6.3 Zero-Shot Generalization 
+
+We further test cross-benchmark generalization on WebChore-Arena (Miyai et al. 2025), a reproducible WebArena extension with more labor-intensive tasks. We report results on its four site-specific domains and apply FCPAgent zero-shot, keeping the WebArena-derived skill and repair libraries fixed without using WebChoreArena trajectories. As shown in Table 3, 
+
+FCPAgent ranks first in all domains and achieves a weighted average of 31.7%, compared with 28.9% for ColorBrowserA-gent. This 9.6% relative improvement indicates that falsifiable commitment planning and WebArena-derived experience re-main effective under a harder task distribution, even when no target-benchmark experience is available. 
+
+Figure 3: Success rate (%) by task length. The strongest gains occur in the longest buckets. Method Shopping Admin GitLab Reddit Map Cross Avg. ReAct (Yao et al. 2023b) 30.2 29.1 22.2 24.2 26.3 18.9 26.2 AWM (Wang et al. 2025b) 40.3 39.0 31.9 51.9 30.3 21.6 37.3 AgentOccam (Yang et al. 2025b) 48.9 54.8 53.6 48.5 32.1 22.4 47.5 WebDART (Yang et al. 2025a) 44.7 47.5 56.8 52.9 31.3 21.6 46.1 WALT (Prabhu et al. 2026) 51.1 56.2 57.0 48.5 36.3 24.3 49.7 ColorBrowserAgent (Zhou et al. 2026) 59.7 60.3 63.4 70.8 37.5 27.0 57.4 
+
+FCPAgent (Ours) 67.6 68.8 75.5 75.3 41.3 33.2 65.3 
+
+Relative improvement 13.2% 14.1% 19.1% 6.4% 10.1% 23.0% 13.8% Table 2: Performance comparison on WebArena. The metric is success rate (%). 
+
+Method Shopping Admin GitLab Reddit Avg. AgentOccam 17.1 25.4 21.3 12.1 19.7 WebDART 21.4 27.5 22.8 22.0 23.7 ColorBrowserAgent 24.8 32.6 32.2 24.2 28.9 
+
+FCPAgent (Ours) 28.2 35.5 33.1 28.6 31.7 
+
+Table 3: Zero-shot generalization performance on WebChore-Arena. The metric is success rate (%). 
+
+6.4 Long-Horizon Robustness 
+
+The central motivation of FCPAgent is robustness under long horizons. Figure 3 groups Shopping and GitLab tasks by the number of interaction steps. Since WebArena provides no oracle interaction length, we use each task’s trajectory length under the strongest baseline, ColorBrowserAgent, as a fixed proxy for its execution horizon; every bucket contains more than 30 tasks. FCPAgent improves over the baseline (Zhou et al. 2026) in every bucket, but the gains grow sharply with task length. On Shopping, the relative improvement rises from 11% for 1–5 step tasks to 161% for tasks with at least 11 steps. On GitLab, the corresponding long-horizon gain is 87%, much larger than the 13% gain in the medium-length bucket. These results support the hypothesis that falsifiable commitments are most valuable when small intermediate trajectory deviations would otherwise compound silently over many actions. Variant Shopping Admin GitLab Full 67.6 68.8 75.5 
+
+w/o falsifiable plan 60.4 61.7 71.2 w/o commitment testing 63.3 65.5 73.4 w/o commitment repair 65.4 66.2 74.1 Table 4: Ablation study on success rate (%). 
+
+6.5 Ablation Study 
+
+Component ablation Table 4 isolates the main components of FCPAgent . Across Shopping, Admin, and GitLab, the full model obtains a three-domain average success rate of 70.6%. Removing falsifiable planning, where the executor receives only retrieved skills rather than generated FCU s, Shopping Admin Variant Succ. Time Succ. Time Hybrid testing 67.6 219s 68.8 529s 
+
+Slow-only testing 66.9 281s 68.8 648s Table 5: Hybrid commitment testing reduces average per-task LLM call time without sacrificing success. 
+
+Figure 4: GitLab success rate as the amount of training experience increases. The top curve uses both the skill library and failure-repair library; the second curve removes the failure-repair library. reduces the average to 64.4%, the largest drop among the ablations. Removing hybrid commitment testing lowers the average to 67.4%, confirming that FCU s are most useful when their evidence interface is checked online. Removing repair reduces the average to 68.6%, indicating that explicit recovery contributes additional gains after evidence contradictions are detected. These results show that planning, testing, and repair play complementary roles: falsifiable planning supplies the tests, hybrid commitment testing applies them during execu-tion, and scope-aware repair turns diagnosed contradictions into targeted revisions. 
+
+Efficiency Table 5 evaluates the efficiency contribution of the lightweight evidence-matching layer. Replacing hybrid testing with slow-only verification yields similar success but increases total LLM call time. On average across Shopping and Admin, hybrid testing reduces per-task LLM call time ✓
+
+> Mixed results ; not all products
+> are from the target brand.
+> Active FCU
+> Hybrid
+> commitment test
+> Drift detected
+> Do not continue sorting
+> this contaminated list.
+
+➜
+
+> Replan the fcu
+> Switch to Advanced Search
+> Use stricter product -name query:
+> Amazon Basics
+> Brand -restricted results
+> Extract prices only from Amazon Basics products.
+> Successful completion
+
+★     
+
+> (a) Search product from target brand. (b) Commitment Testing.
+> subgoal: Find Amazon Basics
+> products using search bar.
+> linked skill: null.
+> expected confirming evidence:
+> …
+> possible Falsifying evidence:
+> {"planning level": ["Result list
+> contains products from other
+> brands.", …] …
+> confidence :0.69
+> (c) Commitment Repair. (d) Obtain the correct search results.
+> Commitment
+> Repair
+> Execute the new plan and
+> find the correct path.
+
+Figure 5: A WebArena-Shopping case study showing how FCPAgent detects plan-level drift, replans the active commitment, and obtains brand-restricted results. from 464.5s to 374.0s, a 19.5% reduction. This supports the hybrid design: LLM-based diagnostic verification is useful for ambiguous states, while lightweight tests handle routine transitions and reserve slow verification for moments that can change the commitment sequence. 
+
+Experience scaling Figure 4 studies how FCPAgent bene-fits from accumulated experience on GitLab. As the fraction of training trajectories used to build the experience libraries increases, the method variants improve steadily, showing that additional experience can be converted into better long-horizon execution. The full variant consistently outperforms the variant without the failure-repair library, indicating that failure memories provide complementary negative experience beyond reusable skills. This gap supports the role of failure-repair cases in helping the planner write sharper falsifiers and helping the repairer choose more effective scope-aware recoveries. The Appendix provides finer-grained ablations of confirm-ing and falsifying evidence and the action- and state-level testers, together with additional runtime efficiency and behav-ior analyses. 
+
+6.6 Case Study 
+
+Figure 5 shows a WebArena-Shopping task that asks for the price range of Amazon Basics products. The agent first uses the ordinary search bar with the query Amazon Basics ,but the returned list is contaminated by products from other brands. Although the page appears relevant, continuing to sort this mixed list would produce a price range over non-target products. Here, the broad search strategy in the active 
+
+FCU cannot satisfy the brand constraint because it returns products from other brands, constituting a plan-level drift. Hybrid commitment testing detects this evidence and prevents the agent from sorting the contaminated list. Scope-aware repair then replans the FCU , switches to Advanced Search ,and issues a stricter product-name query. The resulting list contains only Amazon Basics products, allowing the agent to extract the correct price range. This case shows that falsifiable planning can identify not only a wrong execution path, but also an inadequate plan that must be revised. 
+
+## 7 Conclusion 
+
+We presented FCPAgent , a falsifiable commitment planning framework for long-horizon web agents. By representing plan steps as commitments with explicit confirming and falsifying evidence, FCPAgent changes execution from unconditional plan following into online plan-step testing. Experience-guided generation turns prior successes and failures into explicit confirming and falsifying evidence, hybrid commit-ment testing checks candidate actions and returned states against the active commitment, and scope-aware repair uses the violated evidence type to choose the smallest effective recovery. Experiments on WebArena show consistent gains over strong baselines, particularly on tasks with longer inter-action horizons. These results suggest that stable web agents need not only better actions and richer memories, but plans that can recognize when they are wrong. A limitation of the current framework is that it depends on the quality of generated evidence: overly broad falsifiers may trigger unnecessary repairs, whereas overly narrow ones may miss off-track execution. Future work should explore learned falsifier generation and benchmarks that measure how early agents detect recoverable deviations, not only final success. 
+
+## References 
+
+Chae, H.; Kim, N.; Ong, K. T.-i.; Gwak, M.; Song, G.; Kim, J.; Kim, S.; Lee, D.; and Yeo, J. 2025. Web Agents with World Models: Learning and Leveraging Environment Dynamics in Web Navigation. In International Conference on Learning Representations .He, H.; Yao, W.; Ma, K.; Yu, W.; Dai, Y.; Zhang, H.; Lan, Z.; and Yu, D. 2024. WebVoyager: Building an End-to-End Web Agent with Large Multimodal Models. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics , 6864–6890. Lai, H.; Liu, X.; Iong, I. L.; Yao, S.; Chen, Y.; Shen, P.; Yu, H.; Zhang, H.; Zhang, X.; Dong, Y.; and Tang, J. 2024. AutoWebGLM: A Large Language Model-based Web Nav-igating Agent. In Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining .Le Sellier De Chezelles, T.; Gasse, M.; Drouin, A.; Caccia, M.; Boisvert, L.; Thakkar, M.; Marty, T.; Shayegan, S. O.; Jang, L. K.; Lù, X. H.; Yoran, O.; Kong, D.; Xu, F. F.; Reddy, S.; Cappart, Q.; Neubig, G.; Salakhutdinov, R.; Chapados, N.; and Lacoste, A. 2024. The BrowserGym Ecosystem for Web Agent Research. arXiv preprint arXiv:2412.05467 .Li, Y.; Dou, Y.; Shao, J.-J.; Lyu, Y.; Tsang, I.; and Yin, H. 2026. SkillTracer: Structural Failure Attribution and Refinement of Agentic Skills in Long-Horizon Web Tasks. In ICLR 2026 Workshop on Multi-Agent Learning and Its Opportunities in the Era of Generative AI .Lu, Z.; Zuo, Y.; Nie, Y.; He, X.; Fan, W.; and Dai, C. 2026. ContractSkill: Repairable Contract-Based Skills for Multi-modal Web Agents. arXiv preprint arXiv:2603.20340 .Madaan, A.; Tandon, N.; Gupta, P.; Hallinan, S.; Gao, L.; Wiegreffe, S.; Alon, U.; Dziri, N.; Prabhumoye, S.; Yang, Y.; Gupta, S.; Majumder, B. P.; Hermann, K.; Welleck, S.; Yazdanbakhsh, A.; and Clark, P. 2023. Self-Refine: Iterative Refinement with Self-Feedback. In Advances in Neural Information Processing Systems .Miller, G. A.; Galanter, E.; and Pribram, K. H. 1960. Plans and the Structure of Behavior . Henry Holt and Company. Miyai, A.; Zhao, Z.; Egashira, K.; Sato, A.; Sunada, T.; Onohara, S.; Yamanishi, H.; Toyooka, M.; Nishina, K.; Maeda, R.; Aizawa, K.; and Yamasaki, T. 2025. WebChoreArena: Evaluating Web Browsing Agents on Realistic Tedious Web Tasks. arXiv preprint arXiv:2506.01952 .Prabhu, V.; Dai, Y.; Fernandez, M.; Ramakrishnan, K.; Gu, J.; Luo, Y.; Savarese, S.; Xiong, C.; Li, J.; Chen, Z.; and Xu, R. 2026. WALT: Web Agents that Learn Tools. In International Conference on Learning Representations .Qi, Z.; Liu, X.; Iong, I. L.; Lai, H.; Sun, X.; Sun, J.; Yang, X.; Yang, Y.; Yao, S.; Xu, W.; Tang, J.; and Dong, Y. 2025. WebRL: Training LLM Web Agents via Self-Evolving On-line Curriculum Reinforcement Learning. In International Conference on Learning Representations .Qwen Team. 2026. Qwen3.5: Towards Native Multimodal Agents. https://qwen.ai/blog?id=qwen3.5. Accessed 2026-06-05. Shinn, N.; Cassano, F.; Gopinath, A.; Narasimhan, K. R.; and Yao, S. 2023. Reflexion: Language Agents with Verbal Reinforcement Learning. In Advances in Neural Information Processing Systems .Tan, Y.; Gao, Z.; and Wu, X. 2026. Enhancing Web Agents with a Hierarchical Memory Tree. arXiv preprint arXiv:2603.07024 .Wang, G.; Xie, Y.; Jiang, Y.; Mandlekar, A.; Xiao, C.; Zhu, Y.; Fan, L.; and Anandkumar, A. 2024a. Voyager: An Open-Ended Embodied Agent with Large Language Models. Trans-actions on Machine Learning Research .Wang, H.; Cao, Y.; Lin, L.; and Chen, J. 2026. PreFlect: From Retrospective to Prospective Reflection in Large Language Model Agents. arXiv preprint arXiv:2602.07187 .Wang, H.; Li, T.; Deng, Z.; Roth, D.; and Li, Y. 2024b. Devil’s advocate: Anticipatory reflection for llm agents. In Findings of the Association for Computational Linguistics: EMNLP 2024 , 966–978. Wang, Z. Z.; Gandhi, A.; Neubig, G.; and Fried, D. 2025a. Inducing Programmatic Skills for Agentic Tasks. arXiv preprint arXiv:2504.06821 .Wang, Z. Z.; Mao, J.; Fried, D.; and Neubig, G. 2025b. Agent Workflow Memory. In International Conference on Machine Learning .Yang, J.; Hou, B.; Wei, W.; Chang, S.; and Bao, Y. 2025a. WebDART: Dynamic Decomposition and Re-planning for Complex Web Tasks. arXiv preprint arXiv:2510.06587 .Yang, J.; Zhang, H.; Li, F.; Zou, X.; Li, C.; and Gao, J. 2023. Set-of-Mark Prompting Unleashes Extraordinary Vi-sual Grounding in GPT-4V. arXiv preprint arXiv:2310.11441 .Yang, K.; Liu, Y.; Chaudhary, S.; Fakoor, R.; Chaudhari, P.; Karypis, G.; and Rangwala, H. 2025b. AgentOccam: A Simple Yet Strong Baseline for LLM-Based Web Agents. In 
+
+International Conference on Learning Representations .Yao, S.; Yu, D.; Zhao, J.; Shafran, I.; Griffiths, T. L.; Cao, Y.; and Narasimhan, K. 2023a. Tree of Thoughts: Deliberate Problem Solving with Large Language Models. In Advances in Neural Information Processing Systems .Yao, S.; Zhao, J.; Yu, D.; Du, N.; Shafran, I.; Narasimhan, K.; and Cao, Y. 2023b. ReAct: Synergizing Reasoning and Acting in Language Models. In International Conference on Learning Representations .Zheng, B.; Fatemi, M. Y.; Jin, X.; Wang, Z. Z.; Gandhi, A.; Song, Y.; Gu, Y.; Srinivasa, J.; Liu, G.; Neubig, G.; and Su, Y. 2025. SkillWeaver: Web Agents can Self-Improve by Discov-ering and Honing Skills. arXiv preprint arXiv:2504.07079 .Zheng, B.; Gou, B.; Kil, J.; Sun, H.; and Su, Y. 2024. GPT-4V(ision) is a Generalist Web Agent, if Grounded. In Pro-ceedings of the 41st International Conference on Machine Learning , volume 235 of Proceedings of Machine Learning Research , 61349–61385. PMLR. Zhou, J.; Wang, J.; Zhang, W.; Liu, W.; Zhang, Z.; Lou, X.; Zhang, W.; Deng, H.; and Wang, J. 2026. ColorBrowserAgent: An Intelligent GUI Agent for Complex Long-Horizon Web Automation. arXiv preprint arXiv:2601.07262 .Zhou, S.; Xu, F. F.; Zhu, H.; Zhou, X.; Lo, R.; Sridhar, A.; Cheng, X.; Ou, T.; Bisk, Y.; Fried, D.; Alon, U.; and Neubig, G. 2024. WebArena: A Realistic Web Environment for Building Autonomous Agents. In International Conference on Learning Representations .A Discussion 
+
+A.1 Comparison with Related Work 
+
+Table 6: Comparison of representative agent frameworks for reliable long-horizon execution.                                              
+
+> Method Explicit Task-Progress Criteria Explicit Drift Detection Multi-Scope Failure Attribution Attribution-Guided Recovery
+> Reflexion ××××
+> Anticipatory Reflection ×✓××
+> AgentOccam ××××
+> AWM ××××
+> WMA ××××
+> WebDART ×✓××
+> WALT ××××
+> SkillTracer ×✓×✓
+> ContractSkill ×✓×✓
+> ColorBrowserAgent ×✓××
+> FCPAgent (Ours) ✓✓✓✓
+
+Table 6 evaluates representative agent frameworks along four requirements that follow the reliability process of specifying valid progress, detecting deviation, attributing its source, and selecting a corresponding recovery. Explicit task-progress criteria (ETPC) require task-specific prospective conditions that indicate whether the active plan step is progressing normally or has become invalid; generic skill preconditions or completion checks alone do not satisfy this criterion. Explicit drift detection (EDD) requires a dedicated mechanism for identifying deviation during the current trajectory rather than post-hoc reflection after task failure. Multi-scope failure attribution (MSFA) requires distinguishing whether a problem arises from immediate execution, the reused skill, or the higher-level plan. Attribution-guided recovery (AGR) requires the diagnosed source to explicitly determine the selected in-trajectory repair. Reflexion (Shinn et al. 2023) provides post-hoc self-evaluation, while AgentOccam (Yang et al. 2025b), AWM (Wang et al. 2025b), WMA (Chae et al. 2025), and WALT (Prabhu et al. 2026) improve action abstraction, outcome prediction, or procedure reuse. These capabilities can support execution, but they do not provide dedicated online drift detection under the definition above. Anticipatory Reflection (AR) (Wang et al. 2024b) generates backup actions before execution and checks subtask alignment afterward, thus providing explicit online drift detection. However, its anticipation concerns alternative actions rather than task-specific validity criteria, and it does not attribute failures across multiple scopes to guide recovery. WebDART (Yang et al. 2025a) updates its task decomposition when execution no longer supports the current plan, and ColorBrowserAgent (Zhou et al. 2026) combines progress assessment with environment adaptation. Both therefore provide explicit drift detection, but neither specifies task-specific prospective validity criteria for each active step or attributes failures across execution, skill, and planning scopes. SkillTracer (Li et al. 2026) and ContractSkill (Lu et al. 2026) detect violations within structured skill representations and use the localized violation to guide targeted repair. Their attribution, however, remains within the skill representation rather than distinguishing among immediate execution, the reused skill, and the higher-level plan. They therefore satisfy EDD and AGR, but not MSFA or task-specific ETPC. 
+
+FCPAgent covers all four requirements by attaching task-specific confirming and falsifying evidence to each active FCU ,detecting violations during execution, attributing them across execution, skill, and planning scopes, and selecting recovery from the attributed source. Its distinction lies not in drift detection or localized repair alone, but in unifying task-specific validity criteria, multi-scope attribution, and attribution-guided recovery. We do not report numerical comparisons with SkillTracer or ContractSkill because neither provides a runnable implementation compatible with our WebArena evaluation setting. 
+
+## B Implementation Details 
+
+B.1 Runtime Algorithm 
+
+We present the runtime loop of FCPAgent in Algorithm 1. The agent first retrieves relevant skills and failure-repair cases, then generates a sequence of falsifiable commitments. It executes each commitment in order, using hybrid commitment testing to check both proposed actions and returned observations. If a violation is detected, the repairer revises the current commitment and any subsequent commitments as needed. The loop continues until all commitments are completed or the step budget is reached. After task execution, successful trajectories are distilled into the skill library, while failed or repaired trajectories are stored in the failure-repair library for future use. Algorithm 1: FCPAgent Runtime Loop 
+
+Require: Task q, initial observation o0, skill library S, failure-repair library F, step budget B
+
+Ensure: Executed trajectory τ and final observation  
+
+> 1:
+
+Retrieve skills SKq ← RK 
+
+> S
+
+(q) and failure memories F Pq ← RP 
+
+> F
+
+(q) 
+
+> 2:
+
+Generate falsifiable commitments C = ( c1, . . . , c m) ∼ Π( q, o 0, S Kq , F Pq ) 
+
+> 3:
+
+Initialize i ← 1, t ← 0, and τ≤0 ← (o0) 
+
+> 4:
+
+while i ≤ m and t < B do  
+
+> 5:
+
+Set active commitment ci ← Ci 
+
+> 6:
+
+Executor proposes reasoning and action (rt, a t) from (q, c i, τ ≤t, o t) 
+
+> 7:
+
+Run pre-action fast commitment test to obtain route zpre  
+
+> t
+> 8:
+
+if zpre 
+
+> t
+
+̸ = continue then  
+
+> 9:
+
+(dt, u t) ← Ω( q, c i, τ ≤t, o t, a t, z pre  
+
+> t
+
+) 
+
+> 10:
+
+if dt = repair then  
+
+> 11:
+
+(˜ ci, ˜C>i ) ← Γ( τ≤t, c i, u t, S kq , R p 
+
+> F
+
+(q, u t))  
+
+> 12:
+
+Replace (ci, C >i ) with (˜ ci, ˜C>i ) and continue  
+
+> 13:
+
+end if  
+
+> 14:
+
+end if  
+
+> 15:
+
+Execute at, observe ot+1 , and append (at, o t+1 ) to τ 
+
+> 16:
+
+Run post-state fast commitment test to obtain route zpost  
+
+> t
+> 17:
+
+if zpost 
+
+> t
+
+̸ = continue then  
+
+> 18:
+
+(dt, u t) ← Ω( q, c i, τ ≤t+1 , o t+1 , ∅, z post  
+
+> t
+
+) 
+
+> 19:
+
+if dt = repair then  
+
+> 20:
+
+(˜ ci, ˜C>i ) ← Γ( τ≤t+1 , c i, u t, S kq , R p 
+
+> F
+
+(q, u t))  
+
+> 21:
+
+Replace (ci, C >i ) with (˜ ci, ˜C>i ) 
+
+> 22:
+
+else if dt = advance then  
+
+> 23:
+
+Summarize the completed stage and set i ← i + 1  
+
+> 24:
+
+end if  
+
+> 25:
+
+end if  
+
+> 26:
+
+t ← t + 1  
+
+> 27:
+
+end while  
+
+> 28:
+
+In offline experience building, distill successful trajectories into S and failed or repaired trajectories into F 
+
+> 29:
+
+return τ
+
+B.2 Example of a Falsifiable Commitment Sequence 
+
+Figure 6 shows an FCU sequence for creating a GitLab group and inviting four members. The task is decomposed into two subgoals: creating the group and inviting its members. Each FCU specifies a subgoal, an optional linked skill, stage-wise confirming evidence, hierarchical falsifying evidence, and a commitment confidence, providing explicit signals for runtime testing and repair. The confidence κi is generated by the planner LLM to indicate its confidence in the accuracy of the current 
+
+FCU . It calibrates the fast-tester thresholds and is provided to the slow tester and repairer as a cue for deciding whether the FCU 
+
+itself should be revised. 
+
+B.3 Implementation Details of the Skill Library 
+
+FCPAgent maintains a unified skill library. Formally, each distilled skill is stored as 
+
+s = ( n, k, a, p, v, h ),
+
+where n is the skill name, k are retrieval keywords, a describes applicability conditions, p gives generalized execution steps, 
+
+v specifies observable success conditions, and h records precautions. Records can be organized or filtered by environment metadata for efficient retrieval. As illustrated in Figure 7, this library supports initial commitment generation, task execution, and scope-aware repair. 
+
+Hybrid skill retrieval. At the beginning of each task, FCPAgent retrieves skills using the user goal as the query. The retriever combines lexical and semantic similarity. For lexical matching, each skill is represented by its name, keywords, and applicability field, and a BM25 index is built over the tokenized skill texts. For semantic matching, each skill is represented by a richer text containing its name, keywords, applicability condition, and success signal. FCPAgent encodes both the query and skill texts with a local BGE-M3 encoder and compares embeddings by cosine similarity. The final retrieval score is a weighted combination of Figure 6: Example of a falsifiable commitment sequence. min-max-normalized BM25 and embedding scores: 
+
+σS (q, z ) = 0 .4 sBM25 (q, z ) + 0 .6 semb (q, z ), (3) where q is the task goal and z is a candidate skill. The top-K skills under this score instantiate RK 
+
+> S
+
+(q) in the main text. 
+
+Dependency expansion. The skill context is not limited to the independently top-ranked skills. After top-K retrieval, FCPAgent expands the set with related skills induced from the same source task, adding nearby prerequisite or follow-up skills when available. These expansion items are tagged separately from directly retrieved skills. Thus, the final context may contain more than K skills, combining top-ranked matches with related skills that preserve useful local workflow structure. 
+
+Use in planning and repair. The retrieved and expanded skill records are rendered into textual form and kept fixed for the task episode. The planner receives this candidate skill set when constructing the FCU chain and is instructed to link each FCU to at most one provided skill, using the skill’s steps and success signal to write more concrete confirming evidence and disconfirming signals. The same skill set is reused during repair: when a commitment is falsified, the repair controller receives the current FCU, violation diagnosis, recent action history, and skill context, enabling scope-aware repair actions such as switching skills, rewriting the current FCU, or replanning the remaining commitments. During execution, the low-level action generator receives only the active skill attached to the current FCU, keeping skill guidance localized. The implementation also supports partial or progressive disclosure of skill details, but the standard configuration directly provides the retrieved skill contents. 
+
+Skill induction. Skills are induced offline from successful WebArena trajectories. For each successful task, an LLM extracts at most five reusable skills from the task goal and execution trajectory. The prompt emphasizes generality rather than memorization by removing raw DOM ids, coordinates, and action argument ids while preserving operational steps. It encourages splitting a trajectory only when the split improves reuse, with emphasis on navigation skills, information-extraction skills, and reasoning rules. 
+
+B.4 Implementation Details of the Failure-Repair Library 
+
+FCPAgent also maintains a unified failure-repair library built from failed or repaired task executions. A failure-repair case is stored as 
+
+f = ( q, ρ, γ, η ),
+
+where q is the original task query, ρ contains the failure pattern and evidence-grounded analysis, γ specifies the repair strategy and plan, and η records lessons for similar tasks. As shown in Figure 8, each record provides compact repair-oriented experience. Distinct failure modes from one trajectory are stored as separate cases rather than merged. 
+
+Retrieval and use. During execution, each stored case is represented with two semantic views: one for the original task query and one for the failure pattern and analysis. At repair time, FCPAgent retrieves cases using both the current task query q and the current violation diagnosis u, matching the repair input RP 
+
+> F
+
+(q, u t) in the main text. The final score is 
+
+σF (q, u, r ) = 0 .5 squery (q, r ) + 0 .5 sdiag (u, r ), (4) where r is a stored failure-repair record. Embeddings are computed with the same local semantic encoder used by the skill retriever and cached for reuse. Retrieved cases are filtered by a similarity threshold and truncated to the configured top-P results. Figure 7: Example record from the skill library. Before planning, FCPAgent may retrieve failure-repair cases using only the task query, providing high-level lessons that help the planner specify stronger falsifiers and avoid known failure modes. When a commitment is falsified during execution, the repair controller retrieves cases using both the task query and the current violation diagnosis. The retrieved records are injected as soft guidance containing the original query, similarity score, failure pattern, failure analysis, repair strategy, and repair plan. They do not override the current browser state or active FCU; instead, they bias scope-aware repair toward remedies that were useful in similar failures. 
+
+Failure-repair induction. The library is constructed offline. For each failed run, FCPAgent reads the task query and recorded planner-action trajectory, then asks an LLM to summarize the failure into concise, reusable repair experience. The failure pattern is written at an abstract level, while the failure analysis remains tied to concrete observed behavior. The repair strategy is normalized to one of the supported repair actions, such as local repair, skill switching, backtracking, FCU rewriting, or global replanning. The repair plan gives actionable guidance for future repair decisions without hard-coding a recovery action. 
+
+B.5 Hybrid Commitment Testing Details 
+
+FCPAgent implements hybrid commitment testing with a lightweight fast tester followed by an LLM-based slow verifier. The fast tester does not make final repair decisions; it routes ordinary states to continue and escalates likely completion, likely drift, execution anomalies, or uncertain boundary cases to the slow verifier. 
+
+State-level fast tester. After each browser action, the state-level tester evaluates the active FCU against the current observation. Its inputs include the active commitment, grouped confirming and falsifying evidence, the latest action status, open-tab URLs and titles, the accessibility tree, and the screenshot. Before semantic scoring, it applies rule checks for obvious anomalies, such as browser execution errors, unparsable actions, unchanged observations after page-changing actions, or web error pages. These cases are routed directly to slow verification as possible execution-level drift. If no rule fires, the tester serializes the page context from tab metadata and the accessibility tree and chunks long observations. Let Tt and It denote the serialized text and screenshot, and let E± 
+
+> i
+
+denote confirming evidence E+ 
+
+> i
+
+or falsifying evidence E− 
+
+> i
+
+.Their matching scores are 
+
+α± 
+
+> t
+
+= λ NLI( Tt, E ± 
+
+> i
+
+) + (1 − λ) ITM( It, E ± 
+
+> i
+
+). (5) Textual evidence is matched with a DeBERTa NLI cross-encoder, taking the maximum entailment score over chunks, while SigLIP provides image–text similarity. Confirming evidence is scored over progress and completion signals, whereas falsifying evidence is scored separately over planning-, skill-, and execution-level groups. The highest-scoring falsifier group is retained as a diagnostic hint for repair. Figure 8: Example record from the failure-repair library. Let α+ 
+
+> t, comp
+
+denote the score of the completion component of E+ 
+
+> i
+
+. The fast tester routes the state as 
+
+zt =
+
+
+
+complete , α+ 
+
+> t, comp
+
+≥ τ+(κi) ∧ α+ 
+
+> t, comp
+
+− α− 
+
+> t
+
+≥ δ+,
+
+risk , α− 
+
+> t
+
+≥ τ−(κi) ∧ α− 
+
+> t
+
+− α+ 
+
+> t
+
+≥ δ−,
+
+continue , max( α+ 
+
+> t
+
+, α − 
+
+> t
+
+) < π low ,
+
+verify , otherwise .
+
+(6) The complete , risk , and verify routes invoke the slow verifier for completion-like, drift-like, and ambiguous cases, respectively; they are routing cues rather than final decisions. Only continue skips the LLM call. In the WebArena runner, the base gates are τ 0+ = 0 .65 and τ 0 
+
+> −
+
+= 0 .55 , adjusted by confidence as τ±(κi) = τ 0 
+
+> ±
+
++ η(κi − 0.5) with η = 0 .1. We set 
+
+πlow = 0 .5, use δ+ = 0 .18 for completion and δ− = 0 .25 for drift, and apply an uncertainty margin of 0.08 to near-threshold cases. Lower-confidence commitments are therefore escalated more readily. A periodic slow check after several consecutive 
+
+continue decisions prevents weak signals from being ignored indefinitely. 
+
+Action-level fast tester. Before executing selected high-impact actions, FCPAgent optionally runs an action-level fast tester. It builds an action description from the proposed browser command, the executor reasoning, the active FCU , and the resolved accessibility-tree target when the action refers to an element id. The tester applies the textual component of Equation 5, replacing 
+
+Tt with this action description and omitting the visual term. It then estimates whether the action aligns with the active subgoal and progress evidence and whether it overlaps with falsifying evidence that can be judged before execution. Observation-only falsifiers are filtered out because they require the post-action page state. The resulting action-risk score emphasizes overlap with falsifying evidence more than lack of positive alignment. Low-risk actions are executed normally. High-risk actions are not blocked by the fast tester alone; instead, they are sent to the slow verifier together with the current page, active FCU , proposed action, and fast-test warning. If the slow verifier rejects the action, repair is triggered before the browser state changes, and the rejected action is recorded to discourage immediate repetition. Together, the state-level and action-level fast testers provide a low-cost evidence-matching layer around the LLM verifier. This preserves the plan-test-repair loop while reducing unnecessary LLM calls on routine browser transitions. 
+
+B.6 Dataset Split and Evaluation Protocol 
+
+Table 7 reports the dataset split used in our experiments. The benchmark contains six WebArena domains, including Shopping, Admin, GitLab, Reddit, Map, and Cross-domain tasks. We use 191 tasks for offline experience construction and 621 tasks for final evaluation. The training split is used only to construct the offline experience support for FCPAgent. Specifically, we build two fixed experience libraries from the training tasks: a skill library distilled from successful trajectories and a failure-repair library distilled from failed or repaired trajectories. During test-time evaluation, both libraries are kept frozen, and no test trajectory is used to update, expand, or modify the experience libraries. Split Shopping Admin GitLab Reddit Map Cross Total Train 48 41 41 21 29 11 191 Test 139 141 139 85 80 37 621 Total 187 182 180 106 109 48 812 Table 7: Dataset split used for offline experience construction and test evaluation. All methods are evaluated on the same test split. To reduce variance caused by stochastic decoding and interaction trajectories, each method is run three times on the test set, and we report the average success rate across the three runs. 
+
+B.7 Baselines 
+
+We compare against six representative web-agent baselines that cover reactive prompting, workflow memory, observation/action abstraction, dynamic replanning, tool induction, and long-horizon progress adaptation. 
+
+• ReAct (Yao et al. 2023b) interleaves natural-language reasoning traces with environment actions. We use it as a general prompting baseline for step-by-step web interaction. 
+
+• AWM (Wang et al. 2025b) induces reusable workflows from past trajectories and retrieves relevant workflows to guide future tasks. It represents the memory-based reuse line of web-agent methods. 
+
+• AgentOccam (Yang et al. 2025b) improves LLM-based web agents by simplifying and aligning the observation and action spaces with the model’s capabilities. It is a strong zero-shot web-agent baseline without explicit workflow memory or repair. 
+
+• WebDART (Yang et al. 2025a) dynamically decomposes complex web tasks into navigation, information extraction, and execution subtasks, and replans as new pages are observed. 
+
+• WALT (Prabhu et al. 2026) learns callable tools that expose recurring website functions such as search, filtering, sorting, posting, or editing. These tools compress multi-step browser interactions into higher-level operations. 
+
+• ColorBrowserAgent (Zhou et al. 2026) targets complex long-horizon web automation with progress summarization and environment adaptation. It is the strongest baseline in our comparison. 
+
+B.8 Implementation Details 
+
+We use Qwen3.5-397B-A17B as the backbone model (Qwen Team 2026) via API call for all methods, with the temperature set to 1. We typically set the number of retrieved skills K = 3 , the number of retrieved failure experiences P = 2 , and the hyperparameter λ = 0 .8.Following ColorBrowserAgent (Zhou et al. 2026), our system is implemented on top of BrowserGym (Le Sellier De Chezelles et al. 2024), with Playwright for programmatic browser control. Observations consist of multimodal inputs, combining Set-of-Marks (Yang et al. 2023) and accessibility-tree representations from WebArena (Zhou et al. 2024). We adopt an action space adapted from AgentOccam (Yang et al. 2025b) to reduce execution errors. The maximum interaction length is set to 20 steps. 
+
+## C Complementary Experiments 
+
+C.1 Efficiency Analysis 
+
+Figure 9 compares the efficiency–performance trade-off on Shopping tasks using two complementary runtime measures. Figure 9a reports LLM call time, which isolates the dominant model-inference cost. Methods that rely heavily on repeated planning and reflection incur substantially higher LLM latency: ColorBrowserAgent requires more than 300 seconds per query, while WebDART is even slower. In contrast, FCPAgent achieves the highest success rate while keeping LLM call time at a moderate level. ColorBrowserAgent (Zhou et al. 2026) is a particularly relevant comparison because it is a closely related reflection-based baseline: after every executed action, it reflects on task progress and whether the trajectory has drifted. In our runtime profiling, this reflection stage consumes more time than its action executor, explaining much of its latency. This observation is consistent with the module-level analysis of FCPAgent in Figure 10, where slow LLM verification also costs more than execution, and motivates avoiding unconditional reflection after every action. Figure 9b reports end-to-end clock time, which additionally includes browser loading, webpage-environment response, tool execution, and other non-LLM overheads. This broader measure changes the apparent efficiency of WALT most noticeably. Although its induced tools reduce LLM reasoning time by compressing recurring routines, executing these tools requires frequent interactions with the webpage, causing WALT to move substantially to the right in the clock-time comparison. By contrast, the relative position of FCPAgent changes little across the two views. Its fast tester is lightweight and inexpensive, as further quantified by the module-level runtime analysis below, while slow LLM verification is reserved for completion-like, risky, or ambiguous cases. Consequently, hybrid commitment testing improves reliability without introducing disproportionate end-to-end latency, and FCPAgent retains a favorable efficiency–success trade-off under both runtime measures. (a) LLM call time. (b) End-to-end clock time. 
+
+Figure 9: Efficiency and success rate on Shopping tasks under two runtime measures. The y-axis reports task success rate, while the x-axis reports the average time per query. 
+
+C.2 Fine-grained evidence and testing ablations 
+
+Variant Shopping Admin Full 67.6 68.8 
+
+w/o confirming evidence 64.7 66.0 w/o falsifying evidence 62.5 63.8 w/o state-level test 64.0 66.0 w/o action-level test 66.9 68.1 w/o local repair 64.7 65.2 w/o replan 65.4 67.4 Table 8: Fine-grained ablation study on success rate (%). Table 8 further decomposes the contributions of the evidence representation, the two runtime testing interfaces, and the available repair scopes. Removing confirming evidence reduces the average success rate from 68.2% to 65.4%, showing that prospective precondition, progress, and completion signals help the agent recognize whether the active commitment remains supported. Removing falsifying evidence causes the largest degradation, reducing the average to 63.2%. This result supports the central motivation of FCPAgent: explicitly specifying observations that would invalidate the current action, skill, or plan is important for detecting locally plausible but task-irrelevant execution. The testing ablations further show that pre-action and post-state checks play complementary but asymmetric roles. Removing post-state testing reduces the average success rate to 65.0%, because many forms of trajectory drift become observable only after the browser returns a new state. In contrast, removing pre-action testing produces a smaller reduction to 67.5%. This is consistent with the runtime diagnostics in Table 9, where state-level testing detects suspicious situations more frequently, while action-level testing acts as a lighter preventive guard before high-impact actions modify the environment. Overall, the results indicate that falsifying evidence and post-state testing provide the primary robustness gains, while confirming evidence and pre-action testing offer complementary support for progress assessment and preventive correction. The repair-scope ablations show that recovery should not be restricted to a fixed scope. Disabling local repair reduces average success from 68.2% to 65.0%, while disabling replanning reduces it to 66.4%. The larger drop without local repair reflects the value of preserving valid commitments when a deviation can be corrected locally, whereas the remaining degradation without replanning shows that some falsified commitments require revising the higher-level plan. Together, these results support scope-aware repair, which uses failure attribution to select the smallest adequate correction instead of defaulting to either local retry or global replanning. 
+
+C.3 Runtime Behavior Analysis 
+
+To better understand how FCPAgent behaves during execution, we additionally instrument the plan-test-repair loop on three representative domains. Table 9 reports planning coverage, commitment-testing behavior, and repair outcomes. These diagnostics complement final task success by showing whether the proposed components are actually used during long-horizon execution. Plan Test Repair Task Tasks w/ skill FCUs linked FCUs /task State slow call State drift Action slow call Action drift Repair /task Repair succ. Shopping 94% 78% 2.6 72% 10% 14% 6% 0.4 73% Admin 90% 88% 2.9 77% 15% 13% 7% 1.0 45% GitLab 93% 72% 2.8 77% 17% 18% 8% 0.9 40% Table 9: Runtime behavior of FCPAgent on three representative domains. Tasks w/ skill is the fraction of tasks covered by at least one retrieved skill; FCUs linked is the fraction of generated FCUs linked to skills. State/action slow call reports how often the corresponding fast tester routes to slow verification, while state/action drift reports the fraction of slow-verifier calls diagnosed as drift. Repair/task denotes the average number of drift-triggered repair events per task. The planning statistics show that the offline skill library provides broad procedural support: 90–94% of tasks are covered by at least one relevant retrieved skill, and 72–88% of generated FCUs are linked to a skill. Each task is decomposed into roughly three FCUs on average, suggesting that FCPAgent usually plans at a compact subgoal level rather than issuing a long flat action script. At the same time, skill coverage alone is insufficient for robust execution, since a retrieved skill may become invalid under a different page state, layout, or task-specific constraint. The testing statistics reveal an asymmetry between state-level and action-level testing. State-level fast testing routes 72–77% of cases to slow verification, and 10–17% of these slow checks are diagnosed as drift. In contrast, action-level fast testing routes only 13–18% of cases to slow verification, with 6–8% diagnosed as drift. This pattern is expected for web tasks: risks are often easier to perceive from the resulting page state, while individual agent actions are frequently clicks or navigational moves whose risk is less explicit before execution. Thus, state-level testing provides higher recall for suspicious situations, whereas action-level testing acts as a lighter pre-action guard. The repair statistics show that drift-triggered repair is used sparsely: 0.4 times per Shopping task and about once per Admin or GitLab task. Once repair is invoked, the eventual success rate is 73% on Shopping and 40% on Admin and GitLab. The lower repair-conditioned success in Admin and GitLab is expected because these domains often involve more stateful operations, permission-sensitive pages, and irreversible intermediate choices. Nevertheless, the results show that scope-aware repair can recover a non-trivial fraction of trajectories after drift has already been detected. 
+
+C.4 Drift Detection Accuracy 
+
+Manual annotation Detected Not detected Total Drift present 10 (TP) 3 (FN) 13 No drift 2 (FP) 15 (TN) 17 Total 12 18 30 Table 10: Task-level drift detection on 30 randomly sampled trajectories. To directly evaluate whether FCPAgent detects trajectory drift, we randomly sample 30 evaluated task trajectories, of which 20 are successful (66.7%), and manually annotate whether each trajectory contains drift. At the task level, a drift-containing trajectory is counted as detected only when FCPAgent raises at least one diagnosis that manual inspection confirms corresponds to an actual drift event. Table 10 compares these diagnoses with the manual annotations. The detector achieves 83.3% precision, 76.9% recall, and an 80.0% F1 score, with 83.3% overall accuracy. The high precision indicates that most raised drift diagnoses correspond to genuine trajectory deviations, while the recall shows that the tester identifies most, but not all, of the drift cases found by manual inspection. These results provide direct evidence that falsifiable commitment testing detects meaningful execution drift, while also showing that subtle deviations remain an important target for improvement. 
+
+C.5 Module-Level Runtime Analysis 
+
+Figure 10 breaks down the total test-time cost across the major modules of FCPAgent . The fast tester accounts for only 2.4% of the overall runtime, confirming that lightweight evidence matching can be applied frequently with little overhead. In contrast, the slow tester accounts for 43.1%, making it the most expensive module and even exceeding the executor’s 34.5% share. Planning and repair contribute the remaining 11.2% and 8.8%, respectively. This distribution highlights the importance of hybrid commitment testing: invoking the slow LLM verifier after every browser transition would impose substantial unnecessary cost, whereas the fast tester can filter routine states and reserve slow diagnosis for completion-like, risky, or ambiguous cases. Figure 10: Distribution of test-time cost across the modules of FCPAgent .
+
+C.6 Repair Strategy Distribution 
+
+Figure 11: Distribution of repair strategies selected by the scope-aware repairer. Figure 11 shows how the repairer distributes its decisions across repair scopes. Local repair is selected most frequently (55%), consistent with the design principle of revising the smallest contradicted component. Replanning nevertheless accounts for a substantial 33%, indicating that many detected violations cannot be resolved by correcting only the next action and instead require revising the active or remaining commitments. Skill switching (7%) handles cases in which the current subgoal remains valid but the retrieved procedure no longer fits the browser state, while backtracking or restarting (5%) provides recovery from severe deviations or unsafe intermediate states. Although less frequent, these strategies show that no single repair scope is sufficient: all four address distinct failure conditions and jointly support heterogeneous long-horizon recovery.
