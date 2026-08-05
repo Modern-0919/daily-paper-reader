@@ -1,0 +1,476 @@
+Title: Fail-Fast, Restart-Smart: Early Failure Prediction and Restart for SWE Agentic Tasks
+
+URL Source: https://arxiv.org/pdf/2608.03222v1
+
+Published Time: Wed, 05 Aug 2026 00:37:09 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# Fail-Fast, Restart-Smart: Early Failure Prediction and Restart for SWE Agentic Tasks 
+
+# Chenyu Wang 1, Yunbo Lyu 1, Junda He 1, Zhou Yang 2, Chenxing Zhong 3, Yaniv Harel 4, David Lo 1
+
+> 1
+
+Singapore Management University 
+
+> 2
+
+University of Alberta 
+
+> 3
+
+Nanjing University of Science and Technology 
+
+> 4
+
+Tel Aviv University {chenyuwang, yunbolyu, jundahe, davidlo}@smu.edu.sg, zhou.yang@ualberta.ca, chenxingzhong@njust.edu.cn, yaniv10@tauex.tau.ac.il 
+
+Abstract 
+
+Software engineering (SWE) agents resolve repository-level issues through long trajectories that grow increasingly expen-sive as context accumulates. Failed runs tend to be longer and exhibit redundant exploration or looping, suggesting that some failures may be detectable before completion. Early ter-mination, however, risks interrupting trajectories that would otherwise succeed; conversely, an unsuccessful trajectory may still contain useful repository edits. We present FailFast –
+
+RestartSmart , a two-stage controller for a single active tra-jectory. FailFast is a lightweight 0.6B monitor trained with terminal and dense fail-to-pass supervision to predict fail-ure from observable prefixes without policy logits or hid-den states. Upon an alarm, RestartSmart launches a fresh same-policy rollout without prior prompt history and offers the interrupted repository diff as an optional overlay that the agent may inspect, apply, or discard. On SWE-bench Verified, a monitor trained solely on Qwen3.6-27B trajectories trans-fers to three other policies, including a closed-API model, and saves 14 .6% –20 .4% of execution tokens at a target 5% 
+
+false-positive rate; on Qwen3.6-27B, its 20 .4% saving ex-ceeds the 12 .5% achieved by our per-step AgentStop adapta-tion. At a target 25% false-positive rate, RestartSmart raises Qwen3.6-27B resolution from 66 .6% to 71 .8% , whereas cold restart reaches only 66 .8% . Together, these results support early termination with sequential same-policy recovery. 
+
+# 1 Introduction 
+
+LLM-based coding systems have evolved from single-pass code generation into software engineering (SWE) agents that resolve repository-level issues by inspecting code, ex-ecuting commands, editing files, and validating candidate patches (Jimenez et al. 2024; Yang et al. 2024; Lyu et al. 2026b). SWE agents operate through long interaction tra-jectories, and each step may reprocess an increasingly large history, producing the token snowball effect (Fan et al. 2025). Failed trajectories are especially costly: they tend to run longer and exhibit redundant exploration, repetition, or loop-ing (Majgaonkar et al. 2025; Bouzenia and Pradel 2025). Although trajectory length alone is often a late signal, these recurring behaviors motivate the possibility of recognizing likely failure from an earlier prefix. Early termination is nevertheless an intervention, not merely a prediction problem. A false alarm can abort a trajec-tory that would otherwise succeed, so even an accurate fail-ure predictor may reduce end-to-end performance (Vasudev et al. 2026). Conversely, terminal failure does not imply that all intermediate work is useless. AgentLens classifies 54 .9% 
+
+of its analyzed failing trajectories as Partial-fail : trajectories that remain structurally close to known-good processes (Sa-hoo et al. 2026). This suggests that some failed attempts may contain recoverable partial progress. Together, these observa-tions motivate our central question: Can we stop a likely-to-fail trajectory early and turn the saved compute and partial progress into a more successful retry? 
+
+Prior work only partially addresses this question, largely treating early termination and recovery in isolation. Post-hoc analyses reveal failure patterns but are not designed for online control (Sahoo et al. 2026; Majgaonkar et al. 2025), while online methods estimate when continued execution may be unproductive yet generally do not study recovery from the interrupted run (Pham et al. 2026; Baidya et al. 2026; Ruan et al. 2026; Guo et al. 2026). Recovery methods instead correct the ongoing trajectory (Gandhi et al. 2025) or rely on multiple inference paths and stronger-model escala-tion (Kim and Yoo 2026). These approaches do not address a sequential same-policy retry: restarting from scratch discards potentially useful edits, whereas continuing the original tra-jectory may preserve the reasoning that led it astray. The open question is therefore not only when to stop, but what, if anything, should cross the restart boundary so that recovery can outweigh false-positive harm and retry cost. To address this gap, we propose FailFast –RestartSmart , a controller for a single active trajectory that combines per-step failure prediction with edit-preserving same-policy retry. 
+
+FailFast is a lightweight 0.6B monitor that reads the issue statement and a window of recent thoughts, actions, and ob-servations. We augment terminal-outcome supervision with dense fail-to-pass (F2P) progress targets obtained by replay-ing agent commands and evaluating intermediate patches. Because FailFast relies only on observable text rather than policy logits or hidden states, it can monitor both open-weight and closed-API policies after threshold calibration 
+
+on validation data under a target false-positive-rate bud-get. When an alarm fires, RestartSmart launches a fresh retry without the previous prompt history and exposes a sta-ble repository diff as an optional, unverified, git-apply -arXiv:2608.03222v1 [cs.SE] 4 Aug 2026 backed overlay. The overlay starts disabled and may be in-spected, applied, or discarded, separating potentially useful edits from the reasoning that produced them. Experiments on SWE-bench Verified reveal complemen-tary cost-saving and recovery regimes. Trained solely on Qwen3.6-27B trajectories, FailFast transfers without weight updates to three other policies, including Gemini 3 Flash. At a target 5% false-positive rate (FPR)—i.e., stopping approx-imately 5% of otherwise successful runs—it saves 14 .6% –
+
+20 .4% of total execution tokens across the four policies; on Qwen3.6-27B, its 20 .4% saving exceeds AgentStop’s 
+
+12 .5% and a duration-only control’s 11 .4% . Including moni-tor overhead, this corresponds to estimated inference-energy and operational-carbon savings of 14 .5% –20 .3% across the three open-weight policies. Because the 5% operating point stops too few trajectories for effective recovery, we eval-uate RestartSmart at target FPRs of 10% and 25% . At 
+
+10% , it improves resolution by 3.0–4.0 percentage points across three open-weight policies, with 20 .5% –36 .9% net token overhead. At 25% , it raises Qwen3.6-27B’s resolution from 66 .6% to 71 .8% (+5 .2 percentage points), whereas cold restart under the same alarms reaches only 66 .8% (+0 .2
+
+points). The overhead is thus a fraction of a single additional rollout, and well below the sampling budgets that test-time scaling commits up front (Jain et al. 2025; Pan et al. 2024). 
+
+# 2 Related Work 
+
+Improving SWE-agent outcomes at test time means deciding how much compute to spend and where. Prior work answers by sampling more, by analyzing failure offline, or by stopping a run online, but rarely by connecting the stopping decision to what happens next. 
+
+Sampling more. The dominant way to improve test-time performance is to draw multiple full trajectories and select among them, whether by verifier, rubric, or search (Pan et al. 2024; Jain et al. 2025; Raghavendra et al. 2026; Shum et al. 2025; Gao et al. 2025; Antoniades et al. 2024; Aggarwal et al. 2025; Lin et al. 2025a; Ding and Zhang 2026; Han et al. 2026), or by supervising the candidate pool online (Lin et al. 2025b; Xi et al. 2025; Chen et al. 2025a; Park et al. 2025; Aggarwal et al. 2023; Li et al. 2024; Sun et al. 2024; Wang et al. 2026). These methods commit multiples of one trajectory regardless of instance difficulty, and all require a pool of candidates that a single deployed run does not have. 
+
+Failure signals exist but are used offline. Trajectory anal-yses show that failure is often detectable before termination: failed runs are longer and more variable, exhibit recurring anti-patterns, and accumulate execution errors (Majgaonkar et al. 2025; Bouzenia and Pradel 2025; Chen, Ma, and Jiang 2025; Mehtiyev and Assunção 2026; Ceka et al. 2025; Cemri et al. 2025; Zhang et al. 2025; Barke et al. 2026; Fan et al. 2026). They operate offline, however, or score trajectories against references derived from multiple passing runs of the same issue, which are unavailable for an unseen issue at de-ployment (Sahoo et al. 2026). We convert these prefix signals into a calibrated online predictor instead. 
+
+Stopping and recovery, studied apart. Single-run early stoppers terminate likely-to-fail trajectories online, but eval-uate detection and savings alone, and rely on signals a de-ployed run may not expose: log-probability supervisors need white-box access to the policy (Pham et al. 2026), as do hidden-state probes (Ruan et al. 2026); weak supervision targets sparse, late-arriving evidence (Baidya et al. 2026); experience-conditioned confidence gates decisions around a completed patch rather than mid-trajectory (Guo et al. 2026; Zhang et al. 2026). None reinvests what it reclaims. Recov-ery methods instead modify the run in place, through live feedback (Gandhi et al. 2025; Nanda et al. 2026) or step rollback (Liu et al. 2025; Li et al. 2025), but correction is not cheap: feedback requires a monitor stronger than the pol-icy (Gandhi et al. 2025), rollback a policy-scale assistant (Li et al. 2025), and our reproduction shows that the prompt in-tervention improving a weak agent reduces the resolution rate of a strong one (Section 4.2). Kim and Yoo (2026) are closest, pairing prediction with recovery, but escalate to a stronger model under merged parallel rollouts. The remaining case is a sequential retry under the same policy: what, if anything, should carry from an aborted run into its replacement. 
+
+Why prediction alone is not enough. Agents’ budget forecasts are over-optimistic (Lin et al. 2026), so stopping requires an external monitor; and accurate prediction does not imply beneficial intervention, since any intervention both recovers failing runs and disrupts runs that would have passed (Vasudev et al. 2026). Our design addresses both: the monitor operates under an explicit false-positive budget, and the restart offers rather than imposes the salvaged edits. 
+
+# 3 Method 
+
+We study whether an agent’s SWE-bench trajectory can be judged online from its partial prefix, before it terminates. Such a judgement enables a fail-fast-and-restart controller: abandon a run predicted to fail rather than pay for its full step budget. We formulate early termination as per-step failure prediction and cast the deployment decision as a budgeted alarm: at a fixed false-positive rate (FPR, the fraction of suc-cessful runs wrongly aborted), maximize recall (the fraction of failing runs caught). We formulate restart as information extraction: given a stopped trajectory, what partial progress can be extracted and exposed to a fresh rollout? The con-troller has two components. (i) Early termination ( FailFast ):a monitor that decides when to abort a single run. (ii) Restart policy ( RestartSmart ): a mechanism that decides what to carry over from the aborted trajectory into the retry. 
+
+## 3.1 Trajectory Early Termination: FailFast 
+
+Because prior studies lack a dedicated method for effectively early-terminating a single trajectory that is likely to fail (with-out access to ground truth or parallel samples from the same instance), we design a custom monitor. The monitor is a lan-guage model with lightweight probing heads, trained on tra-jectories produced by the evaluated policy model (Qwen3.6-27B-FP8, sampled using seeds 0 through 10 in fixed environ-ments) on SWE-bench-verified (Jimenez et al. 2024; Chowd-hury et al. 2024) under mini-swe-agent (Yang et al. 2024), a lightweight framework whose evaluated models closely match their officially reported SWE-bench, and has been used in many previous works (Guo et al. 2026; Lyu et al. 2026a; Ding and Zhang 2026). State Representation and Auxiliary Targets Each tra-jectory is a sequence of steps t = 0 , 1, . . . , T that receives a terminal label yfinal ∈ { 0, 1} indicating ultimate success. A training sample is a trajectory prefix truncated at step 
+
+t. We serialize the prefix into two components containing strictly online information: (1) [ISSUE] , the task specifica-tion, and (2) [WINDOW] , the recent eight steps of thought, action, and observation, plus a persistent pin of the latest patch-producing step. Relying solely on a single binary label at the end of a long trajectory provides sparse, delayed supervision, which severely exacerbates the credit assignment problem when evaluating intermediate steps. To mitigate this and provide denser, fine-grained supervision, we attach two progress tar-gets gf2p  
+
+> t
+
+, g p2p  
+
+> t
+
+∈ [0 , 1] to each prefix. We compute these by replaying the prefix’s bash commands in a fresh instance environment to extract an intermediate patch, which is then scored by the official terminal evaluator for fail-to-pass and 
+
+pass-to-pass pass rates. These targets initialize at (0 , 1) —reflecting the unmodified repository where all pass-to-pass 
+
+tests succeed but fail-to-pass tests fail—and update only upon valid edits. For non-editing steps or malformed patches, we carry forward the last valid score, explicitly resetting to 
+
+(0 , 1) if the agent reverts the working tree. We also construct Bradley–Terry (Bradley and Terry 1952) preference pairs by pairing successful and failed prefixes from mixed instances, matched within each step-fraction decile bucket. This pairing controls for both instance difficulty and trajectory progress, isolating an instance-invariant ranking signal. 
+
+Monitor architecture and training The monitor back-bone is a frozen language model adapted via LoRA (Hu et al. 2021) on attention and MLP projections. Over the pooled last-token hidden state, we attach three linear heads kept in fp32 : a value head s for ultimate resolution, an F2P head ˆaf , and a P2P head ˆap. Only the LoRA adapter and heads are trained. The training objective minimizes the binary cross-entropy (BCE) of the value head s against the terminal label, along-side auxiliary progress and ranking terms: 
+
+L = BCE  s, y final 
+
+ + λf BCE  ˆaf , g f2p 
+
++ λp BCE  ˆap, g p2p  + λr
+
+− log σ(s+ − s−). (1) This regresses both the global decision target and the dense progress features. We empirically set λp = 0 , as subsequent experiments demonstrate that the F2P signal yields consistent improvements while the P2P signal does not. 
+
+Calibration and the deployment policy For deployment, the raw value logit is calibrated to probabilities using Platt scaling (Platt 1999). To construct a per-step decision rule, we employ a meta score , pfail = σ w⊤[ v, ˆgf , ϕ ] + b, a logistic regression fusing the calibrated value v, the F2P progress estimate ˆgf , and the step fraction ϕ. This consistently outper-forms a purely value-based threshold by effectively penaliz-ing low-progress, late-stage states. The trajectory-level alarm aggregates per-step meta scores. To prevent premature firing on the noisy opening steps, decisions are gated by a mini-mum step fraction ϕ ≥ ϕmin , which carries the added ben-efit of completely bypassing monitor inference during early steps (experiments showed that ϕmin = 20 steps provides the best balance). The monitor triggers an abort either when cumulative votes reach a threshold M (count-M ) or after K
+
+consecutive votes ( sustained-K ). We select the deployment operating point by a budget-constrained grid search, max-imizing recall subject to the target false-positive rate. The monitor is trained entirely out-of-fold; only calibration and threshold selection are fitted on evaluation-fold predictions. A nested instance-level cross-fit yields nearly identical oper-ating points and performance, suggesting the selected policy is not an artifact of test-label overfitting. 
+
+## 3.2 Restart Policy: RestartSmart 
+
+When the monitor aborts a run at step tf , it halts the trajectory and triggers RestartSmart , an edit-preserving restart pol-icy operating with a fresh budget. While escalating aborted instances to a larger, more capable model is an intuitive option, this study specifically investigates whether the same 
+
+policy model can utilize artifacts distilled from its own early-stopped trajectory to recover from failure. Outperforming an unguided re-sample (cold restart) under the same model proves that our distilled artifacts extract genuinely construc-tive guidance from doomed runs. A natural first instinct is to summarize the aborted trajectory into textual prompt con-text; however, we notice that verbose text summaries induce severe LLM anchoring effects (Huang et al. 2026), prema-turely locking the restarting agent into the prior attempt’s faulty reasoning paths. To circumvent textual anchoring, we instead preserve the agent’s physical code edits as a clean, environment-level overlay: a fresh rollout inherits no prior prompt history, but is warm-started with access to the aborted repository edits, which it is free to inspect, adopt, or discard. 
+
+Extracting the past edits. We replay the aborted trajec-tory’s bash commands, capturing git diff HEAD after each command and recording a snapshot whenever the diff changes, restricted to files existing at the task baseline (files newly created by the agent are excluded). Crucially, an abort often interrupts the agent just as it is about to apply an edit or while it is mid-repair. To capture a logically complete patch, we allow the replay to finish the agent’s intended sequence of modifications before snapshotting. We therefore do not cut exactly at tf : we locate the first edit at or after tf (falling back to the most recent prior edit if none exist), and extend the cut until g consecutive steps pass without any further edits. The overlay ∆ is the cumulative diff at this cut, which is highly likely to be a settled edit rather than a mid-edit fragment. 
+
+Carrying edits as an overlay. When restarting these early-stopped trajectories, we expose ∆ as an overlay : offered, not forced . Rather than splicing it into the prompt, we mount it as a removable, git-apply–backed tool the agent may inspect (diff ), apply ( on ), or revert ( off ); the overlay starts off ,and the prompt frames it as an unverified lead from a stopped attempt. This lets a restart skip rediscovery costs when it trusts the prior work, or rebuild from scratch when it does not, outperforming cold restarts. 4 Experiments 
+
+## 4.1 Setup 
+
+Dataset and Task. Following similar trajectory-collection setups for SWE verifiers (Pan et al. 2024; Shum et al. 2025), we collect 11 independent runs (seeds 0–10 ) over 500 
+
+SWE-bench Verified instances, partitioned into 350 train-ing, 50 validation, and 100 test instances. For the stan-dalone evaluation of FailFast , we train the monitor only on 
+
+Qwen3.6-27B trajectories and evaluate it across different policy models, testing whether it captures general failure pat-terns rather than model-specific behavior. For the RestartS-mart evaluation, we instead use a policy-specific monitor trained on trajectories from the corresponding model, al-lowing us to assess the potential of restart under the most suitable monitor. Each trajectory contains at most 100 steps, following SWE-bench Leaderboard (OpenLM AI 2026). 
+
+Models and Baselines. To minimize online inference over-head, we deploy a Qwen3-0.6B monitor backbone (occu-pying only ∼2GB VRAM including both model and con-text). This single monitor model is trained exclusively on the Qwen3.6-27B trajectory pool and deployed across four policy models, spanning three state-of-the-art open-weight LLMs highly capable at their respective scale tiers— 
+
+Qwen3.5-9B , Qwen3.6-27B , and Gemma4-31B —and one popular proprietary LLM, Gemini3-Flash (natively resolving 48%, 66%, 62%, and 67% of SWE-bench Ver-ified tasks respectively). Scaling the monitor backbone be-yond 0.6B yields no statistically significant performance gain (Section 4.3), keeping monitoring overhead minimal relative to the policy model. AgentStop (Pham et al. 2026) predicts failure by feed-ing policy execution signals (token log-probabilities, token counts, and step repetitions) into a gradient-boosted tree. In its original form, the decision is made once at a predeter-mined checkpoint k (k ≤ 10 ): a step-k classifier inspects the first k steps, leaving surviving trajectories unchecked there-after. We reproduce this design from the authors’ released code and train it on the same trajectories and labels as our monitor. To adapt AgentStop to our per-step setting, we ex-tend the checkpoint sweep across the entire run, which sub-stantially improves recall across all operating points while reclaiming a higher fraction of tokens in most cases. To isolate performance beyond trajectory length alone, we also include a supervisor-free Duration control. Because fail-ing trajectories tend to run longer than successful ones (Maj-gaonkar et al. 2025), this control scores runs solely using step count, calibrated and thresholded across FPR budgets identi-cally to learned monitors. It strictly upper-bounds signal-free stopping and substantially dominates the random-exit base-line evaluated in Pham et al. (2026). Studies about restarting single-trajectory aborted are scarce in software engineering agents. We thus broaden our scope to non-voting single-trajectory methods (exclud-ing multi-sample setups like Best-of-N ), selecting SWE-PRM (Gandhi et al. 2025) as our primary baseline. SWE-PRM is an inference-time Process Reward Model that detects and course-corrects errors via taxonomy-guided prompt feedback; we use its top-performing setup with 
+
+Claude-Sonnet-4 . Additionally, we evaluate a Cold restart control, which re-initiates tasks aborted by FailFast 
+
+anew without prior context. While we initially considered Liu et al. (2025), its evaluation is restricted to errors persisting across repeated runs. In our preliminary tests, it slightly re-duced the overall resolve rate, likely by disrupting successful trajectories, so we exclude it from the main comparison. 
+
+Training and Hyperparameters. The monitor backbone is adapted via LoRA (Hu et al. 2021) with rank r = 16 and scaling factor α = 32 . Although the training objective admits a P2P progress term for symmetry with F2P, we found it to yield no significant gain and set λp = 0 in the deployed configuration. The final deployed configuration, determined empirically, uses λf = 0 .5, λr = 0 .25 , λp = 0 .
+
+## 4.2 Main Results 
+
+Metrics are averaged over 5 independent runs (seeds 0–4). 
+
+Early-Stop Monitor ( FailFast ) Performance. Table 1 summarizes monitor performance. Practically, the FPR bud-get controls the system’s collateral damage tolerance, i.e., the maximum fraction of would-pass trajectories allowed to be accidentally aborted. A tight budget ( 5% FPR) minimizes accuracy loss for pure cost saving, while a looser budget (e.g., 25% FPR) tolerates more false alarms to maximize failure detection for subsequent restarts (re-running aborted tasks utilizing prior trajectory context). Under each budget, 
+
+Recall reflects the monitor’s detection power: the proportion of would-fail runs caught and aborted before full execution. 
+
+Precision measures alarm reliability (true failures among aborted runs), Fired is the percentage of test trajectories stopped, and Saved is the fraction of total agent compute (in tokens) reclaimed by early abortion, relative to running all trajectories (aborted and completed) to completion. 
+
+FailFast substantially reduces compute budget and transfers across model families. Across all FPR budgets and policy models (Table 1), FailFast reclaims the high-est percentage of total agent compute. For instance, on 
+
+Qwen3.6-27B , when overall performance degrades by at most 5% (FPR budget), FailFast salvages over a fifth (20 .4% ) of all token compute, substantially outperforming AgentStop ( 12 .5% ) and the Duration control ( 11 .4% ). At a looser 25% FPR, FailFast intercepts 68 .3% of all failing runs while reclaiming 49 .0% of total tokens (versus around 
+
+33% –37% for the baselines), providing a substantial compute buffer to subsidize subsequent restarts for these intercepted cases. Across all three policy models at the 5% FPR budget, this single 27B-trained monitor consistently salvages 15% –
+
+20% of total token costs regardless of the target model. 
+
+FailFast introduces negligible estimated energy and carbon overhead. Because FailFast deploys an LLM-based monitor (occupying < 2GB VRAM), it inherently incurs in-ference overhead, prompting us to examine whether raw to-ken savings translate into net energy and carbon reductions. Per-token compute scales with parameter count N at approx-imately 2N FLOPs/token (Kaplan et al. 2020), making our 0.6B monitor 15 ×–52 × cheaper per token than the 9–31B policy models. The monitor adds only a 0.1% –0.6% esti-mated compute overhead. Under the standard approximation Policy Model FPR FailFast AgentStop Duration Recall Prec. Fired Saved Recall Prec. Fired Saved Recall Prec. Fired Saved                                                                                                                                                                                        
+
+> Qwen3.5-9B 534 .788 .220 .415 .735 .189 .220 .410 .234 .788 .220 .410 .910 51 .084 .631 .229 .641 .783 .126 .020 .941 .781 .826 .421 .215 61 .081 .438 .838 .450 .278 .333 .228 .648 .378 .132 .026 .520 66 .478 .543 .844 .054 .174 .537 .635 .951 .774 .436 .032 .325 72 .275 .749 .450 .162 .973 .144 .643 .857 .171 .241 .638 .3
+> Qwen3.6-27B 530 .576 .113 .420 .421 .068 .610 .212 .519 .867 .39.811 .410 45 .569 .721 .828 .034 .164 .017 .824 .329 .960 .216 .622 .115 58 .166 .429 .237 .543 .760 .324 .228 .440 .760 .222 .626 .120 62 .961 .834 .044 .948 .555 .129 .431 .746 .156 .627 .229 .625 68 .358 .838 .849 .054 .552 .334 .837 .250 .951 .832 .833 .7
+> Gemma4-31B 527 .282 .113 .414 .623 .878 .712 .210 .320 .875 .011 .210 .010 38 .172 .621 .223 .038 .672 .921 .418 .532 .770 .218 .816 .615 46 .568 .627 .426 .943 .666 .726 .422 .037 .164 .723 .220 .520 54 .064 .933 .630 .948 .063 .830 .425 .048 .063 .830 .425 .025 57 .461 .138 .032 .351 .561 .933 .627 .551 .561 .933 .627 .5
+
+Table 1: Early-stop monitor performance across false-positive rate (FPR) budgets. Recall : percentage of true failing runs flagged; 
+
+Prec. : percentage of true failures among aborted runs; Fired / Saved : percentage of aborted trajectories and reclaimed tokens. 
+
+Duration is a supervisor-free control given only the step count. Bold marks the best value of each metric per budget. that inference energy scales with model FLOPs, the Saved 
+
+fraction in Table 1 provides a hardware-agnostic estimate of the policy-inference energy reclaimed by early termination. After subtracting the monitor overhead, the resulting values approximate the net energy reduction. They also approximate carbon reductions when the monitor and policy inference are executed under comparable hardware, data-center efficiency, and grid carbon intensity. 
+
+FailFast accurately detects failures and transfers across model families. FailFast outperforms all baselines across policies and operating points, with AgentStop holding a marginal edge (around 0.5% recall) in only two configura-tions. On the native Qwen3.6-27B agent it achieves 30 .5% 
+
+recall at 5% FPR and 68 .3% at 25% , exceeding AgentStop by up to 14 percentage points; transferring across families to 
+
+Gemma4-31B yields 27 .2% and 57 .4% , against 23 .8% and 
+
+51 .5% for AgentStop. On Qwen3.5-9B all methods reach comparable recall at 5% FPR ( 34 .7% , 35 .1% , 34 .7% ), likely because a few extremely long failures on weaker policies are already caught by step-count rules. Recall alone, however, is not enough: Duration and AgentStop fire later and reclaim only ∼10% of tokens, whereas FailFast reclaims 15 .7% at the same recall. At 25% FPR it flags 72 .2% of failing runs and saves 50 .1% of tokens, leaving headroom for restarts. 
+
+Transfer to Closed-Source APIs. We further evaluate whether FailFast generalizes to closed-source APIs using 
+
+Gemini3-Flash . Note that AgentStop is structurally inap-plicable here, as most proprietary APIs (especially those with thinking enabled) do not expose internal token probabilities. As shown in Table 2, although detection recall experiences a slight decrease compared to open-weight models ( 22 .7% at 
+
+5% FPR and 44 .8% at 25% FPR), the token savings remain firmly in the top tier: FailFast salvages 16 .0% of total token compute under a strict 5% FPR budget ( 37 .1% at 25% FPR), consistently outperforming the Duration control ( 12 .0% and                                           
+
+> FPR FailFast Duration Recall Prec. Fired Saved Recall Prec. Fired Saved
+> 522 .769 .810 .616 .017 .864 .49.012 .010 31 .961 .916 .823 .323 .956 .513 .817 .715 36 .854 .522 .029 .526 .446 .718 .422 .820 42 .951 .927 .033 .828 .241 .122 .426 .725 44 .846 .831 .237 .132 .540 .826 .030 .2
+
+Table 2: Early-stop monitor performance on closed-weight Gemini 3 Flash. AgentStop is inapplicable as closed APIs do not expose internal token logprobs. 
+
+30 .2% , respectively). 
+
+Restart Policy ( RestartSmart ) Performance. Table 3 evaluates RestartSmart on trajectories aborted by Fail-Fast , where each model uses a monitor trained on its own trajectories. Because the 5% FPR budget intercepts too few runs to serve as an effective restart threshold, we focus on the 
+
+10% and 25% FPR operating points. We compare RestartS-mart against cold restart and the prompt-intervention base-line SWE-PRM (Gandhi et al. 2025). 
+
+RestartSmart outperforms cold restart by preserv-ing trajectory context. By warm-starting fresh rollouts with the prior edit overlay, RestartSmart consistently translates early-stop alarms into overall resolve rate gains—boosting 
+
+Qwen3.5-9B up to 52 .2% (+4 .0% ), Qwen3.6-27B up to 71 .8% (+5 .2% ), and Gemma4-31B to 65 .2% (+3 .0% ). In contrast, Cold restart achieves only marginal gains at the 
+
+10% FPR budget ( +2 .6% for Qwen3.5-9B , +0 .6% for 
+
+Qwen3.6-27B and +1 .8% for Gemma4-31B ) that shrink further at 25% FPR ( +1 .6% , +0 .2% and +1 .4% ). Compar-ing the two strategies demonstrates the necessity of trajec-tory context: across operating points, RestartSmart recov-FPR Method FP TP Resolve Token lost rec. rate overhead Policy Model: Qwen3.5-9B (vanilla resolve rate: 48 .2)                                                   
+
+> −SWE-PRM −−52 .4 (+4 .2) $0.15/t.
+> 10 FailFast +RestartSmart 45 .8 21 .7 52 .2 (+4 .0) +36 .9
+> FailFast +Cold Restart 45 .8 16 .8 50 .8 (+2 .6) +12 .125 FailFast +RestartSmart 25 .0 19 .0 52 .0 (+3 .8) +39 .2
+> FailFast +Cold Restart 33 .3 15 .6 49 .8 (+1 .6) +12 .1
+> Policy Model: Qwen3.6-27B (vanilla resolve rate: 66 .6)
+> −SWE-PRM −−63 .4 ( −3.2) $0.12/t.
+> 10 FailFast +RestartSmart 15 .2 27 .6 69 .8 (+3 .2) +30 .3
+> FailFast +Cold Restart 36 .4 19 .7 67 .2 (+0 .6) +17 .825 FailFast +RestartSmart 8.828 .9 71 .8 (+5 .2) +43 .8
+> FailFast +Cold Restart 27 .5 20 .2 66 .8 (+0 .2) +18 .2
+> Policy Model: Gemma4-31B (vanilla resolve rate: 62 .2)
+> −SWE-PRM −−63 .0 (+0 .8) $0.12/t.
+> 10 FailFast +RestartSmart 12 .9 24 .4 65 .2 (+3 .0) +20 .5
+> FailFast +Cold Restart 16 .1 17 .9 64 .0 (+1 .8) +7 .225 FailFast +RestartSmart 9.117 .5 65 .2 (+3 .0) +36 .9
+> FailFast +Cold Restart 19 .5 17 .5 63 .6 (+1 .4) +9 .8
+
+Table 3: Performance of restart strategies on interrupted runs. 
+
+FPR = target false-positive rate threshold; FP lost = failed runs that would have passed without being aborted; TP rec. 
+
+= recovered failing runs; Resolve rate = final success rate (parentheses show gains over uncontrolled baseline); Total token overhead denotes the net additional token spending after early-stop savings, as a percentage of standard single-sample spending. Ununitized values are in %; /t. = per task. ers significantly more genuine failures ( TP rec. up to 28 .9% 
+
+vs. 20 .2% for cold restart on Qwen3.6-27B , and 21 .7% 
+
+vs. 16 .8% on Qwen3.5-9B ). Crucially, the larger and more capable Qwen3.6-27B agent exhibits a markedly superior ability to leverage the overlay—critically evaluating prior modifications to preserve viable edits and restore false-alarm runs back to completion, keeping FP lost as low as 8.8% at 
+
+25% FPR (vs. 27 .5% for cold restart, and 15 .2% vs. 36 .4% 
+
+at 10% FPR). In contrast, without prior context, cold restart severely damages false alarms—destroying up to 36 .4% on 
+
+Qwen3.6-27B —causing the penalty of discarding success-ful attempts to quickly outweigh any recovery gains. In terms of token expenditure, cold restart incurs a lower total token cost than RestartSmart . Because cold restart requires no context from early-stopped trajectories, it can terminate execution immediately at the step flagged by Fail-Fast . In contrast, RestartSmart must wait for subsequent edits following the early-stop signal to construct the edit over-lay, resulting in a higher token footprint (e.g., +43 .8% vs. 
+
++18 .2% for Qwen3.6-27B at 25% FPR). Nevertheless, this extra investment is well justified, yielding a net +5 .0% gain in overall resolve rate over cold restart ( +5 .2% vs. +0 .2% ). 
+
+Comparison with Prompt Intervention. (SWE-PRM) 
+
+For the weaker Qwen3.5-9B agent, this prompt-                         
+
+> FPR Policy: Qwen3.5-9B Policy: Qwen3.6-27B 0.6B Mon. 4B Mon. 0.6B Mon. 4B Mon.
+> 539.8 37.8 30.5 25.7
+> 10 55.2 51.7 45.5 41.3
+> 15 62.2 57.9 58.1 47.3
+> 20 65.6 65.3 62.9 54.5
+> 25 69.1 69.5 68.3 58.7
+
+Table 4: Influence of monitor backbone size ( Qwen3-0.6B 
+
+vs. 4B ) on early-stop recall across different policy models (Qwen3.5-9B and Qwen3.6-27B ) (all values in %). intervention strategy proves effective, boosting the overall resolve rate by 4.2% (performing on par with our restart method’s +4 .0% peak). However, this success does not trans-fer to significantly stronger policy models. On the highly ca-pable Qwen3.6-27B agent, SWE-PRM backfires, reduc-ing the resolve rate by 3.2% . This aligns with our expec-tation that while weaker models can be improved by ex-plicit prompt guidance provided by much stronger models, stronger models cannot. For highly capable policy models, intrusive prompt interventions often disrupt their coherent reasoning and problem-solving strategies, leading to worse performance. Furthermore, SWE-PRM incurs additional in-ference overhead and lacks a mechanism to explicitly control the false positive rate (FPR) budget. Our approach avoids these pitfalls by aborting and restarting the trajectory, pre-serving the agent’s autonomy while recovering from failures. 
+
+Restarts offer a controllable compute-performance tradeoff. Executing a restart inherently spends extra steps, partially offset by the tokens reclaimed from early stop-ping. For the Qwen3.6-27B agent, maximizing the re-solve rate ( +5 .2% ) at the 25% FPR budget requires investing roughly +43 .8% net compute. However, the 10% FPR op-erating point provides a more compute-efficient tradeoff for 
+
+Qwen3.6-27B , trading fewer, more-confident alarms for a cheaper gain: achieving +3 .2% resolve for +30 .3% extra compute. For the Qwen3.5-9B agent, the 10% FPR bud-get acts as a sweet spot, achieving the peak +4 .0% resolve rate for +36 .9% net compute, whereas pushing to 25% FPR yields no further gains ( +3 .8% ) while increasing the cost (+39 .2% ). Notably, under cold restart, Qwen3.5-9B in-curs an identical net token cost ( +12 .1% ) at both 10% and 
+
+25% FPR thresholds; the earlier termination at 25% FPR re-claims higher per-run token savings that precisely offset the overhead of interrupting a larger volume of instances. This flexibility allows users to adjust the FPR threshold depending on their available compute budget and policy model. 
+
+## 4.3 Ablation Study and Analyses 
+
+We conduct ablation studies for FailFast and RestartS-mart using monitors trained on trajectory datasets from their respective monitored policy models ( Qwen3.5-9B 
+
+and Qwen3.6-27B ). 
+
+FailFast FPR Policy: Qwen3.5-9B Policy: Qwen3.6-27B Ours (I+W) +S −W −I Ours (I+W) +S −W −I                       
+
+> 539 .834 .4 39 .0 35 .530 .531 .122 .8 26 .310 55 .249 .0 46 .7 51 .045 .544 .9 35 .9 38 .315 62 .259 .1 51 .4 58 .358 .155 .1 44 .9 48 .520 65 .667 .656 .8 62 .262 .960 .5 50 .3 57 .525 69 .169 .962 .9 67 .268 .364 .1 56 .3 65 .3
+
+Table 5: Ablation of monitor input components on early-stop recall across FPR budgets (all values in %). I = [ISSUE] 
+
+(problem statement), W = [WINDOW] (recent detailed exe-cution steps), S = [STATE] (abstract overview from step 1). 
+
+Influence of Monitor Backbone Capacity. To evaluate the impact of backbone capacity, we compare our lightweight 
+
+Qwen3-0.6B monitor against a larger Qwen3-4B model across FPR budgets (Table 4). Scaling the monitor back-bone from 0.6B to 4B parameters yields no meaningful per-formance gain. Across both policy models, Qwen3-0.6B 
+
+achieves comparable or even superior recall compared to Qwen3-4B (e.g., 45 .5% vs. 41 .3% at 10% FPR on 
+
+Qwen3.6-27B , and 55 .2% vs. 51 .7% on Qwen3.5-9B ). This aligns with scaling bottlenecks in scalar reward mod-eling (Chen et al. 2025b), showing that prefix-level fail-ure signals saturate early—allowing our ultra-lightweight 
+
+Qwen3-0.6B monitor to deliver peak efficacy at near-zero inference cost. 
+
+Influence of Input Features. The monitor prompt can incorporate three candidate input components designed to capture failure signals at different granularities: (1) I
+
+([ISSUE] ) conveys task intent and inherent problem diffi-culty; (2) W ([WINDOW] ) exposes recent action-observation history to detect immediate failure symptoms; and (3) S
+
+([STATE] ) provides a global trajectory-quality summary from step one, adapting the process-centric abstraction of Liu et al. (2025). Table 5 evaluates their contributions by comparing our Default configuration ( I+W ) against omitting components ( −I, −W) or appending global state ( +S ). First, adding the global process summary ( +S ) yields no benefit and actually degrades performance in most cases (e.g., drop-ping from 58 .1% to 55 .1% at 15% FPR on Qwen3.6-27B ). This indicates that coarse heuristic summaries act as distrac-tors when an LM monitor can directly analyze raw execution text, justifying our choice to omit S by default. Second, re-cent execution history (W) is the single most critical feature; omitting it ( −W) causes the sharpest recall drop across pol-icy models (e.g., falling by 13 .2% from 58 .1% to 44 .9% 
+
+at 15% FPR on Qwen3.6-27B ). This confirms that Fail-Fast ’s early termination decisions depend tightly on dynamic trajectory behavior rather than static issue descriptions alone. Omitting problem context ( −I) also degrades performance, showing that task intent provides essential baseline context. 
+
+Additional Ablations for FailFast . The supplementary material reports three additional analyses to verify that the 
+
+FailFast design and training settings adopted in this paper are appropriate. First, we vary the observation-window size,                        
+
+> Strategy 10% FPR Budget 25% FPR Budget FP TP Resolve FP TP Resolve lost rec. rate lost rec. rate
+> Immediate 21 .2 28 .969 .6 (+3 .0) 18 .8 22 .868 .8 (+2 .2)
+> Wait (Ours) 15 .2 27 .669 .8(+3 .2) 8.828 .971 .8(+5 .2)
+
+Table 6: Influence of edit-completion patience (delaying ter-mination until post-abort code edits settle to avoid incom-plete overlays) on restart performance on Qwen3.6-27B 
+
+(all values in %). FP lost = failed runs that would have passed without being aborted; TP recovery = recovered failing runs; 
+
+Immediate halts right at the abort signal; Wait (Ours) waits for the first post-abort edit and cuts after five edit-free steps. i.e., the number of recent trajectory steps included in the monitor input, to determine how much execution history is needed. Second, we compare training with only the value head against training with additional F2P and P2P heads to examine whether dense progress supervision improves the value head used for early-stop decisions. Third, we vary the number of independently sampled policy trajectories per instance to study how trajectory diversity affects monitor performance and to validate the selected training-data scale. 
+
+RestartSmart 
+
+Influence of Edit-Completion Patience. To avoid captur-ing incomplete or pending code edits, RestartSmart locates the first edit at or after the abort signal and delays termination until five steps pass without further edits (Table 6). An imme-diate cut ignores this patience window, inheriting fragmented overlays that wrongly destroy viable runs (e.g., 18 .8% FP lost vs. 8.8% at 25% FPR). By allowing the target edit to fully settle, our Wait policy preserves complete, coherent overlays, boosting the final resolve rate to 71 .8% (+5 .2% ). 
+
+# 5 Conclusion and Future Work 
+
+We present FailFast –RestartSmart , a two-stage controller for early trajectory termination and edit-preserving recov-ery in autonomous software issue resolution. Our framework early-terminates likely-to-fail trajectories via a lightweight monitor ( FailFast ), saving up to 20 .4% of execution tokens at a 5% FPR budget (i.e., ×0.95 base performance), and ex-tracts partial code-edit overlays to guide same-model retries (RestartSmart ). By distilling constructive artifacts from in-terrupted runs instead of using expensive oversampling, our approach boosts resolution rates (up to +5 .2% ) at a modest 
+
+20 .5% –43 .8% token overhead. Our evaluation is limited to SWE-bench Verified with mini-swe-agent, so the findings may not generalize to other software engineering tasks or agent frameworks. Generalizability across policy models is supported by consistent results across multiple model scales and families, including a closed-API model. Future work includes: (1) training higher-accuracy monitors for greater token savings; and (2) extracting broader non-anchoring ar-tifacts to preserve success on misclassified runs while turning more failing trajectories into successes. References 
+
+Aggarwal, P.; Madaan, A.; Yang, Y.; and Mausam. 2023. Let’s Sample Step by Step: Adaptive-Consistency for Effi-cient Reasoning and Coding with LLMs. In Conference on Empirical Methods in Natural Language Processing , 12375– 12396. Association for Computational Linguistics. Aggarwal, V.; Kamal, O.; Japesh, A.; Jin, Z.; and Schölkopf, B. 2025. DARS: Dynamic Action Re-Sampling to Enhance Coding Agent Performance by Adaptive Tree Traversal. In 
+
+Annual Meeting of the Association for Computational Lin-guistics , 19808–19855. Association for Computational Lin-guistics. Antoniades, A.; Örwall, A.; Zhang, K.; Xie, Y.; Goyal, A.; and Wang, W. 2024. Swe-search: Enhancing software agents with monte carlo tree search and iterative refinement. In 
+
+International Conference on Learning Representations , vol-ume 2025, 64485–64515. Baidya, A.; Liang, X.; Guo, R.; Gao, X.; and Das, K. 2026. When Evidence is Sparse: Weakly Supervised Early Fail-ure Alerting in Dialogs and LLM-Agent Trajectories. arXiv preprint arXiv:2606.05414 .Barke, S.; Goyal, A.; Khare, A.; Singh, A.; Nath, S.; and Bansal, C. 2026. AgentRx: Diagnosing AI Agent Failures from Execution Trajectories. arXiv:2602.02475. Bouzenia, I.; and Pradel, M. 2025. Understanding Soft-ware Engineering Agents: A Study of Thought-Action-Result Trajectories. In 2025 40th IEEE/ACM International Confer-ence on Automated Software Engineering (ASE) , 2846–2857. IEEE. Bradley, R. A.; and Terry, M. E. 1952. Rank Analysis of Incomplete Block Designs: I. The Method of Paired Com-parisons. Biometrika , 39(3/4): 324. Ceka, I.; Pujar, S.; Ramji, S.; Buratti, L.; Kaiser, G.; and Ray, B. 2025. Understanding Automated Program Repair Agents Through the Lens of Traceability: An Empirical Study. arXiv:2506.08311. Cemri, M.; Pan, M. Z.; Yang, S.; Agrawal, L. A.; Chopra, B.; Tiwari, R.; Keutzer, K.; Parameswaran, A.; Klein, D.; Ramchandran, K.; et al. 2025. Why Do Multi-Agent LLM Systems Fail? arXiv:2503.13657. Chen, W.; He, W.; Xi, Z.; Guo, H.; Hong, B.; Zhang, J.; Zheng, R.; Li, N.; Gui, T.; Li, Y.; et al. 2025a. Better Pro-cess Supervision with Bi-directional Rewarding Signals. In 
+
+Annual Meeting of the Association for Computational Lin-guistics , 14471–14485. Association for Computational Lin-guistics. Chen, X.; Li, G.; Wang, Z.; Jin, B.; Qian, C.; Wang, Y.; Wang, H.; Zhang, Y.; Zhang, D.; Zhang, T.; et al. 2025b. Rm-r1: Reward modeling as reasoning. arXiv preprint arXiv:2505.02387 .Chen, Z.; Ma, W.; and Jiang, L. 2025. Beyond Final Code: A Process-Oriented Error Analysis of Software Development Agents in Real-World GitHub Scenarios. arXiv:2503.12374. Chowdhury, N.; Aung, J.; Shern, C. J.; Jaffe, O.; Sherburn, D.; Starace, G.; Mays, E.; Dias, R.; Aljubeh, M.; Glaese, M.; Jimenez, C. E.; Yang, J.; Ho, L.; Patwardhan, T.; Liu, K.; and Madry, A. 2024. Introducing SWE-bench Verified. Ding, Y.; and Zhang, L. 2026. SWE-Replay: Effi-cient Test-Time Scaling for Software Engineering Agents. arXiv:2601.22129. Fan, S.; Ye, X.; Huo, Y.; Chen, Z.-Y.; Guo, Y.; Yang, S.; Yang, W.; Ye, S.; Chen, J.; Chen, H.; et al. 2026. AgentPro-cessBench: Diagnosing Step-Level Process Quality in Tool-Using Agents. arXiv:2603.14465. Fan, Z.; Vasilevski, K.; Lin, D.; Chen, B.; Chen, Y.; Zhong, Z.; Zhang, J. M.; He, P.; and Hassan, A. E. 2025. Swe-effi: Re-evaluating software ai agent system effectiveness under resource constraints. arXiv preprint arXiv:2509.09853 .Gandhi, S.; Tsay, J.; Ganhotra, J.; Kate, K.; and Rizk, Y. 2025. When Agents go Astray: Course-Correcting SWE Agents with PRMs. arXiv:2509.02360. Gao, P.; Tian, Z.; Meng, X.; Wang, X.; Hu, R.; Xiao, Y.; Liu, Y.; Zhang, Z.; Chen, J.; Gao, C.; et al. 2025. Trae Agent: An LLM-based Agent for Software Engineering with Test-time Scaling. arXiv:2507.23370. Guo, Y.; Xiao, Y.; Zhang, J. M.; Harman, M.; Lou, Y.; Liu, Y.; and Chen, Z. 2026. EET: Experience-Driven Early Ter-mination for Cost-Efficient Software Engineering Agents. arXiv:2601.05777. Han, H.; Xie, J.; Ma, X.; Zhu, W.; Zhang, Z.; Long, Z.; Chen, H.; and Ye, Q. 2026. SWE-TRACE: Optimizing Long-Horizon SWE Agents Through Rubric Process Reward Mod-els and Heuristic Test-Time Scaling. arXiv:2604.14820. Hu, E. J.; Shen, Y.; Wallis, P.; Allen-Zhu, Z.; Li, Y.; Wang, S.; Wang, L.; and Chen, W. 2021. LoRA: Low-Rank Adaptation of Large Language Models. arXiv:2106.09685. Huang, Y.; Bie, B.; NA, Z.; Ruan, W.; Lei, S.; Yue, Y.; and He, X. 2026. Understanding the Anchoring Effect of LLM with Synthetic Data: Existence, Mechanism, and Potential Mitigations. In ICLR 2026 Workshop - From Human Cogni-tion to AI Reasoning: Models, Methods, and Applications .Jain, N.; Singh, J.; Shetty, M.; Zheng, L.; Sen, K.; and Stoica, I. 2025. R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents. arXiv:2504.07164. Jimenez, C. E.; Yang, J.; Wettig, A.; Yao, S.; Pei, K.; Press, O.; and Narasimhan, K. 2024. Swe-bench: Can lan-guage models resolve real-world github issues? In Inter-national Conference on Learning Representations , volume 2024, 54107–54157. Kaplan, J.; McCandlish, S.; Henighan, T.; Brown, T. B.; Chess, B.; Child, R.; Gray, S.; Radford, A.; Wu, J.; and Amodei, D. 2020. Scaling Laws for Neural Language Mod-els. arXiv:2001.08361. Kim, N.; and Yoo, S. 2026. Atropos: Improving Cost-Benefit Trade-off of LLM-based Agents under Self-Consistency with Early Termination and Model Hotswap. arXiv:2604.15075. Li, X.; Chen, K.; Long, Y.; Bai, X.; Xu, Y.; and Zhang, M. 2025. Generator-Assistant Stepwise Rollback Framework for Large Language Model Agent. arXiv:2503.02519. Li, Y.; Yuan, P.; Feng, S.; Pan, B.; Wang, X.; Sun, B.; Wang, H.; and Li, K. 2024. Escape Sky-high Cost: Early-stopping Self-Consistency for Multi-step Reasoning. In International Conference on Learning Representations .Lin, J.; Guo, Y.; Han, Y.; Hu, S.; Ni, Z.; Wang, L.; Chen, M.; Liu, H.; Chen, R.; He, Y.; et al. 2025a. SE-Agent: Self-Evolution Trajectory Optimization in Multi-Step Reasoning with LLM-Based Agents. arXiv:2508.02085. Lin, Y.; Wang, Z.; Liu, M.; Shan, Y.; Bai, L.; Zhang, J.; Jin, X.; Chen, B.; Su, J.; Wang, X.; et al. 2026. BAGEN: Are LLM Agents Budget-Aware? arXiv:2606.00198. Lin, Z.; Tang, Y.; Yao, X.; Yin, D.; Hu, Z.; Sun, Y.; and Chang, K.-W. 2025b. QLASS: Boosting Language Agent Inference via Q-Guided Stepwise Search. In International Conference on Machine Learning .Liu, S.; Chen, Y.; Krishna, R.; Sinha, S.; Ganhotra, J.; and Jabbarvand, R. 2025. Process-Centric Analysis of Agentic Software Systems. Proceedings of the ACM on Programming Languages , 10(OOPSLA1). Lyu, Y.; Shi, J.; Kang, H. J.; Widyasari, R.; He, J.; Niu, Y.; Yang, C.; Chen, J.; Yang, Z.; Lawall, J.; et al. 2026a. AgentSZZ: Teaching the LLM Agent to Play Detective with Bug-Inducing Commits. arXiv preprint arXiv:2604.02665 .Lyu, Y.; Williams, D.; Shi, J.; Sun, Z.; Peng, C.; Yang, Z.; Sarro, F.; and Lo, D. 2026b. How Do Practitioners Build SE Agents? Insights from a Mixed-Methods Study. arXiv preprint arXiv:2607.10856 .Majgaonkar, O.; Fei, Z.; Li, X.; Sarro, F.; and Ye, H. 2025. Understanding Code Agent Behaviour: An Empirical Study of Success and Failure Trajectories. arXiv:2511.00197. Mehtiyev, T.; and Assunção, W. 2026. Beyond Resolution Rates: Behavioral Drivers of Coding Agent Success and Fail-ure. arXiv:2604.02547. Nanda, R.; Maddila, C.; Jha, S.; Khan, E. M.; Paltenghi, M.; and Chandra, S. 2026. Wink: Recovering from Misbehaviors in Coding Agents. arXiv:2602.17037. OpenLM AI. 2026. SWE-bench +. Pan, J.; Wang, X.; Neubig, G.; Jaitly, N.; Ji, H.; Suhr, A.; and Zhang, Y. 2024. Training Software Engineering Agents and Verifiers with SWE-Gym. In Singh, A.; Fazel, M.; Hsu, D.; Lacoste-Julien, S.; Berkenkamp, F.; Maharaj, T.; Wagstaff, K.; and Zhu, J., eds., International Conference on Machine Learning , volume 267 of Proceedings of Machine Learning Research , 47717–47737. PMLR. Park, Y.-J.; Greenewald, K.; Alim, K.; Wang, H.; and Az-izan, N. 2025. Know What You Don’t Know: Uncertainty Calibration of Process Reward Models. arXiv:2506.09338. Pham, D.; Katevas, K.; Shamsabadi, A. S.; and Haddadi, H. 2026. AgentStop: Terminating Local AI Agents Early to Save Energy in Consumer Devices. arXiv:2605.15206. Platt, J. 1999. Probabilistic outputs for support vector ma-chines and comparisons to regularized likelihood methods. 
+
+Advances in large margin classifiers , 10(3): 61–74. Raghavendra, M.; Gunjal, A.; Liu, B.; and He, Y. 2026. Agentic Rubrics as Contextual Verifiers for SWE Agents. arXiv:2601.04171. Ruan, K.; Huang, Z.; Zhou, Z.; Wei, Q.; Wang, X.; and Sun, H. 2026. Doomed from the Start: Early Abort of LLM Agent Episodes via a Recall-Controlled Probe Cas-cade. arXiv:2607.06503. Sahoo, P.; Mittal, G.; Li, X.; Ma, S.; Steenhoek, B.; Lin, P.; and Hu, Y. 2026. AgentLens: Revealing The Lucky Pass Problem in SWE-Agent Evaluation. arXiv preprint arXiv:2605.12925 .Shum, K.; Hui, B.; Chen, J.; Zhang, L.; x., W.; Yang, J.; Huang, Y.; Lin, J.; and He, J. 2025. SWE-RM: Execution-free Feedback For Software Engineering Agents. arXiv:2512.21919. Sun, H.; Haider, M.; Zhang, R.; Yang, H.; Qiu, J.; Yin, M.; Wang, M.; Bartlett, P.; and Zanette, A. 2024. Fast Best-of-N Decoding via Speculative Rejection. In The Thirty-eighth Annual Conference on Neural Information Processing Systems .Vasudev, R.; Russak, M.; Bikel, D.; and Alshikh, W. 2026. The Intervention Paradox: Accurate Failure Predic-tion in Agents Does Not Imply Effective Failure Prevention. arXiv:2602.03338. Wang, X.; Chen, V.; Ji, H.; and Neubig, G. 2026. ARubric-Supervised Critic from Sparse Real-World Out-comes. arXiv:2603.03800. Xi, Z.; Liao, C.; Li, G.; Yang, Y.; Chen, W.; Zhang, Z.; Wang, B.; Jin, S.; Zhou, Y.; Guan, J.; et al. 2025. AgentPRM: Pro-cess Reward Models for LLM Agents via Step-Wise Promise and Progress. arXiv:2511.08325. Yang, J.; Jimenez, C. E.; Wettig, A.; Lieret, K.; Yao, S.; Narasimhan, K. R.; and Press, O. 2024. SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineer-ing. In Neural Information Processing Systems , 50528– 50652. Neural Information Processing Systems Foundation, Inc. (NeurIPS). Zhang, B.; Zhu, J.; Shi, Z.; Liu, D.; and Tang, R. 2026. AgentForesight: Online Auditing for Early Failure Prediction in Multi-Agent Systems. arXiv:2605.08715. Zhang, S.; Yin, M.; Zhang, J.; Liu, J.; Han, Z.; Zhang, J.; Li, B.; Wang, C.; Wang, H.; Chen, Y.; et al. 2025. Which Agent Causes Task Failures and When? On Automated Failure At-tribution of LLM Multi-Agent Systems. In International Conference on Machine Learning .Technical Supplement 
+
+# Overview 
+
+This supplement provides material supporting the main pa-per. Appendix A reports statistical significance tests and con-fidence intervals for the main results. Appendix B presents the three FailFast ablations referenced in the Experiments section (observation-window size, progress-target heads, and training seed count), together with the FailFast monitors whose abort decisions drive the RestartSmart experi-ments. Appendix C gives the verbatim prompt through which 
+
+RestartSmart presents the inherited edits to the agent. Ap-pendix D documents compute infrastructure and hyperpa-rameter ranges, and Appendix E collects extended imple-mentation details. Numbering continues the main paper’s: Tables 1–6 are found there, while Tables 7–12 appear in this supplement. 
+
+# A Statistical Significance of the Main Results 
+
+All comparisons in the paper are paired at the trajectory level on the same 500 evaluation runs, so we test significance with exact two-sided McNemar tests on the discordant pairs; confidence intervals are nonparametric bootstrap percentiles over trajectories (10,000 resamples). Table 7 applies the paired test to the early-stop compari-son of Table 1 at all five budgets: FailFast aborts signifi-cantly more truly-failing runs than AgentStop and Duration in 25 of 30 policy ×budget comparisons and is never sig-nificantly worse; the insignificant cells correspond to the near-ties visible in Table 1. Table 8 shows that the Fail-Fast +RestartSmart resolve gains of Table 3 are statisti-cally significant for every policy and budget ( p ≤ 9.4×10 −3;strongest 4.2 × 10 −5), with bootstrap 95% CIs that exclude zero throughout; against the cold-restart control the advan-tage is significant on Qwen3.6-27B and, pooled over the three policies, at both budgets. The Fix /Brk counts also make the accounting of Table 3 explicit: there, FP lost is the share of aborted would-pass runs whose restart fails to resolve, and TP rec. the share of aborted would-fail runs whose restart resolves. Fix and 
+
+Brk are exactly their numerators (e.g. for the 9B at the 10% budget, 11 of 24 aborted would-pass runs are lost = 45 .8% ). This is also why FP lost falls as the budget loosens: the aborted would-pass set grows (24 to 60 for the 9B), while a larger share of it survives the restart. By the same test, SWE-PRM yields no improvement sig-nificant at α=0 .05 on any policy: 9B 63 /42 discordant, 
+
+p=0 .050 (marginal); 27B 24 /40 (a net decrease), p=0 .060 ;Gemma4 40 /36 , p=0 .73 . Each policy is paired against the baseline behind its Table 3 cell, and its larger discordant sets (it intervenes in every run) dilute comparable net gains. 
+
+# B FailFast Ablations and the FailFast 
+
+# Monitors Behind the Restart Experiments 
+
+Influence of Observation Window Size. To determine the necessary historical context, we ablate the observation-window size k (recent steps in [WINDOW] ) in Table 9. A                                                                                                            
+
+> Policy FPR vs. AgentStop vs. Duration
+> Qwen3.5 -9B
+> 56/7(1.0)7/7(1.0)
+> 10 27 /3(8.4×10 −6)28 /4(1.9×10 −5)
+> 15 35 /7(1.5×10 −5)39 /6(5.4×10 −7)
+> 20 37 /5(4.4×10 −7)41 /3(1.6×10 −9)
+> 25 33 /9(2.7×10 −4)43 /4(2.8×10 −9)Qwen3.6 -27B
+> 517 /1(1.4×10 −4)19 /1(4.0×10 −5)
+> 10 29 /10 (3.4×10 −3)34 /8(6.9×10 −5)
+> 15 32 /8(1.8×10 −4)37 /8(1.5×10 −5)
+> 20 30 /6(7.0×10 −5)31 /3(7.7×10 −7)
+> 25 28 /5(6.6×10 −5)33 /4(1.1×10 −6)Gemma4 -31B
+> 517 /10 (0.25 )16 /3(4.4×10 −3)
+> 10 16 /17 (1.0)18 /7(0.043 )
+> 15 17 /11 (0.34 )23 /4(3.1×10 −4)
+> 20 17 /5(0.017 )17 /5(0.017 )
+> 25 15 /3(7.5×10 −3)15 /3(7.5×10 −3)
+
+Table 7: Paired comparison of abort decisions on the truly-failing runs at matched false-positive budgets ( FPR , in %): 
+
+a/b = the number of failing runs aborted only by FailFast 
+
+/ only by the baseline, with the exact two-sided McNemar 
+
+p in parentheses (boldface: significant at p < 0.05 ). Fail-Fast is significantly better in 25 of 30 comparisons and never significantly worse; every insignificant cell corresponds to a near-tie visible in Table 1 (all methods at the tightest 9B bud-get, and AgentStop on Gemma4-31B at the 5–15% budgets).                                               
+
+> Policy FPR ∆Res. [95% CI] Fix/Brk pvs. vanilla pvs. cold
+> Qwen3.5 -9B
+> 10 +4 .0 [+1 .6,+6 .6] 31 /11 2.9×10 −30.31 25 +3 .8 [+1 .2,+6 .4] 34 /15 9.4×10 −30.15
+> Qwen3.6 -27B
+> 10 +3 .2 [+1 .2,+5 .2] 21 /52.5×10 −30.029
+> 25 +5 .2 [+2 .8,+7 .6] 33 /74.2×10 −50.001
+> Gemma4 -31B
+> 10 +3 .0 [+1 .2,+5 .0] 19 /42.6×10 −30.33 25 +3 .0 [+0 .8,+5 .0] 22 /78.1×10 −30.32
+
+Table 8: Statistical support for the FailFast +RestartSmart 
+
+gains in Table 3 ( FPR , in %). ∆Res. : resolve-rate change (in %), with a nonparametric bootstrap 95% CI over the 500 evaluation trajectories (10,000 resamples). Fix/Brk : the 
+
+number of failing runs repaired vs. passing runs broken, i.e. the discordant pairs of an exact two-sided McNemar test against the vanilla (uncontrolled) runs of Table 3 ( p vs. vanilla; significant for every policy and budget; boldface: 
+
+p < 0.05 ). p vs. cold : the same test paired on the identical aborted runs against the cold-restart control; pooled over the three policies it reaches p=8 .8 × 10 −3 (10% FPR) and 
+
+p=4 .5 × 10 −4 (25% FPR). window that is too narrow ( k = 2 ) lacks sufficient execution context and degrades recall, while k = 8 and k = 16 are within evaluation noise of each other at most budgets. We adopt k = 8 : doubling the window doubles the monitor’s input cost without a dependable accuracy gain. FPR Policy: Qwen3.5-9B Policy: Qwen3.6-27B                                    
+
+> k=2 k=4 Ours ( k=8 )k=16 k=2 k=4 Ours ( k=8 )k=16 535 .1 32 .039 .844 .432 .9 28 .730 .537 .1
+> 10 51 .0 49 .055 .252 .5 41 .9 44 .345 .548 .5
+> 15 59 .8 57 .162 .261 .4 48 .5 55 .158 .152 .720 64 .9 59 .865 .666 .053 .9 59 .962 .959 .325 68 .0 64 .969 .171 .859 .9 65 .368 .365 .9
+
+Table 9: Influence of the observation-window size k (last-
+
+k agent steps) on early-stop recall across FPR budgets (all values in %). Ours uses k=8 ; the k=8 column reproduces the deployed configuration of Table 1.                   
+
+> FPR V Only Ours (V+F2P) V+F2P+P2P
+> 535.5 41 .737.8
+> 10 54.8 55 .252.5
+> 15 62.2 63 .763.3
+> 20 67.6 68 .367.2
+> 25 72 .270.3 71.4
+
+Table 10: Influence of progress target formulation on early-stop recall across FPR budgets on Qwen3.5-9B (all values in %). V: the monitor’s value head; F2P / P2P: the Fail-to-Pass / Pass-to-Pass auxiliary progress heads.                                            
+
+> FPR Policy: Qwen3.5-9B Policy: Qwen3.6-27B
+> N=3 N=6 Ours ( N=11 )N=3 N=6 Ours ( N=11 )
+> 533 .634 .039 .829 .329 .330 .5
+> 10 47 .944 .855 .240 .741 .945 .5
+> 15 57 .156 .062 .249 .748 .558 .1
+> 20 64 .162 .965 .655 .752 .162 .9
+> 25 67 .668 .369 .160 .557 .568 .3
+
+Table 11: Influence of policy training seed count N (trajec-tories per issue) on early-stop recall across FPR budgets (all values in %). Ours uses N =11 ; the N =11 column repro-duces the deployed configuration of Table 1. 
+
+Influence of Progress Targets (F2P/P2P). To evaluate auxiliary progress supervision, we retrain the monitor back-bone with one head ( V Only ), with two heads ( V+F2P ), and with three heads ( V+F2P+P2P ). To isolate the training ob-jective, every arm is scored on the value head alone at the same fixed checkpoint (Table 10). The deployed monitors of Tables 1 and 12 are different training runs scored with the full calibrated combination, so absolute recalls should be compared within this table only. The results demonstrate that multi-task auxiliary training with the dense F2P target provides positive representation alignment, enriching the V
+
+head and significantly boosting its failure detection recall (e.g., +6 .2% at 5% FPR). In contrast, further incorporat-ing P2P supervision offers no additional benefit, validating 
+
+V+F2P as the optimal training objective. 
+
+Influence of Training Seed Count. To examine dataset scaling, we ablate the number of policy trajectories per is-                                                                    
+
+> Policy Model FPR Recall Prec. Fired Saved
+> Qwen3.5-9B 539 .889 .623 .027 .410 55 .285 .633 .441 .815 62 .281 .739 .447 .320 65 .678 .043 .650 .525 69 .174 .947 .857 .5
+> Qwen3.6-27B 530 .576 .113 .420 .410 45 .569 .721 .828 .015 58 .166 .429 .237 .520 62 .961 .834 .044 .925 68 .358 .838 .849 .0
+> Gemma4-31B 525 .976 .612 .822 .810 41 .371 .621 .834 .015 52 .969 .029 .043 .020 60 .365 .135 .046 .325 66 .762 .140 .654 .2
+
+Table 12: Performance of the policy-specific early-stop monitors that produced the abort decisions consumed by 
+
+RestartSmart (Table 3). Unlike Table 1, where a single monitor trained on 27B trajectories supervises every policy, each monitor here is trained on its own policy’s trajectories, the strongest abort signal available for restart. The Qwen3.6-27B block is identical to Table 1 by construction. Recall /
+
+Prec. : truly-failing runs aborted / aborted runs that are true failures; Fired / Saved : trajectories aborted / tokens reclaimed (all values in %). These policy-specific figures feed the restart experiments only; the headline token savings quoted in the abstract are those of the transferred monitor in Table 1. sue N used to train the monitor (Table 11). With modest sampling the monitor is clearly weaker and adding a few more runs barely helps ( N =3 and N =6 perform similarly), whereas expanding to N =11 yields consistent improvements across budgets (up to ∼10 points at mid budgets) by expos-ing the monitor to a far richer diversity of failure modes. Since trajectory collection is a one-time upfront cost, scaling to N =11 provides a worthwhile investment for deployment performance. 
+
+The FailFast Monitors Behind the Restart Experiments. 
+
+Table 12 reports the FailFast monitors whose abort deci-sions the restart experiments consume: each policy gets a monitor trained on that policy’s own trajectories, collected exactly as in the main setup (11 independent runs, seeds 0– 10, over the 500 instances). This makes the quality of the abort signal behind Table 3 explicit. By contrast, Table 1 evaluates a single monitor, trained on 27B trajectories and applied unchanged to every policy. 
+
+# C How RestartSmart Presents the Overlay to the Agent 
+
+Communicating the inherited edits is itself delicate: the restart must be able to use the prior work without being an-chored to a trajectory the monitor judged doomed. The over-lay is therefore exposed as a removable tool, never spliced into the source, and the prompt explicitly warns that the in-herited edits may be wrong. The following note is appended to the task instruction of every restarted run that carries an overlay:               
+
+> Note — a previous attempt’s edits are available as an over-lay: A previous attempt at this task EDITED the source; those changes are NOT applied — the source is pristine — but are available as an overlay you can apply. That attempt was stopped early because it was judged unlikely to finish, so its edits may be a correct fix, an incomplete fix, or a wrong direction — do NOT assume they are right. Your job is to VERIFY them against the actual behavior described in the issue, KEEP what is correct, and FIX or REMOVE what is wrong, then submit a correct patch. You can inspect/apply the inherited edits with the overlay command (do NOT use git checkout /git reset , which would also dis-card your own work):
+> overlay diff # show the inherited edits
+> overlay status # are they currently applied? (they start NOT applied)
+> overlay on # apply them onto the source
+> overlay off # remove them again (keeps any new edits you made) Start by reproducing the issue, then apply the overlay (overlay on ) to check whether the inherited edits fix it; build from there. Producing the correct fix matters more than keeping these edits.
+
+The overlay starts off and the note directs the agent to reproduce the issue before applying it, so verification is an-chored to the task’s pristine state rather than to the inherited edits. Two further safeguards keep self-checking trustwor-thy: the restart executes in the instance’s prepared test-bed environment rather than a bare interpreter, and we opt not to inject auto-generated reproduction scripts, to avoid the risk that a flawed reproduction becomes a false oracle the agent over-trusts. 
+
+# D Compute Infrastructure and Hyperparameter Ranges 
+
+Compute infrastructure. Policy trajectories were gen-erated with SGLang (v0.5.x)-served models on NVIDIA H100 80GB, A100 40GB, RTX A5000 24GB, and RTX 6000 Ada 48GB GPUs (nodes with 128–512 GB RAM; Ubuntu 22.04; Docker or Apptainer containers); grading used the official SWE-bench Docker harness. Monitors (0.6B backbone, LoRA) train on 2 GPUs in under 6 h with Py-Torch 2.6, transformers 5.9, peft 0.19; calibration and scor-ing use scikit-learn 1.7 / numpy 2.2; the agent scaffold is mini-swe-agent 2.2.8. Monitor inference over the evaluation set takes minutes. 
+
+Hyperparameter ranges. Monitor training: frozen 0.6B backbone with LoRA r=16 , peak LR 10 −4, cosine sched-ule over 1500 optimizer steps, checkpoints every 250 steps ({500 , . . . , 1500 }), weight decay 0.01 , LoRA dropout 0.05 ,auxiliary progress-head weight 0.5. Abort-rule selection searches step-fraction floors {0.20 , . . . , 0.50 } (fractions of the fixed T =100 budget, so a floor of 0.20 is the main text’s ϕmin of 20 steps), score thresholds 0.30 –0.96 (step 
+
+0.02 ), cumulative vote counts M ∈ [1 , 12] / consecutive-run lengths K ∈ [1 , 8] , and calibrator regularization C ∈{0.1, 0.3, 1, 3}. Ablated design choices: observation window 
+
+k ∈ { 2, 4, 8, 16 }; training runs per instance N ∈ { 3, 6, 11 };monitor backbone {0.6B , 4B }; input sections (Table 5). 
+
+Runs and variation. Every reported rate pools 100 held-out instances × 5 runs (500 trajectories); runs are generated under fixed, distinct sampling seeds passed to the serving en-gine (deterministic inference enabled where supported), and the same seeded trajectories are reused across all methods, so comparisons are paired. The 350/50/100 instance split is 
+
+instance-grouped , seeded, and frozen to JSON: all 11 runs of an instance stay on the same side, so no instance leaks across train/validation/test. 
+
+Baseline implementations. AgentStop is our reimplemen-tation of the authors’ released code (github.com/brave-experiments/AgentStop). SWE-PRM has no code release and is reproduced from its paper, When Agents go Astray: Course-Correcting SWE Agents with PRMs . The [STATE] analy-sis is likewise reimplemented from scratch from Process-Centric Analysis of Agentic Software Systems .
+
+# E Extended Implementation Details 
+
+Monitor input serialization. Beyond the 
+
+[ISSUE] +[WINDOW] serialization of the main pa-per, three details matter for the input ablation (Table 5). 
+
+(i) Each prefix is capped at 4,096 tokens, enforced as a character budget at 3.5 characters per token; we trim ob-servation head/tail first, then shrink the window, preserving each step’s thought and command and the pinned patch step. (ii) Within [WINDOW] , each step shows the agent’s 
+
+thought , its command (code edits receive a larger character budget; read-only commands are clipped to one line), a classified error tag, a self-test flag, a patch? flag, and the head/tail-truncated observation . (iii) [STATE] is a compact structural summary of the run so far (phase sequence, loop and backtrack counts, progress t/T ), computed with our from-scratch reimplementation of the trajectory analysis of 
+
+Process-Centric Analysis of Agentic Software Systems ; it is evaluated in the ablation and omitted from the deployed monitor. The gold F2P/P2P coverage and the final verdict are label fields and never enter the text. 
+
+Recipe and policy selection. Two training choices were searched on the validation split by recall at the budgeted FPRs: the F2P weight λf ∈ { 0, 0.25 , 0.5} (0.5 won) and the checkpoint (saved every 250 steps; chosen per arm by best recall at the 10% budget: step 500 for 9B, step 1500 for 27B).

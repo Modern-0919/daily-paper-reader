@@ -1,0 +1,567 @@
+Title: CockpitHAT: Dependency-Graph-Driven Hierarchical Attribution for Embodied Multi-Agent Cockpits
+
+URL Source: https://arxiv.org/pdf/2608.01805v1
+
+Published Time: Tue, 04 Aug 2026 01:56:43 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# CockpitHAT: Dependency-Graph-Driven Hierarchical Attribution for Embodied Multi-Agent Cockpits 
+
+Wei Wang *, Shuanghe Liu *, Zhu Zhuo, Jiaqi Zhong, Xiaozhao Zhao, Xiaojie Zuo, Jie Su 
+
+ByteDance 
+
+{wangwei.001028, zuoxiaojie, sujie.131}@bytedance.com 
+
+Abstract 
+
+LLM multi-agent systems suffer from Correct-ness Collapse, where high task-level accuracy conceals severe process-level failures. This is especially hazardous in safety-critical embod-ied settings such as automotive cockpits, where lexically correct utterances may trigger dan-gerous physical operations. Existing attribu-tion methods rely on text traces alone, missing dependency structure, multi-channel evidence, and safety-aware evaluation. We introduce COCKPIT HAT, a hierarchical attribution frame-work that replaces positional windows with dependency-distance thresholds from interac-tion DAGs, integrates multi-channel evidence via an embodied adapter, and applies a safety-uplift to high-risk failures during confidence-weighted analyst consensus. We further release COCKPIT BENCH , a benchmark of 212 anno-tated failure traces spanning dialogue, vehicle-state, environmental, and memory channels, each labeled with ISO 26262 ASIL sever-ity via three-expert consensus. On the pub-lic W HO &W HEN benchmark, C OCKPIT HAT achieves agent-level / step-exact accuracies of 77.9% / 37.8% on the Hand-Crafted split and 86.5% / 46.0% on the Algorithm-Generated split, surpassing the text-only SOTA ECHO by up to 17.6 / 16.7 points. On C OCK -
+
+> PIT
+
+BENCH , it attains 78.3% agent-level and 38.2% step-exact accuracy. These results es-tablish dependency-aware, multi-channel, risk-calibrated attribution as an effective paradigm for reliable failure diagnosis in real-world em-bodied LLM multi-agent systems. 
+
+1 Introduction 
+
+While LLM-powered in-vehicle copilots show ben-efits in driving stability and trust (Bond et al., 2025), multi-agent systems in safety-critical au-tomotive cockpits suffer from Correctness Col-lapse: near-perfect task accuracy masking catas-trophic process-level failures (Yang et al., 2025; 
+
+> *The first two authors contributed equally to this work.
+
+Kim et al., 2022). In February 2026, a Lynk&Co in-vehicle AI hit 99% intent accuracy on a "lights off" command while creating a critical visibility hazard (Caixin, 2026). This reflects error prop-agation, long-recognized in dialogue state track-ing (Xie et al., 2022) and amplified in LLM multi-agent pipelines. The automotive cockpit combines three critical properties: embodiment (physical state changes via CAN bus (COVESA, 2024)), statefulness (long cross-domain sessions), and safety-criticality (fail-ures cause physical harm). Under these condi-tions, text-only frameworks miss silent failures in which a lexically correct utterance triggers a haz-ardous action visible only through the vehicle-state channel, so reliable attribution requires joint analy-sis of dialogue together with embodied channels— environmental context, vehicle state mutations, and cross-session memory. Yet this regime is unsupported on both sides of the attribution pipeline. (i) Methods: exist-ing multi-agent attribution approaches (Banerjee et al., 2025; Zhang et al., 2025; Barke et al., 2026) operate exclusively on text traces, providing no mechanism to ingest embodied channel evidence or ISO 26262 ASIL severity. (ii) Benchmarks: 
+
+current evaluation suites are text-only, single-agent, or lack safety-severity annotations (In et al., 2026; Ferrag et al., 2026; Lin et al., 2025), systemati-cally underrepresenting rare catastrophic failures and omitting ASIL labels (International Organiza-tion for Standardization, 2018). We close both gaps with two contributions: (1) COCKPIT HAT, a dependency-graph-driven attribu-tion framework that achieves 78.3% agent-level and 38.2% step-exact accuracy on C OCKPIT BENCH ;(2) C OCKPIT BENCH , a benchmark of 212 dialogue and embodied channels, ASIL-annotated failure traces with three-expert consensus. All data and code will be publicly released. 1arXiv:2608.01805v1 [cs.AI] 3 Aug 2026 Figure 1: Dependency graph illustration of a multi-agent failure trace. The pipeline ingests role-tagged traces from COCKPIT BENCH and builds a dependency graph sliced into four distance tiers (immediate, local, distant, global). For embodied scenarios, an embodied channel adapter decides whether tier promotion is needed and refines the hierarchical context accordingly. A multi-analyst panel then performs safety-uplifted consensus to produce the final report on agent/step accuracy, failure category, and ASIL level. 
+
+2 Related Work 
+
+We situate our work at the intersection of four re-search areas: LLM agent evaluation, error attri-bution in multi-agent systems, attribution bench-marks, and dependency-aware reasoning for em-bodied safety-critical systems. 
+
+2.1 Evaluation of LLM Agents 
+
+LLM agent evaluation has evolved from static single-turn accuracy to dynamic, interactive, and multi-agent assessments. The shift from outcome-only scoring toward multi-turn, state-aware eval-uation traces back to shared dialogue bench-marks such as the Dialog State Tracking Chal-lenge (Williams et al., 2013), which standard-ized turn-level evaluation of latent conversational state. The LLM era extended this trajectory: early work pioneered scalable LLM-as-judge evalua-tion (Zheng et al., 2024b; Li et al., 2024), followed by comprehensive benchmarks for tool use (Schick et al., 2023; Patil et al., 2024; Li et al., 2023) and complex real-world environments (Liu et al., 2024; Jimenez et al., 2024; Zhou et al., 2024). Multi-agent coordination represents the latest frontier, with frameworks like AutoGen (Wu et al., 2023), MetaGPT (Hong et al., 2024), and ChatDev (Qian et al., 2024) establishing role-based collaboration paradigms, and benchmarks evaluating emergent multi-agent behaviors (Wang et al., 2023; Zhu et al., 2025). Despite this breadth, all these benchmarks measure whether a system succeeds, not why it fails. A system with 96% task-completion accuracy may still exhibit severe process-level failures—a phenomenon termed Correctness Collapse (Yang et al., 2025), where state-of-the-art models degrade from 96% to 56% accuracy under dialectical evalu-ation. This gap motivates the shift from outcome evaluation to error attribution: systematically iden-tifying which agent, at which step, caused a failure. 
+
+2.2 Error Attribution in LLM Systems 
+
+Error attribution goes beyond measuring output quality to localize the responsibility for failures. In single-agent settings, methods have focused on faithfulness verification (Manakul et al., 2023; Gao et al., 2023; Min et al., 2023), reasoning trace eval-uation (Uesato et al., 2022; Zheng et al., 2024a), and self-debugging (Chen et al., 2024; Madaan et al., 2023; Shinn et al., 2023). Multi-agent set-tings present unique challenges: errors propagate through tool outputs, delegated tasks, and shared state, complicating root cause isolation. Zhang et al. (2025) formalized the dual-dimensional (which agent, which step) attribution problem and intro-duced Who&When, achieving only 53.5% agent-level and 14.2% step-level accuracy even with state-of-the-art models. ECHO (Banerjee et al., 2025) proposed hierarchical context with confidence-weighted consensus, and AgentRx (Barke et al., 2026) contributed a unified failure taxonomy. Ex-isting methods remain text-only and rely on po-sitional windows that conflate dependency with adjacency, leaving hazardous actions visible only in non-textual channels undetected. C OCKPIT HAT 2closes this gap via dependency-distance slicing, multi-channel evidence, and safety-calibrated con-sensus. 
+
+2.3 Attribution Benchmarks and Their Structural Limits 
+
+Attribution research depends critically on bench-mark quality. Existing attribution benchmarks (Who&When, MP-Bench (In et al., 2026), Agen-tRx) share four critical limitations for embodied safety-critical systems: (i) text-only modality, (ii) no ISO 26262 ASIL safety labels, (iii) single-rater annotation bias, and (iv) negligible high-severity failure coverage. C OCKPIT BENCH addresses all these gaps (Table 5). 
+
+2.4 Dependency-Aware Reasoning and Embodied Systems 
+
+Structural reasoning for system diagnosis has established foundations across disciplines, con-sistently outperforming purely correlation-based methods (Didelez and Pigeot, 2001; Ge et al., 2025; Schölkopf et al., 2021; West et al., 2025). However, existing structural attribution techniques have not been adapted to LLM-based multi-agent systems, where the “program” is natural language reasoning rather than code or policies. LLM integration with physical action has advanced rapidly, with bench-marks for autonomous driving reasoning (Sima et al., 2024; Deruyttere et al., 2019; Ferrag et al., 2026), in-cabin natural-language vehicle control and conversational understanding (Zhou et al., 2026; Habicht et al., 2025), process-oriented inter-active safety for VLM-driven household agents (Lu et al., 2026), and standard automotive signal ontolo-gies (COVESA, 2024). SIEV (Yang et al., 2025) further shows that dialectical evaluation exposes hidden process-level failures in embodied systems. No prior framework couples dependency-graph attribution with multi-channel embodied evalua-tion. C OCKPIT HAT fills this gap with determinis-tic interaction DAGs, salience-driven channel ev-idence, and safety-uplifted consensus. The result is the first dependency-grounded, channel-aware, risk-calibrated attribution framework for embodied multi-agent systems. 
+
+3 Methodology 
+
+3.1 Dependency Graph Construction 
+
+The first stage lifts a trace T = ⟨s1, . . . , s n⟩ into a directed acyclic graph G = ( V, E ) that makes step-to-step dependencies explicit, shifting context selection from positional adjacency (as in ECHO) to dependency adjacency. Each record si = ( ri, c i)
+
+becomes a node vi, where ri encodes the acting agent and its sub-mode and ci is free-form text or a structured {tool _call, tool _output } object. Em-bodied side-channels (ei, σ i, m i) for environment, vehicle state, and memory references attach as node attributes (Sec. 3.3). 
+
+Edge induction. A directed edge vi → vj (i < j )is added whenever sj depends on si. We instantiate this dependence through four operational signals detectable from the trace itself: (i) reference (sj
+
+mentions an entity, artifact, or tool result first intro-duced in si, matched via entity linking); (ii) plan 
+
+(sj executes or refines a plan or commitment pro-posed in si); (iii) tool (sj references the tool output field of si); and (iv) control (sj is dispatched, dele-gated, or invoked by si). Edges are typed only for downstream interpretability; the graph is treated as untyped during slicing. 
+
+Dependency distance. For any pair (vi, v j ), we define the dependency distance dd(vi, v j ) as the length of the shortest undirected path between them in G. Two steps far apart in time but linked by a direct dependency edge are dependency-close (dd = 1 ); two adjacent steps from unrelated sub-threads are dependency-far. Edge induction re-duces to local pattern matching plus entity linking, yielding O(n2) worst-case and O(n) practical time under a look-back cap; the resulting graph is deter-ministic and reusable across attribution rounds. 
+
+3.2 Dependency-Distance Hierarchical Slicing 
+
+A multi-agent trace is dense: a single attribution decision rarely depends on the entire history, yet a single neighboring step is too narrow to expose how an error propagated. We therefore present each focal step vi as a four-layer context Ci =(Li
+
+> 1
+
+, L i
+
+> 2
+
+, L i
+
+> 3
+
+, L i
+
+> 4
+
+) that preserves content verbatim near the focus and progressively compresses farther away. Crucially, layer membership is decided by dependency distance rather than positional offset: error propagation travels along dependency edges, so steps sharing such an edge with vi are far more informative for attribution than temporally adjacent but dependency-unrelated steps. Let Nk(vi) = {vj | dd(vi, v j ) = k}. The four layers are: • Li 
+
+> 1
+
+(Immediate). {vi} ∪ N1(vi), kept verbatim with reasoning chains and full 3{tool _call, tool _output } pairs. • Li 
+
+> 2
+
+(Local). N2(vi), compressed to key actions, commitments, and conclusions, with routine nar-ration removed. • Li 
+
+> 3
+
+(Distant). N3(vi) ∪ N4(vi), summarized in per-step outcomes of at most 20 words to pre-serve critical transitions and warning signals. • Li 
+
+> 4
+
+(Global). Nodes with dd ≥ 5, represented as sparse milestones such as decision pivots, tool failures, hand-offs, and policy escalations. A context Ci is constructed for every vi ∈ V , and the analyst panel (Sec. 3.4) consumes the full col-lection {Ci}ni=1 . When G is sparse and near-linear, dependency distance closely tracks positional dis-tance and the slicing degenerates gracefully to a positional layering; the benefit grows in proportion to the dependency richness of G.
+
+3.3 Embodied Channel Adapter 
+
+Sections 3.1 to 3.2 define a single-channel pipeline for textual traces. In embodied cockpit settings, however, text alone cannot reliably detect four fail-ure classes: Driver-Agent Interaction, Environmen-tal Misgrounding, Safety Safeguard, and Cross-Domain Contamination. These failures require side information about the environment, vehicle and driver state, or cross-session memory. Their seeding steps may also be far from their manifes-tation on G, , causing the slicing rule to compress them into deeper layers and obscure the cause. The Embodied Channel Adapter (ECA) addresses this issue by extracting relevant steps and attaching supporting evidence to the layered context. It is enabled only when the trace schema contains em-bodied fields; otherwise, C OCKPIT HAT uses the text-only pipeline. 
+
+Salience scanning. ECA dispatches a single per-trace LLM call (typically a smaller model than the analyst agents) that ingests a one-line summary of every step augmented with the role ri and any present (ei, σ i, m i) together with the final system answer, and returns 
+
+S = {(i, τ i, p i)}, (1) where pi ∈ [0 , 1] is a self-reported salience score and τi ∈ Ttag = {INTERACTION _RISK ,
+
+> ENV
+
+_MISGROUNDING , SAFETY _VIOLATION ,
+
+> CROSS
+
+_DOMAIN } corresponds one-to-one to the four embodied failure classes above. The scanner is asked to flag both manifest failures and plausible upstream causes, so that the promoted layer reflects the cause rather than only the symptom. Domain knowledge, e.g., what constitutes a
+
+> SAFETY
+
+_VIOLATION , resides in the scanner prompt rather than in a hand-maintained rule base. 
+
+Channel-aware promotion. For each flagged node vj in layer Lik of context Ci, ECA moves it up by one layer ( Lik → Li
+
+> max(1 ,k −1)
+
+), with the exception that SAFETY _VIOLATION is forced into 
+
+Li 
+
+> 1
+
+regardless of dependency distance, reflecting the hard priority of safety evidence in cockpit de-ployments. Channel fields relevant to the tag are then attached via Π : Ttag → 2{e,σ,m }:
+
+Π( τ ) = 
+
+
+
+{σ} τ = INTERACTION _RISK 
+
+{e} τ = ENV _MISGROUNDING 
+
+{σ, e } τ = SAFETY _VIOLATION 
+
+{m} τ = CROSS _DOMAIN 
+
+(2) Promoted nodes are rendered as (rj , c j , {xj | x ∈
+
+Π( τj )}) with a leading [SALIENT: τj ] marker; un-flagged nodes retain their original layer and ren-dering. The output context eCi is consumed by the analyst panel. 
+
+3.4 Safety-Uplifted Objective Consensus Analysis 
+
+The final stage resolves the contextualized signals 
+
+{ eCi} into a definitive attribution through a panel of specialized analysts and a safety-weighted voting mechanism. Unlike text-only frameworks that rely on generic personas and a symmetric-cost aggre-gation rule, C OCKPIT HAT adopts a risk-sensitive consensus designed to prevent the symmetric-cost assumption from exacerbating Correctness Col-lapse on high-criticality traces. 
+
+Multi-Analyst Panel. COCKPIT HAT deploys a dynamic panel of K = 4 analysts per trace: one mandatory Safety Analyst ( Asafe ), prompted to pri-oritize safety-relevant evidence and to weigh haz-ard severity per ISO 26262, plus three generic analysts sampled without replacement from a six-persona pool (Conservative, Liberal, Detail-Focused, Pattern-Focused, Skeptical, General). Each Ak independently consumes { eCi} and emits a confidence score ck ∈ [0 , 1] and a structured hypothesis hk = (ˆ sk, ˆak, ˆτk, ˆηk), where ˆηk ∈{ASIL-A,B,C,D } is the predicted severity. 
+
+Two-stage factorized consensus. Joint-tuple vot-ing is too sparse, and letting Asafe ’s weight scale 4with its own predicted severity creates a self-reinforcing loop. We therefore decouple severity inference from attribution aggregation. 
+
+Stage 1: Maximum-severity prior. Hazard rating in automotive safety follows a conservative “take-the-most-severe” principle. We set 
+
+η∗ = max  
+
+> ⪰
+
+{ˆηk | ck ≥ δconf }, (3) where ⪰ is the ASIL partial order ( D ≻ C ≻ B ≻
+
+A ), preventing specialist alarms from being out-voted by generic analysts. 
+
+Stage 2: Safety-uplifted marginal aggregation. 
+
+Conditioned on η∗, we define an asymmetric uplift 
+
+Ω( k, η ∗) = 1 + I[k = safe ] ·
+
+min 
+
+
+
+λ(eβ(v(η∗)−1) − 1) , κ (K − 1) 
+
+
+
+, (4) The exponential schedule reflects the compound-ing effect of Severity, Exposure, and Con-trollability in ISO 26262’s ASIL determina-tion, motivating super-linear growth in severity-sensitive weighting; the cap κ(K − 1) pre-vents single-analyst tyranny. We use λ=0 .5,
+
+β=0 .4, κ=1 .0, giving Ω( safe , ASIL-A )=1 .0 and 
+
+Ω( safe , ASIL-D )≈2.16 . For each remaining di-mension x ∈ {s, a, τ }, we aggregate by a confidence- and uplift-weighted marginal vote 
+
+Sx(x) = 
+
+P 
+
+> k
+
+ck Ω( k, η ∗) I[ˆ xk = x]
+
+P 
+
+> k
+
+ck Ω( k, η ∗) , (5) and decode independently as x∗ =arg max x Sx(x), yielding h∗ = ( s∗, a ∗, τ ∗, η ∗).
+
+Calibrated disagreement resolu-tion. If the weakest marginal score 
+
+min {Ss(s∗), S a(a∗), S τ (τ ∗)} falls below an ASIL-calibrated threshold δcons (η∗) (monotone in severity), C OCKPIT HAT triggers a Disagreement Resolution protocol: active analysts must defend their hypotheses by citing explicit evidence from 
+
+{ eCi}, and the tie-break rule mechanically prefers hypotheses supported by concrete trace evidence. 
+
+4 Experiments 
+
+4.1 Experimental Setup Datasets. We evaluate on three datasets. The Hand-Crafted and Algorithm-Generated datasets are the two evaluation splits introduced by Banerjee et al. (2025), comprising manually authored and procedurally generated multi-agent failure traces with agent-level and step-level ground-truth labels. These two datasets, originally constructed for the Who&When benchmark (Zhang et al., 2025), en-able direct comparison with ECHO and the base-lines reported in prior work under identical evalua-tion conditions. C OCKPIT BENCH is our proposed benchmark of 212 annotated embodied cockpit fail-ure traces, spanning eight failure categories and four ASIL safety levels with embodied channel evidence and multi-expert consensus annotations. 
+
+Baselines. We evaluate C OCKPIT HAT against four baselines on Who&When’s Hand-Crafted and Algorithm-Generated splits. For fair comparison, all methods are re-run on D OUBAO -S EED -2.0-PRO .Our faithful re-implementation using official ap-pendix code yields slightly improved baseline per-formance. Baselines include: • Random: Chance-level lower bound via ran-dom agent-step sampling. • All-at-Once: One-shot attribution from full interaction trace. • Step-by-Step: Sequential full-context evalua-tion, selects most error-prone step. • ECHO: State-of-the-art positional hierarchical consensus method. 
+
+Implementation Details. All analyst agents in COCKPIT HAT use D OUBAO -S EED -2.0-PRO with temperature T = 0 and top-p = 1 for deter-ministic decoding. The analyst panel follows the configuration described in Section 3.4: K =4 analysts per trace, comprising one mandatory Safety Analyst ( Asafe ) and three generic analysts randomly sampled without replacement from the six-persona pool (Conservative, Liberal, Detail-Focused, Pattern-Focused, Skeptical, General). The safety-uplift parameters are set to λ = 0 .5,
+
+β = 0 .4, and κ = 1 .0, yielding an uplift factor 
+
+Ω( safe , ASIL-D ) ≈ 2.16 at the highest severity level and Ω( safe , ASIL-A ) = 1 .0 at the lowest. The minimum confidence threshold for severity prior selection is δconf = 0 .3 (Equation 3 in Sec-tion 3.4). The ECA’s LLM salience scanner (Sec-tion 3.3) and the entity-linking step in dependency graph construction (Section 3.1) use DOUBAO -
+
+> SEED
+
+-1.6-FLASH -250615 with T = 0 ; the scan-ner’s per-trace token consumption is under 2% of the total analyst budget. The dependency graph construction (Section 3.1) uses deterministic pat-tern matching; only the entity-linking sub-step in-vokes a lightweight LLM call, which is included 5Table 1: Performance of C OCKPIT HAT and baselines across datasets (all using D OUBAO -S EED -2.0-PRO )                                                                      
+
+> Hand-Crafted Dataset Algorithm-Generated Dataset P-value †
+> Agent-Level Accuracy
+> Random 0.121 0.291 <0.001 All-at-Once 0.653 0.672 0.026 Step-by-Step 0.310 0.595 0.008 ECHO 0.681 0.689 0.014
+> CockpitHAT (ours) 0.779 0.865 -
+> Step-Level Accuracy (Exact)
+> Random 0.042 0.191 <0.001 All-at-Once 0.217 0.328 0.005 Step-by-Step 0.138 0.302 0.002 ECHO 0.293 0.293 <0.001
+> CockpitHAT (ours) 0.378 0.460 -
+> Step-Level with Tolerance (Hand-Crafted Dataset)
+> All-at-Once Step-by-Step ECHO CockpitHAT (ours) P-value †
+> ±1 step 0.259 0.310 0.327 0.397 0.002
+> ±2 steps 0.319 0.328 0.379 0.412 0.004
+> ±3 steps 0.397 0.362 0.379 0.466 0.015
+> ±4 steps 0.397 0.431 0.414 0.534 0.007
+> ±5 steps 0.483 0.465 0.500 0.623 <0.001
+> Token Cost (Hand-Crafted with GT)
+> All-at-Once Step-by-Step ECHO CockpitHAT (ours)
+> Tokens 16,821 83,245 58,662 68,287
+> †P-values compare CockpitHAT against each baseline using chi-squared test.
+
+in the DOUBAO -SEED -1.6-FLASH -250615 alloca-tion above. All baselines are re-evaluated under identical LLM and temperature settings for fair comparison. Token costs are measured with the DOUBAO -S EED -2.0-PRO tokenizer and reported as the sum of input and output tokens per trace. 
+
+Evaluation Metrics. We report Agent Accuracy 
+
+(fraction of traces correctly identifying the respon-sible agent) and Step Accuracy (fraction identifying the error step). For the Hand-Crafted dataset, we additionally report Step Accuracy with Tolerance 
+
+±k for k ∈ { 1, . . . , 5}, defined as the fraction of traces where the predicted step falls within k steps of the ground-truth step. On both Who&When splits, Token Cost reports per-trace input and out-put tokens averaged over the evaluation set. On COCKPIT BENCH , we further report Failure Cate-gory Accuracy (failure category classification) and 
+
+ASIL Safety Level (ASIL level prediction), follow-ing the benchmark’s multi-axis annotation schema. 
+
+Statistical Significance. We assess statistical sig-nificance using chi-squared tests ( χ2, df = 1 ) com-paring C OCKPIT HAT against each baseline. We treat p < 0.05 as statistically significant. 
+
+4.2 CockpitHAT on Who&When 
+
+We evaluate C OCKPIT HAT on the Hand-Crafted (HC) and Algorithm-Generated (AG) splits of Who&When, results are summarized in Table 1. 
+
+Attribution Accuracy. COCKPIT HAT reaches 77.9 % (HC) and 86.5 % (AG) on agent-level at-tribution, and 37.8 % (HC) and 46.0 % (AG) on step-exact localization, achieving the best results on both splits. The larger gain on AG, a 57.0 %, relative improvement on step-exact, reflects the strength of dependency-distance slicing in expos-ing multi-agent dependency structure. As depen-dency density increases, the dependency-graph hi-erarchy continues to surface attribution signals that flat or positional context windows tend to dilute. 
+
+Step-Level Tolerance. On HC, C OCKPIT HAT reaches 39.7 % at ±1 step and 62.3 % at ±5 steps, with the lead over the strongest baseline widening monotonically from +7 .0 to +12 .3 points. The widening indicates that even when localization is not exact, predictions remain within the depen-dency neighborhood of the true error step. All comparisons are significant at p < 0.05 .
+
+Token Efficiency. COCKPIT HAT consumes 68,287 tokens per HC trace ( +16 .4% over ECHO, 6Table 2: Ablation Study: Impact of Each Component                                                    
+
+> Hand-Crafted Dataset Algorithm-Generated Dataset CockpitBench P-value ‡
+> Agent-Level Accuracy
+> Fixed Context (I1) 0.362 0.483 0.211 -+ Hierarchical (I2) 0.431 0.517 0.337 0.005 + Dependency Hierarchical (I3) 0.568 0.603 0.589 0.012 + Objective Analysis (I4) 0.672 0.689 0.622 0.007 + Decoupled Attribution (I5) 0.779 0.865 0.738 0.022 + Embodied Channel Adapter (I6) 0.779 0.865 0.783 0.007
+> Step-Level Accuracy
+> Fixed Context (I1) 0.258 0.317 0.290 -+ Hierarchical (I2) 0.276 0.349 0.330 0.034 + Dependency Hierarchical (I3) 0.276 0.396 0.315 0.007 + Objective Analysis (I4) 0.362 0.444 0.320 0.048 + Decoupled Attribution (I5) 0.378 0.460 0.320 0.055 + Embodied Channel Adapter (I6) 0.378 0.460 0.382 0.026
+
+−18 .0% vs. Step-by-Step). Set against the 
+
++9 .8% / + 8 .5% accuracy gains, the modest over-head reflects a favorable cost. All-at-Once is cheap-est (16,821 tokens) but plateaus at 65.3 % agent accuracy, indicating that token economy without structural context is a poor substitute for hierarchi-cal attribution. 
+
+Component-Wise Ablation. We trace the addi-tive chain I1 →I6 as shown in the first two columns of Table 2; note that I3 replaces the positional hierarchy of I2 with dependency-distance slicing rather than adding to it. (1) Dependency hier-archical slicing (I2 →I3) is the dominant agent-level contributor, delivering +13 .7% points on HC (0.431 → 0.568 ) and +8 .6% on AG. (2) Objective analysis (I3 →I4) closes the step-level gap, lifting HC step from 0.276 to 0.362 (+8 .6% ) and AG step by +4 .8% . (3) Decoupled attribution (I4 →I5) disproportionately benefits AG, contributing the ta-ble’s largest single AG agent-level jump, +17 .6% 
+
+points, versus +10 .7% on HC, indicating that pro-cedurally generated long dependency chains gain the most when agent-level and step-level decisions are made under separate context budgets. (4) Em-bodied Channel Adapter (I5 →I6) is not triggered on Who&When since the dataset contains no em-bodied channels, so the metrics are unchanged. 
+
+4.3 CockpitHAT on CockpitBench 
+
+We evaluate C OCKPIT HAT on C OCKPIT BENCH 
+
+using the four metrics defined in Section 4.1. Per-category results are reported in Table 3; per-ASIL results, together with the failure-category distribu-tion within each ASIL slice, are summarized in Table 4. Overall, C OCKPIT HAT obtains 38.2% Step, 
+
+78.3% Agent, 57.6% F-Cat., and 75.5% ASIL-Lv. The culprit agent is markedly easier to localize than the error-onset step, consistent with long-horizon multi-agent traces in which agent-level responsibil-ity survives better than exact step alignment. 
+
+Category-wise performance. The first four cate-gories in Table 3 cover general reasoning failures. Agent-level attribution is uniformly strong here and peaks on Misinterpretation of Tool Output ( 83.3% 
+
+Agent), since tool-mediated errors leave explicit propagation paths in the trace. Planning Failure is weakest at the step level ( 29.2% ), reflecting the temporally diffuse nature of planning errors. The latter four categories cover cockpit-specific embodied failures. Safety Safeguard Failure is the strongest embodied anchor on both Step ( 46.3% )and F-Cat. ( 61.0% ). Driver–Agent Interaction has the lowest Agent precision ( 68.8% ), indicating that failures at the human–agent boundary are harder to attribute to a single agent. Environmental Mis-grounding is the weakest on F-Cat. ( 50.0% ), as scene-grounding failures are easily confused with neighboring embodied categories. 
+
+Performance across ASIL levels. The rightmost column of Table 4 characterizes, for each ASIL slice, how concentrated its failure-category distribu-tion is, using two summary statistics. Let C denote the set of eight failure categories and pη(c) the em-pirical share of category c ∈ C within ASIL slice η.The Shannon entropy and the dominant-category 7Table 3: Performance of CockpitHAT on CockpitBench: per-category metrics.                                                   
+
+> Failure Category nPer-Category Metrics Step Agent F-Cat. ASIL-Lv.
+> Invention of New Information 37 0.378 0.811 0.568 0.730 Planning Failure 24 0.292 0.792 0.583 0.750 Plan-Adherence Failure 22 0.364 0.818 0.591 0.773 Misinterpretation of Tool Output 30 0.367 0.833 0.567 0.800
+> Driver–Agent Interaction 16 0.375 0.688 0.562 0.750 Environmental Misgrounding 20 0.400 0.750 0.500 0.750 Safety Safeguard Failure 41 0.463 0.756 0.610 0.756 Cross-Domain Contamination 22 0.364 0.773 0.591 0.727
+> All 212 0.382 0.783 0.576 0.755
+
+Table 4: Performance of CockpitHAT on CockpitBench: per-ASIL metrics and failure-category distribution.                                              
+
+> ASIL nPer-ASIL Metrics Failure-Category Distribution Step Agent F-Cat. ASIL-Lv.
+> ASIL-A 98 0.357 0.796 0.571 0.745 H=2 .660 bit, max =0 .235
+> ASIL-B 51 0.353 0.725 0.549 0.706 H=2 .840 bit, max =0 .275
+> ASIL-C 37 0.432 0.811 0.595 0.784 H=2 .410 bit, max =0 .378
+> ASIL-D 26 0.462 0.808 0.615 0.846 H=1 .550 bit ,max =0 .615
+> His computed over failure categories with non-zero count in each ASIL slice ( Keff ≤8); empty categories contribute 0under the standard 0 log 0 = 0 convention.
+
+share are defined as 
+
+H(η) = − X
+
+> c∈C
+
+pη(c) log 2 pη(c),m(η) := max  
+
+> c∈C
+
+pη(c).
+
+(6) where a lower H together with a higher max indi-cates that the slice is dominated by fewer failure modes. Building on these statistics, Step accuracy is higher at the upper-severity end ( 43.2% C, 46.2% 
+
+D), consistent with the ECA design: once a step is tagged SAFETY _VIOLATION , it is forced into L1
+
+regardless of dependency distance. ASIL-Lv. pre-cision is also higher there ( D 84.6% )—exactly the regime targeted by the safety-uplifted consensus, so high-severity slices benefit disproportionately from its risk-calibrated weighting. 
+
+Component-Wise Ablation on CockpitBench. 
+
+We trace the additive chain I1 →I6 on the C OCK -
+
+> PIT
+
+BENCH column of Table 2; Agent climbs from 0.211 to 0.783 and Step from 0.290 to 
+
+0.382 . (1) Dependency hierarchical slicing 
+
+(I2 →I3) delivers +25 .2% Agent points ( 0.337 →
+
+0.589 ), the single largest Agent jump in the ta-ble. (2) Embodied Channel Adapter (I5 →I6) is the decisive Step contributor, lifting Step by +6 .2% points ( 0.320 → 0.382 ) and Agent by a further +4 .5% points ( 0.738 → 0.783 ), a pattern not observed on Who&When. By promoting steps tagged SAFETY _VIOLATION ,
+
+> INTERACTION
+
+_RISK , ENV _MISGROUNDING or 
+
+> CROSS
+
+_DOMAIN into shallower context layers with the matching e, σ, m channels, ECA recovers the error-onset step of safety-relevant failures that ear-lier text-only stages tend to compress away. 
+
+5 Conclusion 
+
+We present C OCKPIT HAT, the first error attribu-tion framework tailored to embodied, stateful multi-agent cockpit systems, together with C OCKPIT -BENCH , the first attribution benchmark to jointly couple ISO 26262 ASIL severity labels with three-channel embodied evidence. On Who&When, COCKPIT HAT surpasses the text-only state-of-the-art ECHO by up to 17.6 and 16.7 points on agent-level and step-exact accuracy, respectively; on C OCKPIT BENCH , it attains 78.3% agent-level and 38.2% step-exact accuracy. Future work will scale the benchmark to over 1,000 multilingual traces, distill the analyst panel into a single low-latency model for real-time deployment, integrate digital-twin counterfactual validation, and extend the framework to other embodied safety-critical domains such as smart homes and medical devices. 8Limitations 
+
+This work has three core limitations. First, our dependency graph construction relies solely on four explicit operational signals detectable from traces, and cannot identify implicit dependencies rooted in shared background knowledge, particularly in ambiguous open-ended scenarios. Second, our safety-uplift hyperparameters and analyst panel configuration are calibrated specifi-cally for automotive cockpits. They are not adap-tive and may require manual tuning for deployment in other safety-critical domains with different risk profiles. Finally, C OCKPIT HAT is designed exclusively for post-hoc failure diagnosis and does not sup-port real-time error detection or mitigation, which is critical for preventing catastrophic outcomes in safety-critical systems. 
+
+Ethics Statement 
+
+This research complies with institutional guidelines and ethical standards for AI safety research. 
+
+Data and Annotation Ethics. COCKPIT BENCH 
+
+comprises 212 traces in total: 78 adapted from pub-lic scenarios, 83 anonymized real-world telemetry scenarios, and 51 adversarial edge cases. All real-world data was collected under IRB approval and fully de-identified to remove all personally identi-fiable information. Annotations were performed by paid professional domain experts compensated above the local living wage, who received compre-hensive training and gave informed consent. The three-expert consensus process minimizes annota-tor bias. 
+
+Safety and Societal Impact. This work aims to improve the safety of LLM-based cockpit systems. The primary risk is that incorrect attribution could lead to inappropriate system modifications. To mit-igate this: • Low-confidence attributions are flagged for mandatory human review • The safety-uplift mechanism prioritizes accu-racy on high-severity ASIL-C/D failures • COCKPIT HAT is explicitly designated as an auxiliary diagnostic tool, not a replacement for human judgment Our benchmark also includes ambiguous "con-tested" traces to emphasize the need for ongoing human oversight. 
+
+Conflict of Interest. All authors are employed by ByteDance. This research was conducted as part of regular employment duties with no exter-nal funding. The authors declare no conflicts of interest. All code and data will be publicly released under a permissive open-source license. 
+
+References                         
+
+> Adi Banerjee, Anirudh Nair, and Tarik Borogovac. 2025. Where did it all go wrong? A hierarchical look into multi-agent error attribution. arXiv preprint arXiv:2510.04886 .Shraddha Barke, Arnav Goyal, Alind Khare, Avaljot Singh, Suman Nath, and Chetan Bansal. 2026. Agen-tRx: Diagnosing AI agent failures from execution trajectories. arXiv preprint arXiv:2602.02475 .Yeana Lee Bond, Mungyeong Choe, Baker Kasim Hasan, Arsh Siddiqui, and Myounghoon Jeon. 2025. Chatgpt on the road: Leveraging large language model-powered in-vehicle conversational agents for safer and more enjoyable driving experience.
+> Preprint , arXiv:2508.08101. Caixin. 2026. Voice-controlled headlight shutdown in a lynk & co vehicle caused an accident: Au-tomakers should not excessively pursue intelli-gent features. https://companies.caixin.com/ 2026-02-28/102418076.html .Accessed: 2026-05-23. X. Chen, M. Lin, N. Schärli, and D. Zhou. 2024. Teach-ing large language models to self-debug. In Proc. ICLR .COVESA. 2024. Vehicle signal specification (VSS) v4.0. https://covesa.github.io/vehicle_ signal_specification/ .Thierry Deruyttere, Simon Vandenhende, Dusan Gruji-cic, Luc Van Gool, and Marie-Francine Moens. 2019. Talk2Car: Taking control of your self-driving car. In
+> Proceedings of EMNLP-IJCNLP .Vanessa Didelez and Iris Pigeot. 2001. Causality: mod-els, reasoning, and inference. Mohamed Amine Ferrag, Abderrahmane Lakas, and Merouane Debbah. 2026. Agentdrive: An open benchmark dataset for agentic ai reasoning with llm-generated scenarios in autonomous systems.
+> Preprint , arXiv:2601.16964. Luyu Gao, Zhuyun Dai, Panupong Pasupat, Anthony Chen, Arun Tejasvi Chaganty, Yicheng Fan, Vin-cent Y. Zhao, Ni Lao, Hongrae Lee, Da-Cheng Juan, and Kelvin Guu. 2023. RARR: Researching and
+
+9revising what language models say, using language models. In Proceedings of ACL .Yu Ge, Linna Xie, Zhong Li, Yu Pei, and Tian Zhang. 2025. Who is introducing the failure? automatically attributing failures of multi-agent systems via spec-trum analysis. arXiv preprint arXiv:2509.13782 .Philipp Habicht, Lev Sorokin, Abdullah Saydemir, Ken E. Friedl, and Andrea Stocco. 2025. Bench-marking contextual understanding for in-car conver-sational systems. Preprint , arXiv:2512.12042. Sirui Hong, Mingchen Zhuge, Jonathan Chen, Xiawu Zheng, Yuheng Cheng, Jinlin Wang, Ceyao Zhang, Zili Wang, Steven Ka Shing Yau, Zijuan Lin, Liyang Zhou, Chenyu Ran, Lingfeng Xiao, Chenglin Wu, and Jürgen Schmidhuber. 2024. MetaGPT: Meta pro-gramming for a multi-agent collaborative framework. In Proceedings of ICLR .Yeonjun In, Mehrab Tanjim, Jayakumar Subramanian, Sungchul Kim, Uttaran Bhattacharya, Wonjoong Kim, Sangwu Park, Somdeb Sarkhel, and Chany-oung Park. 2026. Rethinking failure attribution in multi-agent systems: A multi-perspective benchmark and evaluation. arXiv preprint arXiv:2603.25001 .International Organization for Standardization. 2018. ISO 26262-1:2018: Road vehicles — functional safety. Carlos E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik Narasimhan. 2024. SWE-bench: Can language mod-els resolve real-world GitHub issues? In Proceedings of ICLR .Takyoung Kim, Hoonsang Yoon, Yukyung Lee, Pilsung Kang, and Misuk Kim. 2022. Mismatch between multi-turn dialogue and its evaluation metric in dia-logue state tracking. In Proceedings of the 60th An-nual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers) , pages 297– 309. Minghao Li, Yingxiu Zhao, Bowen Yu, Feifan Song, Hangyu Li, Haiyang Yu, Zhoujun Li, Fei Huang, and Yongbin Li. 2023. API-Bank: A comprehensive benchmark for tool-augmented LLMs. In Proceed-ings of EMNLP .Tianle Li, Wei-Lin Chiang, Evan Frick, Lisa Dunlap, Tianhao Wu, Banghua Zhu, Joseph E. Gonzalez, and Ion Stoica. 2024. From crowdsourced data to high-quality benchmarks: Arena-Hard and BenchBuilder pipeline. In Advances in Neural Information Process-ing Systems (NeurIPS) .L. Lin, S. Chai, J. Wu, H. Hu, X. Gu, H. Hu, F. Zhang, W. Wang, and D. Zhang. 2025. IntelliCockpitBench: A comprehensive benchmark to evaluate VLMs for intelligent cockpit. In Proc. ACL Findings , pages 15453–15475. Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang, Shudan Zhang, Xiang Deng, Ao-han Zeng, Zhengxiao Du, Chenhui Zhang, Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun, and 3 others. 2024. AgentBench: Evaluating LLMs as agents. In 
+
+Proceedings of ICLR .Xiaoya Lu, Zeren Chen, Xuhao Hu, Yijin Zhou, We-ichen Zhang, Dongrui Liu, Lu Sheng, and Jing Shao. 2026. Is-bench: Evaluating interactive safety of vlm-driven embodied agents in daily household tasks. In 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , pages 35680–35688. A. Madaan, N. Tandon, P. Gupta, S. Hallinan, L. Gao, S. Wiegreffe, U. Alon, N. Dziri, S. Prabhumoye, Y. Yang, S. Gupta, B. P. Majumder, K. Hermann, S. Welleck, A. Yazdanbakhsh, and P. Clark. 2023. Self-refine: Iterative refinement with self-feedback. In Proc. NeurIPS .Potsawee Manakul, Adian Liusie, and Mark J. F. Gales. 2023. SelfCheckGPT: Zero-resource black-box hal-lucination detection for generative large language models. In Proceedings of EMNLP .Sewon Min, Kalpesh Krishna, Xinxi Lyu, Mike Lewis, Wen tau Yih, Pang Wei Koh, Mohit Iyyer, Luke Zettlemoyer, and Hannaneh Hajishirzi. 2023. FActScore: Fine-grained atomic evaluation of factual precision in long form text generation. In Proceed-ings of EMNLP .Shishir G Patil, Tianjun Zhang, Xin Wang, and Joseph E Gonzalez. 2024. Gorilla: Large language model connected with massive apis. Advances in Neural Information Processing Systems , 37:126544–126565. Chen Qian, Wei Liu, Hongzhang Liu, Nuo Chen, Yufan Dang, Jiahao Li, Cheng Yang, Weize Chen, Yusheng Su, Xin Cong, Juyuan Xu, Dahai Li, Zhiyuan Liu, and Maosong Sun. 2024. ChatDev: Communicative agents for software development. In Proceedings of ACL .Timo Schick, Jane Dwivedi-Yu, Roberto Dessì, Roberta Raileanu, Maria Lomeli, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom. 2023. Toolformer: Language models can teach themselves to use tools. In Advances in Neural Information Processing Sys-tems (NeurIPS) .Bernhard Schölkopf, Francesco Locatello, Stefan Bauer, Nan Rosemary Ke, Nal Kalchbrenner, Anirudh Goyal, and Yoshua Bengio. 2021. Toward causal representation learning. Proceedings of the IEEE ,109(5):612–634. N. Shinn, F. Cassano, E. Berman, A. Gopinath, K. Narasimhan, and S. Yao. 2023. Reflexion: Lan-guage agents with verbal reinforcement learning. In 
+
+Proc. NeurIPS .Chonghao Sima, Katrin Renz, Kashyap Chitta, Li Chen, Hanxue Zhang, Chengen Xie, Jens Beiwenger, Ping 
+
+10 Luo, Andreas Geiger, and Hongyang Li. 2024. Driv-eLM: Driving with graph visual question answering. In Proceedings of the European Conference on Com-puter Vision (ECCV) .Jonathan Uesato, Nate Kushman, Ramana Kumar, Fran-cis Song, Noah Siegel, Lisa Wang, Antonia Creswell, Geoffrey Irving, and Irina Higgins. 2022. Solv-ing math word problems with process-and outcome-based feedback. arXiv preprint arXiv:2211.14275 .Guanzhi Wang, Yuqi Xie, Yunfan Jiang, Ajay Man-dlekar, Chaowei Xiao, Yuke Zhu, Linxi Fan, and Anima Anandkumar. 2023. Voyager: An open-ended embodied agent with large language models. In Ad-vances in Neural Information Processing Systems (NeurIPS) .Alva West, Yixuan Weng, Minjun Zhu, Zhen Lin, Zhiyuan Ning, and Yue Zhang. 2025. Abduct, act, predict: Scaffolding causal inference for automated failure attribution in multi-agent systems. arXiv preprint arXiv:2509.10401 .Jason D Williams, Antoine Raux, Deepak Ramachan-dran, and Alan W Black. 2013. The dialog state tracking challenge. In Proceedings of the SIGDIAL 2013 Conference , pages 404–413. Qingyun Wu, Gagan Bansal, Jieyu Zhang, Yiran Wu, Beibin Li, Erkang Zhu, Li Jiang, Xiaoyun Zhang, Shaokun Zhang, Jiale Liu, Ahmed Hassan Awadal-lah, Ryen W. White, Doug Burger, and Chi Wang. 2023. AutoGen: Enabling next-gen LLM applica-tions via multi-agent conversation. arXiv preprint arXiv:2308.08155 .Hongyan Xie, Haoxiang Su, Shuangyong Song, Hao Huang, Bo Zou, Kun Deng, Jianghua Lin, Zhihui Zhang, and Xiaodong He. 2022. Correctable-dst: mitigating historical context mismatch between train-ing and inference for improved dialogue state track-ing. In Proceedings of the 2022 Conference on Em-pirical Methods in Natural Language Processing ,pages 876–889. Rui Yang, Hanyang Chen, Junyu Zhang, Mark Zhao, Cheng Qian, Kangrui Wang, Qineng Wang, Teja Venkat Koripella, Marziyeh Movahedi, Manling Li, and 1 others. 2025. EmbodiedBench: Compre-hensive benchmarking multi-modal large language models for vision-driven embodied agents. arXiv preprint arXiv:2502.09560 .Shaokun Zhang, Ming Yin, Jieyu Zhang, Jiale Liu, Zhiguang Han, Jingyang Zhang, Beibin Li, Chi Wang, Huazheng Wang, Yiran Chen, and Qingyun Wu. 2025. Which agent causes task failures and when? on automated failure attribution of LLM multi-agent systems. In Forty-second International Confer-ence on Machine Learning .Chujie Zheng, Zhenrui Zhang, Beichen Zhang, Runji Lin, Keming Lu, Bowei Yu, Dayiheng Liu, Jin-gren Zhou, and Junyang Lin. 2024a. ProcessBench: Identifying process errors in mathematical reason-ing with process reward models. arXiv preprint arXiv:2412.06559 .Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric P. Xing, Hao Zhang, Joseph E. Gonzalez, and Ion Stoica. 2024b. Judging LLM-as-a-judge with MT-bench and chatbot arena. In Advances in Neural Information Processing Sys-tems (NeurIPS) .Hange Zhou, Zhonglin Jiang, yingjie cui, Mingzhe Zhang, Xiaotang Wang, Hengwei Dai, Qiyao Yu, Yong Chen, and Yongqi Zhang. 2026. ClarifyVC: Clarifying ambiguous commands in vehicle control with a hybrid data augmentation pipeline. In The Fourteenth International Conference on Learning Representations .Shuyan Zhou, Frank F. Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng, Tianyue Ou, Yonatan Bisk, Daniel Fried, Uri Alon, and Gra-ham Neubig. 2024. WebArena: A realistic web en-vironment for building autonomous agents. In Pro-ceedings of ICLR .Kunlun Zhu, Hongyi Du, Zhaochen Hong, Xiaocheng Yang, Shuyi Guo, Zhe Wang, Zhenhailong Wang, Cheng Qian, Xiangru Tang, Heng Ji, and Jiaxuan You. 2025. MultiAgentBench: Evaluating the collab-oration and competition of LLM agents. In Proceed-ings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL) .
+
+11 A Appendix 
+
+A.1 CockpitBench A.1.1 Design Principles 
+
+The design of C OCKPIT BENCH is guided by four principles that collectively address the structural limitations of existing attribution benchmarks iden-tified in Section 2. Each principle maps to a spe-cific requirement of embodied, safety-critical multi-agent evaluation and dictates a concrete design choice in our benchmark. 
+
+DP1: Embodied Channel Attribution. Failures in embodied cockpit systems span dialogue to-gether with three embodied channels, environment, vehicle state, and memory. The vehicle state chan-nel involves a wide range of vehicle signals (e.g., speed, lights, HVAC), which we build on top of the COVESA Vehicle Signal Specification (VSS) (COVESA, 2024). COCKPIT BENCH annotates each failure trace with per-channel evidence mark-ers across all embodied modalities, enabling strat-ified evaluation of whether an attribution method attends to the correct diagnostic channel. 
+
+DP2: Safety-Critical Granularity. Automotive functional safety is governed by ISO 26262, which defines four Automotive Safety Integrity Levels (ASIL A–D) with escalating rigor requirements (International Organization for Standardization, 2018). Misattributing an ASIL-D failure carries graver practical consequences than misattributing an ASIL-A failure, yet no existing benchmark la-bels traces with safety severity. C OCKPIT BENCH 
+
+annotates every trace with its ASIL level and oversamples high-severity cases (e.g., 26 ASIL-D traces where Safety Safeguard Failure accounts for 61.5%), enabling stratified evaluation that re-veals whether a method degrades precisely where diagnostic reliability matters most. 
+
+DP3: Multi-Perspective Expert Annotation. 
+
+Single-annotator benchmarks introduce annotator-style bias that can inflate measured accuracy for methods whose internal diagnostic style aligns with the annotator’s (Zhang et al., 2025; Barke et al., 2026). C OCKPIT BENCH employs a three-expert panel per trace—a dialogue specialist, a vehicle-systems engineer, and a certified safety analyst—producing independent judgments recon-ciled through a structured consensus protocol (de-tailed in Section A.1.3). Disputed traces are re-tained under a CONTESTED marker, enabling eval-uation of a method’s ability to recognize genuinely ambiguous failures. 
+
+DP4: Stateful Trajectory Alignment. Dialogue-only benchmarks cannot detect failures that man-ifest as incorrect vehicle state transitions—a cor-rectly parsed “lights off” command that produces a hazardous physical state change (Caixin, 2026). COCKPIT BENCH aligns every interaction step with a COVESA Vehicle Signal Specification (VSS) state snapshot sampled at 100 ms granularity (COVESA, 2024), enabling attribution methods to detect discrepancies between the state trajectory implied by dialogue and the actual state trajectory recorded on the vehicle bus. 
+
+A.1.2 Limitations of Existing Benchmark Datasets 
+
+Current research on failure attribution for large language model-based multi-agent systems heav-ily relies on two authoritative benchmarks: the Who&When Benchmark and the AgentRx Dataset. Despite their valuable contributions to automated failure diagnosis, both benchmarks exhibit inher-ent structural constraints that prevent their direct deployment in embodied safety-critical scenarios. This section first elaborates the characteristics of the two public datasets and further summarizes their shared limitations, thereby clarifying the ne-cessity of constructing the proposed C OCKPIT -BENCH .
+
+The Who&When Benchmark. The Who&When Benchmark pioneers a dual-dimensional attribution paradigm that explicitly locates which agent triggers systemic failures and 
+
+at which execution step critical errors emerge. Built upon 184 distinct LLM multi-agent config-urations, this benchmark provides meticulously annotated failure trajectories with fine-grained agent-level and step-level labels. In its empirical evaluation, the best-performing attribution method merely reaches 53.5% accuracy for agent identi-fication and 14.2% for step localization, yielding a substantial accuracy gap of 39.3 percentage points. Even cutting-edge reasoning models, including OpenAI o1 and DeepSeek R1, struggle to produce reliable diagnostic results, and several baseline approaches underperform randomized guessing. Although this benchmark validates the feasibility of agent-oriented attribution, it simultaneously demonstrates the non-trivial difficulty of precise step-level localization and 12 reveals that general-purpose LLMs cannot replace specialized attribution pipelines. 
+
+The AgentRx Dataset. Complementarily, the AgentRx Dataset (Barke et al., 2026) constructs a unified failure taxonomy grounded in qualita-tive grounded theory, covering three typical task domains: structured API invocation, incident man-agement, and open-ended web manipulation. The dataset contains 115 manually curated failure tra-jectories, each annotated with unambiguous er-ror steps and standardized failure categories. Be-yond static labeling, the accompanied AgentRx framework establishes an interpretable diagnos-tic pipeline that extracts domain constraints, it-eratively examines trajectory violations, and gen-erates human-readable evidence chains for final judgment. Such auditability design substantially reduces manual diagnosis costs and consistently outperforms baseline methods across all evaluated domains. While AgentRx enhances trace-level in-terpretability, its task settings remain confined to pure software agent workflows without physical embodied interactions. 
+
+Four Structural Limitations. By comprehen-sively comparing these two widely adopted bench-marks, we identify four inherent structural limita-tions that hinder their generalization to intelligent cockpit scenarios: 1. Text-only modality. All diagnostic traces are derived from linguistic dialogues or structured textual logs, lacking non-linguistic embodied signals such as vehicle state mutations and multimodal environmental observations. At-tribution models trained on such text-limited data fail to capture state-dependent failure chains, which are indispensable for embod-ied cockpit failure diagnosis. 2. No safety-oriented annotations. No existing trace is labeled with safety severity levels (e.g., ASIL per ISO 26262), making it impossible to conduct stratified risk evaluation. Such omis-sion leads to hidden performance degradation on high-risk cases; our later experiments show that agent-level attribution accuracy drops sub-stantially when safety context is absent. 3. Single-pass or single-rater annotation. Both benchmarks employ single-pass labeling pro-tocols, introducing annotator-style bias. At-tribution methods whose internal diagnostic style happens to align with the annotator’s may receive inflated accuracy scores, under-mining the reliability of comparative evalua-tion. 4. No rare-failure coverage. Safety-critical fail-ures (ASIL-C/D) occur at rates below 0.1% in naturalistic driving data. Uniform sampling strategies produce benchmarks with negligible high-severity representation, preventing statis-tically meaningful evaluation on the cases that matter most. To address the aforementioned drawbacks, we propose C OCKPIT BENCH , a stateful, safety-aware benchmark tailored for embodied intelligent cock-pit multi-agent systems. Table 5 concisely illus-trates the fundamental differences between C OCK -
+
+> PIT
+
+BENCH and existing public benchmarks, high-lighting our targeted improvements over each iden-tified limitation. 
+
+A.1.3 Data Collection and Annotation 
+
+This section details the construction pipeline of the proposed C OCKPIT BENCH benchmark, covering simulation infrastructure, scenario curation, expert annotation workflows, dataset statistics, and qual-ity control mechanisms. Built upon the COVESA Vehicle Signal Specification (VSS) 4.0 reference implementation, a customized simulation harness is developed to support the benchmark, which de-ploys a multi-agent cockpit system consisting of four functional software agents (i.e., Dialogue Man-ager, State Controller, Safety Monitor, and Envi-ronment Interpreter) alongside an independent sim-ulated driver agent. Specifically, the Dialogue Man-ager undertakes natural language human-vehicle interaction and intent parsing, while the State Con-troller governs vehicle signal trees, executes oper-ational commands, and records system state vari-ations at a 100 ms sampling granularity. As the safety constraint enforcement module, the Safety Monitor possesses the authority to override abnor-mal system actions in compliance with ASIL-level safety regulations, and the Environment Interpreter processes multi-modal sensor data to maintain a real-time global world model for other agents. Ad-ditionally, the simulated driver agent generates nat-ural language instructions and introduces human-side interaction errors following predefined behav-ioral templates. All agents share a unified VSS-compliant vehicle state tree, and the simulation 13 Limitation Who&When AgentRx CockpitBench Modality Text-only Text-only Three-channel (dialogue + state + environment) Safety Labels None None ASIL A–D per ISO 26262 Annotation Single-pass Single-rater Three-expert panel with consensus reconciliation Rare-failure coverage Limited (184 traces) Limited (115 traces) Adversarial edge cases + ASIL-C/D oversampling (212 traces) 
+
+> Table 5: Comparison of Benchmark Characteristics
+
+framework supports eight fine-grained failure in-jection primitives that cover comprehensive failure modes, including information fabrication, planning anomalies, plan execution deviation, tool output misinterpretation, human-agent interaction misco-ordination, environmental sensor misgrounding, safety safeguard malfunction, and cross-domain parameter contamination. This failure taxonomy in-tegrates failure patterns summarized in prior bench-marks, including hallucination and reasoning er-rors from the Who&When Benchmark (Zhang et al., 2025), and cross-domain failure types from the AgentRx Dataset (Barke et al., 2026), while further supplementing embodied physical failures and human-LLM interaction defects that are ab-sent from text-only and standalone software agent benchmarks. To construct a comprehensive safety-oriented evaluation set, we curate a total of 212 failure sce-narios covering all eight failure categories and four ISO 26262-defined ASIL severity levels (98 ASIL-A, 51 ASIL-B, 37 ASIL-C, and 26 ASIL-D). Each standardized scenario incorporates initial vehicle and environmental configurations, natural language driving objectives, explicit fault injection param-eters, and ground-truth safe outcomes for failure validation. The curated scenarios are sourced from three complementary datasets: 78 adapted scenar-ios derived from Who&When with manually aug-mented fault injection modules and state trajec-tory annotations, 83 real-world scenarios abstracted from anonymized production driving telemetry un-der institutional review board approval to ensure ecological validity, and 51 adversarially designed edge cases targeting prevalent defects of contem-porary large language model agents identified in pilot experiments. Considering the extremely low natural occurrence of high-severity failures in real driving data (ASIL-D events account for less than 0.1% of daily interactions), we adopt a stratified oversampling strategy following safety-critical ma-chine learning evaluation criteria to guarantee suf-ficient high-risk samples, thereby enabling statis-tically robust evaluation on severe safety-critical failure cases. All collected failure traces are annotated via a rigorous three-stage multi-expert labeling pipeline, which improves upon the single-pass and single-rater annotation schemes adopted in previous benchmarks. In the initial annotation stage, three domain experts with differentiated professional backgrounds—including a human-AI dialogue spe-cialist, an automotive signal architecture engineer, and a certified safety analyst—independently la-bel each trace from multi-dimensional perspectives. Each expert annotation records the responsible agent, critical failure timestamp, failure category, ASIL severity level, subjective confidence score, and evidence extracted from dialogue transcripts, vehicle state trajectories, and environmental logs. In the second reconciliation stage, anonymized an-notation results are shared among experts for con-sensus calibration. Traces with consistent cross-expert labels are directly adopted as finalized sam-ples; disagreeing cases are resolved through writ-ten evidence justification and majority voting, with ASIL levels determined by the most conservative hazard assessment. Traces with three-way diver-gent agent attributions are marked as contested and retained with complete original annotation records to preserve inherently ambiguous failure samples. In the final safety audit stage, an ISO 26262-qualified independent safety engineer re-views all high-severity ASIL-C/D traces and a 20% random subset of low-severity samples, verifying the rationality of ASIL classifications based on ex-posure, controllability, and hazard severity metrics, with disputed cases submitted for secondary joint review by the full annotation team. The finalized C OCKPIT BENCH dataset contains 212 fully annotated failure traces with detailed sta-tistical characteristics: the average number of inter-action turns per trace reaches 14.3 (SD = 6.8), with a range from 4 to 38 turns, while each trace involves 4.2 active agents on average and lasts for 47.2 simu-lated seconds (SD = 23.1). Each trace retains com-14 plete multi-agent interaction transcripts, timestamp-aligned VSS state sequences, environmental sen-sor logs, raw expert annotation records, reconciled consensus labels, audited ASIL tags, and detailed scenario metadata. Evaluation results reveal that the proposed C OCKPIT HAT framework achieves 78.3% agent-level attribution accuracy, 38.2% step-exact localization accuracy, 57.6% failure category classification accuracy, and 75.5% ASIL severity prediction accuracy on this benchmark. The signifi-cant accuracy degradation from agent identification to precise step localization is consistent with the performance decline observed in the Who&When Benchmark, which verifies that while the model can effectively capture macro-level responsibility and overall safety risks, fine-grained temporal fail-ure localization remains a highly challenging task even in embodied driving scenarios. Moreover, the higher overall attribution accuracy compared with text-based benchmarks is attributed to the supple-mentary state and environmental diagnostic signals, rather than reduced task difficulty. We implement four quantitative evaluation pro-tocols to systematically validate dataset annotation quality. First, Fleiss ´kappa coefficients are calcu-lated to measure inter-annotator agreement, yield-ing substantial consistency scores of 0.71 for agent attribution, 0.68 for step localization (with a ±1turn tolerance), and 0.74 for failure category clas-sification. These moderate yet non-perfect agree-ment results align with the inherent ambiguity of real-world failure diagnosis tasks and rationalize the retention of contested traces. Second, a 10% random subset of traces is re-annotated after a 14-day washout period, with intra-rater agreement scores exceeding 0.82 across all annotation dimen-sions, demonstrating favorable temporal annota-tion stability. Third, the independent safety audit achieves a 96.4% consistency rate for ASIL classi-fication, and only three misclassified high-severity traces are corrected via secondary expert review. Fourth, baseline ceiling validation confirms that the state-of-the-art ECHO model cannot achieve saturated performance on our benchmark, and the evident accuracy gap between proposed methods and perfect attribution further validates that C OCK -
+
+> PIT
+
+BENCH effectively reflects the Correctness Col-lapse phenomenon without spurious annotation ar-tifacts. 
+
+A.2 CockpitHAT Algorithm Algorithm 1 Dependency-based attribution with safety-uplifted consensus 
+
+1: Input: trace τ , answer α, thresholds δ, δ cons , analysts K,uplift params λ, β, κ 
+
+2: Output: attributed agent(s), step(s), failure type, ASIL 3: procedure BUILD GRAPH (τ )4: V ← { v1, . . . , v n}, E ← ∅ 
+
+5: for j = 2 to n do 
+
+6: for i = max(1 , j − L) to j − 1 do 
+
+7: if REF /P LAN /T OOL /C TRL (si, s j ) then 
+
+8: E ← E ∪ { vi → vj }
+
+9: end if 
+
+10: end for 
+
+11: end for 
+
+12: compute dd(vi, v j ) = DIST (Gundir , v i, v j ) for all 
+
+(vi, v j )
+
+13: return (G = ( V, E ), d d)
+
+14: end procedure 
+
+15: procedure SLICE (G, d d)16: for each focal node vi do 
+
+17: derive N1, . . . , N 4 from dd
+
+18: Ci ← {VERBATIM ({vi} ∪
+
+N1), KEY DECISIONS (N2),
+
+19: SUMMARIZE ≤20 (N3 ∪
+
+N4), MILESTONES (dd ≥ 5) }
+
+20: end for 
+
+21: return C = ∪iCi
+
+22: end procedure 
+
+23: procedure ADAPT (C, τ, α )24: if no embodied fields in τ then return C
+
+25: end if 
+
+26: S ← LLMS CAN (τ, α )
+
+27: for each Ci and salient tuple (j, τ j , p j ) ∈ S do 
+
+28: promote vj (to L1 if τj = SAFETY_VIOLATION ,else by one level), attach Π( τj )
+
+29: end for 
+
+30: return ˜C
+
+31: end procedure 
+
+32: procedure CONSENSUS ( ˜C, δ, K, λ, β, κ )33: A ← { Asafe } ∪ SAMPLE (K − 1, PERSONA POOL )
+
+34: for each Aj ∈ A do 
+
+35: (ˆ sj , ˆaj , ˆτj , ˆηj ) ← EVAL ( ˜C, ρ j ), cj ←
+
+CONFIDENCE (·)
+
+36: end for 
+
+37: η∗ ← MAX SEVERITY ({ˆηj | cj ≥ δ})
+
+38: set weights Ωj with uplift for Asafe 
+
+39: for each x ∈ { s, a, τ } do 
+
+40: compute weighted support Sx(·) and choose 
+
+x∗ = arg max Sx(x)
+
+41: end for 
+
+42: if min {Ss, S a, S τ } < δ cons (η∗) then 
+
+43: DISAGREEMENT RESOLUTION (A, ˜C)
+
+44: end if 
+
+45: return (s∗, a ∗, τ ∗, η ∗)
+
+46: end procedure 
+
+47: (G, d d) ← BUILD GRAPH (τ )
+
+48: C ← SLICE (G, d d)
+
+49: ˜C ← ADAPT (C, τ, α )
+
+50: return CONSENSUS ( ˜C, δ, K, λ, β, κ )
+
+A.3 Prompt Templates 
+
+This subsection provides the prompt templates used by different model roles in C OCKPIT HAT, in-15 cluding dependency graph construction, embodied-context saliency analysis, and multi-analyst attribu-tion. 
+
+Prompt 1: Dependency Graph Construction Model. You are a dependency-graph construc-tion model for an embodied multi-agent cockpit system. Your task is to read a full interaction trace and construct a directed dependency graph G = ( V, E ),where each node vi corresponds to one interaction step si, and each directed edge vi → vj indicates that step sj depends on step si.Each step is represented as: si =(ri, c i, e i, σ i, m i), where ri is the acting role or agent, ci is the textual content, ei is the embodied or multimodal signal, σi is the execution status or state, and mi is the metadata. The system includes the following agents: Direc-tor, NavigationAgent, VehicleAgent, Infotainmen-tAgent, MemoryAgent, GUIAgent, and SafetyA-gent. A dependency edge may be induced by one or more of the following dependency types: (1) ref-erence dependency, (2) planning dependency, (3) tool/evidence dependency, and (4) control-state de-pendency. Instructions: Analyze the full trace globally be-fore making local edge decisions. Focus on oper-ational dependence rather than topical similarity. Add an edge only when si materially enables, con-strains, triggers, or grounds sj . Be conservative and avoid weak, speculative, or redundant edges. Allow multiple dependency labels if needed, but select one primary label per edge. Consider both linguistic and embodied evidence. Output format: For each retained edge, output source step, target step, primary dependency type, optional secondary dependency types, and a one-sentence justification. Then output the node set, edge set, and any notable graph-level observations. 
+
+Prompt 2: ECA Saliency Scan Model. You are an embodied-context saliency analysis model. Your task is to scan a multi-agent cockpit inter-action trace and identify steps that are especially salient for downstream attribution. A step is salient if it carries unusually strong relevance to safety, responsibility, environmental risk, abnormal state transitions, or embodied contextual cues that may change attribution priority. Each step is represented as: si =(ri, c i, e i, σ i, m i).Pay special attention to safety violations, risky vehicle-control attempts, dangerous navigation changes, anomalous vehicle-status signals, adverse weather conditions, risky visual observations, high-impact execution failures, strong user-intent pivots, and embodied cues that should elevate a step into a more local context layer. Instructions: Read the entire trace before de-ciding which steps are salient. Consider both textual and embodied signals. Prioritize safety-critical and attribution-critical events. Distinguish ordinary context from context that deserves pro-motion in the hierarchical slice. If a step indi-cates a clear safety violation, mark it explicitly as SAFETY_VIOLATION. Otherwise, provide the most specific saliency tag possible. Output format: For each salient step, return step ID, saliency tag, priority level, concise justification, and suggested promotion strength. 
+
+Prompt 3: Safety Analyst. You are a safety-first attribution analyst for an embodied multi-agent cockpit system. Your role is to analyze a hierarchically sliced and saliency-adapted context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure category, (4) the ASIL severity level, and (5) your confidence. You must prioritize safety and risk containment. When evidence suggests possible safety-critical harm, unsafe execution, or missing safety inter-vention, you should explicitly surface that concern rather than smoothing it away. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay particular attention to omitted safety checks, unsafe vehicle-control execution, hazardous route changes, media or visual distraction in risky con-texts, failures to respond to dangerous weather, road, or vehicle-state signals, and failures of the SafetyAgent or failures to invoke the SafetyAgent when necessary. Instructions: Use the provided context only; do not invent missing evidence. If the evidence is in-complete, still reason conservatively from a safety perspective. Prefer under-explaining convenience failures over underestimating safety-critical fail-ures. Assign higher severity when the failure could materially increase driving risk or user harm. Dis-tinguish root-cause responsibility from downstream symptom steps. 16 Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-dence score, and a short rationale. 
+
+Prompt 4: Conservative Analyst. You are a conservative attribution analyst for an embodied multi-agent cockpit system. Your task is to analyze the provided context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure cat-egory, (4) the ASIL severity level, and (5) your confidence. Your style is cautious, restrained, and evidence-conservative. You should avoid making aggressive responsibility claims unless they are well supported by the trace. When multiple attributions are plausi-ble, prefer the one that is most directly grounded in observable evidence and the narrowest defensible interpretation. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay particular attention to whether a claimed fail-ure is explicitly supported by the interaction trace, embodied observations, execution states, or clearly recoverable dependencies. Avoid overextending from weak correlations or indirect hints. Instructions: Base every conclusion on explicit evidence or strong dependency support. Do not speculate about hidden internal states, undocu-mented tool failures, or unstated intentions. If the evidence remains ambiguous, lower your con-fidence rather than forcing a strong claim. Distin-guish the step that detected a problem from the step that caused it. Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-dence score, and a conservative rationale. 
+
+Prompt 5: Liberal Analyst. You are a liberal at-tribution analyst for an embodied multi-agent cock-pit system. Your task is to analyze the provided context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure cat-egory, (4) the ASIL severity level, and (5) your confidence. Your style is exploratory, flexible, and willing to infer broader responsibility when the trace strongly suggests it, even if every detail is not explicitly stated. You should surface plausible higher-level responsibility patterns when they are well moti-vated by the interaction flow. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay particular attention to upstream causes, la-tent coordination failures, missing interventions, and plausible responsibility that may not be re-ducible to a single local execution slip. You may consider broader dependency context, provided that your reasoning remains coherent and trace-consistent. Instructions: Use the full interaction trajectory and embodied context to infer responsibility. Allow reasonable high-level dependency-based general-ization, but do not invent unsupported facts. When a local error is best explained by an upstream de-sign or coordination mistake, you may attribute responsibility to the upstream step. Clearly sepa-rate plausible inference from direct observation. Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-dence score, and a liberal rationale. 
+
+Prompt 6: Detail-Focused Analyst. You are a detail-focused attribution analyst for an embodied multi-agent cockpit system. Your task is to analyze the provided context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure cat-egory, (4) the ASIL severity level, and (5) your confidence. Your style is meticulous and fine-grained. You should pay close attention to local evidence, step boundaries, execution ordering, parameter ground-ing, state transitions, and small inconsistencies that may reveal the exact failure point. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay particular attention to subtle mismatches between user intent and system response, small execution deviations, incorrect argument passing, timing issues, overlooked safety cues, and local in-consistencies between tool results and downstream actions. Instructions: Inspect the trace carefully at the step level. Favor precise attribution to the most specific responsible step when possible. Distin-guish root cause from nearby but merely adjacent steps. Avoid broad abstractions if the failure can be localized more exactly. Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-17 dence score, and a detail-focused rationale. 
+
+Prompt 7: Pattern-Focused Analyst. You are a pattern-focused attribution analyst for an embodied multi-agent cockpit system. Your task is to analyze the provided context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure cat-egory, (4) the ASIL severity level, and (5) your confidence. Your style is holistic and pattern-sensitive. You should identify larger behavioral patterns across the interaction trace, including repeated coordination weaknesses, recurring state mismatches, systematic safety omissions, or multi-step failure cascades. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay particular attention to cross-step regulari-ties, repeated signs of unsafe handling, recurring planning errors, systematic misuse of evidence, or broader execution patterns that explain why the final failure emerged. Instructions: Look beyond isolated local steps and identify whether the failure is part of a broader failure pattern. When appropriate, attribute respon-sibility to the step that best represents the dominant failure pattern in the trace. However, keep your reasoning anchored in observable evidence rather than vague intuition. Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-dence score, and a pattern-focused rationale. 
+
+Prompt 8: Skeptical Analyst. You are a skepti-cal attribution analyst for an embodied multi-agent cockpit system. Your task is to analyze the provided context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure cat-egory, (4) the ASIL severity level, and (5) your confidence. Your style is critical, questioning, and resistant to premature conclusions. You should actively test whether an apparent attribution is truly justified, whether alternative explanations remain plausible, and whether the evidence supports responsibility rather than mere association. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay particular attention to confounders, alterna-tive failure explanations, missing evidence, ambigu-ous timing, and cases where the apparently obvious culprit may only be a downstream manifestation rather than the true cause. Instructions: Challenge the most convenient attri-bution and verify whether it survives close scrutiny. If a strong attribution cannot be justified, reduce your confidence accordingly. Distinguish observa-tion from causation, and avoid endorsing consensus merely because it is popular. Your role is to catch overconfident or weakly supported blame assign-ment. Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-dence score, and a skeptical rationale. 
+
+Prompt 9: Generalist Analyst. You are a gen-eralist attribution analyst for an embodied multi-agent cockpit system. Your task is to analyze the provided context and determine: (1) the most responsible step, (2) the most responsible agent, (3) the primary failure cat-egory, (4) the ASIL severity level, and (5) your confidence. Your style is balanced and all-purpose. You should weigh safety, evidence quality, planning structure, execution fidelity, and embodied con-text together without overcommitting to any single perspective. Your goal is to provide a broadly rea-sonable attribution judgment. Candidate agents include: Director, Navigation-Agent, VehicleAgent, InfotainmentAgent, Memo-ryAgent, GUIAgent, and SafetyAgent. Pay attention to the full dependency chain, in-cluding upstream planning, tool-grounded evi-dence, embodied context, local execution behavior, and safety implications. Seek the attribution that best fits the overall interaction rather than optimiz-ing for only one analytical preference. Instructions: Integrate local and global evidence. Avoid both excessive conservatism and excessive speculation. If one perspective strongly dominates, follow the evidence; otherwise provide the most balanced explanation supported by the trace. Output format: Return responsible step, respon-sible agent, failure category, ASIL level, confi-dence score, and a generalist rationale. 
+
+A.4 Backbone Model Ablation 
+
+To assess the sensitivity of C OCKPIT HAT to the underlying LLM backbone, we replace the ana-lyst model while keeping all other components (de-pendency graph construction, hierarchical slicing, 18 Table 6: Ablation study on backbone LLMs: Cockp-itHAT performance with different analyst models on Hand-Crafted Dataset.                
+
+> Backbone Model Agent-Level Step-Level P-value
+> Seed-2.0-Pro 0.779 0.378 0.015 Seed-1.8 0.724 0.328 0.002 DeepSeek-V4 0.810 0.276 <0.001 Qwen-3.7-Max 0.655 0.344 0.033
+
+embodied channel adapter, and consensus proto-col) fixed. Table 6 reports results on Hand-Crafted Dataset across four representative models spanning different model families and scales. Within the same model family, attribution qual-ity scales consistently with backbone capability: Seed-1.8 → Seed-2.0-Pro yields monotonic gains on both metrics, confirming that stronger reason-ing directly translates to more accurate diagnosis under the same structural pipeline. Across model families, DeepSeek-V4 achieves the highest agent-level accuracy (0.810), while Seed-2.0-Pro leads on step-level localization (0.378). 19

@@ -1,0 +1,603 @@
+Title: COVENANT: Natural-Language Workflow Compilation for Aligned Agent Execution
+
+URL Source: https://arxiv.org/pdf/2607.25400v1
+
+Published Time: Wed, 29 Jul 2026 00:39:00 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# COVENANT: Natural-Language Workflow Compilation for Aligned Agent Execution 
+
+Jincheng Wang, Min Zheng, Tao Wei 
+
+Ant Group 
+
+wjcuhk@gmail.com, zhengmin.zm@antgroup.com, lenx.wei@antgroup.com 
+
+Abstract 
+
+Large language model (LLM) agents are increasingly en-trusted with natural-language workflow instructions (e.g., retail-payment policies) that specify not only what outcome to achieve, but also which steps, branches, and tool interactions are permitted. When these instructions are supplied as prompt context, however, the model retains control over both proce-dure selection and step execution. As interactions accumulate, an agent can skip required steps, take unsupported branches, or execute a valid step with unsupported arguments or effects— a failure mode we call workflow misalignment . In this work, we propose COVENANT, a compiler-and-interpreter archi-tecture for workflow-aligned agent execution. Our key insight is to treat workflow instructions as source programs rather than prompts. COVENANT converts the instructions into a work-flow abstract syntax tree (WAST) and lowers it to a workflow control-flow graph (WCFG). At runtime, a controller inter-prets the WCFG one node at a time, checks each proposal against requirements extracted from the instructions before committing controller state or advancing the graph, and re-turns diagnostic feedback for repair. To evaluate COVENANT, we use 120 cases from three existing benchmarks, spanning seven workflow scenarios. Compared with state-of-the-art LLM agents, COVENANT improves benchmark success from 50.00% to 83.33% and reduces the workflow-misalignment failure rate from 42.50% to 15.83% (62.75% relative). These results show that COVENANT substantially mitigates work-flow misalignment, moving LLM-agent alignment beyond iso-lated prompt following toward reliable execution of complex and multi-step workflows. 
+
+1 Introduction 
+
+Large language model (LLM) agents are increasingly used to handle complex tasks that require multi-step reasoning, tool use, and interaction with external environments. Many such tasks are governed by workflow instructions written in natural language, including standard operating procedures (SOPs), service policies, compliance procedures, and tool-use protocols (Diao et al. 2025; Lu et al. 2024; Yao et al. 2024). For example, a weather-assistance workflow may re-quire reusing a location already supplied by the user, while an airline-booking workflow may require retrieving a missing passenger birth date through the profile tool before book-ing. The responsibility for following such instructions step by step, traditionally assigned to human operators, is now increasingly delegated to LLM agents. We call this setting 
+
+natural-language workflow following . In practice, agents fol-lowing complex natural-language workflows frequently drift from the prescribed execution by skipping required steps, choosing unsupported branches, or incorrectly performing required tool interactions, leading to incorrect outcomes or premature workflow termination. Such deviations constitute workflow misalignment. Figure 1 illustrates two representa-tive examples. Recent systems such as AgentLTL and FlowAgent have be-gun to improve procedural compliance and controlled work-flow execution (Elkoussy and Perez 2026; Shi et al. 2025). However, they generally assume that workflow instructions have already been rewritten into formal or semi-structured representations with prescribed syntax. This assumption is difficult to satisfy in practice. Real-world workflow instruc-tions are commonly written for people in flexible document formats and unrestricted natural language; requiring users to translate them into prescribed representations introduces substantial authoring and maintenance costs, limiting the di-rect applicability of existing methods. This work therefore asks: Given workflow instructions written in natural lan-guage, how can we ensure that an LLM agent’s execution trace remains aligned with them? 
+
+To address this issue, our key observation is that work-flow instructions, although written in free-form natural lan-guage, usually encode program-like procedural structure, in-cluding ordered steps, branch conditions, and execution re-quirements. Inspired by traditional compilation (Aho et al. 2006; Lattner and Adve 2004), we therefore treat workflow instructions as source programs and propose COVENANT ,a compiler-and-interpreter architecture for workflow-aligned agent execution. As Figure 1 shows, an offline compiler first processes raw workflow instructions to construct a workflow abstract syntax tree (WAST), then lowers the WAST into a workflow control-flow graph (WCFG). At runtime, a con-troller interprets the WCFG one node at a time, asks the target LLM agent to execute the active node, and checks the result against requirements extracted from the instructions. The controller advances only after the result passes; other-wise, it returns diagnostic feedback for repair. Controller-owned traversal targets trace misalignment, while node-level checking targets execution misalignment. We evaluate COVENANT across seven real-world work-flow scenarios. Example scenarios include multi-turn arXiv:2607.25400v1 [cs.AI] 28 Jul 2026 Without COVENANT                         
+
+> Free-Form Workflow Instructions
+> Service workflow
+> 1. If location is available,
+> use the provided location; otherwise, get it. 2. Get current weather for the location. 3. For booking, search flights,
+> retrieve passenger DOB
+> from profile, then book.
+> LLM Agent
+
+TRACE MISALIGNMENT    
+
+> Wrong branch
+> Grand Canyon provided
+> location available?
+> T
+> Get weather FUnnecessary detour
+
+EXECUTION MISALIGNMENT               
+
+> Unsupported value (no evidence)
+> Flight Search Retrieve DOB Book
+> Passenger Profile
+> Name: Alex Kim DOB: —
+> Email: alex.kim@example.com
+> evidence required Profile Database
+> fabricated DOB
+> no profile evidence
+
+With COVENANT                                                            
+
+> Free-Form Workflow Instructions
+> Service workflow
+> 1. If location is available,
+> use the provided location; otherwise, get it. 2. Get current weather for the location. 3. For booking, search flights,
+> retrieve passenger DOB
+> from profile, then book.
+> OFFLINE (COMPILATION)
+> 1) Build WAST
+> (Workflow Abstract Syntax Tree)
+> 2) Lower to WCFG
+> (Workflow Control-Flow Graph)
+> SEQ
+> IF …
+> TF
+> GET WEATHER GET LOCATION RETRIEVE DOB FROM PROFILE BOOK
+> branch condition action step execution requirement
+> Entry
+> ?
+> TF
+> GET WEATHER GET LOCATION
+> RETRIEVE DOB FROM PROFILE
+> BOOK
+> Exit
+> RUNTIME (CONTROLLED EXECUTION)
+> Controller /Interpreter (cursor on WCFG)
+> Entry
+> ?
+> TF
+> GET WEATHER GET LOCATION
+> RETRIEVE DOB FROM PROFILE
+> BOOK
+> advance retry
+> Node Proposal (result)
+> Dynamic Analysis (verify before commit)
+> evidence check state /log consistency
+
+…   
+
+> ACCEPT
+> advance workflow-aligned trace
+> REJECT
+> feedback &retry same node
+
+Figure 1: Problem-to-solution overview of COVENANT. An LLM agent can select an unsupported branch (trace misalignment) or execute a selected step without required evidence (execution misalignment). COVENANT compiles natural-language workflow instructions into a WAST and WCFG, then combines controller-guided traversal with runtime verification to support workflow-aligned execution. personal-assistant tool use, airline reservation, and retail or-der management, covering distinct practical domains and workflow structures. Results show that COVENANT con-sistently improves workflow alignment across diverse agent systems and underlying LLMs. In its best evaluated con-figuration, Hermes Agent with GLM-5.1 (Nous Research 2026; GLM-5 Team 2026), COVENANT raises benchmark success from 50.00% to 83.33% and reduces the workflow-misalignment failure rate from 42.50% to 15.83% (62.75% relative reduction). In summary, our contributions are: 
+
+• To the best of our knowledge, COVENANT is the first system to address natural-language workflow misalign-ment issues. We formulate natural-language workflow alignment as an agent–environment trace-completeness problem (§2). 
+
+• We introduce COVENANT, which adapts compilation theory to natural-language workflows, then uses a con-troller to interpret the compiled artifact and supervise execution. 
+
+• We provide a systematic evaluation over diverse agent sys-tems and base LLMs in seven workflow scenarios. The results show that COVENANT generalizes across real-world workflow instructions written in free-form natu-ral language, reducing the workflow-misalignment failure rate by 62.75% (§5). 
+
+2 Problem Definition 
+
+Workflow Execution 
+
+We model workflow execution as an interaction among an agent, a workflow specification, and an environment. Let S
+
+be the set of agent states, A the set of actions, O the set of feedback observations produced by the environment, and W
+
+the set of workflow specifications. A workflow specification 
+
+W ∈ W is a procedural instruction document that specifies how a task should be carried out. It may prescribe ordered steps, branch conditions, action constraints, and completion requirements. We treat the task input I ∈ O as the initial observation o0 = I. The agent’s policy is 
+
+π : S × W × O → A , a′
+
+t = π(st, W, o t), (1) where st ∈ S is the agent state, ot ∈ O is the latest en-vironment feedback, and a′
+
+t ∈ A is the action selected by the agent at step t. In particular, execution begins with 
+
+a′
+
+0 = π(s0, W, I ).The selected action changes the environment, which re-turns the next feedback. Let ht = ⟨I, a ′
+
+0, o 1, . . . , a ′
+
+t−1, o t⟩
+
+be the interaction history before step t, Env the environment feedback function, and U the agent-state update function. The interaction evolves as 
+
+ot+1 = Env (ht, a ′
+
+t), st+1 = U (st, a ′
+
+t, o t+1 ). (2) Thus, W remains fixed as procedural guidance, while the policy and environment jointly determine the actions and feedback observed during execution. For a workflow specification W and task input I, let 
+
+T (W, I ) denote the set of interaction traces permitted by the workflow. A trace records the task input, the ordered ac-tions, and the feedback returned by the environment. Any 
+
+τ (W, I ) ∈ T (W, I ) is therefore an intended workflow ex-ecution. The policy–environment interaction produces the realized trace 
+
+τπ, Env (W, I ) = ⟨I, a ′
+
+> 0
+
+, o 1, a ′
+
+> 1
+
+, o 2, . . . , a ′
+
+> m−1
+
+, o m⟩. (3) Because a workflow may contain branches or allow equiva-lent actions, T (W, I ) may contain more than one valid trace. Specifically, in this work, we define workflow alignment as follows. 
+
+Definition 1 (Workflow Alignment) Given W and I, the execution induced by policy π and environment Env is 
+
+workflow-aligned if and only if 
+
+τπ, Env (W, I ) ∈ T (W, I ). (4) 
+
+Otherwise, the execution is workflow-misaligned .
+
+In this work, we assume that the environment Env is benign and trusted: given an action and its arguments, it faithfully executes the requested operation and returns the resulting feedback. Under this assumption, violating the alignment requirement in Equation 4 indicates a failure of policy π.We refer to a change in the permitted procedural path as 
+
+trace misalignment and an incorrect realization of a selected step as execution misalignment ; Appendix H provides the detailed characterization and controlled stress analysis. 
+
+3 Workflow Compilation 
+
+Workflow instructions encode program-like procedures, but asking an LLM to reinterpret and orchestrate the complete procedure at runtime permits execution drift. Inspired by traditional compilation (Aho et al. 2006; Lattner and Adve 2004), COVENANT instead treats the instructions as a source program. Its offline compiler constructs a workflow abstract syntax tree (WAST) that makes actions, guards, and their hierarchy explicit, then lowers it to a workflow control-flow graph (WCFG). Executable and decision nodes represent workflow steps and guards, while directed edges encode permitted transitions. The resulting WCFG is analogous to graph-structured workflow bytecode interpreted by the run-time controller (Figure 1). 
+
+Offline Compilation 
+
+Offline compilation first reconstructs the instruction hierar-chy as a WAST and then lowers it to a WCFG. Figure 2 defines both artifacts: the WAST organizes inputs, resources, outputs, steps, and branches, while the WCFG represents the procedure as typed nodes connected by guarded edges with explicit state access. 
+
+Workflow Abstract Syntax Tree (WAST)                                                            
+
+> ⟨WAST ⟩::= workflow ⟨Id ⟩ ⟨ Input ⟩∗⟨Resource ⟩∗
+> ⟨T ree ⟩ ⟨ Output ⟩∗
+> ⟨T ree ⟩::= seq ⟨T ree ⟩+|step ⟨Elem ⟩+
+> |branch ⟨Guard ⟩ ⟨ T ree ⟩ ⟨ T ree ⟩?
+> ⟨Guard ⟩::= guard ⟨P red ⟩⟨Elem ⟩::= action ⟨T ask ⟩ | output ⟨Slot ⟩
+> Workflow Control-Flow Graph (WCFG)
+> ⟨WCFG ⟩::= graph ⟨State ⟩∗⟨N ode ⟩+⟨Edge ⟩+
+> ⟨State ⟩::= slot ⟨Id ⟩:⟨T ype ⟩⟨N ode ⟩::= entry ⟨Id ⟩ | merge ⟨Id ⟩|block ⟨Id ⟩task ⟨T ask ⟩ ⟨ Access ⟩|decision ⟨Id ⟩guard ⟨P red ⟩⟨Access ⟩|exit ⟨Id ⟩output ⟨Slot ⟩∗
+> ⟨Access ⟩::= read ⟨Slot ⟩∗write ⟨Slot ⟩∗
+> ⟨Edge ⟩::= ⟨Id ⟩ → ⟨ Id ⟩[when ⟨Guard ⟩]
+
+Figure 2: Abstract syntax of WAST and WCFG. 
+
+Stage I: Hierarchical WAST Construction Conventional compiler frontends construct an abstract syntax tree (AST) through lexical analysis, grammar parsing, and syntax-directed construction (Aho et al. 2006). COVENANT re-tains this three-pass organization but adapts it to instructions without fixed token classes or a complete grammar; Figure 3 shows the intermediate artifacts. Lexical analysis uses lay-out rules to split the document at headings, numbered steps, and paragraph boundaries, then a schema-constrained LLM labels each chunk by procedural role. Grammar parsing 
+
+treats Figure 2 as an output grammar and extracts ordered actions, guards, and their explicit alternatives from each re-tained chunk. Syntax-directed construction deterministi-cally maps actions to step nodes, guarded alternatives to 
+
+branch nodes, and source order to seq , leaving unresolved associations explicit. The LLM therefore supplies local se-mantic interpretation, while the compiler controls global tree assembly. 
+
+Stage II: WCFG Lowering The compiler’s lowering stage 
+
+converts the tree into a control-flow graph. In Figure 3, the S1 branch becomes a location decision followed by two action blocks; both paths join before the S2 weather-tool block, which is followed by the S3 return block. In general, each ordered action maps to a block , a guard becomes a 
+
+decision with true and false successors, and a merge 
+
+reconnects the two branches before their next shared state-ment. Required final outputs become fields of an exit node. Algorithm 1 in Appendix A gives the complete recursive construction. This lowering is path preserving: every entry-to-exit path in the WCFG corresponds to a path in the WAST, and ev-ery WAST path is preserved in the WCFG. Consequently, if the WAST contains only control paths permitted by the workflow instructions, the generated WCFG also contains no invalid control path, thereby aligning its control paths with the workflow-permitted traces in T (W, I ) from Definition 1. Stage I · COVENANT Compiler Frontend Workflow Instructions S1. If a location is provided, use it; otherwise call the location tool.   
+
+> S2. Call the weather tool.
+> S3. Return the weather result.
+
+1. Lexical analysis branch S1 If a location is provided, use it; else call the location tool.     
+
+> procedure S2 Call the weather tool.
+> output S3 Return the weather result.
+
+2. Grammar parsing S1 chunk       
+
+> If a location is provided, use it; else call the location tool.
+> S1 atomic statement
+> guard: ?location provided? true branch: action = use location false branch: action = call location tool
+> S2 action
+> S3 output
+
+3. Syntax-directed construction branch(S1) step(S2) step(S3)   
+
+> 123
+
+ordered seq [S1, S2, S3] emit WAST Complete WAST workflow: weather request input: user request     
+
+> resources: location, weather
+> ordered seq
+> 1branch [S1]
+> guard: location provided? then: action = use location else: action = location tool 2step [S2], action = weather tool 3step [S3], output = weather
+
+Stage II: WCFG Lowering Complete WCFG   
+
+> entry request: Grand Canyon decision: location provided?
+> [S1] true false
+> use location [S1] location tool [S1] weather tool [S2] return weather [S3] exit
+
+Figure 3: Compiler-style construction and lowering of the Grand Canyon weather workflow from Figure 1. Stage I segments the instructions into labeled chunks, parses typed atomic statements, and assembles the WAST; Stage II lowers the WAST into a WCFG with explicit runtime transitions. Appendix B formalizes and proves these claims. 
+
+4 Runtime Workflow Execution 
+
+At runtime, workflow alignment reduces to two questions: does execution follow a WCFG path, and is each visited node executed correctly? Acting as an interpreter, the controller addresses the first by owning graph traversal and the second by checking node-bound instruction requirements before ac-cepting a result. Failed checks trigger diagnostic feedback and repair without advancing the graph. 
+
+Controller-Guided WCFG Execution 
+
+The controller owns the active-node cursor and exposes only that node’s task, relevant interaction history ht, supporting instructions, and response schema to the target agent. The agent still follows policy π, but this bounded context con-fines its current execution to the prescribed action. For an environment action, the proposal a′
+
+t and returned observa-tion ot+1 extend ht according to Equation 2; the structured result may also contain a state update, evidence, and branch choice. The controller advances only after acceptance, so rejection leaves the cursor and committed state unchanged. Appendix C details the controller algorithm with a running example. 
+
+Runtime Verification and Repair. During offline compila-tion, COVENANT binds instruction constraints and evidence or effect obligations to WCFG nodes as semantic proper-ties . Protocol checks validate the controller–agent exchange, while property checks validate the proposed action, state up-date, or output. Failure retains the current node and supplies repair feedback; success commits the result before traversal advances, and exhausted retries block execution. Controller-owned traversal therefore targets trace misalignment, while the verify–repair–commit boundary targets execution mis-alignment. Appendix D lists the properties and their enforce-ment guarantees. 
+
+5 Evaluation 
+
+The evaluation follows the two-part argument developed above: first establish whether the complete system improves task correctness and workflow alignment, then examine where the difference comes from and what it costs. We or-ganize this analysis around four research questions (RQs). 
+
+RQ1 asks whether COVENANT improves end-to-end task correctness and reduces workflow-misalignment failures for the same agent interface and base model. RQ2 asks in which evaluation scenarios the gains and regressions occur and whether they arise from trace or execution misalignment. 
+
+RQ3 studies the compiler, controller, and checking mecha-nisms through diagnostic variants. RQ4 measures execution cost. The primary correctness metric is benchmark-native task success : a binary pass or fail assigned by each bench-mark’s official evaluator. Experimental Setup 
+
+Our evaluation uses 120 cases from GuideBench, ToolSand-box, and tau-bench, organized into seven workflow scenar-ios spanning conditional rules, argument canonicalization, insufficient information, multiple user turns, state dependen-cies, airline, and retail (Diao et al. 2025; Lu et al. 2024; Yao et al. 2024). We retain each benchmark’s official evaluator; Appendix E reports the scenario composition and integration protocols. We evaluate five agent interfaces—plain prompting, Re-Act (Yao et al. 2023), Claude Code, OpenClaw, and Her-mes Agent—with five base models: GLM-5.1, GLM-5.2, MiniMax-M2.7, Kimi-K2.7-Code, and DeepSeek-V4-Pro. Each of the resulting 25 paired cells runs the same cases with the target agent alone and with COVENANT control-ling that agent. The base model is fixed within each pair, so the comparison measures system effectiveness under a fixed model rather than equal compute. Appendix E details execution modes, failure handling, and frozen artifacts. 
+
+RQ1: Overall Effectiveness 
+
+We answer RQ1 from two complementary perspectives. Ta-ble 1 measures whether COVENANT improves end-to-end task correctness, while Figure 4 measures whether it reduces failures that the saved execution evidence attributes to work-flow misalignment. COVENANT improves all 25 paired cells. The strongest configuration, Hermes Agent with GLM-5.1, solves 100/120 cases (83.33%), versus 60/120 (50.00%) without COVENANT. Across 3,000 paired instances, success rises from 1,296 (43.20%) to 2,193 (73.10%), a gain of 29.90 points. Because the same cases recur across cells, this aggre-gate is descriptive rather than a set of independent observa-tions. The lower panel places these paired results be-side FlowAgent, NLAH/LinguaClaw, MermaidFlow, and Agent SOP (Shi et al. 2025; Pan et al. 2026; Zheng et al. 2025; Strands Agents 2026). Their five-model means range from 24.67% to 43.00%, leaving 40.33–58.66 point gaps from the best COVENANT result. Although these are unpaired ref-erence gaps, they show the value of combining free-form workflow compilation with controller-owned traversal and node-level checking, rather than only generating or executing a structured workflow. Appendix E documents unsupported cases and adapter scope. To determine whether the corrected outcomes reflect alignment, GLM-5.1 labels each native failure as trace mis-alignment, execution misalignment, or unsupported attribu-tion. The workflow-misalignment failure rate is the frac-tion of all executions receiving either misalignment label; Appendix E gives the acceptance and bootstrap protocols. Across 3,000 executions per mode, this rate falls from 51.03% (1,531) to 22.60% (678), a 55.72% relative reduc-tion. The clustered-bootstrap 95% interval for the 28.43-point absolute reduction is 21.73–35.27 points. Figure 4 shows re-ductions for every agent family and all 25 agent–model cells. 
+
+RQ2: Scenario-Level Results and Misalignment Analysis 
+
+Following the trace/execution distinction in Appendix H, RQ2 locates the aggregate gain across scenarios and fail-ure types. Native task success improves most in state depen-dency (+65.75 points), canonicalization (+46.95), and retail (+38.45); airline is the only negative scenario ( −4.00 ). Fig-ure 5 reports each misalignment class over all executions in a scenario, aggregated across the 25 agent–model cells. COVENANT lowers the attributed misalignment rate in six of seven scenarios. The largest reductions occur in state dependency (95.25% to 32.00%) and canonicalization (62.95% to 14.32%), where the task-success gains are also largest. Across all scenarios, the trace-misalignment rate falls from 12.93% to 5.60%, a 56.70% relative reduction, while the execution-misalignment rate falls from 38.10% to 17.00%, a 55.38% relative reduction. The decomposition also identifies a remaining traversal weakness: in multiple-user-turn tasks, execution misalignment decreases substan-tially but trace misalignment rises from 4.21% to 9.26%. Airline is the only negative scenario. Although trace mis-alignment falls from 5.75% to 3.25%, execution misalign-ment rises from 28.75% to 36.75%; correspondingly, 73 paired instances succeed only for the target agent, whereas 57 succeed only with COVENANT. The regression is con-centrated: five tasks account for 62 of the 73 target-only successes (84.93%), and airline_0029 regresses in 24 of 25 agent–model cells. This task requires cancelling every qualifying single-passenger reservation, but the saved traces frequently show COVENANT cancelling only one reserva-tion, leaving another obligation unresolved, or mishandling mandatory confirmation. These cases expose a limitation of the current mediated Airline integration: its workflow does not explicitly represent repeated multi-reservation closure or policy-dependent refusal and transfer conditions. It there-fore reduces path errors but can stop after partial completion or continue under an inapplicable policy, increasing errors within selected steps. 
+
+RQ3: Diagnostic Mechanism Analysis 
+
+COVENANT’s offline audit accepts all 120 generated WCFGs and rejects all 600 deterministically corrupted graphs, showing that malformed artifacts fail the checked invariants before runtime. Table 2 then compares four run-time configurations using Claude Code with GLM-5.1 on 85 cases. Controller + FlowAgent PDL exposes actions whose API preconditions hold but lets the agent select among them (Shi et al. 2025); WCFG + controller owns traversal but disables property checks and repair; Full COVENANT 
+
+enables both. Dependency-only control raises success from 40.00% to 42.35%; controller-owned WCFG traversal raises it to 70.59%, and property checking with repair further raises it to 74.12%. The largest gain therefore comes from ex-plicit traversal, with a further 3.53-point checking gain. The FlowAgent-PDL row is a controlled hybrid rather than the official result in Table 1; because the variants span two imple-mentation versions, we treat them as design evidence rather Agent Interface Base Model Mean ∆/Gap                                                                                       
+
+> GLM-5.1 GLM-5.2 MiniMax Kimi DeepSeek
+> Paired evaluation: Target Agent / COVENANT + Target Agent
+> Prompting 44.17 / 77.50 47.50 / 80.00 36.67 / 69.17 41.67 / 80.00 40.83 / 68.33 +32.83
+> ReAct 44.17 / 79.17 46.67 / 80.83 42.50 / 72.50 45.83 / 75.83 36.67 / 68.33 +32.17
+> Claude Code 49.17 / 75.83 48.33 / 82.50 36.67 / 65.83 51.67 / 74.17 40.83 / 65.83 +27.50
+> OpenClaw 45.83 / 82.50 46.67 / 82.50 32.50 / 61.67 47.50 / 77.50 40.83 / 68.33 +31.83
+> Hermes 50.00 / 83.33 47.50 / 82.50 33.33 / 54.17 49.17 / 59.17 33.33 / 60.00 +25.17
+> Single-only workflow systems: Target Agent only; reference = best COVENANT (83.33) FlowAgent 32.50 24.17 20.00 33.33 20.00 +57.33
+> NLAH/LinguaClaw 46.67 23.33 19.17 25.00 20.83 +56.33
+> MermaidFlow 25.00 27.50 23.33 24.17 23.33 +58.66
+> Agent SOP 43.33 50.00 47.50 28.33 45.83 +40.33
+
+Table 1: Official benchmark task success (%) on 120 cases from three existing benchmarks. Paired rows report mean paired ∆.For single-only systems, Gap is the best COVENANT cell (83.33%) minus the baseline’s five-model mean; it is not a paired effect. Prompting ReAct Claude Code OpenClaw Hermes Overall 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+70 
+
+> Misalignment-failure rate (%)
+
+53.0 51.7 49.3 52.7 48.5 51.0 
+
+22.3 21.2 23.3 22.2 24.0 22.6 
+
+-57.9% -59.0% -52.7% -57.9% -50.5% -55.7% 
+
+Target agent COVENANT + target agent 
+
+Figure 4: Workflow-misalignment failure rates aggregated across five base models. GLM-5.1 is used only to annotate failed traces. Error bars are 95% bootstrap intervals clustered by workflow case; percentages above each group are relative reductions.            
+
+> Variant Success ∆from prior Base Claude Code 34/85 (40.00%) reference Controller + FlowAgent PDL 36/85 (42.35%) +2.35 WCFG + controller 60/85 (70.59%) +28.24 Full COVENANT (WCFG + controller + property checking) 63/85 (74.12%) +3.53
+
+Table 2: Runtime representation and control analysis with Claude Code and GLM-5.1. than causal estimates. 
+
+RQ4: Cost 
+
+Figure 6 reports normalized overhead over the same 3,000 paired instances. COVENANT raises model calls from 8.94 to 11.26 per case (1.26 ×) and wall time from 145.31 to 359.84 seconds (2.48 ×): controlled execution adds modest model calls but greater orchestration latency. 
+
+Limitations and threats to validity. COVENANT does not yet guarantee faithful natural-language compilation, and its semantic verifiers may err. Appendix F details these bound-aries and the scope of the controlled tests. 
+
+6 Related Work 
+
+Workflow adherence and formal control. Instruction-following benchmarks evaluate response-level compliance, while GuideBench, ToolSandbox, and tau-bench extend eval-uation to tool use and stateful interaction (Zhou et al. 2023; Jiang et al. 2024; Diao et al. 2025; Lu et al. 2024; Yao et al. 2024). SOPBench and JourneyBench further evalu-ate action permissibility, procedure completeness, or agree-ment with expected tool traces (Li et al. 2025; Balaji et al. 2026). Agent-C and AgentLTL enforce temporal constraints 0 20 40 60 80 100    
+
+> Work fl ow-misalignment failure rate (%)
+> State dependency
+> Canonicalization
+> Multiple user turns
+> Retail
+> Insuf fi cient info
+> Price
+> Airline
+> Evaluation scenario
+> 95.2
+> 32.0
+> 62.9
+> 14.3
+> 66.1
+> 38.3
+> 44.4
+> 20.4
+> 22.1
+> 2.6
+> 28.0
+> 9.9
+> 34.5 40.0
+> Target: trace Target: execution COVENANT: trace COVENANT: execution
+
+Figure 5: Scenario-level GLM-5.1-attributed workflow-misalignment failure rates, decomposed into trace and execution mis-alignment. Model calls   
+
+> 8.94 / 11.26 Wall time (s)
+> 145.3 / 359.8
+> 0
+> 1
+> 2
+> 3
+> Normalized cost
+> 1.00x 1.00x
+> 1.26x
+> 2.48x
+> Target agent
+> COVENANT
+
+Figure 6: Normalized model-call and wall-clock costs over 3,000 paired case instances. Values below each metric list Target agent / COVENANT means per case. over tool traces, but assume executable specifications that are manually encoded or synthesized from hand-written templates (Kamath et al. 2025; Elkoussy and Perez 2026). COVENANT instead compiles free-form natural-language workflow instructions and defines alignment over the com-plete agent–environment trace. 
+
+Semantic parsing and process extraction. Semantic parsers and text-to-process systems map natural language into grammar-constrained structures or recover activities, branches, and control flow from procedural prose (Kate, Wong, and Mooney 2005; Yin and Neubig 2017; Friedrich, Mendling, and Puhlmann 2011; Bellan et al. 2023). Process-conformance methods then compare observed traces with formal process models (Rozinat and van der Aalst 2008; van der Aa, Leopold, and Reijers 2018). COVENANT adapts this separation between semantic interpretation and deter-ministic representation to LLM-agent execution, incorporat-ing both environment observations and node-level realization into alignment. 
+
+Workflow generation and agent control. Routine, Mer-maidFlow, and Agent SOP structure or generate agent work-flows (Zeng et al. 2025; Zheng et al. 2025; Strands Agents 2026). FlowAgent supervises a procedure-description lan-guage with pre- and post-decision controllers, while RunA-gent interprets plans written with reserved control con-structs (Shi et al. 2025; Srivastava et al. 2026). Unlike these structured-input approaches, COVENANT begins with nat-urally authored, free-form instructions and uses its WCFG controller to own both traversal and committed state. 
+
+7 Conclusion 
+
+COVENANT treats natural-language workflow following as a complete-trace alignment problem and adapts compilation to agent execution. Its offline compiler transforms free-form instructions into a WAST and WCFG, while its runtime con-troller owns graph traversal and verifies each node before advancing. Across seven scenarios, the strongest configu-ration raises benchmark success from 50.00% to 83.33% and reduces attributed workflow-misalignment failures from 42.50% to 15.83%. These results demonstrate the value of explicit compilation and runtime control. A WAST-to-WCFG Construction 
+
+Algorithm 1 gives the deterministic lowering procedure. 
+
+Lower returns a subtree entry and its fall-through nodes, while Link connects them to the surrounding sequence or branch merge. Task and AttachStateAccess supply exe-cutable operations and state metadata. 
+
+Algorithm 1 Deterministic lowering from a WAST to a WCFG                                                                                                         
+
+> Require: normalized WAST Awith root tree T
+> Ensure: WCFG G
+> 1: G← ⟨ N=∅, E =∅,Σ( A)⟩
+> 2: s←NewEntry (G);x←NewExit (G, OutputSlots (A))
+> 3: (h, F )←Lower (T, G )
+> 4: AddEdge (G, s, h )
+> 5: Link (G, F, x )
+> 6: AttachStateAccess (G, A );return G
+> 7: function Lower (t, G )
+> 8: if t=seq (t1, . . . , t k)then
+> 9: (h, F )←Lower (t1, G )
+> 10: for i= 2 to kdo
+> 11: (hi, F i)←Lower (ti, G )
+> 12: Link (G, F, h i)
+> 13: F←Fi
+> 14: end for
+> 15: return (h, F )
+> 16: else if t=step (e1, . . . , e m)then
+> 17: v←NewBlock (G, Task (t))
+> 18: return (v, {v})
+> 19: else
+> 20: (g, t T, t F?) ←Fields (t)
+> 21: d←NewDecision (G, g );m←NewMerge (G)
+> 22: (hT, F T)←Lower (tT, G )
+> 23: AddEdge (G, d, h T,true );Link (G, F T, m )
+> 24: if tFexists then
+> 25: (hF, F F)←Lower (tF, G )
+> 26: AddEdge (G, d, h F,false );Link (G, F F, m )
+> 27: else
+> 28: AddEdge (G, d, m, false )
+> 29: end if
+> 30: return (d, {m})
+> 31: end if
+
+B WCFG Path Soundness 
+
+Definition 1 defines T (W, I ) as a set of complete action– observation traces, while a path through a WCFG is a se-quence of graph nodes and branch edges. These objects therefore cannot be compared by direct set inclusion. Let 
+
+ctrl W (τ ) denote the control projection of an interaction trace τ : it retains the workflow-action labels and branch outcomes induced by W , while erasing environment ob-servations and action arguments. For a set of traces X , let 
+
+ctrl W (X ) = {ctrl W (τ ) | τ ∈ X } .
+
+WAST path language. Let L(t) be the control-path language of a WAST subtree t, and write s =
+
+step (e1, . . . , e m). The WAST grammar induces the fol-lowing path language: 
+
+L(s) = {⟨ Task (s)⟩} ,
+
+L(seq (t1, . . . , t k)) = L(t1) · · · L (tk),
+
+L(branch (g, t T, t F)) = {⟨ (g, T)⟩}L (tT)
+
+∪ {⟨ (g, F)⟩}L (tF).
+
+Here juxtaposition denotes language concatenation; when the false subtree is absent, L(tF) = {ϵ}. Let LI (AW ) be the subset feasible for input I, meaning that every recorded branch outcome agrees with its guard under the action– observation prefix reaching that branch. 
+
+WCFG path language. For a WCFG GW , let PI (GW )
+
+contain the projections of all feasible entry-to-exit paths. Pro-jection erases entry , merge , and exit nodes, maps each 
+
+block to its task label, and maps each outgoing decision 
+
+edge to the corresponding (g, T) or (g, F) outcome. Feasi-bility uses the same guard evaluation as LI (AW ).
+
+Frontend soundness premise. Let AW be the WAST ex-tracted from W . The natural-language frontend is path-sound 
+
+for input I when 
+
+LI (AW ) ⊆ ctrl W (T (W, I )) . (5) This premise says that extraction may omit a permitted al-ternative, but it must not invent an action order or branch outcome that the workflow forbids. It is a semantic property of the WAST construction, not a consequence of graph-shape validation. 
+
+Theorem 1 (Lowering Path Preservation) For any nor-malized WAST AW and input I, Algorithm 1 produces a WCFG GW such that 
+
+PI (GW ) = LI (AW ). (6) 
+
+Proof. We prove the stronger recursive invariant that, when-ever Lower (t, G ) = ( h, F ), the projected paths from h to the fall-through set F are exactly L(t). For a step , the algorithm creates one block labeled by Task (t), so the in-variant holds directly. For a seq , the algorithm links every fall-through node of ti only to the entry of ti+1 . By the induction hypothesis, its paths are therefore exactly the con-catenation L(t1) · · · L (tk). For a branch , the new decision has exactly one true edge and one false edge. Each edge en-ters the corresponding recursively lowered subtree, and both subtrees reconnect only at the new merge node; when the false subtree is absent, the false edge goes directly to that merge. Erasing the decision and merge structure while re-taining the selected edge yields exactly the two alternatives in L(t). Finally, adding the global entry and exit nodes and attaching state access do not change the projected language. Thus P(GW ) = L(AW ); filtering both sides by the same guards gives Equation 6. □
+
+Theorem 2 (WCFG Path Soundness) If the frontend sat-isfies Equation 5, then every feasible path of the generated WCFG is permitted by the source workflow at the control-flow level: 
+
+PI (GW ) ⊆ ctrl W (T (W, I )) . (7) Proof. Substitute Equation 6 into the frontend-soundness premise in Equation 5. □
+
+Theorem 2 establishes path-level alignment, but not yet the full membership condition in Definition 1. A controller that advances only along feasible WCFG edges has a visited-node path in PI (GW ). To further conclude that its complete realized trace τπ, Env (W, I ) belongs to T (W, I ), every vis-ited block must also execute its represented action with con-forming arguments, evidence, effects, and output. Runtime property checking targets this second condition; following the WCFG alone cannot establish it. 
+
+C Runtime Controller Algorithm 
+
+Algorithm 2 formalizes controller-owned traversal together with runtime verification and repair. It initializes the interac-tion history with h0 = ⟨I⟩ as in Section 2. RunNodeAgent 
+
+executes policy π in the agent’s environment and returns both a structured response and the resulting history; any action–observation pair already produced remains in that his-tory even if the response is later rejected. ParseAndProto-colChecks applies the deterministic exchange checks, while 
+
+SemanticChecks evaluates the enabled properties listed in Appendix D. The merge notation X ▷◁ p means that only the state fields declared by patch p are written into committed controller state X.
+
+Running example. Consider the Grand Canyon workflow in Figure 3. Initially, h0 contains the user’s request for the weather at the Grand Canyon. At the decision “lo-cation provided?”, the controller exposes only this guard and its relevant context. Because I already contains the location, policy π selects the true branch, and the con-troller follows the encoded edge through the “use loca-tion” block and merge. At the subsequent weather-tool block, the structured response contains an action such as 
+
+a′ 
+
+> t
+
+= WeatherTool (Grand Canyon ), and the environment returns ot+1 . If the agent instead calls the location tool, skips directly to the final response, or reports a temperature unsup-ported by ot+1 , the controller keeps the cursor at the weather-tool block and returns the failed checks as repair feedback. Only an accepted result is committed before traversal ad-vances to “return weather.” 
+
+Algorithm 2 Controller-guided WCFG execution with veri-fication and repair                                                                                                                          
+
+> Require: compiled WCFG W, workflow W, input I, policy π, en-vironment Env , retry budget b
+> Ensure: realized interaction trace and output y, or Blocked
+> 1: h← ⟨ I⟩;X← ∅ ;c←Entry (WCFG W)
+> 2: while true do
+> 3: if cis an entry or merge node then
+> 4: c←UniqueSuccessor (c, WCFG W)
+> 5: else
+> 6: j←0;accepted ←0;f eedback ← ∅
+> 7: while j≤band accepted = 0 do
+> 8: u←BuildRequest (c, X, h, f eedback )
+> 9: (r, h )←RunNodeAgent (π, Env , W, u, h )
+> 10: (r, F )←ParseAndProtocolChecks (c, r, X )
+> 11: if F=∅then
+> 12: P←Properties (c)
+> 13: F←SemanticChecks (c, P, r, X, h )
+> 14: end if
+> 15: if F=∅then
+> 16: accepted ←1
+> 17: else
+> 18: Discard (r. patch );f eedback ←F;j←j+ 1
+> 19: end if
+> 20: end while
+> 21: if accepted = 0 then
+> 22: return (h, Blocked )
+> 23: end if
+> 24: X←X ▷◁ r. patch {commit only after all checks pass} 25: if cis an exit node then
+> 26: y←r. output
+> 27: return (h, y )
+> 28: end if
+> 29: c←SelectEdge (c, r. branch ,WCFG W)
+> 30: end if
+> 31: end while
+
+D Semantic Properties and Controller Enforcement 
+
+Table 3 enumerates the semantic properties currently seri-alized in WCFG node contracts. A property states what an accepted node result must satisfy; protocol checks and se-mantic verifiers are the mechanisms that evaluate it. Proper-ties are generated during compilation but evaluated against runtime responses and history. If the compiler cannot bind an extracted requirement to a node unambiguously, it retains the requirement as an audit record rather than enabling an unsound blocking check. 
+
+Controller enforcement. The properties above specify what an accepted node result must satisfy, while Algorithm 2 determines how their verdicts control execution. For every property enabled as a blocking check, the following guaran-tees establish that a violating proposal cannot change com-mitted controller state or advance the WCFG. 
+
+Theorem 3 (Core State Admission) Every state update committed by the reusable controller has passed every block-ing check enabled for its proposal. Proof. Algorithm 2 reaches its state-merge statement only when both protocol and enabled semantic-property checks Property ID Scope, required condition, and runtime check             
+
+> source_ alignment Executable nodes. Facts, values, choices, and state transitions must be grounded in the instruction span, accepted state, or observations. Checked through evidence records and the semantic verifier.
+> constraint_ satisfaction Nodes with conditions or constraints. Ap-plicable conditions, exceptions, and prohi-bitions must hold before accepting a deci-sion or effect. Checked through guard/state rules and the semantic verifier.
+> candidate_ coverage Derive, select, compute, and decide nodes. Every relevant candidate must be selected, rejected, deferred, or marked inapplica-ble with evidence. Checked through candi-date/plan ledgers and the semantic verifier.
+> objective_ consistency Nodes with an explicit objective. The se-lected result must satisfy that objective over feasible candidates and constraints. Checked through plan-ledger, numeric-consistency, and semantic checks.
+> output_ contract Exit nodes. Required output fields and their workflow-defined meanings must be present. Checked through deterministic schema/required-field rules and the se-mantic verifier.
+> final_trace_ consistency Exit nodes. The final output must agree with the selected result, calculations, ev-idence, accepted state, and observed ef-fects. Checked through ledger, numeric, effect-binding, and semantic checks.
+
+Table 3: Semantic properties implemented by COVENANT. return no blocking finding. Therefore every committed patch has passed every enabled blocking check. □
+
+Theorem 4 (Core Rejected-Patch Isolation) If all at-tempts for a reusable-controller step are rejected, none of their state updates modifies committed controller state; a retry begins from the last accepted state. Proof. The rejection branch discards the proposed patch be-fore the state-merge statement, so a retry reads the last com-mitted controller state. □
+
+Scope. These guarantees cover committed controller state, not complete workflow semantics. They exclude audit-only properties, paths that bypass nodewise control, semantic er-rors in the compiled graph, and external environment state or actions. Because an external action may occur before post-execution checking, a rejected attempt can remain in the interaction history unless the environment exposes a pre-execution boundary. 
+
+E Detailed Evaluation Protocol 
+
+Workload composition. The 120 cases are grouped by workflow setting and official scoring procedure. GuideBench contributes 15 price-rule cases, which stress whether a rule is applied only under its stated conditions. ToolSandbox con-tributes argument canonicalization (19 cases), insufficient information (17), multiple user turns (19), and state depen-dency (16). Tau-bench contributes airline (16) and retail (18), both of which require every state change to follow benchmark policy. We retain GuideBench’s label comparison, ToolSand-box’s scenario evaluator, and tau-bench’s environment re-ward. 
+
+Paired agents and models. An agent interface is the prompting and tool-execution shell through which a base model receives and performs a task. The five interfaces are plain prompting, ReAct, Claude Code, OpenClaw, and Hermes Agent; the five models are GLM-5.1, GLM-5.2, MiniMax-M2.7, Kimi-K2.7-Code, and DeepSeek-V4-Pro. Each interface–model cell runs all 120 cases once with the target agent alone and once with COVENANT controlling it. COVENANT adds compiler, controller, and verifier calls, so the pair fixes the base model but not compute. We rerun model-service failures such as timeouts or unavailable end-points and merge replacement runs by case identifier. All 25 cells have zero unresolved service failures and retain official evaluator outputs and execution traces. 
+
+Execution modes and artifacts. GuideBench uses fused execution, in which one structured model call receives the full compiled graph. ToolSandbox and tau-bench use me-diated execution: an adapter derives a pending action from the task, transcript, and tool schema, checks the proposal, and passes an accepted action to the benchmark environ-ment. These adapters include benchmark-specific argument normalization, validation, and proposal-repair rules. Table 1 therefore evaluates the complete integrations rather than the reusable controller in isolation. COVENANT runs use fixed WAST and WCFG artifacts generated during development; the evaluation does not independently establish that compi-lation preserves every source requirement. 
+
+Workflow-misalignment annotation. For every execution that fails its native evaluator, GLM-5.1 receives the saved execution record and assigns trace misalignment, execution misalignment, or no supported attribution under Appendix H. We accept a misalignment label only at confidence at least 0.8 and with no review flag; ambiguous failures remain in the denominator but not the numerator. Target-agent and COVENANT executions use the same prompt, taxonomy, acceptance rule, and denominator. Confidence intervals use 10,000 cluster-bootstrap resamples with seed 20260720, re-sampling the 120 workflow cases while retaining all agent– model repetitions associated with each sampled case. 
+
+Single-only workflow systems. The lower panel of Ta-ble 1 provides unpaired context from systems that gener-ate or execute structured workflows. MermaidFlow lacks a tau-bench action adapter for 34 of 120 cases per model, and several NLAH/LinguaClaw and MermaidFlow runs lack complete traces. Unsupported cases remain failures in the stated denominator; the reported gaps therefore contextual-ize system-level coverage and success rather than estimate a paired COVENANT effect. 
+
+F Limitations and Threats to Validity 
+
+The natural-language frontend does not provide an end-to-end soundness guarantee that every WAST and WCFG faith-fully captures its source instructions; semantic validation of this compilation step remains future work. Semantic veri-fication is also selective: some properties are retained only for audit, and an LLM verifier can reject a correct result or accept an incorrect one. Theorem 3 therefore establishes controller-state admission rather than end-to-end semantic correctness. The ablation combines two saved implementation versions and shows a small checking gain on 85 cases but a small loss on all 120, so it provides design evidence rather than a clean causal estimate. The controlled stress tests isolate two structural pressures but do not represent all dependencies in production workflows. 
+
+G Per-Scenario Results and Misalignment Analysis 
+
+All 25 paired cells have zero unresolved model-service fail-ures after case-level replacement. Across their 3,000 paired instances, both settings pass 1,112 and both fail 623; the re-maining outcomes are 1,081 recoveries and 184 regressions under the definitions in RQ2. Table 4 reports the correspond-ing cell-level gains. 
+
+H Workflow Misalignment 
+
+Under the benign-environment assumption in Section 2, the environment may faithfully execute a wrong action, but it does not itself introduce the deviation. Inspection of policy failures reveals two recurring manifestations. In trace mis-alignment , the policy drifts to the wrong procedural path by selecting an unsupported branch, skipping a required step, or changing the intended order. In Figure 1, the user already provides “Grand Canyon,” but the agent takes the branch that tries to resolve the location again. In execution misalignment ,the procedural path is appropriate but the policy executes a selected step incorrectly. In the airline example in Figure 1, the profile-tool step requires calling the profile tool to re-                         
+
+> Agent interface GLM-5.1 GLM-5.2 MiniMax Kimi DeepSeek Prompting +33.33 +32.50 +32.50 +38.33 +27.50 ReAct +35.00 +34.17 +30.00 +30.00 +31.67 Claude Code +26.67 +34.17 +29.17 +22.50 +25.00 OpenClaw +36.67 +35.83 +29.17 +30.00 +27.50 Hermes +33.33 +35.00 +20.83 +10.00 +26.67
+
+Table 4: Task-success differences in percentage points: COVENANT minus the base interface. C0 C1 C2 C3 C4 
+
+Stress / complexity level 
+
+0
+
+20 
+
+40 
+
+60 
+
+80 
+
+100 
+
+> Alignment rate (%)
+
+Branch selection 
+
+Tool interaction 
+
+Figure 7: Controlled stress tests of workflow alignment, using 20 branch-selection cases and 30 tool-interaction cases per level. trieve the passenger’s date of birth, but the agent fabricates a value. A further investigation shows that workflow alignment de-grades as workflow instructions contain more branch points and as individual workflow steps involve more environment interactions. To examine these two factors in isolation, we conduct controlled experiments with a ReAct agent powered by GLM-5.1, as shown in Figure 7. We report the alignment rate : the fraction of cases whose complete execution satis-fies the alignment requirement in Equation 4. In the branch-selection study, this requires the produced branch trace to exactly match the oracle path. As the number of successive branch points increases from 2 to 10, alignment falls from 80% to 25%, a decrease of 55 percentage points. In the tool-interaction study, every prescribed interaction and resulting value must satisfy the corresponding workflow step. Across the tested range, increasing the required interactions within one workflow step from 3 to 27 reduces alignment from 100% to 66.7%, a decrease of 33.3 percentage points, although the intermediate levels are not monotonic. More branch points increase the number and depth of path decisions that the agent must preserve, creating more opportunities for trace misalignment. More environment in-teractions require the agent to issue more actions, track more feedback, and bind more returned values, creating more op-portunities for execution misalignment. These patterns am-plify well-known LLM limitations in complex tasks: long contexts and distractors weaken evidence retrieval (Liu et al. 2024; Shi et al. 2023), while compositional tasks expose a gap between solving individual subproblems and their con-junction (Press et al. 2024). 
+
+References 
+
+Aho, A. V.; Lam, M. S.; Sethi, R.; and Ullman, J. D. 2006. 
+
+Compilers: Principles, Techniques, and Tools . Addison-Wesley, 2 edition. ISBN 978-0-321-48681-3. Balaji, S.; Mishra, P.; Sachdeva, A.; and Agrawal, S. 2026. Beyond IVR: Benchmarking Customer Support LLM Agents for Business-Adherence. In Proceedings of the 19th Confer-ence of the European Chapter of the Association for Compu-tational Linguistics: Industry Track , 193–208. Bellan, P.; van der Aa, H.; Dragoni, M.; Ghidini, C.; and Ponzetto, S. P. 2023. PET: An Annotated Dataset for Process Extraction from Natural Language Text Tasks. In Business Process Management Workshops , 315–321. Springer. Diao, L.; Xu, X.; Sun, W.; Yang, C.; and Zhang, Z. 2025. GuideBench: Benchmarking Guideline Adherence for Lan-guage Models. In Proceedings of the Annual Meeting of the Association for Computational Linguistics .Elkoussy, L.; and Perez, J. 2026. AgentLTL: A Trace-Verification Framework for Measuring, Enforcing, and Train-ing Procedural Compliance in Tool-Using LLM Agents. arXiv preprint arXiv:2607.02599. Friedrich, F.; Mendling, J.; and Puhlmann, F. 2011. Process Model Generation from Natural Language Text. In Advanced Information Systems Engineering , volume 6741 of Lecture Notes in Computer Science , 482–496. Springer. GLM-5 Team. 2026. GLM-5: From Vibe Coding to Agentic Engineering. arXiv:2602.15763. Jiang, Y.; et al. 2024. FollowBench: A Multi-level Fine-grained Following Evaluation Benchmark for Large Lan-guage Models. arXiv preprint arXiv:2310.20410. Kamath, A.; Zhang, S.; Xu, C.; Ugare, S.; Singh, G.; and Mi-sailovic, S. 2025. Agent-C: Enforcing Temporal Constraints for LLM Agents. arXiv preprint arXiv:2512.23738. Kate, R. J.; Wong, Y. W.; and Mooney, R. J. 2005. Learning to Transform Natural to Formal Languages. In Proceedings of the Twentieth National Conference on Artificial Intelligence ,1062–1068. AAAI Press. Lattner, C.; and Adve, V. S. 2004. LLVM: A Compilation Framework for Lifelong Program Analysis and Transforma-tion. In Proceedings of the 2nd IEEE/ACM International Symposium on Code Generation and Optimization , 75–88. IEEE Computer Society. Li, Z.; Huang, S.; Wang, J.; Zhang, N.; Antoniades, A.; Hua, W.; Zhu, K.; Zeng, S.; Wang, C.; Wang, W. Y.; and Yan, X. 2025. SOPBench: Evaluating Language Agents at Follow-ing Standard Operating Procedures and Constraints. arXiv preprint arXiv:2503.08669. Liu, N. F.; Lin, K.; Hewitt, J.; Paranavitane, A.; Bevilacqua, A.; Zettlemoyer, L.; and Liang, P. 2024. Lost in the Middle: How Language Models Use Long Contexts. In Transactions of the Association for Computational Linguistics .Lu, J.; Holleis, T.; Zhang, Y.; Aumayer, B.; Nan, F.; Bai, F.; Ma, S.; Ma, S.; Li, M.; Yin, G.; Wang, Z.; and Pang, R. 2024. ToolSandbox: A Stateful, Conversational, Interactive Evaluation Benchmark for LLM Tool Use Capabilities. arXiv preprint arXiv:2408.04682. Nous Research. 2026. Hermes Agent. Software repository. Version 0.18.0; accessed July 21, 2026. Pan, L.; Zou, L.; Guo, S.; Ni, J.; and Zheng, H.-T. 2026. Natural-Language Agent Harnesses. arXiv preprint arXiv:2603.25723. Press, O.; Zhang, M.; Min, S.; Schmidt, L.; Smith, N. A.; and Lewis, M. 2024. Measuring and Narrowing the Com-positionality Gap in Language Models. In Findings of the Association for Computational Linguistics: EMNLP .Rozinat, A.; and van der Aalst, W. M. P. 2008. Conformance Checking of Processes Based on Monitoring Real Behavior. 
+
+Information Systems , 33(1): 64–95. Shi, F.; Chen, X.; Misra, K.; Keys, N.; Celikyilmaz, A.; and Neubig, G. 2023. Large Language Models Can Be Easily Distracted by Irrelevant Context. In International Conference on Machine Learning .Shi, Y.; Cai, S.; Xu, Z.; Qin, Y.; Li, G.; Shao, H.; Chen, J.; Yang, D.; Li, K.; and Sun, X. 2025. FlowAgent: Achieving Compliance and Flexibility for Workflow Agents. arXiv preprint arXiv:2502.14345. Srivastava, A.; Khojastepour, M. A. A.; Chakradhar, S.; and Ulukus, S. 2026. RunAgent: Interpreting Natural-Language Plans with Constraint-Guided Execution. arXiv preprint arXiv:2605.00798. Strands Agents. 2026. Agent SOP: Natural Language Work-flows for AI Agents. Software repository. van der Aa, H.; Leopold, H.; and Reijers, H. A. 2018. Check-ing Process Compliance Against Natural Language Specifi-cations Using Behavioral Spaces. Information Systems , 78: 83–95. Yao, S.; Shinn, N.; Razavi, P.; and Narasimhan, K. 2024. tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains. arXiv preprint arXiv:2406.12045 .Yao, S.; Zhao, J.; Yu, D.; Du, N.; Shafran, I.; Narasimhan, K.; and Cao, Y. 2023. ReAct: Synergizing Reasoning and Acting in Language Models. In International Conference on Learning Representations .Yin, P.; and Neubig, G. 2017. A Syntactic Neural Model for General-Purpose Code Generation. In Proceedings of the 55th Annual Meeting of the Association for Computa-tional Linguistics , 440–450. Association for Computational Linguistics. Zeng, G.; Chen, X.; Hu, J.; Qi, S.; Mao, Y.; Wang, Z.; Nie, Y.; Li, S.; et al. 2025. Routine: A Structural Planning Framework for Enterprise Agents. arXiv preprint arXiv:2507.14447. Zheng, C.; Chen, J.; Lyu, Y.; Ng, W. Z. T.; Zhang, H.; Ong, Y.-S.; Tsang, I.; and Yin, H. 2025. MermaidFlow: Redefining Agentic Workflow Generation via Safety-Constrained Evo-lutionary Programming. arXiv preprint arXiv:2505.22967. Zhou, J.; et al. 2023. IFEval: Instruction Following Evaluation for Large Language Models. arXiv preprint arXiv:2311.07911.

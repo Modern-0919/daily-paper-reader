@@ -1,0 +1,249 @@
+Title: ArbiGraph: Arbitrarily Scalable Verifiable Task Graphs for Evaluating Context Management
+
+URL Source: https://arxiv.org/pdf/2607.20764v1
+
+Published Time: Fri, 24 Jul 2026 00:19:13 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+Preprint 
+
+# ARBI GRAPH :ARBITRARILY SCALABLE VERIFIABLE TASK GRAPHS FOR EVALUATING CONTEXT MANAGEMENT 
+
+Pavel Golikov 1,2 , Evgenii Opryshko 1,2 , Gennady Pekhimenko 1,2 , Mark C. Jeffrey 1
+
+> 1
+
+University of Toronto, 2Vector Institute 
+
+# ABSTRACT 
+
+We introduce A RBI GRAPH , a benchmark generator for evaluating whether tool-assisted language agents can retain, update, compose, and discard task-relevant context across extended reasoning workflows. A RBI GRAPH represents each task as a natural-language problem with an executable Python solver, and composes tasks through typed intermediate states, instantiated here as scalar and list val-ues. This design enables controllable task graphs whose length, dependency structure, distractor count, and value type can be varied while preserving ex-act automatic verification. We instantiate A RBI GRAPH with math, GSM-style word-problems, and Python-tracing task categories, and evaluate a Qwen3.5-27B tool-assisted agent across four topologies. The results show high accuracy on isolated tasks but substantial degradation on more complex dependent tasks: ac-curacy drops by up to 33.3% on branching chains of dependent math tasks. This shows that A RBI GRAPH exposes failures that are not visible from single-task eval-uation alone. Our code, generated datasets, and evaluation results are available at 
+
+https://github.com/pavelgolikov/ArbiGraph.git 
+
+# 1 INTRODUCTION 
+
+Language-model agents equipped with tools now solve increasingly complex tasks. However, as these systems are applied to longer and more interleaved workflows, success depends not only on local problem-solving ability, but also on context management: retaining useful information, updat-ing intermediate state, and discarding irrelevant or stale information. Recent benchmarks have made these context failures visible. Long-context, multi-turn, and memory evaluations show that models struggle under distractors, position shifts, and extended histories (Liu et al., 2024; Hsieh et al., 2024; Bai et al., 2024b;a; Maharana et al., 2024). These failures are not al-ways failures of knowledge or local reasoning; often, they are failures to maintain, update, or discard state induced by prior context. Existing evaluations usually study this problem through large docu-ments, conversations, or memory histories. Even when prior work composes tasks, it usually fixes the composition pattern, such as packed independent problems, instruction sequences, dependency chains, or typed operators, rather than treating dependency topology itself as a controlled variable for testing whether agents preserve, propagate, summarize, or discard intermediate task state. A benchmark for this problem should therefore vary context length, dependency structure, and value type independently, support user-specified task-graph topologies without hand authoring each in-stance, and distinguish local task failure from failures of state propagation, selective forgetting, or cross-task interference. We present A RBI GRAPH , a framework that takes a user-specified task graph (dependency topology), instantiates its nodes with compatible executable natural-language tasks, and renders the result as a single prompt for the agent. In the resulting prompt, nodes appear as plain-English subproblems and edges appear as explicit dependencies between subproblems, while executable code provides the ground-truth answer used for scoring. For a task to be used in A RBI GRAPH , its template must spec-ify a machine-readable input-output contract, a parameterized prompt generator, a parameterized answer generator, and optional adapters that convert between graph-level intermediate data types and task-specific arguments. In this paper, we instantiate this interface with scalar- and list-valued 1arXiv:2607.20764v1 [cs.AI] 22 Jul 2026 Preprint Task Templates t 0, …, t k  
+
+> Input type
+> Output type
+> Task: prompt generator
+> Adapters: value/type adaptation
+> Solver: answer generator
+> Task Graph
+
+# +    
+
+> Dataset
+> •Sample = Task Graph instance = Single prompt
+> •Node = Task Instance + Adapters
+> •Auto-verified
+> •Auto-generated
+> Arbitrary topology
+> Arbitrary size
+
+# =
+
+ArbiGraph Benchmark Generator Pre/post-process Input Task Prompt Output              
+
+> Task 2:
+> Let val_2 be the result of preprocessing task_1_out as follows - if it is a float, convert it to an integer by rounding ties away from
+> zero (0.5 to 1, -0.5 to -1); then replace it with the remainder of its absolute value modulo 100; then add 1 to it.
+> For each integer i from 1 to val_2 , compute the number of positive divisors of i.
+> Compute the sum of all these divisor counts and call the result task_2_out .
+> Task 3:
+> Let val_3 be the result of preprocessing task_2_out as follows - if it is a float, convert it to an integer by rounding ties away from
+> zero (0.5 to 1, -0.5 to -1); then replace it with the remainder of its absolute value modulo 100; then add 1 to it.
+> Compute the sum of the squares of all positive divisors of val_3 and call the result task_3_out .
+
+Figure 1: A RBI GRAPH generator abstraction and concrete generated instance. Top: the generator combines a task graph with typed executable task templates to produce an auto-generated, auto-verified dataset of single-prompt benchmark instances. Bottom: an example chain prompt excerpt, shown as the agent sees it. Color marks the prompt roles: blue text tracks inputs, orange describes preprocessing adapters, green is the task-specific computation, and magenta tracks outputs. intermediate data types and three task categories: math, GSM-style word problems, and Python tracing. These categories cover different local reasoning styles. Math tasks are exactly computable scalar- and list-valued operators drawn from linear algebra, polynomial arithmetic, discrete trans-forms, combinatorics, geometry, and number theory. GSM-style tasks are short natural-language arithmetic word problems, while Python-tracing tasks ask the agent to trace concrete Python func-tions taken from LeetCode Dataset (Xia et al., 2025). To evaluate context management, we compare performance across four topologies. As a baseline, the agent is presented with only the target task. In the forgetting topology, unrelated tasks pre-cede the target, so success requires forgetting irrelevant earlier computations and preventing it from interfering with the current task. In chain and multichain topologies, the final task depends on inter-mediate outputs produced by earlier tasks, so success requires correct state propagation across the graph. Even though we evaluate on these four topologies, our framework is arbitrarily scalable and allows controlled investigation of how context-management performance degrades under increasing graph complexity and context length. In our reported Qwen3.5-27B evaluation, baseline accuracy is high across all three task categories, but accuracy degrades as A RBI GRAPH increases the context pressure. The drop is largest for math chains and multichains, while Python tracing remains comparatively robust and GSM-style arith-metic remains strong in the evaluated topologies. This initial result supports the intended use of ARBI GRAPH : the same agent that solves isolated tasks can fail when it must preserve, update, or ignore typed computational state across a longer prompt. The contributions of this work are as follows: • We formalize context management as typed task-to-task state propagation, separating it from generic long-context retrieval and single-task reasoning. • We introduce A RBI GRAPH , a benchmark generator that composes parameterized, exe-cutable natural-language tasks into verifiable dataflow graphs with user-defined topologies. • We instantiate A RBI GRAPH with math, GSM-style word-problem, and Python-tracing task categories, enabling controlled evaluation across heterogeneous reasoning domains. 
+
+# 2 THE ARBI GRAPH BENCHMARK GENERATOR 
+
+An A RBI GRAPH instance is a natural-language prompt rendered from a user-specified dependency graph. In this graph, nodes are parameterized task templates exposed as natural language subprob-2Preprint 1  
+
+> Baseline
+> 4
+> Forgetting
+> 3214
+> Chain
+> 3218
+> Multi-Chain
+> 3
+> 21
+> 5
+> 4
+> 6
+> 7
+
+Figure 2: A RBI GRAPH evaluation layouts. The baseline topology contains a single target task. The forgetting topology places 3 independent distractor tasks before the target. The chain topology passes outputs through a linear dependency path of 3 tasks. The multichain topology introduces a branched dependency graph in which intermediate states split, evolve independently, and recombine before the final target. Green nodes denote evaluated targets, and arrows denote data dependencies. lems, and edges bind outputs from earlier nodes to parameters of later nodes. A task is chainable when it exposes a parameterized prompt constructor, a machine-readable input-output contract, and an executable solver or verifier. The graph generator uses the contract to decide which edges are valid and uses the verifier to keep evaluation exact. Our experiments instantiate this abstract inter-face with scalars and numeric lists because these types are easy to generate, adapt, bound, compose, and score exactly. 2.1 TASK NODE 
+
+A task node is a tuple 
+
+Ti = ( xi, a i, p i, b i, y i, s i)
+
+where xi is the input, ai is pre-processing adapter, pi is the natural-language prompt, bi is the post-processing adapter, yi is the output, and si is the executable solver. The agent never sees si, but si is used by the benchmark generator to compute the ground-truth output. For this paper, the scalar/list contract is expressive enough to compose arithmetic, word-problem, and code-tracing tasks, while remaining simple enough to generate and verify at scale. Each node consumes named input variables and produces a named output variable written as task i out .2.2 TASK COMPOSITION 
+
+When task Ti depends on another task Tj , its prompt refers to a named output variable of Tj . This explicit naming makes dependencies visible to the agent but does not reveal the answer. The gen-erator stores both the final answer and all intermediate ground-truth outputs. The primary score is computed on the last task, but intermediate outputs allow us to further analyze the agent under con-text pressure. Task graphs are constructed by matching output and input types. An edge Ti → Tj
+
+is valid when the output type of Ti is compatible with the input type of Tj . Our implementation accepts custom DAGs specified as NetworkX node-link JSON (Hagberg et al., 2008) and provides a Graphviz-based visualization for inspecting the resulting graph topology (Ellson et al., 2004). Be-cause A RBI GRAPH accepts user-specified DAGs, the user can scale context pressure by varying the number of tasks and their arrangement. 2.3 ADAPTERS 
+
+Pre-processing and post-processing adapters convert incoming/outgoing data from benchmark space (list or scalar) into task-specific formats and back. For example, a list-valued input can be truncated or padded to a fixed length, reduced modulo a magnitude bound, coerced to integers, or reshaped into a matrix. This adapter layer is important for two reasons. First, it separates local task semantics from global composability; a task may internally involve various operators, but the data passed between tasks is always a scalar or list. Second, it allows A RBI GRAPH to control complexity of individual tasks in the middle of the graph, which prevents complexity explosion in large graphs. In our experiments we use these adapters to bound list length up to 10 and scalar magnitude up to 100. An example of two chained math tasks is shown in the lower panel of Fig. 1. 3Preprint 2.4 TASK CATEGORIES 
+
+ARBI GRAPH currently uses two primary task categories, math and Python tracing, plus a smaller GSM-style category that adds natural-language arithmetic variation. Each task category is a col-lection of executable templates: the same template can be used with arbitrary generated inputs, including those produced by earlier tasks in a chain. 2.4.1 MATH TASKS 
+
+The math category consists of 40 hand-selected operators. They were selected to cover all four type signatures supported by A RBI GRAPH : 10 list-to-list tasks, 10 list-to-scalar tasks, 10 scalar-to-scalar tasks, and 10 scalar-to-list tasks. The tasks are drawn from areas that are algorithmically concrete and exactly computable: linear algebra, polynomial arithmetic, discrete transforms, combinatorics, geometry, and number theory. The selection criteria were mathematical diversity and controlled output behavior. Many natural mathematical functions are unsuitable for chains because their out-puts can explode in magnitude, collapse to trivial constants, or produce repetitive lists. Our selected operators both have Python/SymPy solvers and can be described precisely in natural language. 2.4.2 PYTHON TRACING TASKS 
+
+The Python tracing category is built from 80 algorithms taken from the LeetCode Dataset (Xia et al., 2025). The agent is not asked to write a program; it is asked to trace a concrete function on concrete inputs. Each candidate problem retains its original LeetCode problem identifier and difficulty label. These functions include array and list processing, sorting and searching, stack and greedy algorithms, dynamic programming, simulation, and arithmetic routines. For each candidate, the generator parses the Python abstract syntax tree to identify input and output types and parameter names. When a Python task is inserted into a chain, one compatible parameter receives the chained input, while remaining parameters are filled with generated static values. The function is executed to obtain ground truth, then rewritten into a task-specific trace prompt with renamed input and output variables. 2.4.3 GSM-S YMBOLIC TASKS 
+
+GSM-style word problems form a supporting scalar-to-scalar category built from GSM-Symbolic templates, excluding questions that were poorly chainable. It adds natural-language arithmetic and entity-based descriptions to the generated prompts. In A RBI GRAPH , GSM-style tasks are useful as linguistic arithmetic nodes and distractors: they make the context look less like a uniform sequence of algebraic operators while still preserving exact executable ground truth. 2.5 MEASURING CONTEXT MANAGEMENT WITH ARBI GRAPH 
+
+The central design choice in A RBI GRAPH is to make context into typed computational state. Long prompts are not long because they contain more documents; they are long because they contain more prior operations, intermediate values, and possible sources of interference. This creates evaluation cases in which the agent must decide which earlier outputs are live, which are local to an independent block, and which should be ignored. Fig. 2 shows our four evaluation topologies that measure context management at the most basic level. Baseline accuracy estimates whether the agent can solve the target task at all. Forgetting 
+
+accuracy measures whether that ability survives when the context contains irrelevant computations that are explicitly out of scope for the target and need to be discarded. Chain accuracy measures whether that ability survives when the target input must be produced by earlier tasks. Multichain 
+
+accuracy measures whether that ability survives when the graph structure becomes more complex, e.g. introduces branches and reconvergence. The gap between these topologies is the context-management signal that A RBI GRAPH is designed to expose. During evaluation, we further separate this signal from mechanical trajectory failures such as malformed tool calls, missing boxed answers, and generation cutoffs; this repair protocol is described in Section 3. ARBI GRAPH is designed from the ground up to be arbitrarily scalable and this introduces another dimension to context management evaluation. If an agent performs well on an instance of the bench-4Preprint mark, it is possible to further scale the evaluation by increasing the number of distractor and/or dependent tasks or complicating the graph structure to further increase context pressure. 
+
+# 3 METHODOLOGY 
+
+3.1 DATASET GENERATION 
+
+We generate datasets from a pool of executable task categories. Each category, such as math or Python tracing, exposes the same interface: candidate task types, accepted input types, output type, a natural-language prompt constructor, and a Python solver. For each generated instance, the generator samples a target task, samples concrete inputs and task-specific parameters, executes the solver, and stores the prompt, metadata, intermediate outputs, and final ground truth. 
+
+Baseline datasets: In the baseline topology, each sample contains one target task with a fresh random input to determine the model’s baseline competence at the task. 
+
+Forgetting datasets: In the forgetting topology, the prompt contains multiple independent tasks. The last task is the target task and all tasks before are independent distractors. 
+
+Chain datasets: In the chain topology, the first task receives a fresh random input and every later task receives the previous task’s output. The target is placed at the final position. 
+
+Multichain datasets: For branched contexts, we construct a restricted directed acyclic graph. A list-output task expands into several scalar branch inputs; each branch gets its own input and is processed independently; the scalar branch outputs are then recombined into a list that feeds the next task, which must be a scalar-input task. This layout preserves exact verification while introducing multiple active dependency threads. As with linear chains, the evaluation target is the last task’s output. In the reported evaluation, baseline instances contain one target task, forgetting and chain instances contain four tasks, and multichain instances contain eight tasks. Forgetting instances use three independent distractor tasks followed by the target, chain instances use a four-task linear dependency path, and multichain instances use the branched layout in Fig. 2. We generate 16 samples per target task, covering 40 math tasks, 80 Python-tracing tasks, and 41 GSM-style tasks. Pure GSM-style multichain instances are omitted because GSM-style tasks only produce scalar outputs and therefore cannot instantiate the branching layout. The datasets used in this evaluation were generated with random seed 0. Generated instances are rejected and resampled when the solver output is degenerate or likely to admit shallow shortcut. We filter non-finite values, extremely large values, scalar outputs such as 0, 1, and −1, empty or singleton lists, lists dominated by repeated entries, and simple sequential lists. 3.2 AGENT EVALUATION 
+
+Each sample is presented as a single prompt containing initial conditions followed by task blocks. The system prompt instructs the agent to reason step by step, use the calculator tool for arithmetic, and place every requested answer in a separate box using the exact variable name, in the form 
+
+\boxed {task N out = value }. We evaluate a language-model agent with access to a calcula-tor tool and a multi-turn interaction loop. The calculator tool evaluates simple arithmetic expressions supplied by the agent; it does not solve benchmark tasks. 3.3 ANSWER COLLECTION AND REPAIR PROTOCOL 
+
+Long multi-task prompts introduce several mechanical failure modes that are not themselves context-management failures. An agent may omit a required boxed answer, place the label out-side the box, or be cutoff due to max token limit. To reduce these confounds, our agentic evaluation uses targeted repair prompts, which handle three cases. 
+
+Tool call repair: If the initial response contains no valid calculator call, the harness issues a short repair prompt asking for exactly one complete calculator call. 
+
+Output repair: If the response does not contain all requested boxed outputs, the harness asks for the missing outputs. 
+
+Cutoff repair: If an agent reaches the maximum output-token limit per turn before producing the answers, the harness asks the agent to continue from where it stopped. In the reported evaluation, 5Preprint the repair budgets are fixed by topology: baseline uses 5 initial-tool repairs, 3 final-answer repairs, and 3 cutoff repairs; forgetting and chain use 5, 12, and 12; and multichain uses 5, 24, and 24. These repairs only make the interaction gradeable by enforcing tool use and syntax, answer format, and continuation after cutoff. The evaluator extracts only complete boxed answers whose task label appears inside the box. Labels outside boxes do not count, tool-call payloads are masked before extraction, and later boxed answers replace earlier answers for the same task. The final requested output is synthesized from the collected answer map and passed to the grader. Values are parsed as Python literals when possible; lists must have the correct length, integer targets and integer list elements require exact equality, and floating-point values use an absolute tolerance of 10 −3. The grader uses symbolic verification when applicable. 3.4 METRICS 
+
+Final-task accuracy is the primary metric. For each dataset target task, we evaluate on 16 gener-ated samples with zero-shot prompting. Wilson 95% confidence intervals are computed over gen-erated instances for final-task accuracy. Intermediate outputs are collected and stored for analysis and repair, but they are not graded by the primary metric; only the final requested output deter-mines correctness. Terminal failures such as missing requested answers, timeouts, context-length exceedance, or other non-success statuses remain in the denominator and are counted as incorrect. We additionally record average token count, average number of turns, average tool calls, repair sta-tus, and context-length-exceeded rate. These auxiliary metrics help separate reasoning and context-management failures from failures caused by serving limits or ungradeable trajectories. 3.5 MODELS AND INFERENCE SETTINGS 
+
+We evaluate Qwen3.5-27B (Qwen Team, 2026) in a tool-assisted agent configuration. We use temperature of 0 for deterministic decoding, 16384 as max tokens for regular turns and 32768 as max tokens for repair turns and up to 512K as max context for the agent. The reported evaluation used approximately 105 wall-clock inference hours. 
+
+# 4 EVALUATION 
+
+We report evaluation of Qwen3.5-27B with the calculator-tool agent harness described in Sec-tion 3. We evaluate the four A RBI GRAPH topologies described in Section 2: baseline, forgetting, chain, and multichain. This is a preliminary one-model evaluation intended to validate the bench-mark signal, not a comprehensive comparison of model families or agent designs. The current eval-uation contains 640 math runs, 1280 Python-tracing runs, and 656 GSM-style runs per evaluated topology. 4.1 FINAL -TASK ACCURACY 
+
+Figure 3 shows final-task accuracy by topology and task category. Baseline accuracy is high for all categories: 94.5% for math, 96.8% for Python tracing, and 100.0% for GSM-style arithmetic. This suggests that most targets are locally solvable by the evaluated agent. Adding irrelevant preceding tasks produces a smaller but consistent degradation for the two primary categories. Math accuracy falls from 94.5% to 89.2%, and Python tracing falls from 96.8% to 92.5%. GSM-style arithmetic remains at 100.0% in the forgetting topology. The forgetting result indicates that distractor-heavy context can reduce accuracy even when the target task itself is unchanged and appears last. The larger degradation appears when the target depends on earlier computed state. In linear chains, math accuracy falls to 75.5%, while Python tracing remains at 90.1% and GSM-style arithmetic remains at 96.0%. In multichain topology, math accuracy falls further to 61.2%. Python tracing re-mains comparatively stable at 90.5%, despite the additional branched context. These results suggest that the context-management burden is not uniform across categories: math chains are substantially more sensitive to propagated-state errors, while Python tracing is more robust. 6Preprint Baseline Forgetting Chain Multichain         
+
+> 0
+> 25
+> 50
+> 75
+> 100
+> Final-task accuracy (%)
+> 94.5 89.2
+> 75.5
+> 61.2
+> 96.8 92.5 90.1 90.5
+> 100.0 100.0 96.0
+> n/a
+> Math Python GSM
+
+Figure 3: Final-task accuracy for Qwen3.5-27B across A RBI GRAPH topologies. Baseline tasks are solved in isolation, forgetting tasks add independent distractors, chain tasks require linear state propagation, and multichain tasks require branched state propagation. Error bars show Wilson 95% confidence intervals over generated instances. Pure GSM multichain could not be generated as GSM tasks output only scalars. 4.2 PROCESS METRICS 
+
+ARBI GRAPH also records trajectory-level process metrics. Figure 4 reports the average number of generated tokens per instance. Figure 5 reports the average number of agent turns per instance. Baseline Forgetting Chain Multichain        
+
+> 0
+> 20
+> 40
+> Avg. tokens (K)
+> 10
+> 26
+> 38
+> 52
+> 7
+> 18 22 25
+> 133n/a
+> Math Python GSM
+
+Figure 4: Average generated token length for Qwen3.5-27B. Token length is measured over the full agent trajectory, including continuation and repair turns when they occur. Baseline Forgetting Chain Multichain    
+
+> 0
+> 5
+> 10
+> Avg. turns
+> 7
+> 13
+> 10
+> 12
+> 3
+> 6
+> 4
+> 7
+> 2
+> 44
+> n/a
+> Math Python GSM
+
+Figure 5: Average number of agent turns for Qwen3.5-27B. Turns include the initial response, calculator-tool interaction turns, and repair or continuation turns when needed. The process metrics suggest that lower accuracy is accompanied by a genuine increase in reasoning and context-management effort, not just by more difficult final answers. The largest token growth occurs in dependent math topologies, where the agent must repeatedly carry forward intermediate state and often produces long derivations before reaching the final task. Turn counts add a com-plementary signal: forgetting can increase interaction rounds through additional tool-use, repair, or continuation steps even when its token totals are smaller than the longest chains. Thus, token length and turns diagnose different failure pressures: verbose within-turn reasoning, multi-round recovery, and the cost of maintaining live state across the prompt. 4.3 TAKEAWAYS 
+
+This preliminary Qwen3.5-27B evaluation supports three observations. First, A RBI GRAPH sep-arates baseline task competence from context-management competence: high baseline accuracy does not imply high chain or multichain accuracy. Second, A RBI GRAPH exposes different failure pressures across categories. Math is the most sensitive to dependent context while Python tracing remains more stable under the tested chain and multichain layouts. Third, process metrics reveal that harder topologies do not merely lower accuracy; they also require substantially longer agent trajectories. 7Preprint 
+
+# 5 RELATED WORK 
+
+Context management is an increasingly central limitation of large language models and agents. As context windows grow, evaluation must move beyond retrieving a fact from a long prompt and toward measuring whether a system can preserve, update, discard, and compose information over extended interactions. A RBI GRAPH targets this by treating context as typed computational state: natural-language tasks produce scalar or list-valued outputs, those outputs may feed later tasks, and final answers are exactly verifiable. 5.1 LONG -CONTEXT , MEMORY , AND CONTEXT -MANAGEMENT EVALUATION 
+
+Long-context benchmarks show that nominal context length is not the same as usable context. RULER, LongBench, LongBench v2, HELMET, and InfiniteBench evaluate retrieval, aggregation, document understanding, code, math, dialogue, synthetic tracing, and application-centered long-context reasoning (Hsieh et al., 2024; Bai et al., 2024b; 2025; Yen et al., 2025; Zhang et al., 2024). BABILong, NoLiMa, Michelangelo, and “Lost in the Middle” further show that models struggle with reasoning over distractors, lexical mismatch, latent structure, and position-dependent evidence use (Kuratov et al., 2024; Modarressi et al., 2025; Vodrahalli et al., 2024; Liu et al., 2024). A R-
+
+> BI
+
+GRAPH shares this concern with usable context, but changes the unit of context: instead of doc-uments or retrieval substrates, it uses executable task graphs whose intermediate values must be retained, transformed, ignored, or reset according to typed dependencies. Multi-turn, memory, and context-management benchmarks study related failures over interactions and persistent histories. MT-Bench-101, MTR-Bench, and MultiChallenge evaluate multi-turn di-alogue, interactive reasoning, instruction following, context allocation, and in-context reasoning failures (Bai et al., 2024a; Li et al., 2026; Deshpande et al., 2025). LoCoMo, LongMemEval, and LongMINT test long-term conversational memory, multi-session reasoning, temporal updates, ab-stention, and multi-target interference (Maharana et al., 2024; Wu et al., 2025; Lee et al., 2026). Systems work such as MemGPT, LLMLingua, LongLLMLingua, and LOCA-bench treats context management as virtual memory, compression, pruning, or degradation under context growth (Packer et al., 2023; Jiang et al., 2023; 2024; Zeng et al., 2026). A RBI GRAPH is complementary: it removes open-ended dialogue scoring and isolates a deterministic substrate for testing whether agents main-tain the right intermediate values while discarding irrelevant ones. 5.2 COMPOSITIONAL , VERIFIABLE , AND TASK -LEVEL EVALUATION 
+
+Controlled synthetic benchmarks established that generated tasks can expose targeted reasoning failures: bAbI tested prerequisite reasoning skills, SCAN tested compositional generalization, and CLUTRR tested relational reasoning under irrelevant facts (Weston et al., 2015; Lake & Baroni, 2018; Sinha et al., 2019). A RBI GRAPH inherits this diagnostic philosophy but shifts the target from learning a static grammar or relation system to managing typed state across an online workflow. Recent composition work creates harder prompts or training instances: REST packs multiple prob-lems into one prompt; GSM-∞ scales GSM-style reasoning and context length; SIFo composes instruction sequences; MathFusion fuses math problems; and H1 builds GSM8K-style dependency chains (Pan et al., 2026; Zhou et al., 2025; Chen et al., 2024; Pei et al., 2025; Ivanova et al., 2026). Composition-RL feeds a numeric answer from one verifiable problem into another, while related work studies functional skills of the form f (g(x)) (Xu et al., 2026; Yuan et al., 2026). GSM-Symbolic is closely related in spirit because symbolic templates reduce memorization and expose reasoning fragility under perturbations (Mirzadeh et al., 2025). Robust Reasoning Benchmark raises a closely related question about the optimal granularity of reasoning tasks when observing degrada-tion in performance from the model solving several independent AIME problems sequentially. (Go-likov et al., 2026). The difference is that A RBI GRAPH composes executable task nodes with explicit scalar/list inputs and outputs, so composition becomes an evaluation instrument for state propaga-tion, selective forgetting, and cross-task interference rather than only a way to make harder single prompts or training data. DSR-Bench is a closely related synthetic and automatically verifiable benchmark for structural rea-soning over data structures (He et al., 2026). It scales over data-structure families, generated in-stances, input lengths, and operation sequences within a task. A RBI GRAPH instead scales the de-8Preprint pendency graph itself: the number of task nodes, topology, distractors, branches, and context pres-sure. Thus, DSR-Bench-style operations could serve as primitives inside A RBI GRAPH nodes, while ARBI GRAPH evaluates graph-level context management around those primitives. Code, math, and agent benchmarks evaluate important local or open-world capabilities. CRUXEval, APPS, and LiveCodeBench test short-function prediction, program synthesis, execution, self-repair, and contamination-resistant coding evaluation (Gu et al., 2024; Hendrycks et al., 2021; Jain et al., 2025). GAIA and tau-bench evaluate broader multi-step behavior with tools, browsing, user interac-tion, and external state (Mialon et al., 2024; Yao et al., 2025). RACES is the closest methodological neighbor: it composes typed verifiable environments with operators such as sequential, parallel, sort, and select to scale reinforcement-learning training for reasoning generalization (Xiang et al., 2026). ARBI GRAPH shares the typed-composition abstraction, but uses it for a different scientific target: diagnosing whether a tool-assisted agent can preserve the context that matters, discard the context that does not, and propagate the right state to the final evaluated task. 
+
+# 6 LIMITATIONS AND FUTURE WORK 
+
+We plan two concrete extensions to A RBI GRAPH . First, we will make the framework multimodal and release benchmark categories in which image and video tasks participate in the same typed de-pendency graphs as text, math, and code tasks. Second, we will use A RBI GRAPH to simulate more realistic workflows, so future instances can test context management in topologies that better re-semble real-world agent tasks rather than isolated synthetic transformations. The current evaluation is limited to scalar/list-valued synthetic task categories and one calculator-assisted Qwen3.5-27B agent, so it does not yet compare model families, agent designs, or richer external-state topologies. 
+
+# 7 CONCLUSION 
+
+ARBI GRAPH introduces a benchmark generator for evaluating context management in tool-assisted language agents. Our framework turns context into typed computational state: tasks produce scalar or list-valued outputs, later tasks may consume those outputs, and final answers are checked against executable ground truth. By comparing baseline, forgetting, chain, and multichain topologies, A R-
+
+> BI
+
+GRAPH separates local task-solving ability from failures of state propagation, stale-value reuse, and interference from irrelevant prior tasks. In our preliminary Qwen3.5-27B evaluation, baseline accuracy is high across math, Python tracing, and GSM-style arithmetic, but accuracy drops when the same agent must manage dependent or distracting context. The largest degradation appears in math chains and multichains, while Python tracing is more robust under the evaluated layouts. Overall, these initial results position A RBI GRAPH as a diagnostic benchmark generator for measur-ing whether agents can manage context across different topologies, rather than merely whether they can solve isolated tasks. 
+
+# ACKNOWLEDGMENTS 
+
+This work was supported in part by the Digital Research Alliance of Canada and the Vector Institute. 
+
+# REFERENCES 
+
+Ge Bai, Jie Liu, Xingyuan Bu, Yancheng He, Jiaheng Liu, Zhanhui Zhou, Zhuoran Lin, Wenbo Su, Tiezheng Ge, Bo Zheng, and Wanli Ouyang. MT-bench-101: A fine-grained benchmark for evaluating large language models in multi-turn dialogues. In Proc. of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 7421–7454, August 2024a. doi: 10.18653/v1/2024.acl-long.401. URL https://aclanthology.org/2024. acl-long.401/ .Yushi Bai, Xin Lv, Jiajie Zhang, Hongchang Lyu, Jiankai Tang, Zhidian Huang, Zhengxiao Du, Xiao Liu, Aohan Zeng, Lei Hou, Yuxiao Dong, Jie Tang, and Juanzi Li. LongBench: A bilingual, multitask benchmark for long context understanding. In Proc. of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 3119–3137, August 9Preprint 2024b. doi: 10.18653/v1/2024.acl-long.172. URL https://aclanthology.org/2024. acl-long.172/ .Yushi Bai, Shangqing Tu, Jiajie Zhang, Hao Peng, Xiaozhi Wang, Xin Lv, Shulin Cao, Jiazheng Xu, Lei Hou, Yuxiao Dong, Jie Tang, and Juanzi Li. LongBench v2: Towards deeper under-standing and reasoning on realistic long-context multitasks. In Proc. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 3639–3664, July 2025. doi: 10.18653/v1/2025.acl-long.183. URL https://aclanthology.org/2025. acl-long.183/ .Xinyi Chen, Baohao Liao, Jirui Qi, Panagiotis Eustratiadis, Christof Monz, Arianna Bisazza, and Maarten de Rijke. The SIFo benchmark: Investigating the sequential instruction following ability of large language models. In Findings of the Association for Computational Linguistics: EMNLP 2024 , pp. 1691–1706, November 2024. doi: 10.18653/v1/2024.findings-emnlp.92. URL https: //aclanthology.org/2024.findings-emnlp.92/ .Kaustubh Deshpande, Ved Sirdeshmukh, Johannes Baptist Mols, Lifeng Jin, Ed-Yeremai Hernandez-Cardona, Dean Lee, Jeremy Kritz, Willow E. Primack, Summer Yue, and Chen Xing. MultiChallenge: A realistic multi-turn conversation evaluation benchmark challeng-ing to frontier LLMs. In Findings of the Association for Computational Linguistics: ACL 2025 , pp. 18632–18702, July 2025. doi: 10.18653/v1/2025.findings-acl.958. URL https: //aclanthology.org/2025.findings-acl.958/ .John Ellson, Emden R. Gansner, Eleftherios Koutsofios, Stephen C. North, and Gordon Woodhull. Graphviz and dynagraph – static and dynamic graph drawing tools. In Graph Drawing Software ,Mathematics and Visualization, pp. 127–148. Springer, 2004. doi: 10.1007/978-3-642-18638-7 6. URL https://graphviz.org/ .Pavel Golikov, Evgenii Opryshko, Gennady Pekhimenko, and Mark C. Jeffrey. Robust reason-ing benchmark, 2026. URL https://arxiv.org/abs/2604.08571 . arXiv preprint arXiv:2604.08571. Alex Gu, Baptiste Rozi` ere, Hugh Leather, Armando Solar-Lezama, Gabriel Synnaeve, and Sida I. Wang. CRUXEval: A benchmark for code reasoning, understanding and execution, 2024. URL 
+
+https://arxiv.org/abs/2401.03065 . arXiv preprint arXiv:2401.03065. Aric A. Hagberg, Daniel A. Schult, and Pieter J. Swart. Exploring network structure, dynamics, and function using NetworkX. In Proc. of the Python in Science Conference , pp. 11–15, August 2008. doi: 10.25080/TCWV9851. URL https://networkx.org/en/ .Yu He, Yingxi Li, Colin White, and Ellen Vitercik. Can LLMs reason structurally? Benchmarking via the lens of data structures. In Proc. of the 43rd International Conference on Machine Learning ,2026. URL https://arxiv.org/abs/2505.24069 .Dan Hendrycks, Steven Basart, Saurav Kadavath, Mantas Mazeika, Akul Arora, Ethan Guo, Collin Burns, Samir Puranik, Horace He, Dawn Song, and Jacob Steinhardt. Measuring coding chal-lenge competence with APPS. In Proc. of the International Conference on Neural Information Processing Systems (NeurIPS) , 2021. Cheng-Ping Hsieh, Simeng Sun, Samuel Kriman, Shantanu Acharya, Dima Rekesh, Fei Jia, Yang Zhang, and Boris Ginsburg. RULER: What’s the real context size of your long-context language models? In Proc. of the 1st Conference on Language Modeling (COLM) , 2024. URL https: //arxiv.org/abs/2404.06654 .Alesia Ivanova, Sumeet Ramesh Motwani, Ziyang Cai, Philip Torr, Riashat Islam, Shital Shah, Christian Schroeder de Witt, and Charles London. h1: Bootstrapping LLMs to reason over longer horizons via reinforcement learning. In Proc. of the International Conference on Machine Learn-ing (ICML) , 2026. URL https://openreview.net/forum?id=3BW15kSPfN .Naman Jain, Han, Alex Gu, Wen-Ding Li, Fanjia Yan, Tianjun Zhang, Sida Wang, Armando Solar-Lezama, Koushik Sen, and Ion Stoica. LiveCodeBench: Holis-tic and contamination free evaluation of large language models for code. In Proc. 
+
+10 Preprint 
+
+of the International Conference on Learning Representations (ICLR) , pp. 58791–58831, 2025. URL https://proceedings.iclr.cc/paper_files/paper/2025/file/ 94074dd5a072d28ff75a76dabed43767-Paper-Conference.pdf .Huiqiang Jiang, Qianhui Wu, Chin-Yew Lin, Yuqing Yang, and Lili Qiu. LLMLingua: Compress-ing prompts for accelerated inference of large language models. In Proc. of the Conference on Empirical Methods in Natural Language Processing (EMNLP) , pp. 13358–13376, Decem-ber 2023. doi: 10.18653/v1/2023.emnlp-main.825. URL https://aclanthology.org/ 2023.emnlp-main.825/ .Huiqiang Jiang, Qianhui Wu, Xufang Luo, Dongsheng Li, Chin-Yew Lin, Yuqing Yang, and Lili Qiu. LongLLMLingua: Accelerating and enhancing LLMs in long context scenarios via prompt compression. In Proc. of the 62nd Annual Meeting of the Association for Computational Linguis-tics (Volume 1: Long Papers) , pp. 1658–1677, August 2024. doi: 10.18653/v1/2024.acl-long.91. URL https://aclanthology.org/2024.acl-long.91/ .Yuri Kuratov, Aydar Bulatov, Petr Anokhin, Ivan Rodkin, Dmitry Sorokin, Artyom Sorokin, and Mikhail Burtsev. BABILong: Testing the limits of LLMs with long context reasoning-in-a-haystack. In Proc. International Conference on Neural Information Processing Systems (NeurIPS) , pp. 106519–106554, 2024. doi: 10.52202/079017-3381. Brenden M. Lake and Marco Baroni. Generalization without systematicity: On the compositional skills of sequence-to-sequence recurrent networks. In Proc. of the 35th International Conference on Machine Learning (ICML) , pp. 2873–2882, 2018. URL https://proceedings.mlr. press/v80/lake18a.html .Hyunji Lee, Justin Chih-Yao Chen, Joykirat Singh, Zaid Khan, Elias Stengel-Eskin, and Mo-hit Bansal. LongMINT: Evaluating memory under multi-target interference in long-horizon agent systems, 2026. URL https://arxiv.org/abs/2605.18565 . arXiv preprint arXiv:2605.18565. Xiaoyuan Li, Keqin Bao, Yubo Ma, Moxin Li, Wenjie Wang, Rui Men, Yichang Zhang, Fuli Feng, and Dayiheng Liu. MTR-bench: A comprehensive benchmark for multi-turn reasoning eval-uation. In Proc. of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 21525–21577, July 2026. doi: 10.18653/v1/2026.acl-long.984. URL https://aclanthology.org/2026.acl-long.984/ .Nelson F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, and Percy Liang. Lost in the middle: How language models use long contexts. Transactions of the Association for Computational Linguistics , 12:157–173, 2024. doi: 10.1162/tacl a 00638. URL 
+
+https://doi.org/10.1162/tacl_a_00638 .Adyasha Maharana, Dong-Ho Lee, Sergey Tulyakov, Mohit Bansal, Francesco Barbieri, and Yuwei Fang. Evaluating very long-term conversational memory of LLM agents. In Proc. of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Pa-pers) , pp. 13851–13870, August 2024. doi: 10.18653/v1/2024.acl-long.747. URL https: //aclanthology.org/2024.acl-long.747/ .Gr´ egoire Mialon, Cl´ ementine Fourrier, Thomas Wolf, Yann LeCun, and Thomas Scialom. GAIA: a benchmark for general ai assistants. In Proc. of the Inter-national Conference on Learning Representations (ICLR) , pp. 9025–9049, 2024. URL https://proceedings.iclr.cc/paper_files/paper/2024/file/ 25ae35b5b1738d80f1f03a8713e405ec-Paper-Conference.pdf .Iman Mirzadeh, Keivan Alizadeh-Vahid, Hooman Shahrokhi, Oncel Tuzel, Samy Ben-gio, and Mehrdad Farajtabar. GSM-Symbolic: Understanding the limitations of mathematical reasoning in large language models. In Proc. of the International Conference on Learning Representations (ICLR) , pp. 94743–94765, 2025. URL 
+
+https://proceedings.iclr.cc/paper_files/paper/2025/file/ ec2e7a896f8250986b3907f57621ce94-Paper-Conference.pdf .11 Preprint Ali Modarressi, Hanieh Deilamsalehy, Franck Dernoncourt, Trung Bui, Ryan A. Rossi, Seunghyun Yoon, and Hinrich Sch¨ utze. NoLiMa: Long-context evaluation beyond literal matching. In Proc. of the 42nd International Conference on Machine Learning (ICML) , 2025. Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G. Patil, Ion Stoica, and Joseph E. Gonzalez. MemGPT: Towards LLMs as operating systems, 2023. URL https://arxiv. org/abs/2310.08560 . arXiv preprint arXiv:2310.08560. Zhuoshi Pan, Qizhi Pei, Yu Li, Zinan Tang, QiYao Sun, H. Vicky Zhao, Conghui He, and Lijun Wu. REST: Stress testing large reasoning models by asking multiple problems at once. In Proc. of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 28110–28140, July 2026. doi: 10.18653/v1/2026.acl-long.1296. URL https: //aclanthology.org/2026.acl-long.1296/ .Qizhi Pei, Lijun Wu, Zhuoshi Pan, Yu Li, Honglin Lin, Chenlin Ming, Xin Gao, Conghui He, and Rui Yan. MathFusion: Enhancing mathematical problem-solving of LLM through instruction fusion. In Proc. of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 7400–7420, July 2025. doi: 10.18653/v1/2025.acl-long.367. URL 
+
+https://aclanthology.org/2025.acl-long.367/ .Qwen Team. Qwen3.5-27B, 2026. URL https://huggingface.co/Qwen/Qwen3.5-27B .Hugging Face model card. Accessed 2026-07-14. Koustuv Sinha, Shagun Sodhani, Jin Dong, Joelle Pineau, and William L. Hamilton. CLUTRR: A diagnostic benchmark for inductive reasoning from text. In Proc. of the Conference on Empirical Methods in Natural Language Processing and the International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , pp. 4506–4515, November 2019. doi: 10.18653/v1/D19-1458. URL https://aclanthology.org/D19-1458/ .Kiran Vodrahalli, Santiago Ontanon, Nilesh Tripuraneni, Kelvin Xu, Sanil Jain, Rakesh Shivanna, Jeffrey Hui, Nishanth Dikkala, Mehran Kazemi, Bahare Fatemi, Rohan Anil, Ethan Dyer, Siamak Shakeri, Roopali Vij, Harsh Mehta, Vinay Ramasesh, Quoc Le, Ed Chi, Yifeng Lu, Orhan Firat, Angeliki Lazaridou, Jean-Baptiste Lespiau, Nithya Attaluri, and Kate Olszewska. Michelangelo: Long context evaluations beyond haystacks via latent structure queries, 2024. URL https: //arxiv.org/abs/2409.12640 .Jason Weston, Antoine Bordes, Sumit Chopra, Alexander M. Rush, Bart van Merri¨ enboer, Ar-mand Joulin, and Tomas Mikolov. Towards AI-complete question answering: A set of pre-requisite toy tasks, 2015. URL https://arxiv.org/abs/1502.05698 . arXiv preprint arXiv:1502.05698. Di Wu, Hongwei Wang, Wenhao Yu, Yuwei Zhang, Kai-Wei Chang, and Dong Yu. LongMemEval: Benchmarking chat assistants on long-term interactive memory. In Proc. of the International Conference on Learning Representations (ICLR) , 2025. Yunhui Xia, Wei Shen, Yan Wang, Jason Klein Liu, Huifeng Sun, Siyue Wu, Jian Hu, and Xiaolong Xu. Leetcodedataset: A temporal dataset for robust evaluation and efficient training of code llms, 2025. URL https://arxiv.org/abs/2504.14655 .Hao Xiang, Qiaoyu Tang, Le Yu, Yaojie Lu, Xianpei Han, Ben He, Le Sun, Bowen Yu, Peng Wang, Hongyu Lin, and Dayiheng Liu. Verifiable environments are LEGO bricks: Recursive compo-sition for reasoning generalization, 2026. URL https://arxiv.org/abs/2606.12373 .arXiv preprint arXiv:2606.12373. Xin Xu, Clive Bai, Kai Yang, Tianhao Chen, Yangkun Chen, Weijie Liu, Hao Chen, Yang Wang, Saiyong Yang, and Can Yang. Composition-RL: Compose your verifiable prompts for reinforce-ment learning of large language models, 2026. URL https://arxiv.org/abs/2602. 12036 . arXiv preprint arXiv:2602.12036. Shunyu Yao, Noah Shinn, Pedram Razavi, and Karthik Narasimhan. τ -bench: A benchmark for tool-agent-user interaction in real-world domains. In Proc. of the International Conference on Learning Representations (ICLR) , 2025. URL https://openreview.net/forum?id= roNSXZpUDN .12 Preprint Howard Yen, Tianyu Gao, Minmin Hou, Ke Ding, Daniel Fleischer, Peter Izsak, Moshe Wasserblat, and Danqi Chen. HELMET: How to evaluate long-context language models effectively and thor-oughly. In Proc. of the International Conference on Learning Representations (ICLR) , 2025. Lifan Yuan, Weize Chen, Yuchen Zhang, Ganqu Cui, Hanbin Wang, Ziming You, Ning Ding, Zhiyuan Liu, Maosong Sun, and Hao Peng. From f (x) and g(x) to f (g(x)) : LLMs learn new skills in RL by composing old ones. In Proc. of the International Conference on Learning Repre-sentations (ICLR) , 2026. URL https://openreview.net/forum?id=jt7oCtYqHE .Weihao Zeng, Yuzhen Huang, and Junxian He. LOCA-bench: Benchmarking language agents under controllable and extreme context growth. In Proc. of the International Conference on Machine Learning (ICML) , 2026. URL https://openreview.net/forum?id=N4HIJq8v95 .Xinrong Zhang, Yingfa Chen, Shengding Hu, Zihang Xu, Junhao Chen, Moo Hao, Xu Han, Zhen Thai, Shuo Wang, Zhiyuan Liu, and Maosong Sun. ∞Bench: Extending long context evaluation beyond 100K tokens. In Proc. of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 15262–15277, August 2024. doi: 10.18653/v1/2024. acl-long.814. URL https://aclanthology.org/2024.acl-long.814/ .Yang Zhou, Hongyi Liu, Zhuoming Chen, Yuandong Tian, and Beidi Chen. GSM-infinite: How do your LLMs behave over infinitely increasing reasoning complexity and context length? In 
+
+Proc. of the ICML Workshop on Long-Context Foundation Models , 2025. URL https: //openreview.net/forum?id=FGoZOZzotG .
+
+# A EXPERIMENTAL SETUP DETAILS 
+
+We conducted all experiments on an internal cluster using nodes with up to 4× NVIDIA H100 GPUs and up to 128GB of CPU RAM. The cluster ran Ubuntu 24.04.2 LTS. We tested Qwen3.5-27B 
+
+using vLLM version 0.21.0, PyTorch 2.9.0, and Sympy version 1.14.0. 13

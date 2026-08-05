@@ -1,0 +1,815 @@
+Title: DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness
+
+URL Source: https://arxiv.org/pdf/2607.28033v1
+
+Published Time: Fri, 31 Jul 2026 00:54:10 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness 
+
+# Debin Meng ∗
+
+debinmeng@tencent.com Tencent Shenzhen, China Xidian University Xi’an, China 
+
+# Jiaming Yang ∗
+
+besmingyang@tencent.com Tencent Beijing, China Sun Yat-Sun University Guangzhou, China 
+
+# Zefang Zong †
+
+willzong@tencent.com Tencent Beijing, China 
+
+# Tengyue Xu 
+
+leooxu@tencent.com Tencent Beijing, China South China Normal University Guangzhou, China 
+
+# Haining Xie 
+
+hainingxie@tencent.com Tencent Beijing, China 
+
+# Yang Li 
+
+thomasyngli@tencent.com Tencent Beijing, China 
+
+# Peng Chen 
+
+pengchen@tencent.com Tencent Shenzhen, China 
+
+## Abstract 
+
+Large language models (LLMs) and LLM-based agents are increas-ingly being deployed to automate complex workflows, promis-ing to revolutionize data management and processing. However, existing benchmarks predominantly focus on simplified Text-to-SQL translation or data analysis, leaving the critical and complex domain of end-to-end data engineering largely unexplored. To bridge this gap, we introduce DataClawEval, the first comprehen-sive benchmark designed specifically to evaluate the end-to-end task completion capabilities of autonomous agents in real-world data engineering scenarios. Built upon production-grade code au-thored by professional enterprise data engineers, it comprises 100 rigorous, end-to-end tasks spanning five execution engines: PyS-park, MySQL, HiveSQL, PrestoSQL/Trino, and FlinkSQL. Rather than non-deterministic LLM-as-a-judge scoring, each task is exe-cuted within a case-specific, isolated sandbox and graded by de-terministic, rule-based scripts. Evaluating 16 frontier agents ex-poses critical limitations: The strongest model attains only 74.9 overall, and no single model dominates, as each excels on a dif-ferent engine, revealing strict domain specialization rather than omnipotent proficiency. Thus, autonomous data engineering re-mains a formidable, unresolved challenge. We release our dataset, containerized environments, and deterministic evaluation scripts at https://github.com/Dicemy/DataClawEval/tree/master. 
+
+## CCS Concepts 
+
+• Computing methodologies → Intelligent agents ; Natural language processing ; • Information systems → Database manage-ment system engines .
+
+> ∗Both authors contributed equally to this research.
+> †Corresponding author.
+
+## Keywords 
+
+Data Engineering, Autonomous Agent, Enterprise Data Systems 
+
+## 1 Introduction 
+
+Recent advances in large language models (LLMs) have rapidly transformed them from conversational assistants into autonomous agents capable of solving complex tasks through iterative reason-ing, tool invocation, code execution, and interaction with external environments. General-purpose agent systems such as Tencent CodeBuddy [ 32 ], Claude Code [ 1], OpenAI Codex [ 5], and Open-Claw [ 31 ] have demonstrated impressive performance in realistic software engineering workflows, while benchmarks such as Wild-ClawBench [ 7] and ClawEval [ 37 ] have significantly accelerated research on autonomous agents in general task execution. As these capabilities continue to mature, autonomous agents are naturally extending beyond software engineering to enterprise data engineer-ing, giving rise to data engineering agents that assist developers in building ETL pipelines, implementing batch and streaming data processing jobs, debugging execution failures, and validating pro-duction workflows. Enterprise data engineering, however, differs fundamentally from conventional coding or Text-to-SQL tasks. Given a natural-language requirement, a data engineer must inspect database schemas, understand business semantics, identify upstream data sources, reason about transformation logic, implement executable programs using heterogeneous data-processing technologies, iteratively debug runtime failures, and finally validate generated outputs. Such workflows span multiple execution engines, includ-ing PySpark [ 39 ], HiveSQL [ 34 ], MySQL [ 28 ], PrestoSQL/Trino [ 30 ], and FlinkSQL [ 4 ], and require agents to jointly perform reasoning, programming, execution, debugging, and environment interaction. Consequently, evaluating data engineering agents requires arXiv:2607.28033v1 [cs.AI] 30 Jul 2026 KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al.                                                                 
+
+> Benchmark No Schema Prior Cross Domain Process Evaluation Real-World Scenario Data Engineering Multi SQL Engine Fully Rule-based Eval
+> BIRD [20] ✗✓✗✓✗✗✓
+> Spider 2.0 [19] ✗✓✗✓✗✓✓
+> InfiAgent-DABench [13] ✗✓✗✗✗✗✓
+> DA-Code [14] ✗✓✗✓✓✗✓
+> DABstep [8] ✓✓✗✓✗✗✓
+> FDABench [36] ✓✓✗✗✗✗✗
+> FinanceBench [15] ✓✗✗✓✗✗✗
+> DataClawBench [40] ✓✓✓✓✗✗✗
+> Ours (DataClawEval) ✓✓✓✓✓✓✓
+
+Table 1: Comparison of DataClawEval against eight representative data-related agent benchmarks across seven key capability dimensions. ✓ indicates the benchmark supports the property; ✗ indicates it does not. 
+
+substantially more than measuring code generation quality or SQL correctness. Despite the rapid emergence of data-oriented agent benchmarks, none adequately captures the characteristics of real-world enter-prise data engineering; existing efforts fall into three families that each isolate a single capability. (i) Text-to-SQL. BIRD [ 20 ] and Spider 2.0 [ 19 ] evaluate the synthesis of a SQL answer from a natural-language question over a fixed schema, scored by execu-tion accuracy: BIRD stresses large, dirty databases (12,751 question– SQL pairs over 95 real databases), while Spider 2.0 raises the dif-ficulty to enterprise cloud warehouses with long schemas and multiple dialects. Even so, the objective remains predominantly single-step query generation rather than building and running an end-to-end pipeline. (ii) Code-execution data analysis. InfiAgent-DABench [ 13 ], DA-Code [ 14 ], and DABstep [ 8 ] require an agent to write and iteratively execute code (Python/SQL/Bash) in a sand-box to reach an analytical answer—closed-form statistics over CSV files, data-wrangling/ML tasks, or multi-step factoid reasoning over financial records—so success is measured by whether a final an-swer matches, not whether a deployable data-processing job is correctly engineered. (iii) Heterogeneous and exploratory anal-ysis. FDABench [ 36 ] shifts the emphasis to retrieving and reasoning across structured databases, unstructured documents, web, and mul-timodal content, whereas DataClawBench [ 40 ] targets exploratory analysis under limited schema priors over noisy, cross-domain fi-nancial records. The lone step toward engineering, ELT-Bench [ 16 ], builds ELT pipelines but is confined to a single dbt/Airbyte-on-warehouse stack. Across all three families, tasks are designed for analysis, reasoning, or query/answer generation rather than enter-prise data engineering: they generally lack realistic ETL engineering tasks, heterogeneous batch and streaming execution engines, re-producible runtime environments, and deterministic protocols that verify the complete engineering process rather than only a final answer. As a result, the research community still lacks a bench-mark for systematically evaluating autonomous agents on realistic enterprise data engineering tasks (Table 1). To bridge this gap, we present DataClawEval , the first exe-cutable benchmark specifically designed for autonomous data engi-neering agents. First , we curate a production-grounded benchmark comprising 100 end-to-end data development tasks across PySpark, HiveSQL, MySQL, PrestoSQL/Trino, and FlinkSQL, covering both batch and streaming workloads in five representative business do-mains. Second , we present a human-in-the-loop methodology for constructing answer-identifiable benchmark tasks from produc-tion code. Our pipeline cleans and filters source artifacts, recon-structs task intents and inputs, and validates task discriminability and grader reliability through execution checks, expert perturba-tions, score-based verification, and final expert audit. It further enables deterministic evaluation of both final artifacts and devel-opment processes using case-specific grading programs in isolated sandbox environments. Third , we provide the first comprehensive evaluation of 16 frontier LLM-based data engineering agents on DataClawEval. Our analysis reveals substantial headroom, highly uneven engine difficulty, no universally dominant model, and no positive relationship between resource consumption and solution quality. Our contributions are summarized as follows: 
+
+• We introduce DataClawEval , the first executable bench-mark grounded in real-world commercial data sources and workflows, enabling faithful evaluation of autonomous agents in realistic enterprise data engineering scenarios beyond existing coding, SQL, and data-analysis benchmarks. 
+
+• We develop a human-in-the-loop data construction pipeline for building answer-identifiable tasks and an end-to-end eval-uation framework, featuring reproducible isolated sandboxes and case-specific deterministic grading scripts for trustwor-thy, fine-grained, and reproducible assessment. 
+
+• We conduct a controlled evaluation of 16 frontier LLMs under a unified agent harness across 100 tasks and five data engines, showing that engine difficulty is highly uneven, no single model dominates across all engines, and token cost does not track solution quality. 
+
+## 2 Preliminaries 
+
+We first describe the data sources and task background of DataClaw-Eval, covering the scope of the enterprise engineering workflow that each task must reproduce. DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA PySpark     
+
+> (20)
+> 20%
+> PrestoSQL
+> (12) 12%
+> MySQL
+> (20)
+> 20% HiveSQL
+> (28)
+> 28%
+> FlinkSQL
+> (20)
+> 20%
+> Advertising & Marketing
+> (10)
+> 10% Content, Community
+> & Dev-Efficiency
+> (14) 14%
+> Security &
+> Risk Control
+> (16)
+> 16%
+> Data Analytics &
+> User Growth
+> (30)
+> 30%
+> Ops & Resource
+> Governance
+> (30)
+> 30%
+> (a) Task Distribution by SQL Engine (b) Task Distribution by Business Domain
+
+Figure 1: Composition of the 100-task DataClawEval suite: (a) distribution by execution engine and (b) distribution by business domain. 
+
+## 2.1 Task Scope 
+
+Each task in DataClawEval corresponds to a realistic data engi-neering request derived from production-grade code authored by professional enterprise data engineers. The benchmark includes both offline computation and online computation workloads. Of-fline tasks require the agent to build batch transformations using PySpark, HiveSQL, MySQL, or PrestoSQL/Trino. Online tasks focus on streaming-oriented FlinkSQL development, where the agent must define source tables, sink tables, event-time attributes, wa-termarks, windows, and streaming aggregations. The current task suite is organized as shown in Figure 1 (see Appendix A for the full per-task listing). To reflect realistic industrial workloads, tasks are drawn from five business domains, so that the benchmark measures not only syntactic correctness but also domain-grounded analytical reasoning: 
+
+• Ops & Resource Governance (30 tasks): GPU/notebook in-stance governance, message-queue and quota management, resource-cost aggregation, and inference-service capacity planning. 
+
+• Data Analytics & User Growth (30 tasks): user activity and retention, PV/UV statistics, real-time windowed metrics, and funnel/TopN analysis over streams and batch tables. 
+
+• Security & Risk Control (16 tasks): security scanning, threat-intelligence correlation, anomaly detection, and risk scoring. 
+
+• Content, Community & Dev-Efficiency (14 tasks): con-tent quality scoring, community wide-table modeling, and code review analytics, and engineering efficiency analytics. 
+
+• Advertising & Marketing (10 tasks): ad attribution, cam-paign tagging, and marketing-effect aggregation. 
+
+## 2.2 Realistic Data Engineering Workflow 
+
+The tasks are designed to reproduce the workflow of a human data engineer. A typical task requires the agent to: (1) read a natural language requirement; (2) identify input and output tables from the prompt; (3) connect to the corresponding execution engine; (4) inspect table schemas and sample rows; (5) infer transformation rules, join keys, partition fields, times-tamp semantics, and boundary conditions; (6) write executable SQL or Python code; (7) run the code in the sandbox; (8) inspect runtime errors and revise the implementation; (9) validate the produced output table or file; (10) finish with a materialized result artifact. This workflow reflects real-world data engineering practice, where engineers often work without a complete formal schema or reference query and must inspect data, explore the execution envi-ronment, and iteratively refine implementations based on execution feedback. DataClawEval reproduces this process to assess agents’ practical, end-to-end data engineering capabilities. Concretely, a single task often chains together schema inference, multi-table joins, partition and timestamp handling, boundary-condition reasoning, and iterative debugging, exposing the compounding difficulty that agents must overcome to reach a correct materialized result. We illustrate this with five representative case studies, one per busi-ness domain and collectively spanning all five execution engines, ranging from replica-count forecasting for autoscaling inference services to interval joins with windowed aggregation over order-payment streams (see Appendix F). 
+
+## 3 DataClawEval 
+
+DataClawEval is designed to measure whether an agent can au-tonomously complete realistic data engineering tasks in a live exe-cution environment. Unlike static benchmarks, where the model only produces an answer, DataClawEval requires the agent to in-teract with a running sandbox. The sandbox contains task-specific data, database services, execution engines, and command-line tools. The agent must use these resources to produce an executable so-lution and materialize the required result. The remainder of this section details the data construction pipeline (Section 3.1) and the evaluation framework (Section 3.2). 
+
+## 3.1 Dataset Construction Pipeline 
+
+Constructing realistic benchmark tasks from production data en-gineering pipelines involves more than collecting authentic code artifacts. A high-quality benchmark requires every task to establish a consistent correspondence between the user intent, synthesized input tables, ground-truth implementation, and evaluation protocol, so that correct solutions are executable, incorrect solutions are dis-tinguishable, and agent performance can be assessed objectively. To achieve this goal, we design a data construction pipeline that com-bines LLM-assisted task reconstruction with iterative human-in-the-loop validation. As illustrated in Figure 2, the pipeline progressively reconstructs missing task specifications, validates the discrimina-tive power of synthesized inputs, and verifies task-specific grading scripts, producing realistic, answer-identifiable, and reproducible benchmark instances. 
+
+Stage 1: Curating high-quality production code. We begin by collecting real production data engineering code, removing sensi-tive information and low-quality duplicates, and applying stratified sampling to preserve diversity across programming paradigms, SQL dialects, and business scenarios. The retained implementations serve as the ground-truth code, ensuring that every benchmark task originates from authentic engineering practice rather than synthetic generation. KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. Dataset Construction Pipeline  
+
+> 1.DATA SOURCE
+> Dese nsitize
+> Deduplicate
+> Stratified
+> Sampling
+> 2.INITIALIZATION
+> Ground Truth
+> Code
+
+LLM     
+
+> User Intent
+> Create
+> Initial
+> Intent &
+> Tables
+> LLM analysis
+> 3. AGENT LOOP: ITERATIVE VALIDATION
+> Input Tables
+> Ground Truth
+> Code
+> Input Tables
+> CHECK 1:
+> Execution
+> Valid?
+
+Y
+
+N 
+
+> Perturbed Code
+> Input Tables
+> CHECK 2:
+> Different
+> From Ground
+> Truth?
+
+LLM 
+
+Y
+
+N 
+
+> Reflection
+> 4.GRADING SCRIPT
+> CRITERION
+> 1.Schema
+> 2. Numerical
+> correctness
+> ….
+> grade.py
+> GT Code Full
+> Score
+> Perturbed
+> Code
+> No -Full
+> Score
+> 5.FINAL
+> VERIFICATION
+> Human Expert 3
+> Intent,Table ,Grader ..
+> Final Dataset
+
+Agent Evaluation Process 
+
+1.ENVIRONMENT SETUP 
+
+Input Tables 
+
+SQL Engines 
+
+User Intents Agent 
+
+Execution 
+
+Trajectory 
+
+Code 
+
+Artifacts 
+
+2.TASK EXECUTION 3.SCORING 
+
+Output 
+
+Tables 
+
+Case By Case 
+
+grade.py Final Scores   
+
+> Real World Data Code
+> Clean Code
+> Human Expert 2
+> Human Expert 1
+> 1.DATA SOURCE
+> Desensitize
+> Deduplicate Stratified
+> Sampling
+> Check & Refinement
+
+Figure 2: Overview of DataClawEval’s two coupled pipelines. Top (Dataset Construction): real data engineering code is cleaned and sampled to create benchmark tasks. An LLM synthesizes user intents and input tables, which are iteratively validated through agent-in-the-loop execution and expert perturbations. Case-specific graders and domain experts then verify task correctness, discriminability, and quality. Bottom (Agent Evaluation): For each case, an agent operates in an isolated Docker environment to generate executable code and output tables. A case-specific grader evaluates the resulting artifacts and assigns the final score. Stage 2: Reconstructing executable task specifications. Produc-tion repositories typically contain only implementation code, while the original data engineering requests and testing data are unavail-able. Starting from the ground-truth implementation, we employ an LLM to infer the underlying user intent using the code together with the associated table schemas. The LLM then synthesizes repre-sentative input tables that satisfy the inferred intent and execution requirements, producing an initial task specification consisting of the natural-language request, input tables, and ground-truth im-plementation. Since this initialization is generated automatically, it may still omit important semantic constraints or fail to distinguish the correct implementation from plausible alternatives, motivating the subsequent validation stage. 
+
+Stage 3: Iterative validation for answer-identifiable task con-struction. The core of our pipeline is an iterative validation loop whose objective is to ensure that the synthesized input tables uniquely characterize the ground-truth implementation rather than merely supporting successful execution. First, the generated input tables are executed together with the ground-truth code to verify that the reconstructed task is executable and produces valid outputs. However, successful execution alone is insufficient because many incomplete or ambiguous inputs may still allow incorrect imple-mentations to generate identical results. We therefore introduce a second validation stage inspired by differential testing [23 ]. Hu-man experts intentionally perturb the ground-truth implementation while preserving its executability, and the synthesized input tables are required to produce outputs that differ from those of the original implementation. If either execution fails or the perturbed imple-mentation remains indistinguishable from the ground truth, the task specification is considered insufficiently discriminative. The resulting feedback is returned to the LLM, which revises the recon-structed intent, adjusts table schemas, and modifies the synthesized records until the input tables satisfy two complementary require-ments: they enable the ground-truth implementation to produce DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA 
+
+valid outputs, while reliably distinguishing it from semantically incorrect implementations. 
+
+Stage 4: Developing and validating task-specific grading scripts. After the task specification has been validated, human experts develop a dedicated grading script for each benchmark instance. Rather than relying on generic output matching, every grading program is customized according to the task semantics, covering aspects such as schema correctness, numerical correctness, business logic, and other task-specific constraints. The grading script is subsequently validated against both the ground-truth implementation and the perturbed implementation. Specifically, the ground-truth code must consistently receive a full score, whereas the perturbed implementation must fail to obtain full marks. This second layer of verification complements the execution-based validation by ensuring that the evaluation protocol itself faithfully distinguishes correct solutions from semantically incorrect ones. 
+
+Stage 5: Final expert verification. Finally, every benchmark instance undergoes a comprehensive manual audit. Domain ex-perts jointly inspect the reconstructed user intent, synthesized input tables, ground-truth implementation, grading script, and ex-pected outputs to ensure their overall consistency. Together, the execution-based validation and grading verification provide two complementary safeguards: the synthesized inputs must distinguish the ground-truth implementation from incorrect alternatives, and the grading script must assign full credit to the ground-truth imple-mentation and any semantically equivalent solution. Consequently, every benchmark instance establishes a reliable correspondence between the user intent, input tables, ground-truth implementa-tion, and evaluation protocol, making it suitable as an objective, discriminative, and reproducible benchmark task. 
+
+## 3.2 Evaluation Framework 
+
+Evaluating autonomous data engineering agents presents two fun-damental challenges. First, the execution environment must faith-fully reproduce realistic engineering settings while preventing infor-mation leakage between benchmark cases. Second, the evaluation should measure not only the correctness of the final artifacts but also the quality of the engineering process, since practical data en-gineering heavily relies on iterative exploration, schema inspection, and result validation. To address these challenges, DataClawEval adopts an isolated, case-by-case evaluation framework that jointly evaluates execution outcomes and engineering behaviors. 
+
+Isolated task execution. Each benchmark instance is executed inside a fresh Docker container with all required services (data warehouses, query engines, metadata services, and execution gate-ways) pre-initialized. The workspace is sanitized to contain only the task specification and engineering utilities, forcing the agent to independently explore table schemas, understand data distributions, and construct executable programs. After execution, a task-specific evaluator performs automatic assessment inside the same container, and all artifacts are collected for aggregation. This containerized design guarantees reproducibility and eliminates inconsistencies from heterogeneous runtime environments. 
+
+Artifact-oriented evaluation. Unlike conventional code gener-ation benchmarks that compare source code directly, DataClawE-val evaluates the correctness of the produced data artifacts. Since multiple implementations may correctly solve the same business requirement, comparing generated code against a reference imple-mentation would unnecessarily penalize valid alternative solutions. Instead, each benchmark case defines its own evaluation script that validates the generated outputs against business-specific cor-rectness criteria. Although the exact metrics vary across tasks, the artifact score generally considers five complementary aspects: 
+
+• Executability , ensuring that the submitted program suc-cessfully produces the expected outputs; 
+
+• Schema correctness , including table names, column defini-tions, data types, and storage formats; 
+
+• Row-level alignment , measuring the completeness and correctness of generated records; 
+
+• Numerical accuracy , which compares key quantitative fields specified by each task; 
+
+• Categorical correctness , which validates business labels and other discrete attributes. 
+
+Process-oriented evaluation. Correct outputs alone provide an in-complete picture of an agent’s capability. In realistic data engineer-ing workflows, experienced engineers routinely inspect schemas, sample source tables, verify intermediate results, and iteratively refine their implementations. These behaviors are essential for solv-ing complex analytical tasks but remain invisible under output-only evaluation. Therefore, DataClawEval additionally evaluates the execution trajectory of each agent. The process score measures three aspects of engineering quality: exploration adequacy, execution efficiency, and self-verification. Exploration adequacy assesses whether the agent sufficiently investigates the available data before implementa-tion. Execution efficiency evaluates whether the solution is obtained with a reasonable number of execution attempts while avoiding un-necessary retries and redundant operations. Self-verification mea-sures whether the agent actively validates the generated outputs through post-execution inspection, such as checking row counts, aggregation results, or critical numerical statistics. 
+
+Overall score. The final score is computed as a weighted combina-tion of the artifact score and the process score, 
+
+Score = 𝛼𝑆 artifact + ( 1 − 𝛼 )𝑆 process , (1) where 𝛼 controls the relative importance of final correctness and engineering quality. In most benchmark cases, we set 𝛼 =
+
+0.7, placing greater emphasis on the correctness of the produced artifacts while still rewarding efficient and reliable engineering behaviors. Task designers may adjust 𝛼 for scenarios in which execution quality plays a more critical role. 
+
+## 4 Experiments 4.1 Settings 
+
+For each combination of model and task, we conduct a single run in an isolated Docker container with deterministic initialization. Dur-ing the run, the agent receives only the task description and access to the live execution environment. The reference implementation and grader for the task are withheld until the run has ended. Each run is subject to a predefined time limit. The benchmark contains KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. 
+
+Table 2: Overall and engine-specific performance of 16 LLM-based agents on DataClawEval. Scores are reported on a 0–100 scale, with bars indicating relative performance; token usage is averaged per task and reported in thousands (k). Higher scores and lower token usage are better, and the best result in each column is shown in bold. 
+
+Overall PySpark HiveSQL MySQL PrestoSQL/Trino FlinkSQL Model Score Tokens Score Tokens Score Tokens Score Tokens Score Tokens Score Tokens 
+
+GPT 5.5 [27] 74.9 299.8k 73.9 387.1k 69.8 294.0k 88.8 322.2k 75.3 296.9k 69.0 199.7k 
+
+Claude Opus 4.8 [2] 74.3 318.3k 83.8 319.4k 65.0 299.0k 85.1 399.1k 74.7 320.4k 66.9 262.3k 
+
+Claude Sonnet 5 [3] 73.8 457.9k 79.1 515.6k 58.6 344.2k 84.2 748.2k 66.3 299.3k 83.9 364.3k 
+
+Gemini 3.1 Pro [11] 73.7 292.4k 73.2 299.1k 63.6 313.9k 79.3 318.8k 72.8 371.3k 83.2 181.9k 
+
+Gemini 3.5 Flash [12] 73.3 973.8k 75.3 1152.1k 62.9 758.1k 85.2 1040.4k 77.7 1529.0k 71.7 697.7k 
+
+DeepSeek V4 Flash [6] 73.0 419.6k 66.4 380.1k 64.1 366.2k 79.1 627.2k 74.4 405.3k 85.0 334.7k 
+
+MiniMax M3 [25] 71.8 714.1k 67.5 634.6k 62.0 567.1k 81.6 1326.0k 75.4 572.4k 78.1 472.7k 
+
+GLM 5.1 [9] 71.6 355.4k 80.3 380.2k 59.5 231.4k 79.1 457.3k 75.9 459.2k 69.7 339.2k 
+
+DeepSeek V4 Pro [6] 70.6 359.3k 61.7 351.6k 60.4 374.8k 83.7 476.0k 77.7 402.8k 76.5 202.5k 
+
+Kimi K2.6 [17] 69.0 428.8k 63.2 324.1k 61.5 282.1k 83.6 764.4k 76.2 503.8k 66.3 358.2k 
+
+GLM 5.2 [9] 68.8 403.9k 75.1 446.5k 49.6 225.5k 83.0 677.6k 65.4 363.1k 77.3 361.7k 
+
+Kimi K2.7 [17] 68.1 407.5k 70.3 486.4k 59.3 261.0k 75.4 522.9k 76.1 457.2k 66.1 388.5k 
+
+GPT 5.3 Codex [26] 66.4 271.4k 54.1 281.2k 67.1 274.0k 81.6 339.2k 69.2 288.4k 60.8 180.0k 
+
+Hy3 [33] 66.0 468.7k 74.9 612.0k 62.8 356.2k 81.9 495.7k 67.2 410.9k 44.9 491.5k 
+
+MiniMax M2.7 [24] 63.7 501.0k 59.2 658.7k 63.6 424.7k 76.8 687.9k 66.4 353.2k 53.6 352.2k 
+
+GLM 5V Turbo [10] 60.3 287.8k 48.0 229.4k 57.7 319.1k 74.4 442.0k 64.8 187.4k 59.4 208.7k 
+
+100 task descriptions, evenly divided between English and Chinese (50 each; see Appendix D). To ensure a controlled comparison, we evaluate all models using the same Tencent CodeBuddy agent scaffold [ 32 ], which provides a uniform interface for tool use, execution, and environment in-teraction. We keep the scaffold fixed throughout the evaluation and vary only the underlying LLM, so that performance differences primarily reflect model capability rather than differences in agent implementation. The 16 evaluated models span eight model families: GPT 5.5 [ 27 ]and GPT 5.3 Codex [ 26 ]; Claude Opus 4.8 [ 2] and Claude Sonnet 5 [ 3]; Gemini 3.1 Pro [ 11 ] and Gemini 3.5 Flash [ 12 ]; DeepSeek V4 Flash and DeepSeek V4 Pro [ 6]; GLM 5.1 and GLM 5.2 [ 9], and GLM 5V Turbo [ 10 ]; Kimi K2.6 and Kimi K2.7 [ 17 ]; MiniMax M3 [ 25 ] and MiniMax M2.7 [24]; and Hy3 [33]. Our primary metric is the mean overall score across tasks. Ta-ble 2 reports the mean score and token usage both across the full benchmark and separately for each execution engine, enabling com-parison of aggregate performance, engine-specific capabilities, and computational cost. 
+
+## 4.2 Main Results 
+
+Table 2 reports the main benchmark results for 16 agents on Data-ClawEval, broken down by engine. The results demonstrate that DataClawEval offers substantial headroom and remains far from saturated: even the strongest model, GPT 5.5, attains an average score of only 74 .9, leaving ample room to distinguish future, more capable agents. At the same time, the benchmark provides a rich and discriminative signal: aggregate scores span a wide 60 .3–74 .9 range across models, and, as we show below, the per-engine breakdown reveals pronounced differences that a single leaderboard number would obscure. Together these properties indicate that DataClawE-val is well calibrated for the current generation of data engineering agents: challenging enough to avoid ceiling effects, yet fine-grained enough to expose meaningful capability gaps. 
+
+Engine difficulty is highly uneven. Performance varies far more across engines than across models. MySQL is by far the easiest engine; every agent scores above 74 , and the top model reaches 88 .8,likely because relational SQL is heavily represented in pretraining data. HiveSQL is consistently the hardest: no agent exceeds 69 .8 and several fall below 60 (e.g., GLM 5.2 at 49 .6), reflecting the difficulty of Hive-specific dialect and semantics. PySpark and FlinkSQL show the largest spread across models ( 48 .0–83 .8 and 44 .9–85 .0, respectively), DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA 
+
+suggesting that these engines sharply separate capable agents from weaker ones. 
+
+No single model dominates all engines. While GPT 5.5 leads on the aggregate score, HiveSQL, and MySQL, the winners for the re-maining engines are diverse: Claude Opus 4.8 achieves the best per-formance on PySpark ( 83 .8), DeepSeek V4 Pro on PrestoSQL/Trino (77 .7, tied with Gemini 3.5 Flash but at less than a third of its token cost), and DeepSeek V4 Flash on FlinkSQL ( 85 .0). Several models exhibit pronounced variation across engines. For example, GLM 5.2 is competitive on PySpark and MySQL but performs poorly on HiveSQL. These results suggest that coverage across different engines, rather than the average score alone, provides a more in-formative measure of the capability of data engineering agents. 
+
+Token cost does not track quality. Token consumption spans more than a 4× range and shows no positive correlation with score. GPT 5.3 Codex is the most token-efficient ( 271 .4k per task) yet ranks in the lower half, whereas Gemini 3.5 Flash consumes the most tokens by a wide margin ( 973 .8k, up to 1529 .0k on PrestoSQL/Trino) while achieving only a mid-tier score. The best score-to-cost trade-offs come from models such as GPT 5.5 and Gemini 3.1 Pro, which combine top-tier accuracy with near-lowest token budgets, indicat-ing that verbose exploration and repeated retries are often wasteful rather than beneficial. 
+
+## 5 Analysis 5.1 Rule-Based Grading Is Irreplaceable 
+
+A natural question is whether a generic LLM judge [ 21 , 41 ] could replace our case-specific deterministic grading scripts. To inves-tigate this, we construct an LLM-judge prompt for each of the 100 benchmark cases, with each prompt faithfully reflecting the corresponding evaluation rubric, including its scoring dimensions, maximum scores, and weighting scheme. We then use two language models, GLM 5.2 and DeepSeek V4 Pro, to independently evaluate the same outputs produced by the Claude Opus 4.8 agent. Each model scores every output three times. The scores produced by our rule-based grading scripts are treated as the ground truth (GT), and all results are reported on a 0–100 scale. 
+
+Table 3: Comparison of LLM-as-Judge against Rule-Based (our) ground-truth scoring on the full 100-case DataClawE-val suite, using the Claude Opus 4.8 agent outputs. Two judge models each score the same outputs three times; Rule-Based (our) is bit-exact. A per-engine breakdown and per-case scat-ter appear in Appendix E. Metric GLM 5.2 DeepSeek Rule-Based 
+
+Overall score 82.1 84.4 74.3 Product score 90.4 91.0 52.1 Process score 76.0 75.0 22.2 Overall 𝜎 (stability) 6.35 1.99 0
+
+Three systematic failures emerge. First, both judges inflate ev-ery metric (Table 3): the process score more than triples from a ground-truth 22.2 to 75.0–76.0 and the product score rises from 52.1 to 90.4–91.0 because the judges reward visible attempts at data max@3 avg@3 min@3              
+
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Score
+> 79.7 73.6 67.1
+> 80.0 72.5 64.1
+> 77.5 70.1 62.2
+> 70.5
+> 57.7
+> 43.7
+> (a) Score Statistics
+> max@3 - min@3
+> 0
+> 10
+> 20
+> 30
+> Gap
+> 12.6
+> 15.9 15.3
+> 26.8
+> (b) Score Gap
+> pass@3 pass^3
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Rate (%)
+> 86.7 78.6
+> 89.8
+> 72.5
+> 86.7
+> 67.3
+> 75.5
+> 49.0
+> (c) Success Statistics
+> pass@3 - pass^3
+> 0
+> 10
+> 20
+> 30
+> Gap (%)
+> 8.2
+> 17.4 19.4
+> 26.5
+> (d) Success Gap
+> Gemini 3.1 Pro DeepSeek V4 Flash DeepSeek V4 Pro Hy3
+
+Figure 3: Run-to-run stability of four representative agents over three independent executions per task. Top-left: max@3, avg@3, and min@3 of the overall score. Top-right: the max@3 −min@3 score gap. Bottom-left: pass@3 (solved in any run) and pass^3 (solved in all three runs). Bottom-right: the pass@3 −pass^3 gap. 
+
+exploration or self-verification through surface-level pattern match-ing rather than code execution. Consequently, the vast majority of the 100 per-case scores fall above the 𝑦 = 𝑥 diagonal (Figure 7, Appendix E). Second, they are non-deterministic (per-case overall-score standard deviation of 6.35 for GLM 5.2 and 1.99 for DeepSeek V4 Pro, worst case exceeding 55 points) and repeatedly breach hard rubric caps, e.g., awarding up to 291% and 200% of the maximum on a time-calculation and a field-matching dimension; such ran-domness lets an agent’s leaderboard ranking shift on sampling noise alone. Third, the bias is strongly engine-dependent: HiveSQL is inflated most (a ground-truth score of 65.0 is rated 81.3–82.4), while FlinkSQL exhibits the largest bidirectional error. In particu-lar, the judges severely penalize some runtime-correct streaming outputs while assigning high scores to others that fail execution-based checks, revealing their inability to reliably assess temporal streaming semantics. Detailed case-level contrasts are provided in Appendix E and visualized by the widely dispersed FlinkSQL points in Figure 7. These failures are not incidental but structural consequences of text-only evaluation: rule-based grading executes each output against a live database and checks results row by row, whereas an LLM judge never observes runtime behavior. We therefore adopt rule-based grading as the definitive evaluation protocol for our benchmark. 
+
+## 5.2 Model Stability Analysis 
+
+Figure 3 evaluates model stability across three independent runs using both score-based (max@3, avg@3, min@3) and success-based (pass@3, pass^3) metrics. Gemini 3.1 Pro exhibits the most con-sistent behavior, with the smallest score variation (12.63 points) and the narrowest gap between pass@3 and pass^3 (8.16%), in-dicating highly reproducible performance across repeated execu-tions. DeepSeek V4 Flash and DeepSeek V4 Pro achieve competitive peak performance but exhibit noticeably larger run-to-run fluctua-tions, with score gaps of 15.92 and 15.31 points, respectively, and pass@3 −pass^3 gaps of 17.35% and 19.39%. In contrast, Hy3 shows the weakest stability: although its best-case score reaches 70.49, its KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. 10 15 20 25 30 
+
+> Average Tool Calls per Task
+> 55
+> 60
+> 65
+> 70
+> 75
+> Average Score
+> Efficient
+> (few calls · high score)
+> Low-return
+> (many calls · low score)
+> Efficient (few calls, high score)
+> Low-return (many calls, low score)
+> Mixed
+> Gemini 3.5 Flash
+> MiniMax M3
+> Kimi K2.6
+> GLM 5.2
+> DeepSeek V4 Flash
+> MiniMax M2.7
+> Kimi K2.7
+> Hy3
+> GLM 5.1
+> DeepSeek V4 Pro
+> Claude Sonnet 5
+> GPT 5.5
+> GLM 5V Turbo
+> GPT 5.3 Codex
+> Gemini 3.1 Pro
+> Claude Opus 4.8
+
+Figure 4: Average tool calls per task (x-axis) vs. average over-all score (y-axis) for the 16 agents. Axes are split at their medians (calls ≈ 16 .3, score ≈ 71 .1): green marks efficient agents with few calls and high score, orange marks ineffi-cient agents with many calls and low score, and grey marks the remaining agents. 
+
+minimum score drops to 43.73, resulting in a 26.76-point gap, while its pass^3 decreases from 75.51% to only 48.98%. Overall, these results demonstrate that high peak performance does not necessarily imply robust or reproducible execution. Models with similar max@3 scores can differ substantially in their worst-case performance and pass^3 results, suggesting that single-run evaluation may overestimate practical capability. Repeated-run evaluation therefore provides a more comprehensive assessment of data engineering agents by explicitly measuring execution robust-ness and consistency. This distinction is especially consequential in production data engineering, where a pipeline that succeeds only intermittently is effectively unreliable: an agent whose peak score masks a low min@3 or a fragile pass^3 cannot be trusted to run unattended on recurring workloads. We therefore report the full max@3/avg@3/min@3 and pass@3/pass^3 spectrum rather than any single aggregate, so that stability is treated as a first-class dimension of agent quality alongside peak accuracy. 
+
+## 5.3 Tool Call Efficiency and Task Performance 
+
+Figure 4 relates average tool calls per task to average overall score for the 16 agents. Tool-call frequency and score are nearly uncorre-lated; more calls do not translate into higher scores. The strongest models cluster in the green efficient zone (upper-left): GPT 5.5, Claude Opus 4.8, Claude Sonnet 5, Gemini 3.1 Pro, and GLM 5.1 achieve top-tier scores with below-median call counts. In contrast, the orange inefficient zone (lower-right) groups the most frequent callers that nonetheless score below the median, including Kimi K2.6/K2.7, GLM 5.2, MiniMax M2.7, and Hy3. These results indicate that the differentiator between leading and lagging agents is tool-use efficiency rather than call volume. Agents that substitute trial-and-error for precise planning tend to accumulate calls without improving their final artifacts. 
+
+## 6 Related Work 
+
+Single-Step Text-to-SQL. Text-to-SQL is a long-standing testbed for semantic parsing, from WikiSQL [ 42 ] and cross-domain Spi-der [ 38 ] to BIRD [ 20 ] on large, dirty databases and Spider 2.0 [ 19 ]on enterprise cloud warehouses. These benchmarks still center on synthesizing a SQL answer from a fixed schema, rather than the full engineering workflow of schema exploration, multi-engine implementation, iterative debugging, and artifact materialization. 
+
+Data Agent Benchmarks. Data-specific agents have been evalu-ated along three lines: code-execution data analysis benchmarks run Python/SQL/Bash to reach an answer (InfiAgent-DABench [ 13 ], DA-Code [ 14 ], DABstep [ 8]); heterogeneous and exploratory anal-ysis benchmarks reason over mixed sources (FDABench [ 36 ], Data-ClawBench [ 40 ], FinanceBench [ 15 ]); and ELT-Bench [ 16 ] takes a first step toward engineering via pipeline construction on a single dbt/Airbyte stack. DataClawEval likewise targets data agents, but is the first to cover enterprise data engineering across five batch and streaming engines under a unified, deterministic, rule-based protocol that grades both artifacts and process. 
+
+General Agent and Code Benchmarks. General-purpose agent and code-generation benchmarks (e.g., AgentBench [ 22 ], ToolLLM [ 29 ], MINT [ 35 ], DS-1000 [ 18 ], WildClawBench [ 7]) measure tool use, multi-turn interaction, and program synthesis, but are not tailored to data workflows and omit database semantics, multi-engine execution, and pipeline construction. 
+
+Evaluation Paradigms. Execution-grounded protocols (e.g., ex-ecution accuracy [ 19 , 20 ] and unit tests [ 5 , 18 ]) are deterministic but usually match only a single final answer, whereas LLM-as-a-Judge [21, 41] scales to open-ended outputs yet suffers score infla-tion, bias, and unstable verdicts. As Section 5 shows, LLM judges systematically overrate DataClawEval and breach rubric caps, so we adopt case-specific, deterministic, rule-based scripts that exe-cute each output against live databases and grade both product and process. 
+
+## 7 Conclusion 
+
+We introduced DataClawEval, the first benchmark designed to evaluate whether autonomous agents can complete real industrial data engineering workflows instead of merely generating code for them. Grounded in production-grade implementations and recon-structed through a human-in-the-loop pipeline with differential validation, DataClawEval contains 100 executable tasks spanning batch and streaming workloads across PySpark, HiveSQL, MySQL, PrestoSQL/Trino, and FlinkSQL. Within a unified industrial agent harness, agents must inspect data, implement and debug programs, and materialize correct artifacts in isolated environments, which are assessed by case-specific deterministic graders. Our evaluation of 16 frontier agents shows that this capability remains far from solved: the best overall score is only 74 .9, no agent dominates across en-gines, and strengths remain highly engine-specific, while repeated runs and inefficient tool use expose practical reliability gaps. The large errors and instability of LLM judges further demonstrate that execution-grounded, rule-based evaluation is indispensable. By releasing the tasks, environments, and graders, DataClawEval establishes a reproducible testbed for measuring and advancing end-to-end data engineering agents. DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA 
+
+## References 
+
+[1] Anthropic. 2025. Claude Code: An Agentic Coding Tool . Anthropic, PBC. https: //www.anthropic.com/claude-code [2] Anthropic. 2026. Introducing Claude Opus 4.8. https://www.anthropic.com/ news/claude-opus-4-8 [3] Anthropic. 2026. Introducing Claude Sonnet 5. https://www.anthropic.com/ news/claude-sonnet-5 [4] Paris Carbone, Asterios Katsifodimos, Stephan Ewen, Volker Markl, Seif Haridi, and Kostas Tzoumas. 2015. Apache Flink: Stream and Batch Processing in a Single Engine. Bulletin of the IEEE Computer Society Technical Committee on Data Engineering 36, 4 (2015). https://asterios.katsifodimos.com/assets/publications/ flink-debull.pdf [5] Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Ponde de Oliveira Pinto, Jared Kaplan, Harri Edwards, Yuri Burda, Nicholas Joseph, Greg Brockman, Alex Ray, Raul Puri, Gretchen Krueger, Michael Petrov, Heidy Khlaaf, Girish Sastry, Pamela Mishkin, Brooke Chan, Scott Gray, Nick Ryder, Mikhail Pavlov, Alethea Power, Lukasz Kaiser, Mohammad Bavarian, Clemens Win-ter, Philippe Tillet, Felipe Petroski Such, Dave Cummings, Matthias Plappert, Fotios Chantzis, Elizabeth Barnes, Ariel Herbert-Voss, William Hebgen Guss, Alex Nichol, Alex Paino, Nikolas Tezak, Jie Tang, Igor Babuschkin, Suchir Bal-aji, Shantanu Jain, William Saunders, Christopher Hesse, Andrew N. Carr, Jan Leike, Joshua Achiam, Vedant Misra, Evan Morikawa, Alec Radford, Matthew Knight, Miles Brundage, Mira Murati, Katie Mayer, Peter Welinder, Bob McGrew, Dario Amodei, Sam McCandlish, Ilya Sutskever, and Wojciech Zaremba. 2021. Evaluating Large Language Models Trained on Code. arXiv preprint (2021). arXiv:2107.03374 doi:10.48550/arXiv.2107.03374 [6] DeepSeek-AI. 2026. DeepSeek-V4: Towards Highly Efficient Million-Token Con-text Models. arXiv preprint (2026). arXiv:2606.19348 doi:10.48550/arXiv.2606. 19348 [7] Shuangrui Ding, Xuanlang Dai, Long Xing, Shengyuan Ding, Ziyu Liu, Yang JingYi, Penghui Yang, Zhixiong Zhang, Xilin Wei, Xinyu Fang, Yubo Ma, Haodong Duan, Jing Shao, Jiaqi Wang, Dahua Lin, Kai Chen, and Yuhang Zang. 2026. WildClawBench: A Benchmark for Real-World, Long-Horizon Agent Evaluation. 
+
+arXiv preprint (2026). arXiv:2605.10912 doi:10.48550/arXiv.2605.10912 [8] Alexander David Egg, Martin Iglesias Goyanes, Andreu Mora, Friso H. Kingma, Leandro von Werra, and Thomas Wolf. 2025. DABstep: Data Agent Benchmark for Multi-step Reasoning. arXiv preprint (2025). arXiv:2506.23719 doi:10.48550/ arXiv.2506.23719 [9] GLM Team. 2026. GLM-5: From Vibe Coding to Agentic Engineering. arXiv preprint (2026). arXiv:2602.15763 doi:10.48550/arXiv.2602.15763 [10] GLM Team. 2026. GLM-5V-Turbo: Toward a Native Foundation Model for Multi-modal Agents. arXiv preprint (2026). arXiv:2604.26752 doi:10.48550/arXiv.2604. 26752 [11] Google DeepMind. 2026. Gemini 3.1 Pro. https://deepmind.google/models/ gemini/pro/ [12] Google DeepMind. 2026. Gemini 3.5: Frontier Intelligence with Ac-tion. https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-5/ [13] Xueyu Hu, Ziyu Zhao, Shuang Wei, Ziwei Chai, Qianli Ma, Guoyin Wang, Xuwu Wang, Jing Su, Jingjing Xu, Ming Zhu, Yao Cheng, Jianbo Yuan, Jiwei Li, Kun Kuang, Yang Yang, Hongxia Yang, and Fei Wu. 2024. InfiAgent-DABench: Eval-uating Agents on Data Analysis Tasks. In International Conference on Machine Learning (ICML) (Proceedings of Machine Learning Research, Vol. 235) . 19544–19572. https://proceedings.mlr.press/v235/hu24s.html [14] Yiming Huang, Jianwen Luo, Yan Yu, Yitong Zhang, Fangyu Lei, Yifan Wei, Shizhu He, Lifu Huang, Xiao Liu, Jun Zhao, and Kang Liu. 2024. DA-Code: Agent Data Science Code Generation Benchmark for Large Language Models. In Conference on Empirical Methods in Natural Language Processing (EMNLP) . 13487–13521. doi:10.18653/v1/2024.emnlp-main.748 [15] Pranab Islam, Anand Kannappan, Douwe Kiela, Rebecca Qian, Nino Scherrer, and Bertie Vidgen. 2023. FinanceBench: A New Benchmark for Financial Question Answering. arXiv preprint (2023). arXiv:2311.11944 doi:10.48550/arXiv.2311.11944 [16] Tengjun Jin, Yuxuan Zhu, and Daniel Kang. 2025. ELT-Bench: An End-to-End Benchmark for Evaluating AI Agents on ELT Pipelines. arXiv preprint (2025). arXiv:2504.04808 doi:10.48550/arXiv.2504.04808 [17] Kimi Team. 2025. Kimi K2: Open Agentic Intelligence. arXiv preprint (2025). arXiv:2507.20534 doi:10.48550/arXiv.2507.20534 [18] Yuhang Lai, Chengxi Li, Yiming Wang, Tianyi Zhang, Ruiqi Zhong, Luke Zettle-moyer, Scott Wen tau Yih, Daniel Fried, Sida Wang, and Tao Yu. 2023. DS-1000: A Natural and Reliable Benchmark for Data Science Code Generation. In Interna-tional Conference on Machine Learning (ICML) (Proceedings of Machine Learning Research, Vol. 202) . 18319–18345. https://arxiv.org/abs/2211.11501 [19] Fangyu Lei, Jixuan Chen, Yuxiao Ye, Ruisheng Cao, Dongchan Shin, Hongjin Su, Zhaoqing Suo, Hongcheng Gao, Wenjing Hu, Pengcheng Yin, Victor Zhong, Caiming Xiong, Ruoxi Sun, Qian Liu, Sida Wang, and Tao Yu. 2025. Spider 2.0: Evaluating Language Models on Real-World Enterprise Text-to-SQL Workflows. In International Conference on Learning Representations (ICLR) . ICLR 2025 Oral. https://openreview.net/forum?id=XmProj9cPs [20] Jinyang Li, Binyuan Hui, Ge Qu, Jiaxi Yang, Binhua Li, Bowen Li, Bailin Wang, Bowen Qin, Rongyu Cao, Ruiying Geng, Nan Huo, Xuanhe Zhou, Chenhao Ma, Guoliang Li, Kevin C.-C. Chang, Fei Huang, Reynold Cheng, and Yongbin Li. 2023. Can LLM Already Serve as A Database Interface? A BIg Bench for Large-Scale Database Grounded Text-to-SQLs. In Advances in Neural Information Processing Systems (NeurIPS) . https://arxiv.org/abs/2305.03111 [21] Junlong Li, Shichao Sun, Weizhe Yuan, Run-Ze Fan, Hai Zhao, and Pengfei Liu. 2024. Generative Judge for Evaluating Alignment. In International Conference on Learning Representations (ICLR) . System name: Auto-J. https://arxiv.org/abs/ 2310.05470 [22] Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang, Shudan Zhang, Xiang Deng, Aohan Zeng, Zhengxiao Du, Chenhui Zhang, Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun, Minlie Huang, Yuxiao Dong, and Jie Tang. 2024. AgentBench: Evaluating LLMs as Agents. In International Conference on Learning Representations (ICLR) .https://arxiv.org/abs/2308.03688 [23] William M. McKeeman. 1998. Differential Testing for Software. Digital Technical Journal 10, 1 (1998), 100–107. [24] MiniMax. 2026. The MiniMax-M2 Series: Mini Activations Unleashing Max Real-World Intelligence. arXiv preprint (2026). arXiv:2605.26494 doi:10.48550/arXiv. 2605.26494 [25] MiniMax. 2026. MiniMax M3: Frontier Coding, 1M Context, Native Multimodality. https://www.minimax.io/blog/minimax-m3 [26] OpenAI. 2026. Introducing GPT-5.3-Codex. https://openai.com/index/gpt-5-3-codex/ [27] OpenAI. 2026. Introducing GPT-5.5. https://openai.com/index/introducing-gpt-5-5/ [28] Oracle Corporation. 2025. MySQL: The World’s Most Popular Open Source Database .Oracle Corporation. https://www.mysql.com/ [29] Yujia Qin, Shihao Liang, Yining Ye, Kunlun Zhu, Lan Yan, Yaxi Lu, Yankai Lin, Xin Cong, Xiangru Tang, Bill Qian, Sihan Zhao, Lauren Hong, Runchu Tian, Ruobing Xie, Jie Zhou, Mark Gerstein, Dahai Li, Zhiyuan Liu, and Maosong Sun. 2024. ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs. In International Conference on Learning Representations (ICLR) . ICLR 2024 Spotlight. https://arxiv.org/abs/2307.16789 [30] Raghav Sethi, Martin Traverso, Dain Sundstrom, David Phillips, Wenlei Xie, Yutian Sun, Nezih Yegitbasi, Haozhun Jin, Eric Hwang, Ning Shang, Sailesh Mikkilineni, and Sameer Paranjpye. 2019. Presto: SQL on Everything. In IEEE International Conference on Data Engineering (ICDE) . 1802–1813. doi:10.1109/ ICDE.2019.00196 [31] Peter Steinberger. 2025. OpenClaw: Open-Source Personal AI Assistant . https: //github.com/openclaw/openclaw [32] Tencent. 2025. CodeBuddy: An Agentic Coding and Development Platform . Tencent. https://www.codebuddy.ai/ [33] Tencent Hunyuan Team. 2026. Hy3: A 295B Mixture-of-Experts Large Language Model . Tencent. https://github.com/Tencent-Hunyuan/Hy3 [34] Ashish Thusoo, Joydeep Sen Sarma, Namit Jain, Zheng Shao, Prasad Chakka, Ning Zhang, Suresh Anthony, Hao Liu, and Raghotham Murthy. 2010. Hive - A Petabyte Scale Data Warehouse Using Hadoop. In IEEE International Conference on Data Engineering (ICDE) . 996–1005. doi:10.1109/ICDE.2010.5447738 [35] Xingyao Wang, Zihan Wang, Jiateng Liu, Yangyi Chen, Lifan Yuan, Hao Peng, and Heng Ji. 2024. MINT: Evaluating LLMs in Multi-turn Interaction with Tools and Language Feedback. In International Conference on Learning Representations (ICLR) . https://arxiv.org/abs/2309.10691 [36] Ziting Wang, Shize Zhang, Haitao Yuan, Jinwei Zhu, Wei Dong, and Gao Cong. 2026. FDABench: A Benchmark for Data Agents on Analytical Queries over Heterogeneous Data. In ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD) . KDD ’26, Jeju Island, Republic of Korea. https://arxiv.org/ abs/2509.02473 [37] Bowen Ye, Rang Li, Qibin Yang, Yuanxin Liu, Linli Yao, Hanglong Lv, Zhihui Xie, Chenxin An, Lei Li, Lingpeng Kong, Qi Liu, Zhifang Sui, and Tong Yang. 2026. Claw-Eval: Towards Trustworthy Evaluation of Autonomous Agents. arXiv preprint (2026). arXiv:2604.06132 doi:10.48550/arXiv.2604.06132 [38] Tao Yu, Rui Zhang, Kai Yang, Michihiro Yasunaga, Dongxu Wang, Zifan Li, James Ma, Irene Li, Qingning Yao, Shanelle Roman, Zilin Zhang, and Dragomir Radev. 2018. Spider: A Large-Scale Human-Labeled Dataset for Complex and Cross-Domain Semantic Parsing and Text-to-SQL Task. In Conference on Empirical Methods in Natural Language Processing (EMNLP) . 3911–3921. doi:10.18653/v1/ D18-1425 [39] Matei Zaharia, Mosharaf Chowdhury, Tathagata Das, Ankur Dave, Joseph Ma, Murphy McCauley, Michael J. Franklin, Scott Shenker, and Ion Stoica. 2012. Re-silient Distributed Datasets: A Fault-Tolerant Abstraction for In-Memory Cluster Computing. In USENIX Conference on Networked Systems Design and Implemen-tation (NSDI) . 15–28. https://www.usenix.org/system/files/conference/nsdi12/ nsdi12-final138.pdf [40] Qiaohong Zhang, Weihao Ye, Jialong Chen, Yi Luo, Boyuan Li, Bowen Deng, Zibin Zheng, Jianhao Lin, Wei-Shi Zheng, and Chuan Chen. 2025. DataClawBench: An KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. 
+
+Agent Benchmark for Exploratory Real-World Financial Data Analysis. arXiv preprint (2025). arXiv:2605.02503 doi:10.48550/arXiv.2605.02503 [41] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric P. Xing, Hao Zhang, Joseph E. Gonzalez, and Ion Stoica. 2023. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. In Advances in Neural Information Processing Systems (NeurIPS) . https://arxiv.org/abs/2306.05685 [42] Victor Zhong, Caiming Xiong, and Richard Socher. 2017. Seq2SQL: Generating Structured Queries from Natural Language using Reinforcement Learning. arXiv preprint (2017). arXiv:1709.00103 doi:10.48550/arXiv.1709.00103 DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA 
+
+## A Task Listing 
+
+Table 4 lists all 100 tasks in DataClawEval with their execution engine and business domain. The five engines (PySpark, MySQL, HiveSQL, PrestoSQL/Trino, FlinkSQL) are shown as grouped rows, and each task falls into one of five business domains: 
+
+Ops & Resource Governance (30 tasks), covering GPU/notebook instance governance, message-queue and quota management, resource-cost aggregation, and inference-service capacity planning; Data Analytics & User Growth (30 tasks), covering user activity and retention, PV/UV statistics, real-time windowed metrics, and funnel/TopN analysis; Security & Risk Control (16 tasks), covering security scanning, threat-intelligence correlation, anomaly detection, and risk scoring; Content, Com-munity & Dev-Efficiency (14 tasks), covering content quality scor-ing, community wide-table modeling, and code-review/engineering-efficiency analytics; and Advertising & Marketing (10 tasks), covering ad attribution, campaign tagging, and marketing-effect aggregation. 
+
+Table 4: Per-task listing for all 100 DataClawEval tasks, grouped by execution engine and annotated with business domain. 
+
+Engine Task ID Task Name Business Domain 
+
+PySpark pyspark_001 Passive CS Satisfaction Attribution Comparison Data Analytics & User Growth pyspark_002 Code Review Note Diff ODS-to-DWV Sync Content, Community & Dev-Eff. pyspark_003_en Code Review Diff ODS-to-DWV Sync Content, Community & Dev-Eff. pyspark_004 Sales Lead Enterprise Email Brand Detail Advertising & Marketing pyspark_005_en AI Search Parse Quality Daily (v2) Security & Risk Control pyspark_006_en AI Search Parse Quality Daily Security & Risk Control pyspark_007_en Cloud-Check User Active Status Sync Security & Risk Control pyspark_008_en API Cloud-Check Log Cleansing Security & Risk Control pyspark_009_en Anti-Spam H5 Work Order Log Sync Security & Risk Control pyspark_010 PM Workitem Changes Deduplication Content, Community & Dev-Eff. pyspark_011_en Phone Prefix Quality Score Statistics Security & Risk Control pyspark_012 Web Parse Top500 Quality Stats Security & Risk Control pyspark_013 Bank URL Safety Relationship Filter Security & Risk Control pyspark_014 Experiment Plan History Query Data Analytics & User Growth pyspark_015 User Tag Sync ETL Data Analytics & User Growth pyspark_016 Code Review Organization Ranking Content, Community & Dev-Eff. pyspark_017_en Advertising Metric Anomaly Detection Data Analytics & User Growth pyspark_018_en SOA Dependency Analysis Ops & Resource Governance pyspark_019_en Campaign User Label Computation Advertising & Marketing pyspark_020 Mini-Program H5 Monitoring Data Analytics & User Growth MySQL mysql_001 Real-Time Ad RPM Data Filter & Rename Advertising & Marketing mysql_002_en Inference Service Replica Forecast Ops & Resource Governance mysql_003 Offline Inference Task Feature Wide Table Ops & Resource Governance mysql_004_en Ceph Path Coldness Score Statistics Ops & Resource Governance mysql_005_en GPU Inference Platform P90 Traffic Forecast Ops & Resource Governance mysql_006 Inference Service Traffic & Resource Forecast Ops & Resource Governance mysql_007 Hot Table Governance Metadata Wide Table Ops & Resource Governance mysql_008 Consumer Group Governance Detail Extraction Ops & Resource Governance mysql_009_en Databus Consumer Group Cost Aggregation Ops & Resource Governance mysql_010_en Table Heat Field & Query User Stats Ops & Resource Governance mysql_011_en Low-Value Task Benefit Aggregation Ops & Resource Governance mysql_012 Notebook Pipeline GPU Utilization Stats Ops & Resource Governance mysql_013_en Notebook Cross-Day Instance Pod Detail Ops & Resource Governance mysql_014 Notebook Instance Detail by Day & Engine Ops & Resource Governance mysql_015_en Exposure Log First Exposure Time Advertising & Marketing mysql_016 App X-Model Org Relation Hour Migration Data Analytics & User Growth mysql_017 News Exposure Data Full Migration Content, Community & Dev-Eff. mysql_018_en URL Safety Detection Access Statistics Security & Risk Control mysql_019 Sensor Event Wide Table Join Content, Community & Dev-Eff. mysql_020_en Volume-Lift Candidate Ad List Advertising & Marketing hivesql_001_en Message Queue Topic Dimension Table Sync Ops & Resource Governance hivesql_002 Notebook Ray Cross-Day Instance Detail Ops & Resource Governance hivesql_003 Notebook Killed Ray Instance Statistics Ops & Resource Governance 
+
+Continued on next page KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. 
+
+Table 4: Per-task listing for all 100 DataClawEval tasks (continued). 
+
+Engine Task ID Task Name Business Domain 
+
+hivesql_004 App Group Product Info Daily Snapshot Ops & Resource Governance hivesql_005 MQ Topic Production Feature Governance Ops & Resource Governance hivesql_006_en Databus Topic Access Cost Aggregation Ops & Resource Governance hivesql_007_en Notebook Instance Runtime Statistics Ops & Resource Governance hivesql_008_en Shuffle Split Tuning Rule Hit Count Ops & Resource Governance hivesql_009_en Task Instance GPU Card-Hour Statistics Ops & Resource Governance hivesql_010 Killed Notebook Instance Pod Runtime Detail Ops & Resource Governance hivesql_011 Killed Notebook Instance Detail Ops & Resource Governance hivesql_012_en Social Book Tag Incremental Filter Content, Community & Dev-Eff. hivesql_013 Ad Material Action Metrics Summary Advertising & Marketing hivesql_014_en Add-Friend Behavior Cluster Aggregation Security & Risk Control hivesql_015_en User Tag Preset Incremental Insert Data Analytics & User Growth hivesql_016 Daily Active Users by Channel Data Analytics & User Growth hivesql_017 SDK Hourly Active Users Statistics Data Analytics & User Growth hivesql_018_en First-Level Comment Score Computation Content, Community & Dev-Eff. hivesql_019_en Potential Risk Domain Extraction Security & Risk Control hivesql_020 Dictionary Item Hour Monitoring Stats Ops & Resource Governance hivesql_021_en Chinese Add-Friend Content Filter Security & Risk Control hivesql_022 Audit Data Parse and Transcode Content, Community & Dev-Eff. hivesql_023_en User Open-Start-Path CUBE Aggregation Data Analytics & User Growth hivesql_024 Relationship Strength Score Computation Data Analytics & User Growth hivesql_025 Product Data Source Quality Scoring Content, Community & Dev-Eff. hivesql_026_en Multi-Scene Business Detail Merge Advertising & Marketing hivesql_027 Digital Tool Platform Daily Report Content, Community & Dev-Eff. hivesql_028_en Feed Aggregator Check Result Explode Content, Community & Dev-Eff. PrestoSQL/ Trino prestosql_001 Security Scan Instance Detail Analysis Security & Risk Control prestosql_002_en Ad ASA Attribution Migration Advertising & Marketing prestosql_003 IM Group Offline Report Sub-Partition Filter Security & Risk Control prestosql_004 Novel UDS Algorithm Book Relation Filter Content, Community & Dev-Eff. prestosql_005_en Hot Table Governance Metadata Aggregation Ops & Resource Governance prestosql_006_en News Plugin Send Process Aggregation Content, Community & Dev-Eff. prestosql_007_en APK Threat Scan GPU Card-Hour Stats Ops & Resource Governance prestosql_008_en Report WUID Detail Filtering Advertising & Marketing prestosql_009 Data Pipeline Killed Instance Analysis Ops & Resource Governance prestosql_010 IOC MTTD Metric Computation Security & Risk Control prestosql_011 Sensitive Interface Union & Aggregation Security & Risk Control prestosql_012_en Data Quality Check Pipeline GPU Analysis Ops & Resource Governance FlinkSQL flinksql_001_en Order Stream and Payment Stream Interval Join Data Analytics & User Growth flinksql_002_en Order-Payment Interval Join + Windowed Agg. Data Analytics & User Growth flinksql_003_en Word Frequency Tumbling Window Statistics Data Analytics & User Growth flinksql_004_en Dual Window Aggregation (Tumble + Hop) Data Analytics & User Growth flinksql_005 Tumbling Window TopN Product Ranking Data Analytics & User Growth flinksql_006 Anomaly Event Filter + Window TopN Data Analytics & User Growth flinksql_007 User Behavior Tumbling Window Statistics Data Analytics & User Growth flinksql_008_en Session Window User Behavior Aggregation Data Analytics & User Growth flinksql_009_en Tumbling Window PV/UV Statistics Data Analytics & User Growth flinksql_010 Sliding Window (HOP) Shop Statistics Data Analytics & User Growth flinksql_011_en Tumbling Window Product TopN Ranking Data Analytics & User Growth flinksql_012_en Session Window User Behavior Statistics Data Analytics & User Growth flinksql_013 Cumulative Window Daily Active UV Data Analytics & User Growth flinksql_014 Interval Join + Window Aggregation Data Analytics & User Growth flinksql_015 Regular Join Impression-Click Association Advertising & Marketing flinksql_016 Tumbling Window Multi-Dim Agg. (GROUPING SETS) Data Analytics & User Growth flinksql_017_en Row-Level TopN (Windowless) Data Analytics & User Growth flinksql_018_en Dual Output (Detail + Windowed Agg.) Data Analytics & User Growth flinksql_019 Global Group-By + Filter Statistics Data Analytics & User Growth flinksql_020 Window Deduplication (TVF Dedup) Data Analytics & User Growth DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA 
+
+## B Analysis of Low-Score Runs 
+
+Table 5: Per-engine low-score rates and the taxonomy of execution errors raised by low-score runs. “Low-score” and “Low%” are the number and share of an engine’s runs that score below 50 on the 0–100 scale. Error categories are multi-label—a low-score run may raise several, or none—and are counted over that engine’s low-score runs. 
+
+Execution-error incidences (multi-label) 
+
+Engine Runs Low-score Low% Missing Syntax Type Runtime Env Resource PySpark 320 34 10.6 5 1 4 19 12 1HiveSQL 448 117 26.1 5 5 29 11 8 4MySQL 320 31 9.7 11 0 1 12 0 0PrestoSQL/Trino 192 49 25.5 16 13 1 4 22 12 FlinkSQL 320 61 19.1 2 15 12 3 4 36 
+
+All 1600 292 18.2 39 34 47 49 46 53 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 
+
+> Number of the 16 models that score below 50 on a task
+> 0
+> 10
+> 20
+> 30
+> 40
+> Number of tasks
+> 37
+> solved
+> by all
+> 2 score low
+> by all 16
+> PySpark
+> HiveSQL
+> MySQL
+> PrestoSQL/Trino
+> FlinkSQL
+
+Figure 5: Distribution of low scores across the 100 DataClawE-val tasks. The 𝑥 -axis is the number of the 16 models that score below 50 on the 0–100 scale for a task; the 𝑦 -axis counts tasks, stacked by execution engine. Most tasks are rarely scored low: 37 receive no low scores at all, while about a dozen hard tasks, mostly in HiveSQL and PrestoSQL/Trino, account for roughly half of all low-score runs. 
+
+We examine the 292 runs whose rule-based score falls below 50 on the 0–100 scale, which is 18 .2% of the 1,600 total. Low scores are not spread evenly; they concentrate in a few tasks and a few engines. Table 5 reports the per-engine low-score rates and error taxonomy. Across tasks (Figure 5), 37 of the 100 receive no low scores at all, while about a dozen hard tasks account for roughly half of the low-score runs. By engine (Table 5), HiveSQL and PrestoSQL/Trino score low most often (26 .1% and 25 .5% ). Every model is affected to some degree, with per-model low-score counts ranging from 11 to 26 out of 100 .Low-score runs fail in two broad ways. About a third ( 102 /292 ) are silent :the program finishes and writes an output table, but the result is wrong. The rest raise at least one execution error at run time. 
+
+## C Characterizing Timed-Out Runs 
+
+Among the low-score runs, 79 of the 1,600 (4.9% ) reached the task’s wall-clock limit before producing the required artifact (e.g., result.sql ) and were scored 0. Figure 6(a) shows where these runs fall within each model’s score distribution. For every model except GPT 5.5 they appear as a separate cluster of points at 0, detached from the box that holds the bulk of that model’s scores, and their number varies widely, from none to 22 out of 100 
+
+runs. GLM 5.2 makes the pattern most visible: its box lies at the top of the plot, yet it also carries the largest cluster of zeros. Each timed-out run contributes a 0, so it lowers a model’s mean in proportion to how often timeouts occur. Figure 6(b) quantifies this as the gap between each model’s reported mean and its mean over the remaining runs. The gap grows with the timeout share but stays within 2.8 points for 
+
+12 of the 16 models, leaving their ranking unchanged. GLM 5.2 is again the exception, losing 13 .3 points to a 22% timeout rate. Its reported mean of 68 .8 therefore ranks eleventh, whereas its mean over completed runs is 
+
+82 .1, the highest of all 16 models. This shows that a high timeout rate can substantially depress a capable model’s reported score. 0 20 40 60 80 100 
+
+Overall score (0--100) 
+
+GLM 5.2 
+
+Claude Opus 4.8 
+
+Claude Sonnet 5 
+
+Gemini 3.5 Flash 
+
+DeepSeek V4 Flash 
+
+Gemini 3.1 Pro 
+
+GLM 5.1 
+
+MiniMax M3 
+
+GPT 5.5 
+
+Hy3 
+
+Kimi K2.7 
+
+Kimi K2.6 
+
+DeepSeek V4 Pro 
+
+GPT 5.3 Codex 
+
+MiniMax M2.7 
+
+GLM 5V Turbo 
+
+(a) Run-score distribution by model 
+
+healthy-run box (IQR, median) timed-out run (harness limit) 
+
+0 5 10 15 
+
+Mean-score deflation from timed-out runs (pts) 
+
+GPT 5.5 
+
+MiniMax M2.7 
+
+DeepSeek V4 Pro 
+
+GLM 5V Turbo 
+
+DeepSeek V4 Flash 
+
+Claude Opus 4.8 
+
+GPT 5.3 Codex 
+
+MiniMax M3 
+
+Gemini 3.1 Pro 
+
+GLM 5.1 
+
+Gemini 3.5 Flash 
+
+Hy3 
+
+Kimi K2.7 
+
+Kimi K2.6 
+
+Claude Sonnet 5 
+
+GLM 5.2 
+
+> 0.0 pts (0%)
+> 0.2 pts (2%)
+> 0.3 pts (1%)
+> 0.5 pts (2%)
+> 0.7 pts (1%)
+> 0.8 pts (1%)
+> 0.8 pts (2%)
+> 1.3 pts (2%)
+> 1.4 pts (3%)
+> 2.0 pts (4%)
+> 2.3 pts (3%)
+> 2.7 pts (5%)
+> 2.8 pts (8%)
+> 4.8 pts (12%)
+> 5.7 pts (11%)
+> 13.3 pts (22%)
+
+(b) Score loss grows with timeout share KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. 
+
+Figure 6: Characterization of the 79 runs terminated at the harness wall-clock limit. (a) Per-model distribution of the 100 run scores (box: healthy-run IQR and median; red ×: timed-out runs). Timed-out runs affect every model except GPT 5.5, with incidence spanning 0–22% . (b) Mean-score deflation attributable to timed-out runs (mean over healthy runs minus the reported mean), sorted; bar-end labels additionally show each model’s timeout share. For 12 of 16 models the deflation is at most 2.8
+
+points; only one model is materially affected. Table 6: Bilingual performance of the 16 agents on DataClaw-Eval. Overall is the mean overall score across all 100 tasks; 
+
+English and Chinese are the means over the 50 English and 50 
+
+Chinese tasks, respectively; EN −ZH is their English-subset difference (a positive value indicates a higher score on the English subset). All scores are on a 0–100 scale, and models are ordered by overall score. 
+
+Model Overall English Chinese EN −ZH 
+
+GPT 5.5 74.9 76.9 72.9 +4.0
+
+Claude Opus 4.8 74.3 75.1 73.6 +1.5
+
+Claude Sonnet 5 73.8 73.5 74.1 −0.6
+
+Gemini 3.1 Pro 73.7 75.3 72.1 +3.2
+
+Gemini 3.5 Flash 73.3 74.3 72.3 +2.0
+
+DeepSeek V4 Flash 73.0 76.2 69.7 +6.5
+
+MiniMax M3 71.8 74.3 69.4 +4.9
+
+GLM 5.1 71.6 76.5 66.6 +9.9
+
+DeepSeek V4 Pro 70.6 74.3 66.9 +7.4
+
+Kimi K2.6 69.0 69.6 68.3 +1.3
+
+GLM 5.2 68.8 71.8 65.8 +6.0
+
+Kimi K2.7 68.1 70.3 65.9 +4.4
+
+GPT 5.3 Codex 66.4 68.1 64.7 +3.4
+
+Hy3 66.0 66.8 65.1 +1.7
+
+MiniMax M2.7 63.7 66.2 61.2 +5.0
+
+GLM 5V Turbo 60.3 58.0 62.5 −4.5
+
+Mean 70.0 71.7 68.2 +3.5
+
+## D Bilingual Performance Analysis 
+
+Task prompts in DataClawEval come in two languages: 50 are in English and 50 in Chinese, following the language of the original production logs. The split is balanced within each engine ( 10 /10 for PySpark, MySQL, and FlinkSQL, 6/6 for PrestoSQL/Trino, and 14 /14 for HiveSQL), giving 800 
+
+English and 800 Chinese runs across the 16 agents. We recompute the average run-level overall score (0–100 scale) on each subset; Table 6 gives the per-model breakdown and Table 7 the per-engine one. Averaged over all agents, the English subset scores slightly higher than the Chinese subset ( 71 .7 vs. 68 .2), and 14 of the 16 agents show a positive English-subset difference. These are disjoint task subsets, not parallel trans-lations, so the differences are confounded by task difficulty and cannot be attributed to prompt language alone. The gaps are typically a few points, comparable to the run-to-run variance in Section 5.2, and a few models (e.g., GLM 5V Turbo) show a small negative difference. 
+
+## E LLM-as-Judge Evaluation Details 
+
+This appendix expands the LLM-as-Judge study of Section 5. Under the same protocol—each of the 100 cases scored three times by GLM 5.2 and DeepSeek V4 Pro against the Rule-Based (our) ground truth—Figure 7 plots every per-case judge score against its ground-truth value, and Table 8 reports the breakdown by engine. 
+
+Overestimation is dimension-structural. The inflation concentrates in dimensions that require executing the code to verify. On the process side, self-verification ( 𝐼 ) reaches a ground-truth rate of only 42.4% but is 
+
+Table 7: Bilingual performance broken down by execution engine, averaged over all 16 agents. Scores are on a 0–100 scale. 
+
+Engine Overall English Chinese EN −ZH 
+
+PySpark 69.1 67.9 70.3 −2.4
+
+HiveSQL 61.7 65.9 57.5 +8.4
+
+MySQL 81.4 83.9 79.0 +4.9
+
+PrestoSQL/Trino 72.2 74.3 70.2 +4.1
+
+FlinkSQL 69.5 70.0 69.1 +0.9
+
+All 70.0 71.7 68.2 +3.50 25 50 75 100         
+
+> Rule-Based (our) score
+> 0
+> 25
+> 50
+> 75
+> 100
+> LLM-judge score
+> DeepSeek-v4-pro (Judge)
+> 025 50 75 100
+> Rule-Based (our) score
+> GLM-5.2 (Judge)
+> HiveSQL MySQL PrestoSQL PySpark FlinkSQL
+
+Figure 7: Per-case LLM-judge score versus Rule-Based (our) on the 100-case suite (Claude Opus 4.8 outputs), for DeepSeek V4 Pro (left) and GLM 5.2 (right). Each point is one case; the dashed line is 𝑦 = 𝑥 and the shaded region marks overestima-tion. Most points lie above the diagonal (systematic inflation), while FlinkSQL cases (stars) scatter to both extremes. Table 8: Per-engine overall score (0–100), averaged over the three judge runs, versus the Rule-Based (our) ground truth. 
+
+Engine # GLM 5.2 DeepSeek V4 Pro Rule-Based (our) 
+
+MySQL 20 87.7 91.8 85.1 PySpark 20 87.9 89.6 83.8 PrestoSQL 12 77.4 87.5 74.7 HiveSQL 28 81.3 82.4 65.0 FlinkSQL 20 74.9 72.9 67.0 rated 80.6–82.5% by the judges, and exploration ( 𝐺 ) rises from 46.6% to 58.0–62.9%—the judges credit a described attempt without confirming it produced correct results. Several product dimensions also breach their hard caps: the time-calculation dimension (max 5) is awarded 13.3–14.5 (267–291% of maximum), field-value matching (max 10) is awarded 18.5–20.0 (185– 200%), and a resource-join dimension (max 5, ground truth 0) is awarded DataClawEval: A Benchmark for Data Engineering Agents in Real Industrial Harness KDD ’27, August 1–5, 2027, San Jose, CA, USA 
+
+6.9–7.8. Conversely, dimensions whose correctness is invisible in text are 
+
+under -scored, e.g., shuffle logic (max 20, ground truth 20.0) receives only 3.7–6.0. 
+
+Non-reproducibility. Averaged over the suite, the per-case standard devi-ation of the overall score is 6.35 for GLM 5.2 versus 1.99 for DeepSeek V4 Pro. GLM 5.2 is the more erratic: its worst single-case deviations exceed 55 points (e.g., mysql_020 at 𝜎 =0.557 and prestosql_008 at 𝜎 =0.547 on the 0–1 scale), so a case can flip several grade bands across runs. Because the rule-based grader is bit-exact ( 𝜎 =0), such randomness alone can reorder an agent’s leaderboard position. 
+
+Streaming semantics defeat the judges. FlinkSQL drives the largest bidirectional error. Streaming-correct outputs are heavily penalized— flink sql_008 (ground truth 0.92) is rated 0.17, and flinksql_011 /012 (ground truth 0.88) are rated 0.17–0.19—while streaming-incorrect ones are inflated— 
+
+flinksql_005 and flinksql_009 (ground truth 0.17) are rated 0.90–0.92, and flinksql_007 (ground truth 0.24) is rated 0.82–0.88. Since the judges read only the query text and never observe windowed, event-time execution, these errors cancel in the engine average (a modest 72.9–74.9 against a ground-truth 67.0) yet corrupt every per-case ranking, confirming that runtime execution is indispensable for evaluating streaming tasks. 
+
+## F Representative Task Case Studies 
+
+To illustrate the diversity and complexity of DataClawEval, we present one representative case from each of the five business domains. Each case includes the task prompt (condensed), key input tables, core processing logic, output requirements, and grading criteria with the artifact weight 𝛼 .The five cases span all five execution engines. 
+
+## F.1 Inference Service Replica Forecast 
+
+Domain: Ops & Resource Governance Task ID: mysql_002_en Engine: MySQL 
+
+Prompt. For inference services with autoscaling (HPA/AHPA), expand hourly expected pod counts to 10-minute intervals, clip them using config-ured replica bounds × machine count, compute a bias correction coefficient from the past 24 h of actual pod counts, and label the AHPA recommended status. Write results for partition dt=’2026050700’ .
+
+Input Tables. HPA configuration, AHPA recommendations, service in-formation, hourly expected pod counts, and actual pod count features (five tables). 
+
+Processing Logic. 
+
+(1) Filter: status=’done’ , not deleted, HPA/AHPA enabled; latest con-fig. (2) Cross-join hourly expected with six 10-min offsets (0–50 min). (3) Pod bounds = min/max_replicas × host_num .(4) Clip all eight expected fields: GREATEST(LEAST(v,upper),lower) .(5) Bias coefficient = actual / clipped expected_pod_avg_qpm_p90 (1.0 if 0). (6) AHPA status: no records → no_request ; all non-200 → degraded ;else normal .
+
+Output. 29-column table via INSERT INTO . . . SELECT ; 10-min 
+
+agg_time ; partition dt=’2026050700’ ; MySQL InnoDB. 
+
+Grading. (𝛼 =0.7): Executability 15, Schema 15, Row alignment 20, Nu-merical accuracy 40, Label correctness 10. Process 30%: exploration 35, efficiency 40, self-verification 25. 
+
+## F.2 Order-Payment Interval Join + Windowed Aggregation 
+
+Domain: Data Analytics & User Growth Task ID: flinksql_002_en Engine: FlinkSQL 
+
+Prompt. Using two Flink datagen tables simulating an order stream and a payment stream (1,000 rows/s each), perform an Interval Join on order_ id matching records where the payment time falls within ±10 minutes of the order time, then aggregate matched records over a 10-minute tumbling window to compute the order count and total payment amount, and output to a console table. 
+
+Source Tables. orders_source (datagen ): order_id , user_id in 1– 1,000,000; event time = LOCALTIMESTAMP , 5 s watermark. payments_sourc e: order_id in 1–1,000,000; pay_amount in 1–100,000; same watermark. 
+
+Processing Logic. 
+
+(1) Define both sources with datagen connectors, rows-per-second= 1000 .(2) Set LOCALTIMESTAMP as event time with 5 s watermark on both tables. (3) Interval Join: order_id match AND payment time within ±10 min of order. (4) Apply TUMBLE window of 10 minutes over the joined stream. (5) Aggregate: COUNT(*)ASorder_count , SUM(pay_amount)AStotal_ pay_amount .(6) Convert window start/end to VARCHAR ; insert into console output. 
+
+Output. console_output (print connector): window_start , window_en d, order_count (BIGINT ), total_pay_amount (DOUBLE ). 
+
+Grading. (𝛼 =0.6): Executability 20, Schema 20, Numerical correctness 45, Configuration 15. No output ⇒ all other dims zero. Process 40%: exploration 35, efficiency 40 (decayed), self-verification 25. 
+
+## F.3 Add-Friend Behavior Cluster Aggregation 
+
+Domain: Security & Risk Control Task ID: hivesql_014_en Engine: HiveSQL 
+
+Prompt. Perform cluster aggregation on add-friend behavior logs to identify malicious clusters. The task processes two filtering branches via UN ION and writes aggregated statistics for each cluster to a partitioned table. 
+
+Input Table. Add-friend behavior log with fields appname_ , scene_ , hea dmd5_ , user_id_ , uinhighquality_ , and behavioral indicators. 
+
+Processing Logic. 
+
+(1) Time filter: day_ ∈ [20260608, 20260609], hour_ ∈ [23, 00]. (2) Branch 1: appname_ ∈ {hello_txt, add_contact}; sender ∈ {CN, HK, MO}, receiver = CN; headmd5_ non-empty, commfrinum_ =0. (3) Branch 2: appname_ =contact_verify_ok ; same filters; commfrinu m_ =0. (4) Group by appname_ , scene_ , headmd5_ , region and province IDs. (5) Aggregate: addfri_pv , user_id_cnt , quality/evil rates, ID lists via 
+
+collect_set .(6) HAVING : user_id_cnt>20 AND ( low_quality_rate>0.99 OR 
+
+evil_rate > 0.98 ). 
+
+Output. 15-column table via INSERT INTO . . . PARTITION(ds=2026 06090010) ; grouping keys, PV/UV, quality rates, user ID lists. 
+
+Grading. (𝛼 =0.5, Easy): Executability 15, Schema 10, Row alignment 15, Aggregation 40, Write mode 5, Partition 5, UNION branches 10. Process 50%: exploration 35, efficiency 40 (decayed), self-verification 25. 
+
+## F.4 Code Review Org Ranking 
+
+Domain: Content, Community & Dev-Efficiency Task ID: pyspark_016 Engine: PySpark KDD ’27, August 1–5, 2027, San Jose, CA, USA Meng and Yang et al. 
+
+Prompt. Generate a PySpark script producing a code-review ranking ta-ble organized by four-level organizational hierarchy (company, department, center, group). For each level, rank members by two dimensions—review note count and review time spent (descending, Top 10)—using a cross-join of ranking types and positions to generate a complete ranking space. 
+
+Input Tables. Organization framework, employee-org relation, dual ta-ble, CR note user statistics, and CR used-time table (five tables). 
+
+Processing Logic. 
+
+(1) Build four-level org CTEs (company, department, center, group). (2) Associate employees to each level (cp, dp, ct, gp_user). (3) Compute note counts (by author_id ) and used time (by reviewer _id ). (4) Apply rank() window on two types: notes and used time (desc). (5) Cross-join ranktype × rank 1–10 with each org level; left-join results. (6) Union all four levels; write to target table. 
+
+Output. 17-column table via INSERT OVERWRITE TABLE ; org_id ,
+
+org_type , ranktype , rank , user_id , value columns. ORC format. 
+
+Grading. (𝛼 =0.7): Executability 10, Hierarchy completeness 20, Rank-ing correctness 25, Completeness 25, Schema & storage 20. Process 30%: exploration 35, efficiency 40 (decayed), self-verification 25. 
+
+## F.5 Ad ASA Attribution Migration 
+
+Domain: Advertising & Marketing Task ID: prestosql_002_en Engine: PrestoSQL/Trino 
+
+Prompt. From ad attribution raw logs, filter valid records of two attri-bution types ( ad_attribution and phonebrandh ), aggregate the log count and deduplicated user count by version and media dimensions, and write results using Presto/Trino SQL syntax (no Hive/Spark dialects). 
+
+Input Table. Ad attribution raw log with 27 fields including ad_versio n, attribution , callback , device_id , and partition ds .
+
+Processing Logic. 
+
+(1) Filter: ds=’2026060919’ .(2) Valid: ( ad_attribution + attribution=’true’ ) OR ( phonebran dh + callback non-empty). (3) Map media_id : ad_attribution →39, phonebrandh →28. (4) Cast ds to BIGINT ; aggregate log_num=COUNT(*) .(5) Deduplicate: log_num_qimei=COUNT(DISTINCTdevice_id) ; group by ds , ad_version .
+
+Output. 5-column table: ds (BIGINT ), ad_version (STRING ), medi a_id (INT ), log_num (BIGINT ), log_num_qimei (BIGINT ). Execute via 
+
+presto-cli .
+
+Grading. (𝛼 =0.6, Medium): Executability 15, Schema 10, Row alignment 15, Attribution filter 10, Media ID 10, Aggregation 15, Completeness 5, Write mode 5, Partition 5, Source filter 10. Process 40%: exploration 35, efficiency 40 (decayed), self-verification 25.

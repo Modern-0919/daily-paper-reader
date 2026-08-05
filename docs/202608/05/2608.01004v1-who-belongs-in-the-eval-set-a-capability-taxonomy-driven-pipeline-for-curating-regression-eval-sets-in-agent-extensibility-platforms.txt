@@ -1,0 +1,266 @@
+Title: Who Belongs in the Eval Set? A Capability-Taxonomy-Driven Pipeline for Curating Regression Eval Sets in Agent-Extensibility Platforms
+
+URL Source: https://arxiv.org/pdf/2608.01004v1
+
+Published Time: Tue, 04 Aug 2026 01:05:32 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+# Who Belongs in the Eval Set? A Capability-Taxonomy-Driven Pipeline for Curating Regression Eval Sets in Agent-Extensibility Platforms 
+
+## Tezan Sahu 
+
+Microsoft Hyderabad, India tezansahu@microsoft.com 
+
+## Aritra Das ∗
+
+Indian Institute of Technology Roorkee Roorkee, India aritra_d@cs.iitr.ac.in 
+
+## Pankaj Mittal 
+
+Microsoft Hyderabad, India pankajmi@microsoft.com 
+
+## Sudipta Das 
+
+Microsoft Hyderabad, India sudiptad@microsoft.com 
+
+Abstract 
+
+Platform teams hosting agent-extensibility surfaces face a regression-economics paradox: every onboarding customer ships an evaluation set tuned to their domain, but the platform’s regression set must live under a hard query-count ceiling structurally bounded by release cadence. To the best of our knowledge, no published indus-trial pipeline addresses this platform-side curation problem 
+
+— existing evaluation frameworks [ 4– 9] are customer-side, and benchmark-compression work [ 10 –12 ] treats benchmarks as fixed pools rather than streams of incoming sets. We describe a capability-taxonomy-driven curation pipeline being applied to declarative agents with custom actions in Microsoft 365 Copilot [ 1]. It takes an agent specification and a customer’s eval set as input, projects each query into a platform-owned capability taxonomy (∼30 ca-pabilities), and outputs per-query decisions (admit, drop, swap, or human review) under the philosophy that a healthy regression set is the minimal collection of queries that captures the maximal spread of capability signatures — distinct combinations of capabili-ties a query exercises together. Three components instantiate this: a classifier producing per-(query, capability) verdicts via a hybrid of deterministic specification-based extraction and large-language-model (LLM) semantic inference [ 16 ]; an Invocation Quality (IQ) rater that scores how thoroughly a query exercises each capability, so a new query sharing a signature with an existing entry can still be recognized as a better test and displace it; and a consolidator that compares incoming queries against the regression set on coverage 
+
+and quality through a rule-based decision cascade, backed by a con-servative curator that only suggests evictions. The mechanism is taxonomy-agnostic and applies to any regression eval-set curation problem with a typed capability taxonomy — including ones whose taxonomies evolve in response to the very evidence the pipeline surfaces. 
+
+1 Introduction 
+
+Agent-extensibility platforms expose a menu of composable capabil-ities — authentication modes, tool-invocation protocols (REST/API-based plugins, Model Context Protocol [ 2], MCP Apps [ 3]), orches-tration patterns (single-turn, multi-turn, parallel calls, branching), 
+
+> ∗Work performed during an internship at Microsoft.
+
+and response-format primitives — that downstream third parties compose into agents. Every onboarding customer brings an evalua-tion set tuned to their domain. 
+
+Why customer eval sets, not synthetic ones? A reasonable alternative is for the platform to synthesize its own eval set by enumerating capability combinations. Two reasons rule this out. 
+
+Combinatorial blowup : with ∼30 typed capabilities the joint config-uration space is intractable, and uniform sampling produces config-urations no real customer would ever build. LLM non-determinism over realistic phrasings : per-capability behavior is verified by unit and functional tests we run separately, but end-to-end agent behav-ior — multiple capabilities firing through an LLM under a real user’s wording — is governed by how the LLM responds to actual cus-tomer phrasings, a distribution synthetic queries cannot reproduce. Customer eval sets carry both the combinations real agents ship and the phrasings the LLM has to handle. Two structural pressures then bound this setting: 
+
+Hard eval-set ceiling. The regression set is judged by a large language model (LLM) on every candidate release build and human-triaged on every regression failure, gating flight reviews, A/B tests, and release certification. Every admission competes for a finite slot bounded by release cadence. 
+
+Tenant-and-mock-setup labor. Regression evals must deter-ministically exercise the platform’s code paths, including those touching third-party services — hitting real 3P endpoints is un-viable, since they are flaky, rate-limited, costly, and behaviorally non-stationary. Each admitted query therefore carries a provisioned tenant, synthetic connectors, and mock data fixtures engineered to deterministically reproduce the expected 3P responses. This per-query reviewer labor often dominates the release’s token-and-compute cost. The naive “admit all of your queries” inflates this engineering tail; the equally naive “manual review committee” freezes intuition and degrades with drift. Two questions must be answered per incoming query: (Q1) which capabilities does it exercise? (Q2) given the live regression set, does it deserve a slot? Existing literature offers neither answer in this form. Customer-side LLM and agent evaluation frameworks — HELM [ 4 ], Agent-Bench [ 5], HAL [ 6 ], together with observability platforms like Lang-Smith [ 7], Braintrust [ 8], and Azure AI Foundry Evaluation [ 9]arXiv:2608.01004v1 [cs.LG] 2 Aug 2026 Tezan Sahu, Aritra Das, Pankaj Mittal, and Sudipta Das 
+
+Figure 1: Pipeline overview. The classifier emits per-tag verdicts and confidences for each (query, capability) pair. The Invocation Quality (IQ) rater turns these into a uniform per-capability score and derives 𝑅 -relative facts (champions, new coverage, wins, similarity, novelty). The consolidator’s pure-rule Verdict Engine emits one decision per query; the Curator is the only writer to the regression set 𝑅 .
+
+— certify a single agent owner against their own success crite-ria; the notion of a platform-owned regression set curated across many customers under one fixed budget is simply not their set-ting. Benchmark-compression methods [ 10 – 12 ] achieve up to 200 ×
+
+pool reductions while preserving ranking, but operate on closed, fixed pools rather than an open stream feeding a long-lived, edit-in-place set. Test-suite minimization in software engineering [ 13 –15 ]supplies a set-cover framing on the coverage axis (NP-complete; greedy yields an 𝐻 𝑛 -approximation), but classical formulations carry no per-capability quality dimension — the very dimension a same-signature replacement decision needs. To the best of our knowledge, no published industrial pipeline addresses this platform-side eval-set curation problem. What we describe is therefore not a one-shot compression of a fixed pool but the curation policy for a living regression set that ingests new customer eval sets continuously. We close that gap. The rest of the paper develops a three-component pipeline — a hybrid classifier, an Invocation Quality (IQ) rater, and a rule-based consolidator with a conservative curator — that jointly answers Q1 and Q2 over a platform-owned capability taxonomy, and we are applying it to declarative agents with custom actions in Microsoft 365 Copilot [1]. 
+
+2 Methodology 
+
+The three components are chained in sequence (Fig. 1) over a platform-owned capability taxonomy and a live regression set 𝑅 .Each component below first defines its outputs and the reason it ex-ists; the design invariants underpinning the whole are summarized in §2.5. 
+
+2.1 Capability Taxonomy and Signatures 
+
+Let C = {𝑐 1, . . . , 𝑐 𝑚 } be the platform’s capability taxonomy — a typed, hierarchical classification (the deployed instance has 𝑚 ≈ 30 
+
+leaves). Mutually-exclusive groups carry exactly-one constraints. A slice (compact form, sibling lists wrap by line): 
+
+> Capability Taxonomy Request Auth {No Auth, API Key, OAuth, SSO} Attachments {Image, File, Audio} Execution Orchestration {single/multi-turn, parallel, branching} Tool Output Size {Small, Normal, Large} Response Format {Plain, Structured, URLs, Tables}
+
+For a query 𝑞 , the classifier emits a value 𝑣 𝑞,𝑐 ∈ { TRUE , FALSE }
+
+for every 𝑐 ∈ C . We call sig (𝑞 ) = {𝑐 : 𝑣 𝑞,𝑐 = TRUE } the capabil-ity signature of 𝑞 . The regression set 𝑅 is the curated portfolio of queries; the pipeline’s job is to keep 𝑅 small while Ð𝑞 ∈𝑅 sig (𝑞 ) stays wide. The taxonomy is itself versioned. Platforms add capabilities as features ship, and reviewer feedback may also retro-add dimen-sions: when many incoming queries land outside C (caught as low-confidence, off-distribution clusters at projection time), the pipeline surfaces these as taxonomy-extension candidates — either truly emergent platform usage, capabilities the original taxonomy missed, or new combinations worth naming. Reviewer-approved extensions bump the taxonomy version and re-classify affected queries. 
+
+2.2 Classifier 
+
+For each (𝑞, 𝑐 ) the classifier emits a verdict 𝑣 𝑞,𝑐 and a confidence 
+
+𝜅 𝑞,𝑐 ∈ [ 0, 1] via two non-overlapping paths. 
+
+Specification-based extractor. For capabilities the agent spec-ification declares (authentication mode, tool inventory, declared platform capabilities), the truth is a lookup over the spec. The ex-tractor returns the declared value with 𝜅 𝑞,𝑐 = 1.
+
+LLM with 𝑁 -sample self-consistency [ 16 ]. For capabilities that surface only in query intent (response-format expectations, branching logic, tonality), the classifier draws 𝑁 independent LLM samples, each returning a boolean vote ˜𝑣 𝑖 and an exercise-probability 
+
+𝑃 𝑖 . Then: 
+
+𝑣 𝑞,𝑐 = majority ( ˜𝑣 1, . . . , ˜𝑣 𝑁 ), 𝜅 𝑞,𝑐 = 1
+
+> 𝑁
+
+Í𝑁 𝑖 =1 𝑃 𝑖 .
+
+The two paths are kept non-overlapping — the specification-based path is authoritative where the spec speaks; inference never over-rides ground truth. Mutex arbitration over exactly-one groups runs after the paths resolve. 
+
+Evaluation. We evaluate the LLM path (the specification-based path is a deterministic lookup) by per-capability correlation between predicted verdicts and human-labeled ground truth rather than raw accuracy. The choice is forced by class imbalance: each query ex-ercises only a handful of the ∼30 capabilities, so an always-FALSE baseline would score >90% accuracy by construction — an uninfor-mative number. Per-capability correlation against labels captures the agreement structure correctly under this imbalance and avoids being inflated by the dominant negative class. Who Belongs in the Eval Set? A Capability-Taxonomy-Driven Pipeline for Curating Regression Eval Sets in Agent-Extensibility Platforms 
+
+2.3 Invocation Quality (IQ) Rater 
+
+The rater answers what binary coverage cannot: when a new query shares sig (𝑞 ) with an existing 𝑟 ∈ 𝑅 , is 𝑞 a better test of those capabilities than 𝑟 ? Overlap is common; a shallow tester should yield to a deeper one. The rater splits into two halves — an intrinsic 
+
+adapter (a fact about 𝑞 alone) and a relational contextualizer (a fact about 𝑞 versus the live 𝑅 ). The split is load-bearing: only the intrinsic half can be persisted; the relational half must be recomputed every cycle, because 𝑅 itself changes on every admission and eviction. 
+
+Adapter (intrinsic, stateless). For every 𝑐 with 𝑣 𝑞,𝑐 = TRUE ,the adapter emits 
+
+cs (𝑞, 𝑐 ) := 𝜅 𝑞,𝑐 ∈ [ 0, 1],
+
+the answer to “how thoroughly does 𝑞 exercise 𝑐 ?”. cs is a stored fact about 𝑞 alone — a property of the query, not of the regression set. 
+
+Contextualizer (relational, live). A pure intrinsic score is not enough to decide what to do with 𝑞 : the consolidator’s rules need to know whether 𝑞 fills a coverage gap , decisively beats an incumbent ,or is just a near-duplicate of something we already keep. None of those questions can be answered from cs (𝑞, ·) in isolation — every one of them refers to what is currently in 𝑅 . The contextualizer is the bridge: it materializes, for 𝑞 against the live 𝑅 , six relational facts that encode exactly these questions. Two calibration knobs enter here: 𝜏 is the competence bar (the minimum cs for a capability to count as competently covered), and 𝛿 is the winning margin (by how much an incoming score must beat the incumbent champion to count as decisive). Both live in configuration (§2.5, I4). Because 
+
+𝑅 changes every cycle, the facts below are derived fresh and never persisted (§2.5, I2): 
+
+champion (𝑐 ) = arg max 𝑟 ∈𝑅 cs (𝑟, 𝑐 ), the incumbent best test of 𝑐 ;
+
+champ _cs (𝑐 ) = max 𝑟 ∈𝑅 cs (𝑟, 𝑐 ), current bar to beat on 𝑐 ;
+
+caps 𝜏 (𝑞 ) = {𝑐 : cs (𝑞, 𝑐 ) ≥ 𝜏 }, 𝑞 ’s competent coverage (effective, not nominal); 
+
+newCaps (𝑞 ) = caps 𝜏 (𝑞 ) \ 
+
+Ø  
+
+> 𝑟 ∈𝑅
+
+caps 𝜏 (𝑟 ), “𝑞 fills a gap” (no one in 𝑅 covers these well); 
+
+wins (𝑞 ) = {𝑐 : cs (𝑞, 𝑐 ) > champ _cs (𝑐 ) + 𝛿 }, “𝑞 beats the champion” (by margin 𝛿 ); 
+
+maxSim (𝑞 ) = max 𝑟 ∈𝑅 sim (𝑞, 𝑟 ), clone-detection signal; 
+
+novel (𝑞 ) = ⊮[sig (𝑞 ) ∉ {sig (𝑟 ) : 𝑟 ∈ 𝑅 }] . unseen capability combination. 
+
+These six facts are the only inputs the Verdict Engine consumes about 𝑅 ; the engine itself touches no cs values directly. 
+
+Evaluation. Absolute quality scores for individual queries are not available in the abstract; what is available, by design, is reviewer action on the verdicts the pipeline emits. We therefore evaluate the rater at the verdict level: every admission, replacement, and eviction-candidate surfaced by the consolidator passes through a reviewer in the normal release flow, and their accept/reject call is logged. Verdict-level agreement between the pipeline and the reviewer is the quality metric. This reuses the review signal already produced for production purposes, so quality measurement imposes no additional dedicated annotation cycles. 
+
+2.4 Consolidator 
+
+Given cs (𝑞, ·) and the 𝑅 -relative facts, a pure rule-based Verdict En-gine emits one of {INCLUDE , EXCLUDE , REPLACE , KEEP -BOTH },each tagged direct or review . Four further calibration knobs enter at this layer: 𝜎 is the clone-similarity cutoff (text similarity above which an incoming 𝑞 is treated as a near-duplicate of some 𝑟 ∈ 𝑅 ); 
+
+𝑁 is the redundancy floor (minimum number of competent cov-erers 𝑅 must retain per capability before any one of them can be evicted); 𝑘 is the concentration cap (limit on how many capabili-ties a single 𝑟 may be the sole competent coverer of); cs min is the 
+
+honesty floor (minimum top cs across 𝑞 ’s TRUE tags below which a direct-admission verdict is downgraded to review). With these in hand, the cascade fires five gates in fixed order — (1) clone gate 
+
+maxSim (𝑞 ) ≥ 𝜎 ; (2) merit ( newCaps ∪ wins ∪ { 𝑐 : novel (𝑞 )} ≠ ∅); (3) new competent coverage ( newCaps ≠ ∅); (4) replacement el-igibility (subset-domination, 𝑁 , 𝑘 ); and (5) honesty downgrade (admitting on direct route with max 𝑐 cs (𝑞, 𝑐 ) < cs min forces review ). Each gate contributes at most one reason code; the full pseudocode is in Appendix B. 
+
+Curator. The only writer to 𝑅 . It stages admissions per query, prunes per cycle, and never auto-deletes : redundant un-pinned cov-erers are flagged as suggest-only eviction items that a human con-firms. The asymmetry between the pure Verdict Engine and the write-capable Curator is the core safety property (§2.5, I3). 
+
+2.5 Design Invariants 
+
+The pipeline rests on five invariants. With the components in hand, each becomes a constraint on the math we have just defined. 
+
+I1: Atomicity. A query is the smallest curatable unit. If it is the best test of any one capability (its cs is the champion on that capability and clears 𝜏 ), it is pinned and cannot be evicted; we tolerate extra redundancy elsewhere instead. 
+
+I2: Stored facts, derived roles. cs (𝑞, 𝑐 ) is a stored fact about 𝑞 
+
+alone. The 𝑅 -relative roles — champion , redundant , pinned , covered 
+
+— are re-derived live whenever 𝑅 changes. The intrinsic-cs / 𝑅 -relative-role line is the rater/consolidator boundary. 
+
+I3: Admission cheap, eviction slow. A REPLACE verdict never deletes; it stages a candidate. The Curator’s prune turns a beaten res-ident into a suggested eviction item that a human confirms. Eviction removes evidence the platform was relying on, and must remain auditable. 
+
+I4: No hard thresholds in code. All six knobs introduced above (𝜏 , 𝛿 , 𝜎 , 𝑁 , 𝑘 , cs min ) live in configuration, never in code. Their current calibration and the open problem of moving from uniform defaults to per-capability values are discussed in §3. 
+
+I5: Honesty as route-downgrade, not admission. A low-confidence tag cannot admit a query; if rules yield an admitting verdict whose value rests on a low-confidence tag, the route is forced to review with reason LOW_CONFIDENCE . An EXCLUDE is never converted into an admission. 
+
+3 Discussion 
+
+We are applying this pipeline to the curation of regression eval sets for declarative agents with custom actions in Microsoft 365 Copilot. Two threads stand out. Tezan Sahu, Aritra Das, Pankaj Mittal, and Sudipta Das 
+
+Generalizability, with an evolving taxonomy. The mech-anism is taxonomy-agnostic : the classifier, IQ rater, and consol-idator make no assumption about which capabilities the taxon-omy contains, only that it is typed and supports exactly-one 
+
+groups. The same pipeline applies to any regression-eval-set cu-ration problem where (a) a platform team owns a capability tax-onomy, (b) downstream contributors ship eval sets, and (c) the curated set is living and bounded by a fixed budget. Crucially, the taxonomy itself is not fixed: platforms add capabilities over time, and the pipeline closes a loop in which queries that project to low-confidence, off-distribution regions cluster into taxonomy-extension candidates that reviewers can promote into the next taxonomy version (whether they correspond to emergent platform behavior, missed combinations, or capabilities the original taxon-omy did not anticipate). Web service APIs, data pipelines, and other multi-tenant platforms with evolving capability menus are natural next targets. 
+
+Per-capability calibration is the central tuning problem. 
+
+The six knobs 𝜏 , 𝛿 , 𝜎 , 𝑁 , 𝑘 , cs min are absolute thresholds, not batch-relative percentiles, and a value sensible for one capability is not automatically sensible for another — the bar for “competent coverage” of authentication is structurally different from the bar for response-format handling. The principled target is therefore a per-capability schedule of these knobs, learned from validated reviewer overrides. Our current workaround is a uniform, conserva-tive default set across all capabilities, derived from a small pilot of reviewer-annotated runs; reviewer overrides on borderline verdicts are logged but do not yet feed an automated calibration loop. Iden-tifying which override signal counts as “validated” — separating principled adjustments from reviewer disagreement noise — is the next architectural decision. 
+
+Pipeline accessibility via an MCP server. We expose the pipeline behind a Model Context Protocol server, with tools mapped to each pipeline step (classify, rate, consolidate) and to common step-ranges (classify-to-verdict; cs -to-verdict, for re-running the consolidator over an updated 𝑅 ). This lets any MCP-aware coding agent or chat assistant invoke the pipeline programmatically: re-viewers triage incoming eval sets from their existing chat surface, and partner platforms can embed the pipeline into their own on-boarding flows without re-implementing it. Combined with the taxonomy-agnostic design above, this is what makes the system reusable rather than Microsoft-365-specific. 
+
+4 Conclusion & Future Work 
+
+We presented a capability-taxonomy-driven pipeline for the platform-side curation of regression eval sets, an industrial problem we be-lieve is unaddressed in the published literature. Three components — a hybrid classifier, an intrinsic-versus-relative IQ rater, and a rule-based consolidator with a conservative curator — jointly maintain a small regression set with maximal capability-signature cover-age on top of a versioned, evolving taxonomy. Future work spans per-capability threshold calibration, recency-decayed champion selection so stale-but-strong incumbents yield to fresher tests, cost-weighted set-cover when capabilities differ materially in setup labor, and an end-to-end study of how the pipeline transfers to non-agent platforms. 
+
+References                           
+
+> [1] Microsoft. Microsoft 365 Copilot Custom Actions and Agent extensibility. https: //learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/, 2026. [2] Anthropic. Model Context Protocol Specification. https://modelcontextprotocol. io/, 2024. [3] D. Pratinidhi. MCP Apps in Microsoft 365 Copilot Chat. Microsoft 365 Developer Blog , March 2026. [4] P. Liang et al. Holistic Evaluation of Language Models (HELM). TMLR , 2023. [5] X. Liu et al. AgentBench: Evaluating LLMs as Agents. ICLR , 2024. [6] B. Kapoor et al. Holistic Agent Leaderboard: The Missing Infrastructure for AI Agent Evaluation. arXiv:2510.11977, 2025. [7] LangChain. LangSmith: LLM Application Observability & Evaluation. https: //smith.langchain.com/, 2024–2026. [8] Braintrust. AI Evaluation & Observability Platform. https://www.braintrust.dev/, 2024–2026. [9] Microsoft. Azure AI Foundry Agentic Evaluation. https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/evaluation-overview, 2026. [10] Anonymous Authors. Rethinking LLM Evaluation: Can We Evaluate LLMs with 200 ×Less Data? (EssenceBench). arXiv:2510.10457, 2025. [11] Anonymous Authors. MetaBench: Item-Response-Theory-Based Selection for Efficient LLM Evaluation. ICLR , 2025. [12] F. Maia Polo et al. TinyBenchmark: Evaluating LLMs with Fewer Examples. arXiv:2402.14992, 2024. [13] V. Chvátal. A Greedy Heuristic for the Set-Covering Problem. Mathematics of Operations Research , 4(3):233–235, 1979. [14] G. Rothermel and M. J. Harrold et al. A Survey of Test-Suite Minimization, Selec-tion, and Prioritization. IEEE Transactions on Software Engineering , 38(5):1019– 1043, 2012. [15] Anonymous Authors. LTM: Scalable Black-Box Similarity-Based Test Suite Minimization with Language Models. ASE , 2024. [16] X. Wang et al. Self-Consistency Improves Chain-of-Thought Reasoning in Lan-guage Models. ICLR , 2023.
+
+Appendix A Worked Example 
+
+A customer onboards a project-tracker agent (OAuth-authenticated, four read-type tools, one write-type tool) and ships a 20-query eval set with their onboarding bundle. At the start of this cycle, the regression set 𝑅 already holds ∼120 queries accumulated across prior onboardings of similar agents: several entries exercise OAuth-gated read flows, but no incumbent strongly tests structured-output formatting (the best Structured Output coverer in 𝑅 currently sits at cs = 0.30 , below the competence bar 𝜏 = 0.50 ). We walk one of the 20 incoming queries through the pipeline: 
+
+“Pull recent issues from the tracker filtered by my team’s tag and summarise them as a bulleted list.” 
+
+Tables 1 and 2 give the classifier output and the resulting 𝑅 -relative facts for this query. 
+
+Table 1: Classifier output (TRUE tags only).             
+
+> Capability Path 𝜅
+> OAuth spec-extractor 1.00 Has Read Tools spec-extractor 1.00 Single-turn LLM ( 𝑁 =5)0.72 Structured Output LLM ( 𝑁 =5)0.45
+
+Table 2: 𝑅 -relative facts for 𝑞 (𝜏 = 0.50 , 𝜎 = 0.80 , 𝛿 = 0.05 ). The Structured Output champion in 𝑅 has champ _cs = 0.30 < 𝜏 —below the competence bar.        
+
+> Fact Value
+> caps 𝜏 (𝑞 ){OAuth, Has Read Tools, Single-turn}
+> newCaps (𝑞 ){Structured Output}
+> wins (𝑞 )∅
+> maxSim (𝑞 )0.42
+> novel (𝑞 )0
+
+Who Belongs in the Eval Set? A Capability-Taxonomy-Driven Pipeline for Curating Regression Eval Sets in Agent-Extensibility Platforms 
+
+Verdict. Clone gate passes ( 0.42 < 0.80 ), merit holds ( newCaps non-empty), and new competent coverage is non-empty, so the engine emits INCLUDE-direct with reason NEW_COVERAGE ; the honesty check ( max 𝑐 cs (𝑞, 𝑐 ) = 1.0 ≥ cs min ) does not downgrade. Curator action. Stages 𝑞 into 𝑅 , and on the next per-cycle prune the previous shallow Structured Output coverer ( cs = 0.30 ) is dethroned and surfaced as a suggest-only eviction item that a human confirms before deletion. 
+
+B Verdict Engine: Formal Rules 
+
+Algorithm 1 Verdict Engine 
+
+1: function Decide (𝑞 , RFacts , cfg )2: if maxSim (𝑞 ) ≥ 𝜎 then return (Exclude , direct , Clone )
+
+3: end if 
+
+4: merit ← ( newCaps ≠ ∅) ∨ ( wins ≠ ∅) ∨ novel (𝑞 )
+
+5: if ¬ merit then return (Exclude , direct , Redundant )
+
+6: end if 
+
+7: if newCaps ≠ ∅ then 
+
+8: verdict ← ( Include , direct , New_Coverage )
+
+9: else if wins ≠ ∅ then 
+
+10: 𝐸 ← { champion (𝑐 ) : 𝑐 ∈ wins } ⊲ evict candidates 11: if ∃𝑟 ∈ 𝐸 : caps (𝑟 ) ⊈ caps (𝑞 ) then 
+
+12: return (Keep-Both , direct , Split_or_Floor )
+
+13: else if ∃𝑐 : #coverers 𝑅 ′ (𝑐 ) < 𝑁 on 𝑅 ′ = (𝑅 \ 𝐸 ) ∪ { 𝑞 } then 
+
+14: return (Keep-Both , direct , Split_or_Floor )
+
+15: else if sole (𝑞 ) > 𝑘 then 
+
+16: return (Replace , review , Concentration )
+
+17: else 
+
+18: verdict ← ( Replace , direct , Dominates )
+
+19: end if 
+
+20: else 
+
+21: verdict ← ( Include , review , Novel_Combo )
+
+22: end if 
+
+23: if admitting( verdict ) ∧ route = direct ∧ max 𝑐 cs (𝑞, 𝑐 ) < cs min then 
+
+24: verdict .route ← review; append Low_Confidence 
+
+25: end if 
+
+26: return verdict 
+
+27: end function
