@@ -1,0 +1,471 @@
+Title: SkillSentry: Reliable Skill Execution for LLM Agents via Runtime Assurance
+
+URL Source: https://arxiv.org/pdf/2608.09253v1
+
+Published Time: Tue, 11 Aug 2026 01:59:19 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# SKILL SENTRY : Reliable Skill Execution for LLM Agents via Runtime Assurance 
+
+You Lu ∗, Xinyu Huang ∗, Bihuan Chen ∗, Xin Peng ∗∗College of Computer Science and Artificial Intelligence, China 
+
+Abstract —LLM agents are increasingly equipped with skills to perform complex tasks through multi-step reasoning and tool use. Although skills provide reusable procedural knowledge, agents may still execute them unreliably. Even when an agent has demonstrated the capability to complete tasks under the guidance of a skill, it may fail to do so consistently across similar tasks or repeated runs due to deviations from the skill procedure or incorrect execution of individual steps. Such instability limits the practical reliability of LLM agents. To address this problem, we propose S KILL SENTRY , a skill-oriented runtime assurance framework built upon a new domain-specific language (DSL) for representing runtime guidance for skill execution. S KILL SENTRY 
+
+initializes the runtime guidance by combining a skill specification extracted from the corresponding skill document with execution experience mined from historical successful and failed traces. It then wraps around the agent execution loop to monitor and guide skill execution under the current guidance, while iteratively refining the guidance using newly collected traces. We evaluate SKILL SENTRY on 15 skills across two LLM agents, each paired with two backbone models, i.e., Claude Code with Claude-Haiku-4.5 and Claude-Opus-4.6, and Codex with GPT-5.2 and GPT-5.4. Our results show that S KILL SENTRY improves the task success rate of LLM agents by 24.1% across skills, on average, while exhibiting lower variability across repeated runs. 
+
+I. I NTRODUCTION 
+
+Large language models (LLMs) [3, 12, 19, 37] have shown strong capabilities in understanding user instructions, generating code, and solving complex reasoning questions. Building on these capabilities, LLM agents [4, 21, 27, 28, 36] further extend LLMs from passive text generation to autonomous task execution, i.e., planning intermediate steps, invoking external tools, observing execution feedback, and refining their actions [8, 14, 32, 35, 38]. As user tasks become more complex and diverse, skills [16, 40, 41] have emerged as an important abstraction for packaging reusable task-solving knowledge. A skill usually describes how an agent should complete a class of tasks through predefined steps, including high-level procedures, tool-use patterns, and task-specific constraints [30]. By providing such procedural guidance, skills help LLM agents reuse validated task-solving strategies, constrain the execution space, and improve their capability to complete complex tasks. However, equipping an LLM agent with a skill does not guarantee reliable execution. Even when the LLM agent has demonstrated the capability to complete a task under the guidance of a skill before, it may fail to reproduce the correct execution consistently in later runs [13, 33]. Such failures do not necessarily indicate a lack of fundamental model capability for task-solving. Rather, they often arise from the generative nature of LLM agent execution, where each action is produced from an evolving context of prior reasoning, tool feedback, and intermediate observations. Thus, small variations during agent execution may lead to deviations from the skill procedure or incorrect execution of individual steps, resulting in task failures. Existing approaches improve the reliability of LLM agent execution from different perspectives. Some studies focus on ac-quiring, generating, or selecting skills for better reusability [16, 41]. Some automatic prompt optimization and reflection-based approaches refine prompts, instructions, in-context memories, or skills based on execution feedback [18, 26, 29, 34, 39, 42]. A few studies improve the underlying model capability through supervised fine-tuning, reinforcement learning, or post-training on agent execution traces [7, 9, 24, 27, 28]. These approaches mainly improve LLM agents by updating external artifacts or the underlying model parameters, thereby enhancing the task-solving capability before agent deployment. In contrast, some studies focus on runtime guardrails and enforcement systems [11, 15, 31], constraining agent behaviors during execution according to user-specified rules, safety policies, or domain constraints. They are effective for preventing unsafe or policy-violating actions, but a skill-based agent may still fail without violating explicit safety policies. Although prior approaches can improve LLM agent capabilities or constrain unsafe runtime behavior, it remains unclear how to improve the runtime reliability of skill execution when an agent already has the basic capability to complete the task but may still deviate from the skill procedure or execute individual steps incorrectly. To bridge this gap, we propose S KILL SENTRY , a skill-oriented runtime assurance framework for improving the relia-bility of LLM agent execution. S KILL SENTRY does not aim to teach an LLM agent fundamentally new skills or compensate for tasks beyond the capability of the underlying model. Instead, it targets cases where an agent has demonstrated the capability to complete tasks under the guidance of a skill but may still execute the skill unreliably across similar tasks or repeated runs. SKILL SENTRY is built upon a new domain-specific language (DSL) for representing runtime guidance for skill execution, and consists of an initialization stage and a self-evolving stage. In the initialization stage, it extracts a skill specification 
+
+from each skill document, capturing the expected steps, step dependencies, constraints, and completion requirements. It also mines execution experience from historical successful and failed traces, including validated action patterns , failure-associated action patterns , and step-level suggestions and warnings . By combining the skill specification with the mined experience, SKILL SENTRY constructs the initial runtime guidance. arXiv:2608.09253v1 [cs.AI] 10 Aug 2026 When to Use: Use this skill when you need to decompose economic time series into trend and cyclical components, a fundamental data analysis technique in business cycle analysis. 
+
+Skill: Macroeconomic-Timeseries-Detrending 
+
+Procedure: Step-by-Step Process              
+
+> Load and Clean Data: Handle missing values, ensure proper time ordering.
+> 1
+> 3Convert to Real Terms: Deflate nominal values using appropriate price index.
+> 4Apply Log Transformation: For positive level variables, apply log transformation. log( )
+> 2Harmonize Frequency: Convert mixed annual/quarterly/monthly inputs into frequency series.
+> Analyze Cyclical Component: Compute correlations, volatilities, etc., to get cyclical component.
+> 6
+> 5Apply HP Filter: Use appropriate for frequency (Typical HP filter value: 100 (annual) 1,600 (quarterly) 144,000 (monthly).
+
+Fig. 1: Example Skill for Economic Time Series Detrending In the self-evolving stage, the agent executes new task queries under current runtime guidance through the step-aware runtime assurance mechanism. S KILL SENTRY monitors agent execution, delivers step-level suggestions and warnings to improve the execution of individual skill steps, intervenes upon detecting procedural deviations or failure-associated action patterns, and checks the completion of required steps before accepting the final output. The resulting traces are used to refine the execution experience, enabling S KILL SENTRY to iteratively improve the runtime guidance as new execution traces are collected. We evaluate S KILL SENTRY on 15 skills across two widely used LLM agents, each paired with two backbone models, i.e., 
+
+Claude Code [4] with Claude-Haiku-4.5 [2] and Claude-Opus-4.6, and Codex [21] with GPT-5.2 [20] and GPT-5.4 [23]. Our evaluation shows that S KILL SENTRY improves the average task success rate by 24.1% across skills, reduces the standard deviation (SD) of task success rates across repeated runs by 41.1%, and introduces little runtime overhead. Further self-evolving analysis shows that S KILL SENTRY can iteratively refine the runtime guidance for reliable skill execution. Our ablation study confirms the contribution of failure-associated action patterns, suggestions, and warnings in the runtime guidance to the final effectiveness. Step-level guidance delivery is more effective than placing all guidance in the system prompt, increasing the task success rate by 5.8% and reducing the SD by 26.8%. Finally, our generalization study shows that the constructed runtime guidance can transfer across different backbone models within the same agent to some extent. The main contributions of this work are as follows:  
+
+> •
+
+We design a domain-specific language for representing skill-oriented runtime guidance that combines a skill specification extracted from the skill document with execution experience mined from successful and failed agent traces.  
+
+> •
+
+We propose S KILL SENTRY , a skill-oriented runtime assur-ance framework that wraps around the agent execution loop, monitors and guides skill execution, and iteratively refines its runtime guidance using newly collected execution traces. Compute the correlation between detrended PCE and PFI for 1973-2024. Deflate with index, log-transform, apply HP filter and average available 2024 quarters. 
+
+Task Query :
+
+> Analyze the PCE and PFI data from 1973-2024. Build real quarterly series, use available 2024 entries, HP-detrend logged values, and output their cyclical correlation.
+
+Rewrite Query :
+
+Case-1 :           
+
+> Successful Run
+> Failed Run
+> 123log( ) 456
+> 123log( ) 456
+> Correlation = 0.68885 Correlation = 0.69664
+> Step Deviation: Step 2 (Harmonize Frequency) not faithfully completed.
+
+Case-2 :           
+
+> Expected Run
+> Actual Run
+> 123log( ) 456
+> 123log( ) 456
+> Correlation = 0.68885 Correlation = 0.97654
+> Incorrect Step Execution: Step 5 (Apply HP Filter) used the wrong HP filter value.
+> = 1600
+> = 100 Skipped
+
+Fig. 2: Example Cases of Skill Execution Failure  
+
+> •
+
+We implement a prototype of S KILL SENTRY , and conduct experiments to demonstrate its effectiveness and efficiency. II. B ACKGROUND AND MOTIVATION 
+
+We first introduce the background of skill-based agent execution, and then introduce the motivation for our work. 
+
+A. Background 
+
+Skill-Based Agent Execution. An LLM agent completes tasks through iterative interactions with external environ-ments [9, 32, 36]. To guide multi-step planning and execution, skills have been introduced as reusable procedural knowledge for completing a class of tasks [16, 40, 41]. A skill usually contains a name, a description specifying when it should be used, and a procedure describing the expected execution steps. Fig. 1 shows an example skill for macroeconomic timeseries detrending. An LLM agent executes a skill through the agent runtime. The runtime maintains the interaction context, presents the skill and available tools to the model, receives model-generated actions, executes tool calls, and returns observations to the model for the next decision. Therefore, the abstract procedure described in a skill is realized as a concrete runtime trace comprising multiple iterations of action planning, tool invocation, and execution feedback, followed by a final output. 
+
+Hook. Modern agent systems commonly expose hooks as extension points in the runtime loop [4, 21]. Hooks can be triggered at different lifecycle points, such as before an action is executed, after execution feedback is returned, or before the agent terminates [5, 22]. These hooks allow an external module to observe the next action and provide additional information to the agent during execution. In this work, we use hooks to monitor and guide LLM agents’ skill execution at runtime. 
+
+B. Motivation 
+
+Although skills provide procedural knowledge for task completion, runtime decisions depend on iterative reasoning and execution feedback, making the execution process sensitive to small variations in intermediate contexts. Thus, an agent may understand the overall skill but still deviate from the skill procedure or execute individual steps incorrectly. LLM-Based Parser Skill Document 
+
+> Skill Specification
+> DSL for Skill-Oriented Runtime Guidance LLM-Based Miner
+> Historical Successful and Failed Traces
+> Execution Experience
+> 123Skill Specification Extraction Execution Experience Mining Step-Aware Runtime Assurance
+> Initial Runtime Guidance
+> Hook Observation
+> Planning Agent Core Tool Execution
+> Action allow hint Step Guidance
+> Final Output
+> Termination Checker Procedure Checker
+> Agent Output allow
+> Task Query Runtime Guidance
+> hint
+
+Initialization Stage Self-Evolving Stage 
+
+> Execution Experience Mining
+> New Traces Runtime Guidance Update
+
+Fig. 3: Approach Overview of S KILL SENTRY 
+
+To illustrate this problem, we show two cases of Claude Code [4] under the guidance of the skill for macroeconomic timeseries detrending. As illustrated by Case-1 in Fig. 2, the task query asks the agent to compute the correlation between the cyclical components of personal consumption expenditure (PCE) and private fixed investment (PFI) from 1973 to 2024. The skill procedure requires the agent to explicitly harmonize mixed-frequency inputs before real-term conversion, log transformation, HP filtering, and correlation analysis. The agent had previously completed the task query successfully, demonstrating its capability to complete such tasks with the skill. However, later repeated executions of the same task query failed occasionally because it skipped the step of frequency harmonization, deviating from the skill procedure. Besides, we semantically rewrote the query without changing the intended task or expected output. After this benign rewrite, Codex failed to complete the task successfully because it used an incorrect HP filtering parameter. As illustrated by Case-2 in Fig. 2, the skill explicitly specifies λ = 1600 for quarterly data, but the agent applied λ = 100 , which is intended for annual data. This parameter mismatch changed the extracted cyclical components and eventually led to an incorrect correlation result. These cases show that skill-related tasks may still fail even when the agent has previously completed similar tasks successfully under the guidance of corresponding skills. These observations motivate S KILL SENTRY , which wraps around the LLM agent execution loop, monitors the agent execution progress against the skill procedure, and intervenes when necessary to guide the agent towards reliable skill execution. III. M ETHODOLOGY 
+
+We propose S KILL SENTRY , a skill-oriented framework to improve the reliability of LLM agent execution. The approach overview of S KILL SENTRY is presented in Fig. 3. The key idea is to represent the expected skill procedure and historical execution experience as structured runtime guidance, use this runtime guidance to monitor and guide agent skill execution, and iteratively refine it using newly collected execution traces. To this end, we design a domain-specific language (DSL) for runtime guidance that combines a skill specification with 
+
+execution experience for each skill (see Sec. III-A). Given the DSL, S KILL SENTRY consists of an initialization stage and a self-evolving stage. In the initialization stage, it first extracts a skill specification ( i.e., step 1 in Fig. 3) from the corresponding skill document using an LLM-based parser (see Sec. III-B). The extracted specification captures the expected skill steps, their dependencies, step-level constraints, and the steps required for task completion. S KILL SENTRY then uses historical successful and failed execution traces to mine initial execution experience ( i.e., step 2 in Fig. 3). Successful traces provide validated action patterns and step-level suggestions, whereas failed traces reveal failure-associated action patterns and corresponding warnings (see Sec. III-C). By combining the extracted specification with the mined experience, S KILL SEN - 
+
+> TRY
+
+constructs the initial runtime guidance for the skill. In the self-evolving stage, the agent executes new task queries under the current runtime guidance through the step-aware runtime assurance mechanism ( i.e., step 3 in Fig. 3). SKILL SENTRY wraps around the agent execution loop through runtime hooks, and inspects the actions planned by the agent through a procedure checker and a termination checker . The procedure checker monitors whether the execution follows the steps embedded in the runtime guidance. When the execution reaches a specific step, it delivers the corresponding step-level suggestions and warnings to help the agent execute the step correctly, and hints the agent to re-plan when procedural deviations or failure-associated action patterns are detected. The termination checker verifies that all required skill steps have been completed before accepting the final output, and prompts the agent to continue planning otherwise (see Sec. III-D). The resulting new traces are collected for later execution experience mining to refine the runtime guidance. The updated guidance is used in the next round of runtime assurance, forming an iterative optimization loop that progressively improves the runtime guidance for reliable skill execution. 
+
+A. DSL for Skill-Oriented Runtime Guidance 
+
+Although skill documents provide procedural knowledge described in natural language, they do not explicitly expose the information needed for runtime procedure checking. Moreover, agent execution traces are typically unstructured. The key challenge is to transform these unstructured data into structured ⟨Guidance ⟩ ::= skill ⟨SkillN ame ⟩; steps ⟨Step ⟩+;                                      
+
+> termination ⟨StepId ⟩+
+> ⟨Step ⟩::= step id ⟨StepId ⟩;description ⟨T ext ⟩;
+> depends on ⟨StepId ⟩∗;
+> constraints ⟨Constraint ⟩∗;
+> logical actions ⟨LogicalAction ⟩∗;
+> on enter ⟨OnEnter ⟩;
+> failure patterns ⟨F ailureP attern ⟩∗
+> ⟨Constraint ⟩::= ⟨T oolConstraint ⟩ | ⟨ P arameterConstraint ⟩⟨T oolConstraint ⟩::= tool ⟨T oolN ame ⟩⟨P arameterConstraint ⟩::= parameter ⟨P arameterN ame ⟩;
+> requirement ⟨T ext ⟩⟨LogicalAction ⟩::= action id ⟨ActionId ⟩;
+> patterns ⟨ActionP attern ⟩+
+> ⟨ActionP attern ⟩::= tool ⟨T oolN ame ⟩[command match ⟨Regex ⟩]
+> ⟨OnEnter ⟩::= suggestions ⟨T ext ⟩∗;warnings ⟨T ext ⟩∗
+> ⟨F ailureP attern ⟩::= ⟨ActionP attern ⟩;reason ⟨T ext ⟩
+
+Fig. 4: Abstract Syntax of Runtime Guidance. representations that can be consumed by our runtime assurance mechanism. To this end, S KILL SENTRY introduces a domain-specific language (DSL) for skill-oriented runtime guidance. The DSL combines the skill specification extracted from the skill document and execution experience mined from successful and failed agent execution traces. Fig. 4 shows the abstract syntax of our DSL. Here, X∗ denotes zero or more occurrences of X, X+ denotes one or more occurrences of X, and [·]
+
+denotes an optional field. Fig. 5 shows an example of runtime guidance for the macroeconomic-timeseries-detrending skill. A runtime guidance instance is associated with one skill and consists of a set of procedure steps and termination requirements. Each step is marked by a unique identifier and a short description . The depends on field records prerequisite steps, determining the dependencies between steps, while the constraints field records explicit requirements on step execution. We consider two types of constraints, i.e., a tool constraint specifies a tool required by the step, and a parameter constraint specifies a required parameter value or condition. The 
+
+termination field lists the required steps that must be completed before the final output can be accepted. All this information can be extracted from the skill document (see Sec. III-B). Each step further contains a set of logical actions . A step may involve multiple logical actions, and each logical action may have multiple alternative action patterns. Each pattern specifies an observable tool call and an optional regular expression in the command match field that matches commands realizing the action. Matching any action pattern indicates that the corresponding logical action has been performed, whereas a step is considered completed only after all of its logical actions have been matched during runtime execution. The on enter 
+
+field stores suggestions and warnings for step execution, which are delivered to the agent to support more reliable step execu-tion when the execution reaches the corresponding step. Each step also contains a set of failure patterns , which record failure-associated action patterns together with reasons explaining their potential risks. All this information can be mined from successful and failed agent execution traces (see Sec. III-C). skill: Macroeconomic-Timeseries-Detrending step_id: 1description: Load and Clean Data depends_on: [ ]                          
+
+> constraints: [ ]
+> logical_actions
+> action_id: 1
+> tool: pandas.read_csv ;
+> command_match:
+> (?i) pandas \\.( read_csv )....
+> tool: read_excel ;
+> action_id: 2
+> tool: sort_index ;
+> command_match:
+> (?i) sort_index \\( )...
+> failure_patterns
+> tool: dropna ;reason: This action may discard valid observations
+> on_enter suggestions:
+> Record the effective sample period after cleaning. Inspect column names, data types, date coverage, duplicate timestamps, and missing-value counts before modifying the data.
+> warnings:
+> Do not assume that the input rows are already ordered chronologically.
+> termination: step 1, step 2, step 3, step 4, step 5, step 6
+> tool: sort_values ;
+> step_id: 2 ... step_id: 3 ... step_id: 4 ... step_id: 5 ... step_id: 6 ...
+
+Fig. 5: An Example of Runtime Guidance 
+
+B. Skill Specification Extraction 
+
+Given the DSL, S KILL SENTRY first extracts the skill specifi-cation from the corresponding skill document. A skill document is written in natural language. Therefore, S KILL SENTRY uses an LLM-based parser with GPT-5.4 [23] to transform each skill document into the specification fields defined by the DSL. Specifically, given a skill document Dskill , the parser extracts four types of specification information. First, it identifies the expected procedure steps , assigning each step a unique identifier and a short natural-language description. Second, it identifies prerequisite relations among the steps and stores them in the 
+
+depends on fields. Third, it extracts possible tool and parameter constraints for individual steps. Finally, the parser extracts steps that must be completed before the final output can be accepted and stores them as required steps in the termination field. The parser is provided with the DSL syntax and instructed to preserve the semantics of Dskill without introducing require-ments not stated in the original document. All parser prompts are available at our website [1]. We further perform lightweight structural validation on the parsed specification, including checking the uniqueness of step identifiers, the validity of referenced dependencies, the acyclicity of the dependency graph, the validity of constraint types, and the inclusion of all required steps in the extracted step set. If any check fails, SKILL SENTRY returns the validation errors to the parser, and asks it to revise the result. The resulting skill specification forms the procedural backbone of runtime guidance, while other fields in the DSL are subsequently populated and refined from successful and failed agent execution traces. 
+
+C. Execution Experience Mining 
+
+SKILL SENTRY mines execution experience from successful and failed agent execution traces to populate or refine the experience fields in the runtime guidance. Let G denote the current runtime guidance for a skill, and let T+ and T− denote the successful and failed traces of agent execution under the skill, respectively. Although G specifies the expected skill procedure, it may not provide sufficient observable evidence for tracking individual actions or step-level experience for guiding execution of individual steps. Therefore, S KILL SENTRY uses an LLM-based miner powered by GPT-5.4 to analyze T+ and 
+
+T− together with G and the DSL, populating or refining the 
+
+logical actions , on enter , and failure patterns fields for each step in G. The resulting runtime guidance is denoted by G∗.The mining process consists of five stages: action pattern extraction , trace summarization , experience field diagnosis ,
+
+experience field edition , and guidance validation . All prompts used by the miner are available at our website [1]. 
+
+Action Pattern Extraction. The miner first aligns observable actions in each trace with the skill steps defined in G. The alignment considers the purpose, inputs, outputs, and execution order of each action in the trace, while actions unrelated to any skill step remain unmatched. For each successful trace τ+ ∈ T +,the miner extracts validated action patterns associated with each aligned skill step, i.e., tool calls of each step. We refer to them as validated action patterns because they were exercised in successful executions and therefore provide empirical evidence that the corresponding actions can contribute to completing the step and the overall task. The miner then organizes these patterns into candidate logical actions , denoted as P+, of the corresponding step, and generates regular expressions if needed for command matching at runtime. Since one step may require multiple logical actions and one logical action may admit multiple valid implementations, patterns that realize the same logical action are grouped as alternatives, while different logical actions remain separate requirements of the step. For each failed trace τ− ∈ T −, the miner identifies observ-able tool calls associated with the failure in the context of an aligned step. These actions are organized into candidate 
+
+failure patterns , denoted as P−, of the corresponding step, along with the reasons explaining their potential risks. 
+
+Trace Summarization. Raw execution traces contain long reasoning, tool outputs, file operations, and repeated trials. To reduce noise, we summarize each trace with respect to the steps in G. For each trace τ , the miner produces a sum-mary Σ( τ, G) = ⟨Salign , S skip , A unalign , s fail , y ⟩, where Salign 
+
+denotes the steps aligned in the trace, Sskip denotes the steps that should have been executed but are not supported by the trace, Aunalign denotes actions in the trace that cannot be aligned with any step, sfail denotes the step that may be responsible for the failure, and y ∈ { 0, 1} denotes whether the task is successfully completed. These summaries provide compact step-level evidence for diagnosing and updating experience fields in the current runtime guidance. 
+
+Experience Field Diagnosis. Given all the extracted action patterns from traces and trace summaries, the miner diagnoses the experience fields, i.e., logical actions , on enter , and 
+
+failure patterns , in the current runtime guidance G. Let F(G)
+
+be the set of these fields. For each field f ∈ F (G), the miner assigns df = Diagnose( f, {Σ( τ, G) | τ ∈ T } , P+, P−), where 
+
+df ∈ { FP , FN , MC , OK }, jointly examining the current field, the trace summaries, and the candidate patterns under the corresponding step context. Here, FP means that the field is too restrictive and may incorrectly discourage actions observed in successful traces. FN means that the field is too weak and fails to capture risky actions observed in failed traces. MC 
+
+means missing coverage, where a step lacks sufficient logical actions in the runtime guidance for reliable progress tracking. 
+
+OK means that no update is needed for the field. 
+
+Experience Field Edition. Based on the diagnosis, the miner generates step-level suggestions and warnings, and edits the corresponding experience fields in G. Each field-level edit is rep-resented as an operation of ∈ { ADD , UPDATE , REMOVE }.For an FP diagnosis, it applies REMOVE or UPDATE to remove or relax the overly restrictive content. For an FN 
+
+diagnosis, it applies ADD to introduce new action patterns, sug-gestions, or warnings. It also applies UPDATE to strengthen the existing content in the corresponding field. For an MC 
+
+diagnosis, it applies ADD to incorporate new action patterns, suggestions, or warnings into the corresponding field. No edit is generated for a field diagnosed as OK . Applying the generated edits to G produces the populated runtime guidance G∗.
+
+Guidance Validation. Finally, S KILL SENTRY validates the mined experience against the DSL and the extracted skill specification. It checks that all experience fields are attached to existing steps, each action pattern is well-formed, and each command-matching expression is a valid regular expression. It further checks that runtime guidance does not include duplicated or conflicting entries. If any validation check fails, the errors are returned to the miner for revision. 
+
+D. Step-Aware Runtime Assurance 
+
+Given the runtime guidance G∗ for a skill, S KILL SENTRY 
+
+provides step-aware runtime assurance by wrapping around the agent execution loop through runtime hooks. This online assurance mechanism, which contains a procedure checker and 
+
+termination checker , intervenes when the agent deviates from the skill procedure and provides step-level suggestions and warnings to mitigate errors in individual step execution. 
+
+Procedure Checker. For each task query, the agent executes the task through an iterative loop of planning, action execution, observation, and re-planning. S KILL SENTRY attaches to this loop through runtime hooks [5, 22]. Before each action planned by the agent is executed, S KILL SENTRY intercepts the action through a pre-action hook and checks it against G∗.To track execution progress, S KILL SENTRY constructs a finite-state machine (FSM) from the steps and dependency relations in G∗. Each skill step si ∈ G ∗ corresponds to an FSM state, and its depends on field determines when the state can be activated. Let LA( si) denote the set of logical actions associated with si, and let M( si) ⊆ LA( si) denote the logical actions that have been matched by the observed execution trace. Initially, M( si) = ∅. A logical action is considered matched when the action planned by the agent conforms to any of its alternative action patterns. si is marked as completed only after all of its logical actions have been matched, i.e., 
+
+M( si) = LA( si). Completing a step may subsequently activate other steps whose dependencies are satisfied. Based on the current FSM state and runtime guidance, SKILL SENTRY handles each action planned by the agent as follows. When the execution enters an activated step for the first time, S KILL SENTRY injects the corresponding on enter 
+
+suggestions and warnings into the agent context, providing step-specific guidance for more reliable step-level execution. If the action matches a logical action of an activated step, SKILL SENTRY allows the action for execution. If it matches a logical action belonging to a step whose dependencies have not yet been satisfied, S KILL SENTRY temporarily denies the action, and provides a hint to the LLM agent for re-planning, avoiding deviations from the expected skill procedure. Besides, the procedure checker also uses the failure patterns 
+
+stored in G∗ to identify actions associated with historical failures. For each failure-associated action pattern in G∗,SKILL SENTRY records whether it has already been triggered during the current execution. When an action matches a failure-associated action pattern for the first time, S KILL SENTRY 
+
+temporarily denies the action and returns a hint containing the corresponding failure reason, thereby giving the agent an oppor-tunity to reconsider its plan. If the agent subsequently generates the same action again, S KILL SENTRY allows it to proceed. This design treats execution experience as advisory evidence for executing individual steps correctly, and avoids permanently blocking actions that may be valid under the current task. An action that matches neither a logical action nor a failure pattern is also allowed, because it may represent auxiliary exploration or a valid implementation not yet covered by the runtime guidance. However, such an action does not advance the FSM. Every allowed action is executed normally, and its observation is returned to the agent for subsequent planning. Through this process, the procedure checker monitors execution progress, delivers step-level guidance at the corresponding execution context, and intervenes only when it observes a procedural deviation or a failure-associated action pattern. 
+
+Termination Checker. When the agent signals task comple-tion, the termination checker checks whether all required steps specified in the termination field of G∗ have been completed. If any required step is missing, it denies the termination request and provides a hint asking the LLM agent to re-plan. Otherwise, it accepts the final output and terminates the task. Finally, S KILL SENTRY follows a fail-open principle [25] to avoid disrupting the underlying agent runtime. If an exception occurs within either checker, it allows the action or termination request by default, and records the error for subsequent diagnosis. All the agent execution traces of task queries under the current runtime guidance are collected as new inputs for execution experience mining and subsequent runtime-guidance refinement, supporting the self-evolution of S KILL SENTRY .IV. E VALUATION 
+
+We implement a prototype of S KILL SENTRY with 5,072 lines of Python code. To evaluate the effectiveness and efficiency of SKILL SENTRY , we design the following research questions.  
+
+> •
+
+RQ1 Effectiveness Evaluation. How effective is S KILL SEN - 
+
+> TRY
+
+in improving the reliability of skill execution?  
+
+> •
+
+RQ2 Efficiency Evaluation. What runtime overhead does SKILL SENTRY introduce during the LLM agent execution?  
+
+> •
+
+RQ3 Self-Evolving Analysis. Can S KILL SENTRY evolve with newly collected execution traces?  
+
+> •
+
+RQ4 Ablation Study. How do execution experience and the guidance delivery strategy contribute to the effectiveness?  
+
+> •
+
+RQ5 Generalization Evaluation. Can runtime guidance constructed with one backbone model improve skill execution with another backbone model under the same agent? 
+
+A. Evaluation Setup 
+
+Agent and Model Selection. We evaluate S KILL SENTRY 
+
+on two widely used LLM agents, i.e., Claude Code [4] and Codex [21]. Both agents are designed for multi-step task execution, and can interact with external tools during execution, supporting the incorporation of external skill documents into the execution context. More importantly, both agents provide hook mechanisms that expose key lifecycle points of the agent execution loop, allowing us to inspect actions planned by the agent and deliver runtime guidance through their extension interface without modifying the underlying agent implementation. For each agent, we consider two backbone models. Specifically, we use Claude Code with Claude-Haiku-4.5 [2] and Claude-Opus-4.6 [6], and Codex with GPT-5.2 [20] and GPT-5.4 [23]. For fairness, all the agent-model configurations use the same tool execution environment and maximum task execution time ( i.e., 30 minutes). 
+
+Dataset Preparation. We build our evaluation dataset based on SkillsBench [16], which contains 87 tasks associated with one user query, a skill document, a task execution environment and an outcome-based deterministic verifier. SkillsBench is suitable for our evaluation because its skill documents provide procedural knowledge with high quality, while its deterministic verifiers reproducibly determine whether each task execution succeeds or fails, thereby labeling the resulting trace as successful or failed for execution experience mining. Since our study focuses on runtime assurance rather than teaching an LLM agent a completely new skill, we evaluate skills for which the target agent has already demonstrated basic task-solving capability but may still execute the skill unreliably. We therefore filter the original SkillsBench skills according to the execution capability of the evaluated agent-model configurations. Specifically, for each of the four agent-model configurations, we execute the original query of every SkillsBench task five times with its corresponding curated skill. A task is regarded as executable under a configuration if at least one of the five executions passes its deterministic verifier. Tasks that fail in all five runs are excluded for that configuration, because such consistent failures are more likely to indicate insufficient basic task-solving capability than unreliable skill execution. We then take the intersection of the executable skill sets obtained from the four configurations. This intersection ensures that every retained skill can be executed successfully by all evaluated configurations at least once, allowing subsequent failures to be more reasonably attributed to execution instability. After this filtering process, 15 skills remain from the original SkillsBench. These commonly executable skills constitute the subjects of our evaluation, and their details are shown in Table I. TABLE I: Overview of the Selected Skills from SkillsBench                 
+
+> Skill Name Description
+> macroeconomic-timeseries-detrending Detrend macroeconomic time series and analyze business-cycle components. excitation-signal-design Design excitation signals for system identification and control tasks. fjsp-repair-with-downtime-and-policy Repair infeasible flexible job-shop schedules under downtime and policy constraints. powerlifting-coef-calc Compute powerlifting coefficients and normalized scores. threejs Parse Three.js scene graphs and export articulated mesh assets. weighted-gdp-calc Calculate weighted GDP indicators from regional or sector-level data. pddl-skills Load, solve, validate, and save plans for PDDL planning tasks. protein-expression-analysis Analyze protein-related data for biochemical or structural insights. glm-calibration Calibrate GLM parameters for water temperature simulation. pcap-analysis Analyze PCAP files and compute network statistics. spring-boot-migration Migrate Spring Boot 2.x applications to Spring Boot 3.x. mesh-analysis Analyze STL meshes to compute geometry and filter scan noise. jackson-security Analyze Jackson deserialization security risks and attack patterns. geospatial-analysis Analyze geospatial data with proper projections and spatial operations. d3-visualization Build deterministic D3.js visualizations from local data.
+
+Since each retained SkillsBench skill originally provides only one task query, we expand the query set for each selected skill through a two-stage augmentation process inspired by [17]. The objective is to increase both task-level and expression-level diversity while preserving deterministic and verifiable task oracles for evaluation. In the first stage, we perform task-level semantic expansion . For each skill, we construct 8 task instances, including the original task and 7 manually created variants. These variants preserve the intended skill usage but change concrete query semantics, such as input parameters, target objects, and task context. We manually adapt the corresponding deterministic verifier for each newly constructed instance. In the second stage, we perform expression-level paraphrase mutation . For each task instance, we construct ten semantically equivalent query expressions, including its original expression and nine paraphrases generated using GPT-5.4 [23]. The paraphrases modify only surface-level expressions, such as wording and sentence structure, without changing the task requirements or expected outcome. Therefore, all expression variants derived from the same task instance share the verifiers. In total, each skill contains 80 queries, resulting in 1200 queries across 15 selected skills. For each skill, we divide the queries into an evolution set and a held-out test set, denoted by Qevol and Qtest , respectively. We perform this split at the task-instance level. Five complete task instances, containing 50 queries in total, are assigned to Qevol , while the remaining three task instances, containing 30 queries, are assigned to 
+
+Qtest . Consequently, paraphrases derived from the same task instance never appear in both sets. The 50 queries in Qevol are used to simulate a stream of new task queries arriving after deployment. As new queries arrive, their successful and failed execution traces are progressively collected and used to mine execution experience and update the runtime guidance. The 30 queries in Qtest remain unseen throughout evolution and are used only for effectiveness evaluation. 
+
+RQ Setup. For RQ1 , we evaluate whether S KILL SENTRY 
+
+improves both task success across queries and execution stability under repeated runs. For each skill and agent-model configuration, we evolve the runtime guidance for 10 iterations using the 50 queries in Qevol . In each iteration, we randomly select five previously unused queries, execute them under the current guidance, collect the resulting traces, and update the guidance accordingly. After all 50 queries have been processed, we evaluate the final guidance on the 30 queries in Qtest .We evaluate each evolved guidance five times on Qtest and report the mean and standard deviation (SD) of the resulting task success rates for each skill and agent-model configuration, where a higher mean and lower SD indicate more reliable execution of LLM agents with the corresponding skill. For RQ2 , we evaluate the runtime overhead introduced by S KILL SENTRY on Qtest . We compare the base agent-model configuration and S KILL SENTRY in terms of the average number of inference turns and token costs. We further report the computation time of S KILL SENTRY , and its proportion of the total execution time for each agent-model configuration. For RQ3 , we analyze the self-evolving capability of SKILL SENTRY by evaluating it after each of the 10 evolution iterations. At the end of each iteration, we evaluate S KILL SEN - 
+
+> TRY
+
+on Qtest and compute the task success rate of each skill. To reduce the effects of query ordering, we repeat the entire evolution process five times. We aggregate the results over five independent evolution processes, and report how the average task success rate changes as more traces are included. For RQ4 , we conduct ablation studies across all four agent-model configurations to examine the contributions of execution experience and step-level guidance delivery. After the 10-iteration evolution process, we construct three variants. w/o On-Enter removes the on enter field, including step-level suggestions and warnings; w/o Failure-Patterns removes the 
+
+failure patterns field; and System-Prompt Delivery provides the complete runtime guidance in the system prompt at the beginning of execution instead of delivering the corresponding guidance at runtime. We evaluate all variants on Qtest and compare their task success rates with S KILL SENTRY .For RQ5 , we evaluate the cross-model generalization of the evolved runtime guidance within the same agent. We consider bidirectional transfer between Claude-Haiku-4.5 and Claude-Opus-4.6, and between GPT-5.2 and GPT-5.4. We directly apply the guidance evolved with the source backbone model to the target model without further updates, and compare its task success rate on Qtest with those of the target-model baseline and the guidance evolved natively with the target model. TABLE II: Results of Effectiveness Evaluation                                                                                                                                                                                                                                                                                                                                                                                            
+
+> Skill Claude Code + Haiku-4.5 Claude Code + Opus-4.6 Codex + GPT-5.2 Codex + GPT-5.4 Base Agent SKILL SENTRY Base Agent SKILL SENTRY Base Agent SKILL SENTRY Base Agent SKILL SENTRY
+> macroeconomic-timeseries-detrending 0.613 ±0.018 0.893 ±0.015 0.800 ±0.033 0.933 ±0.024 0.827 ±0.028 0.893 ±0.015 0.833 ±0.033 0.947 ±0.018
+> excitation-signal-design 0.120 ±0.030 0.373 ±0.037 0.187 ±0.030 0.487 ±0.018 0.213 ±0.045 0.387 ±0.018 0.240 ±0.028 0.513 ±0.018
+> fjsp-repair-with-downtime-and-policy 0.707 ±0.028 0.773 ±0.037 0.733 ±0.033 0.860 ±0.015 0.540 ±0.028 0.707 ±0.015 0.607 ±0.028 0.793 ±0.015
+> powerlifting-coef-calc 0.653 ±0.051 0.867 ±0.024 0.840 ±0.028 0.933 ±0.024 0.527 ±0.028 0.760 ±0.028 0.673 ±0.037 0.893 ±0.015
+> threejs 0.420 ±0.030 0.560 ±0.015 0.567 ±0.033 0.673 ±0.037 0.473 ±0.037 0.607 ±0.015 0.560 ±0.037 0.700 ±0.033
+> weighted-gdp-calc 0.267 ±0.033 0.573 ±0.015 0.313 ±0.030 0.600 ±0.024 0.280 ±0.051 0.487 ±0.018 0.247 ±0.030 0.540 ±0.043
+> pddl-skills 0.213 ±0.030 0.373 ±0.015 0.360 ±0.037 0.607 ±0.015 0.407 ±0.028 0.633 ±0.024 0.513 ±0.030 0.667 ±0.033
+> protein-expression-analysis 0.840 ±0.043 0.920 ±0.018 0.827 ±0.028 0.947 ±0.018 0.693 ±0.043 0.853 ±0.045 0.880 ±0.018 0.920 ±0.018
+> glm-calibration 0.887 ±0.038 1.000 ±0.000 0.913 ±0.030 1.000 ±0.000 0.880 ±0.018 1.000 ±0.000 0.927 ±0.028 1.000 ±0.000
+> pcap-analysis 0.893 ±0.043 0.967 ±0.024 0.940 ±0.015 1.000 ±0.000 0.980 ±0.018 1.000 ±0.000 0.973 ±0.015 1.000 ±0.000
+> spring-boot-migration 0.920 ±0.018 0.973 ±0.015 0.927 ±0.028 1.000 ±0.000 0.973 ±0.015 1.000 ±0.000 0.980 ±0.018 1.000 ±0.000
+> mesh-analysis 0.847 ±0.038 0.953 ±0.018 0.913 ±0.038 1.000 ±0.000 0.840 ±0.037 1.000 ±0.000 0.887 ±0.030 0.967 ±0.024
+> jackson-security 0.433 ±0.024 0.613 ±0.018 0.600 ±0.033 0.700 ±0.053 0.467 ±0.024 0.640 ±0.015 0.653 ±0.018 0.707 ±0.015
+> geospatial-analysis 0.640 ±0.037 0.900 ±0.024 0.767 ±0.024 0.947 ±0.018 0.793 ±0.028 0.900 ±0.033 0.800 ±0.024 0.947 ±0.018
+> d3-visualization 0.127 ±0.037 0.380 ±0.018 0.233 ±0.033 0.473 ±0.028 0.160 ±0.028 0.420 ±0.018 0.247 ±0.051 0.487 ±0.018
+> Average 0.572 0.741 0.661 0.811 0.604 0.752 0.668 0.805
+
+Environment. We conduct all the experiments on Ubuntu 20.04.4 LTS servers with 4 NVIDIA GeForce RTX 3090 GPUs, Intel(R) Xeon(R) Silver 4310 @ 2.10GHz and 128GB memory. 
+
+B. Effectiveness Evaluation (RQ1) 
+
+Overall Effectiveness. Table II shows the mean task success rate and standard deviation over five repeated evaluations for the base agents and S KILL SENTRY across 15 skills and four agent-model configurations. The higher mean and lower standard deviation are highlighted in bold. Overall, S KILL SENTRY 
+
+consistently improves task success rates across all evaluated settings. Averaged across the 15 skills, S KILL SENTRY achieves relative improvements of 29.5% and 22.7% for Claude Code with Claude-Haiku-4.5 and Claude-Opus-4.6, respectively, and 24.5% and 20.5% for Codex with GPT-5.2 and GPT-5.4, respectively. Across all four configurations, S KILL SENTRY 
+
+increases the average task success rate from 62.6% to 77.7%, corresponding to an overall relative improvement of 24.1%. The improvement is consistent across all agent-model con-figurations and skills. The gains are particularly pronounced on skills with low baseline performance, reaching 210.8% for excitation-signal-design , 131.6% for weighted-gdp-calc ,and 199.2% for d3-visualization , with substantial gains also observed for pddl-skills and geospatial-analysis . For skills with strong baseline performance, the relative gains are smaller, yet S KILL SENTRY still reduces residual failures, achieving perfect task success rates for glm-calibration across all four configurations and for several configurations of pcap-analysis ,
+
+spring-boot-migration , and mesh-analysis . Overall, S KILL SEN -
+
+TRY improves challenging skill executions while mitigating occasional failures on skills that already succeed in most runs. In addition to improving task success rates, S KILL SENTRY 
+
+generally produces more stable results across repeated eval-uations. The average standard deviation decreases by 41.2%, 39.5%, 46.5%, and 36.9% under Claude-Haiku-4.5, Claude-Opus-4.6, GPT-5.2, and GPT-5.4, respectively. Across all 60 skill-agent-model configurations, S KILL SENTRY yields a lower standard deviation in 50 pairs and the same standard deviation in two pairs. Overall, it reduces the average standard deviation by 41.1%, indicating that these effectiveness improvements are accompanied by more consistent execution across repeated runs. 
+
+Case Study. Fig. 6 illustrates how S KILL SENTRY assures Claude Code with Claude-Haiku-4.5 when executing the Task  Query : Compute  the  correlation  between  detrended  PCE  and  PFI  for  1973 -2024 .                           
+
+> Deflate with index, log -transform, apply HP filter and average available 2024 quarters .
+> Suggestions :
+> Record the effective sample period
+> after cleaning .Inspect column names .
+> Warnings :
+> Do not assume that the input rows
+> are already ordered .
+
+SKILL SENTRY 
+
+Allow 
+
+Soft -Deny                            
+
+> Hint :‘convert to real terms’ requires
+> ‘harmonize frequency’ ;try to satisfy
+> ‘harmonize frequency’ by calling a
+> Bash command matching ... ,or a
+> write_frequency call .
+> Actions
+> call read_excel to inspect and load ... 1
+> Suggestions: ......
+> Warnings: ......
+
+Allow                        
+
+> call converter .py and attempt to proceed
+> directly to ‘convert to real terms’ .
+> 2
+> Actions
+> call write_frequency to aggregate
+> the 2024 quarterly observations and
+> construct the annual value .Suggestions: ......
+> Warnings: ......
+
+Allow     
+
+> Pearson Correlation Coefficient: 0.68885
+> Actions
+> 3456log( )
+
+LLM Agent 
+
+Planning 
+
+## …
+
+> Re -planning
+
+Fig. 6: An Example of Runtime Assurance by S KILL SENTRY 
+
+macroeconomic-timeseries-detrending skill. Upon entering each skill step, S KILL SENTRY provides the corresponding sugges-tions and warnings from the runtime guidance. After loading and inspecting the data, the agent attempts to proceed directly to Convert to Real Terms without completing the required preceding step, i.e., Harmonize Frequency . S KILL SENTRY 
+
+detects the deviation from the skill procedure and temporarily denies the action. It returns a targeted hint identifying the missing step. Guided by this intervention, the agent re-plans and invokes write_frequency to aggregate the quarterly observations and construct the annual value, thereby completing the skipped step. Then, S KILL SENTRY allows execution to continue, and verifies that all required steps are completed before accepting the final output. This example shows how SKILL SENTRY combines step-level guidance and runtime intervention to improve the reliability of agent execution. 
+
+Summary. SKILL SENTRY consistently improves the relia-bility of skill execution across all evaluated agents, backbone models, and skills. Overall, SKILL SENTRY improves the average task success rate by 24.1% and reduces the average TABLE III: Results of Runtime Cost                                            
+
+> Agent-Model Inference Turn Token Cost Base Agent SKILL SENTRY Base Agent SKILL SENTRY
+> Claude Code + Haiku-4.5 20.2 22.2 796K 886K Claude Code + Opus-4.6 24.3 25.3 1.30M 1.38M Codex + GPT-5.2 23.7 25.6 673K 747K Codex + GPT-5.4 27.8 30.4 757K 804K 020 40 60 80 100 Percentage of Runtime (%)
+> macroeconomic-timeseries-detrending 0.9% excitation-signal-design 0.5% fjsp-repair-with-downtime-and-policy 0.7% powerlifting-coef-calc 0.9% threejs 0.9% weighted-gdp-calc 0.9% pddl-skills 0.9% protein-expression-analysis 0.3% glm-calibration 1.1% pcap-analysis 1.0% spring-boot-migration 0.9% mesh-analysis 1.0% jackson-security 0.9% geospatial-analysis 0.9% d3-visualization 0.6%
+> LLM Planning Tool Execution SKILL SENTRY
+
+Fig. 7: Results of the Runtime Efficiency standard deviation across repeated evaluations by 41.1%. 
+
+C. Efficiency Evaluation (RQ2) 
+
+Table III reports the runtime costs of the base agents and SKILL SENTRY . Averaged across the four agent-model configu-rations, S KILL SENTRY increases the number of inference turns by 7.8% and the token cost by 8.7%. These additional costs mainly arise from delivering step-level guidance and prompting the agent to re-plan when deviations from the skill procedure are detected. Therefore, these additional inference costs represent a reasonable trade-off for correcting unreliable execution and achieving the effectiveness improvements reported in RQ1 .Fig. 7 presents the runtime breakdown for Claude Code with Claude-Haiku-4.5. The computation performed by S KILL SEN - 
+
+> TRY
+
+accounts for approximately 0.8% of the total execution time. This result indicates that S KILL SENTRY introduces neg-ligible computational overhead compared with LLM inference and tool execution. The runtime breakdowns for the other three agent-model configurations are similar and are available at [1]. 
+
+Summary. SKILL SENTRY introduces 7.8% more inference turns and 8.7% more token costs, while its own computation accounts for only 0.8% of the total execution time. 
+
+D. Self-Evolving Analysis (RQ3) 
+
+Fig. 8 illustrates the self-evolving process of S KILL SENTRY 
+
+for macroeconomic-timeseries-detrending under Claude Code with Claude-Haiku-4.5. The shaded area denotes the standard deviation (SD) across five repeated evolution runs. As more traces are incorporated, the average task success rate improves by about 58.2% after 10 iterations. The largest gains occur in the early stages, as newly collected traces enrich action patterns, suggestions, and warnings. The improvement becomes relatively small during later stages, indicating that the runtime guidance tends to stabilize on the current test set. Meanwhile, the decreasing SD across repeated runs suggests increasingly 0 2 4 6 8 10 
+
+> Iteration
+> 0.4 0.5 0.6 0.7 0.8 0.9
+> Task Success Rate
+
+Fig. 8: Results of Self-Evolving Analysis Haiku-4.5 Opus-4.6 GPT-5.2 GPT-5.4 
+
+0.50 0.55 0.60 0.65 0.70 0.75 0.80 0.85   
+
+> Task Success Rate
+> 0.572 0.661 0.604 0.668 0.741 0.811 0.752 0.805 0.701 0.771 0.712 0.745
+> Base Agent Native-S KILL SENTRY Cross-S KILL SENTRY
+
+Fig. 9: Results of the Generalization Evaluation stable performance of S KILL SENTRY as more traces are incorporated. Similar trends are observed for the other skills and agent-model configurations, whose results are available at [1]. 
+
+Summary. SKILL SENTRY progressively improves task suc-cess rate as newly collected traces are incorporated, demon-strating that its runtime guidance can self-evolve and converge toward more reliable skill execution. 
+
+E. Ablation Study (RQ4) 
+
+Table IV reports the ablation results across the four agent-model configurations. Overall, the complete S KILL SENTRY 
+
+consistently achieves the highest average task success rate. SKILL SENTRY outperforms w/o On-Enter and w/o Failure Patterns by 19.0% and 13.6%, respectively. This result confirms that both forms of execution experience improve skill reliability. Removing on enter causes a larger degradation, highlighting the importance of step-level suggestions and warnings, while failure-associated action patterns provide complementary guid-ance by prompting agents to reconsider previously unsuccess-ful actions, helping the execution of individual steps. SKILL SENTRY also outperforms System-Prompt Delivery by 5.8% on average. Although both use the same guidance, step-level delivery is more effective because it presents relevant information in the corresponding execution context, reducing the chance that suggestions or warnings are overlooked in a long initial prompt. Moreover, the complete S KILL SENTRY 
+
+also achieves the lowest average standard deviation, indicating improvements in both effectiveness and stability. 
+
+Summary. Step-level suggestions, warnings, and failure-associated action patterns all contribute to the effectiveness of SKILL SENTRY . Delivering guidance at the step level further improves the average task success rate by 5.8%. 
+
+F. Generalization Evaluation (RQ5) 
+
+Fig. 9 reports the cross-model generalization results. Native-SKILL SENTRY uses runtime guidance evolved with the target TABLE IV: Results of Ablation Study                                                                  
+
+> Agent–Model Base Agent w/o On-Enter w/o Failure Patterns System-Prompt SKILL SENTRY
+> Claude Code + Haiku-4.5 0.572 ±0.033 0.600 ±0.024 0.636 ±0.021 0.693 ±0.030 0.741 ±0.019
+> Claude Code + Opus-4.6 0.661 ±0.030 0.692 ±0.021 0.719 ±0.019 0.768 ±0.023 0.811 ±0.018
+> Codex + GPT-5.2 0.604 ±0.030 0.627 ±0.022 0.661 ±0.017 0.710 ±0.022 0.752 ±0.016
+> Codex + GPT-5.4 0.668 ±0.028 0.693 ±0.021 0.721 ±0.017 0.768 ±0.022 0.805 ±0.018
+
+backbone model, whereas Cross-S KILL SENTRY directly trans-fers guidance evolved with another model under the same agent. Cross-S KILL SENTRY outperforms the base agent, improving the task success rate by 22.6%, 16.6%, 17.9%, and 11.5% for Claude-Haiku-4.5, Claude-Opus-4.6, GPT-5.2, and GPT-5.4, respectively, with an average relative improvement of 17.2%. Although Cross-S KILL SENTRY remains below Native-SKILL SENTRY , it retains 94.2% of the native task success rate on average. This result suggests that much of the mined execution experience, including action patterns, step-level suggestions, and warnings, transfers across backbone models within the same agent, while the remaining gap reflects model-specific action patterns and failure behaviors. In both model pairs, transferring guidance from the stronger backbone to the weaker one yields larger improvements than the reverse transfer. 
+
+Summary. Runtime guidance evolved with one backbone model generalizes to another within the same agent, improving task success rate by 17.2% over the base agent while retaining 94.2% of the effectiveness of natively evolved guidance. V. T HREATS TO VALIDITY 
+
+First, the selection of skills, agents, and backbone models may limit generalizability. To mitigate this threat, we evaluate the 15 skills across two widely used agents, i.e., Claude Code and Codex, each paired with two backbone models. Second, the original capabilities of the agents and the quality of skill documents pose threats to validity. S KILL SENTRY 
+
+assumes that the agent correctly selects the required skill and the procedure in the skill document is correct. It focuses on assuring individual skill execution rather than skill selection. When a task requires multiple skills, S KILL SENTRY can support their execution when the skills are invoked sequentially. However, it does not currently provide effective assurance for workflows that repeatedly switch between interdependent steps from different skills. Such cases may require integrating and jointly optimizing the involved skills into a unified one. Third, execution experience mining relies on a verifier to label successful and failed traces. We use deterministic verifiers provided by the evaluation dataset to ensure reliable trace labels in our experiments. In practice, such verifiers may require additional construction effort. In these cases, S KILL SENTRY 
+
+can instead incorporate LLM-based evaluators tailored to the target task for agent execution trace labeling. Finally, the stochasticity of LLM-based execution and randomness of query ordering in experiments pose threats to validity. To mitigate these threats, we evaluate each evolved guidance five times, repeat the evolution process five times, and report both mean and standard deviation. We also conduct paired t-test analysis [10] across our comparisons, and the improvements are statistically significant (p <0.05). VI. R ELATED WORK 
+
+A. Runtime Assurance for LLM Agents 
+
+The autonomy of LLM agents brings new safety and reliabil-ity challenges, motivating recent work [11, 15, 31] on runtime guardrails, monitoring, and enforcement. A GENT SPEC [31] al-lows users to specify runtime constraints for LLM agents with a domain-specific language and enforces these constraints during execution. S HIELD AGENT [11] extracts verifiable rules from policy documents and uses them to check whether the trace of agent actions violates safety policies. Kumar et al. [15] further study policy-enforced guardrails for infrastructure agents. These studies show the importance of adding an external runtime module to constrain agent behaviors without modifying the underlying model. S KILL SENTRY differs from these studies by targeting skill execution reliability rather than safety enforce-ment. To the best of our knowledge, we are the first to propose a runtime assurance framework for skill-oriented agent execution. We therefore do not directly compare S KILL SENTRY with these approaches, as prior approaches detect safety violations, whereas S KILL SENTRY enforces skill procedures and leverages execution experience to improve task completion, resulting in different inputs, objectives, and evaluation criteria. 
+
+B. Execution-Based Optimization for LLM Agents 
+
+A growing body of work improves LLM agents by opti-mizing or augmenting system prompts, agent memories, and skills based on execution feedback. Reflexion [29] stores verbal reflections generated from task feedback and reuses them in later trials. ExpeL [39] summarizes successful and failed traces into reusable natural-language experience in the system prompt. APE [42] generates instruction candidates with LLMs and selects prompts according to task performance. ProTeGi [26] edits prompts using textual gradients derived from model errors, while OPRO [34] treats prompt optimization as a natural-language optimization process driven by LLM-generated proposals. Recently, Trace2Skill [18] distills prior failure lessons into transferable agent skills, providing a new perspective on leveraging execution traces for agent improvement. Instead of rewriting a prompt or skill artifact offline, S KILL SENTRY uses execution traces to support runtime assurance. It aligns successful and failed traces with skill steps, mines step-level runtime guidance, and provides such guidance only when the agent reaches the corresponding step during execution, improving the runtime reliability of skill execution. VII. C ONCLUSION 
+
+We have proposed and implemented S KILL SENTRY , a skill-oriented runtime assurance framework for improving the relia-bility of LLM agents. Our evaluation shows that it effectively improves execution reliability with low runtime overhead. REFERENCES [1] Anonymous GitHub. (2026) SkillSentry. Accessed on May 11, 2026. [Online]. Available: https://anonymous.4open.science/r/skillsentry-865C [2] Anthropic, “Introducing claude haiku 4.5,” https://www.anthropic.com/ news/claude-haiku-4-5, Oct. 2025, accessed on June 8, 2026. [3] ——. (2025) Writing effective tools for agents — with agents. Accessed on May 13, 2026. [Online]. Available: https://www.anthropic.com/engi neering/writing-tools-for-agents [4] ——, “Claude code,” https://code.claude.com/docs/en/overview, 2026, accessed on June 8, 2026. [5] ——, “Claude code docs: Hooks reference,” https://code.claude.com/do cs/en/hooks, 2026, accessed on June 13, 2026. [6] ——, “Introducing claude opus 4.6,” https://www.anthropic.com/news/c laude-opus-4-6, Feb. 2026, accessed on June 8, 2026. [7] Y. Bai, S. Kadavath, S. Kundu, A. Askell, J. Kernion, A. Jones, A. Chen, A. Goldie, A. Mirhoseini, C. McKinnon et al. , “Constitutional ai: Harmlessness from ai feedback,” arXiv preprint arXiv:2212.08073 , 2022. [8] I. Bouzenia, P. Devanbu, and M. Pradel, “Repairagent: An autonomous, llm-based agent for program repair,” in Proceedings of the IEEE/ACM 47th International Conference on Software Engineering , 2025, pp. 2188– 2200. [9] I. Bouzenia and M. Pradel, “Understanding software engineering agents: A study of thought-action-result trajectories,” in Proceedings of the 2025 40th IEEE/ACM International Conference on Automated Software Engineering , 2025, pp. 2846–2857. [10] J. F. Box, “Guinness, gosset, fisher, and small samples,” Statistical Science , pp. 45–52, 1987. [11] Z. Chen, M. Kang, and B. Li, “Shieldagent: Shielding agents via verifiable safety policy reasoning,” in Proceedings of the International Conference on Machine Learning , 2025, pp. 8313–8344. [12] Google. (2023) Google Gemini. Accessed on May 13, 2026. [Online]. Available: https://gemini.google.com/ [13] A. Gupta, “Reliabilitybench: Evaluating llm agent reliability under production-like stress conditions,” arXiv preprint arXiv:2601.06112 ,2026. [14] X. Hou, Y. Zhao, Y. Liu, Z. Yang, K. Wang, L. Li, X. Luo, D. Lo, J. Grundy, and H. Wang, “Large language models for software engi-neering: A systematic literature review,” ACM Transactions on Software Engineering and Methodology , vol. 33, no. 8, pp. 1–79, 2024. [15] T. Kumar, A. Tripathy, G. Saranathan, M. Foltin, S. Bhattacharya, S. Hinchley, D. M. Bahls, D. Brookshire, L. Kaplan, and R. W. Wisniewski, “Infrastructuresentinel: Policy enforced guardrails for secure mcp-driven infrastructure agents,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 40, no. 47, 2026, pp. 40 295–40 301. [16] X. Li, W. Chen, Y. Liu, S. Zheng, X. Chen, Y. He, Y. Li, B. You, H. Shen, J. Sun et al. , “Skillsbench: Benchmarking how well agent skills work across diverse tasks,” arXiv preprint arXiv:2602.12670 , 2026. [17] Y. Li, H. Wen, Y. Chen, H. Liu, Y. Tian, and Y. Feng, “No attack required: Semantic fuzzing for specification violations in agent skills,” 
+
+arXiv preprint arXiv:2605.13044 , 2026. [18] J. Ni, Y. Liu, X. Liu, Y. Sun, M. Zhou, P. Cheng, D. Wang, E. Zhao, X. Jiang, and G. Jiang, “Trace2skill: Distill trajectory-local lessons into transferable agent skills,” arXiv preprint arXiv:2603.25158 , 2026. [19] OpenAI. (2023) Introducing ChatGPT. Accessed on May 13, 2026. [Online]. Available: https://openai.com/blog/chatgpt [20] OpenAI, “Introducing gpt-5.2,” https://openai.com/index/introducing-gpt -5-2/, Dec. 2025, accessed on June 8, 2026. [21] ——, “Codex,” https://developers.openai.com/codex/, 2026, accessed on June 8, 2026. [22] ——, “Codex docs: Hooks,” https://developers.openai.com/codex/hooks, 2026, accessed on June 13, 2026. [23] ——, “Introducing gpt-5.4,” https://openai.com/index/introducing-gpt-5 -4/, Mar. 2026, accessed on June 8, 2026. [24] L. Ouyang, J. Wu, X. Jiang, D. Almeida, C. Wainwright, P. Mishkin, C. Zhang, S. Agarwal, K. Slama, A. Ray et al. , “Training language models to follow instructions with human feedback,” Advances in neural information processing systems , vol. 35, pp. 27 730–27 744, 2022. [25] OWASP Foundation, “Improper error handling,” https://owasp.org/ww w-community/Improper Error Handling, 2026, accessed on June 25, 2026. [26] R. Pryzant, D. Iter, J. Li, Y. T. Lee, C. Zhu, and M. Zeng, “Automatic prompt optimization with “gradient descent” and beam search,” in 
+
+Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , 2023, pp. 7957–7968. [27] Y. Qin, S. Liang, Y. Ye, K. Zhu, L. Yan, Y. Lu, Y. Lin, X. Cong, X. Tang, B. Qian et al. , “Toolllm: Facilitating large language models to master 16000+ real-world apis,” in Proceedings of the International Conference on Learning Representations , vol. 2024, 2024, pp. 9695–9717. [28] T. Schick, J. Dwivedi-Yu, R. Dess` ı, R. Raileanu, M. Lomeli, E. Hambro, L. Zettlemoyer, N. Cancedda, and T. Scialom, “Toolformer: Language models can teach themselves to use tools,” Advances in Neural Informa-tion Processing Systems , vol. 36, pp. 68 539–68 551, 2023. [29] N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao, “Reflexion: language agents with verbal reinforcement learning,” in 
+
+Proceedings of the 37th International Conference on Neural Information Processing Systems , 2023, pp. 8634–8652. [30] G. Wang, Y. Xie, Y. Jiang, A. Mandlekar, C. Xiao, Y. Zhu, L. Fan, and A. Anandkumar, “Voyager: An open-ended embodied agent with large language models,” arXiv preprint arXiv:2305.16291 , 2023. [31] H. Wang, C. M. Poskitt, and J. Sun, “Agentspec: Customizable runtime enforcement for safe and reliable LLM agents,” in Proceedings of the 48th IEEE/ACM International Conference on Software Engineering , 2026. [32] Q. Wu, G. Bansal, J. Zhang, Y. Wu, B. Li, E. Zhu, L. Jiang, X. Zhang, S. Zhang, J. Liu et al. , “Autogen: Enabling next-gen llm applications via multi-agent conversations,” in Proceedings of the 1st Conference on Language Modeling , 2024. [33] Z. Xue, Y. Zhao, S. Wang, K. Chen, and H. Wang, “A characterization study of bugs in llm agent workflow orchestration frameworks,” in 
+
+Proceedings of the 2025 40th IEEE/ACM International Conference on Automated Software Engineering , 2025, pp. 3369–3380. [34] C. Yang, X. Wang, Y. Lu, H. Liu, Q. V. Le, D. Zhou, and X. Chen, “Large language models as optimizers,” in Proceedings of the 12th International Conference on Learning Representations , 2024. [35] J. Yang, C. E. Jimenez, A. Wettig, K. Lieret, S. Yao, K. Narasimhan, and O. Press, “Swe-agent: Agent-computer interfaces enable automated software engineering,” Advances in Neural Information Processing Systems , vol. 37, pp. 50 528–50 652, 2024. [36] S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. Narasimhan, and Y. Cao, “React: Synergizing reasoning and acting in language models,” arXiv preprint arXiv:2210.03629 , 2022. [37] A. Zeng, X. Lv, Z. Hou, Z. Du, Q. Zheng, B. Chen, D. Yin, C. Ge, C. Huang, C. Xie et al. , “Glm-5: from vibe coding to agentic engineering,” 
+
+arXiv preprint arXiv:2602.15763 , 2026. [38] Y. Zhang, H. Ruan, Z. Fan, and A. Roychoudhury, “Autocoderover: Autonomous program improvement,” in Proceedings of the 33rd ACM SIGSOFT International Symposium on Software Testing and Analysis ,2024, pp. 1592–1604. [39] A. Zhao, D. Huang, Q. Xu, M. Lin, Y.-J. Liu, and G. Huang, “Expel: Llm agents are experiential learners,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 38, no. 17, 2024, pp. 19 632–19 642. [40] S. Zhong, Y. Lu, J. Ning, Y. Wan, L. Feng, Y. Ao, L. F. R. Ribeiro, M. Dreyer, S. Ammirati, and C. Xiong, “Skilllearnbench: Benchmarking continual learning methods for agent skill generation on real-world tasks,” 
+
+arXiv preprint arXiv:2604.20087 , 2026. [41] Y. Zhou, Z. Zhang, Z. Cheng, S. Zhang, Q. Lan, Z. Chen, Z. Yang, Q. Xu, R. Chen, H. Wang, and S. Hu, “Skillgenbench: Benchmarking skill generation pipelines for LLM agents,” arXiv preprint arXiv:2605.18693 ,2026. [42] Y. Zhou, A. I. Muresanu, Z. Han, K. Paster, S. Pitis, H. Chan, and J. Ba, “Large language models are human-level prompt engineers,” in Proceedings of the 11th International Conference on Learning Representations , 2023.

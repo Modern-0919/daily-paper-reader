@@ -1,0 +1,293 @@
+Title: PluginEval: A Diagnostic Benchmark for Fine-Grained Error Attribution in Function Calling
+
+URL Source: https://arxiv.org/pdf/2608.08700v1
+
+Published Time: Tue, 11 Aug 2026 01:41:36 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# PluginEval: A Diagnostic Benchmark for Fine-Grained Error Attribution in Function Calling 
+
+# Dongjie Xu ∗1, Julius ∗2, Hanchi Dong ∗3, Minghua Tang 4, Yuxuan Sun 3, Ziwei Nie 5,Zicheng Liu 6, Dujun Qing 7, Jiajie Xu 1
+
+> 1
+
+Soochow University 
+
+> 2
+
+Tencent Inc. 
+
+> 3
+
+Beijing University of Posts and Telecommunications 
+
+> 4
+
+Jiangnan University 
+
+> 5
+
+Nanjing University 
+
+> 6
+
+Xiaohongshu Inc. 
+
+> 7
+
+University of Chinese Academy of Sciences 
+
+Abstract 
+
+Reliable evaluation of tool routing is critical as Large Lan-guage Models increasingly operate as autonomous agents. Current benchmarks face three structural limitations: data distributions that follow a power law leave rare scenarios underrepresented; the absence of adversarial hard negatives obscures performance differences across models; and annota-tion pipelines depend on LLM judgments that have not been validated through execution. In this paper, we introduce Plug-inEval, a benchmark constructed through a two-stage frame-work that systematically mitigates these limitations. First, we formulate tool routing as a sequence of three decisions and separate generation from verification. LLMs propose candi-date calls, while deterministic validation and real API execu-tion provide reliable quality signals. Second, we decompose each plugin by capability, intent, and boundary to identify trigger and exclusion scenarios. We then generate queries at different difficulty levels to fill coverage gaps, including adver-sarial negatives targeting three failure modes, and return them to the first stage for annotation. This process creates a closed loop that iterates until coverage converges. For evaluation, we move beyond aggregate accuracy. An LLM judge anchored to gold annotations classifies failures as missed calls, spurious calls, or parameter errors, producing a detailed error profile for each model. We evaluate five model families, including pro-prietary models and models with open weights, analyze their performance across difficulty levels and error categories, and validate the judge through agreement with human annotations. 
+
+# Introduction 
+
+Large language models increasingly use external tools through function calls (Yao et al. 2022). Reliable tool rout-ing requires three hierarchical decisions: whether a tool is needed, whether the target plugin is relevant, and whether the request can be grounded into a valid invocation or should be rejected. Errors at an earlier level invalidate correct down-stream decisions. Tool routing benchmarks should therefore evaluate tool necessity, plugin relevance, invocation feasibil-ity, and argument grounding rather than call syntax alone. Benchmarks evaluate function relevance, abstention, and agentic interaction, while automated pipelines apply struc-
+
+> ∗
+
+These authors contributed equally. Copyright © 2027, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. 
+
+Figure 1: Motivation for fine grained function calling evalu-ation: aggregate scores obscure distinct failure modes. tural checks, model verification, and execution (Li et al. 2023; Qin et al. 2024; Patil et al. 2025; Liu et al. 2024b, 2025). Yet most target English and poorly cover Chinese queries with ambiguous, implicit, or context dependent intent. Structural validity and execution success do not ensure semantic cor-rectness, while LLM judges may be biased (Liu et al. 2023; Zheng et al. 2023; Wataoka, Takahashi, and Ri 2024). Larger datasets still miss the trigger and exclusion boundaries of plu-gins, and heuristic difficulty labels may diverge from routing behavior. These gaps motivate a Chinese benchmark com-bining reliable annotation, structured coverage, and difficulty calibration based on model behavior. This requirement gives rise to three technical challenges. First, trustworthy annotation must distinguish valid calls, justified abstentions, and plausible but incorrect proposals by reconciling semantic, structural, and execution evidence. Second, scenario level coverage must recover latent trigger and exclusion boundaries from plugin specifications and ac-count for queries that match multiple scenarios without inflat-ing coverage. Third, difficulty alignment must reconcile type arXiv:2608.08700v1 [cs.AI] 9 Aug 2026 specific construction criteria with router dependent behavior. These challenges follow a natural dependency: coverage can be measured only over verified examples, synthesis targets must be derived from the resulting coverage gaps, and diffi-culty can be calibrated only after synthesized examples are evaluated by routing models. We introduce PluginEval and its Closed-Loop Construc-tion Framework (PCCF), which follows this dependency structure. Stage I first establishes trustworthy annotations by selecting executable calls or justified abstentions through schema validation, independent LLM evaluation, and tool execution. Failed verification traces are reused to refine sub-sequent proposals. Utilizing only validated samples, Stage II derives plugin-level trigger scenarios, constructs a hierarchi-cal coverage matrix, and synthesizes examples for undercov-ered units. It then calibrates difficulty of negative examples through repeated routing evaluation and uses recognition ev-idence to strengthen negatives that remain below the target difficulty. The two stages form a closed loop in which ver-ification outcomes drive annotation repair, while coverage deficits and routing outcomes drive targeted synthesis. For evaluation, our gold-anchored judge aligns model predictions with verified gold calls and attributes failures to miss recall, parameter errors, and over recall. Our contributions are summarized as follows: 
+
+• We formulate tool routing as a three-level decision pro-cess over tool necessity, plugin relevance, and valid in-vocation with grounded arguments. Based on this formu-lation, we construct PluginEval with explicit trigger and exclusion scenarios, three types of boundary negatives, and behaviorally calibrated difficulty. 
+
+• We propose PCCF, a closed loop framework that separates annotation reliability from coverage requirements. PCCF uses schema validation, independent evaluation, and tool execution to repair annotations, while coverage gaps and observed routing behavior guide targeted synthesis and difficulty refinement. 
+
+• We evaluate five frontier LLMs using a gold-anchored framework for fine-grained error attribution. The results reveal substantial sensitivity to difficulty composition and distinct failure profiles across models, while human audits confirm the reliability of both the benchmark annotations and the attribution judge. 
+
+# Related Work 
+
+Tool-use and function-calling benchmarks. Tool-use benchmarks evaluate API selection and invocation. Tool-former and Gorilla/APIBench study tool acquisition from demonstrations, documentation, or self-supervision (Schick et al. 2023; Patil et al. 2024), while ToolLLM/ToolBench scales to real-world RESTful APIs (Qin et al. 2024). Exe-cutable benchmarks broaden coverage: BFCL covers single-/multi-turn, parallel, and abstention cases with AST matching (Patil et al. 2025); FuncBenchGen controls dependency depth and distractors (Maekawa et al. 2025); HammerBench tar-gets imperfect mobile-assistant contexts (Wang et al. 2024); and NESTFUL tests nested API-call sequences (Basu et al. 2025). Recent multilingual and realistic-API benchmarks add MLCL/Lost in Execution for execution-interface vs. seman-tic errors (Luo et al. 2026), ITC for multilingual real APIs (Zhang and Zhu 2026), and WildAGTEval for API specifi-cation/execution complexity (Kim et al. 2026). These works improve coverage and realism, but still mostly report task success rather than concise failure attribution. 
+
+Agentic task benchmarks and automatic evaluation. 
+
+Agent benchmarks evaluate interactive and stateful envi-ronments. SWE-bench uses real GitHub fixes (Jimenez et al. 2024); AgentBench spans operating systems, databases, knowledge graphs, games, and web tasks (Liu et al. 2024a); AppWorld and ToolSandbox provide executable application and API environments (Trivedi et al. 2024; Lu et al. 2025). 
+
+τ -bench and τ 2-Bench evaluate service interactions under explicit policies (Yao et al. 2024; Barres et al. 2025), while EgoBench extends evaluation to egocentric multimodal tool use (Liu et al. 2026). LLM-as-a-judge methods, including MT-Bench, Chatbot Arena, and G-Eval, enable scalable se-mantic evaluation (Zheng et al. 2023; Liu et al. 2023). To-gether, these benchmarks improve realism and reduce cost, but mainly assess final outcomes and offer limited diagnosis of routing failures. In contrast, we focus on constructing diffi-cult samples and attributing errors against gold annotations. 
+
+# PluginEval Closed-Loop Construction Framework 
+
+Framework Overview and Task Formulation 
+
+We introduce the PluginEval Closed-Loop Construction Framework (PCCF), an iterative framework for constructing tool routing benchmarks. PCCF comprises two connected stages. Stage I produces annotations verified through execu-tion. Stage II identifies coverage gaps, synthesizes targeted instances, calibrates their difficulty, and returns them to Stage I for verification. Given a query q and a target plugin t, let dt, St, and Θt
+
+denote the plugin description, argument schema, and space of valid arguments under the schema, respectively. We for-mulate tool routing as a hierarchy of three decisions: f1(q) ∈{0, 1},f2(q, t, d t) ∈ { 0, 1},f3(q, t, d t, St) ∈ Θt∪{⊥} . First, 
+
+f1 determines whether the query requires a tool. If it does, f2
+
+determines whether the target plugin supports the requested capability. If both decisions are positive, f3 constructs a valid invocation from the information provided in the query. It re-turns ⊥ if the query lacks sufficient information to instantiate all required arguments. Since relevance depends on the target plugin, we evaluate 
+
+f2 independently for each pair (q, t ). Each pair is annotated with y = ( ℓ1, ℓ 2, θ ∗), where ℓ1 indicates whether a tool is necessary, ℓ2 indicates whether the target plugin is relevant, and θ∗ ∈ Θt ∪ {⊥} denotes the gold invocation. The label space is Y = {(0 , 0, ⊥), (1 , 0, ⊥), (1 , 1, ⊥)} ∪ ({(1 , 1) } × 
+
+Θt), corresponding to unnecessary tool use, an irrelevant tar-get plugin, a relevant but relevant but underspecified request, and a valid invocation, respectively. By convention, ℓ2 = 0 
+
+when ℓ1 = 0 , as plugin relevance is not assessed. Figure 2: Overview of PluginEval. PCCF combines data synthesis guided by scenarios, hierarchical annotation grounded in execution, and iterative quality assurance to construct reliable benchmark instances. The evaluation framework uses gold annotations to measure model performance and attribute failures to missed calls, parameter errors, and spurious calls. 
+
+Stage I: Execution Grounded Ensemble Annotation 
+
+Stage I applies a shared annotation pipeline to both real queries and synthetic queries generated by Stage II. Real queries reflect natural usage patterns, while synthetic queries extend coverage to long tail scenarios and capability bound-aries. For each query with positive decisions at the first two routing levels, M generators independently propose com-plete invocations (Wang et al. 2022). At refinement round k,generator m produces 
+
+z(k) 
+
+> m
+
+∈ eΘt ∪ {⊥} , (1) where eΘt denotes the unconstrained space of candidate argu-ment assignments, and ⊥ denotes abstention. PCCF evaluates each proposal in its entirety and does not combine argument fields from different generators. The verification operator processes proposals according to their type. For an executable proposal, it first applies de-terministic schema validation. A schema valid proposal is scored by an argument evaluator, which checks whether its arguments are supported by the query and consistent with the plugin semantics. The proposal is then executed through MCP. If MCP returns a valid response, a separate result eval-uator checks whether the response satisfies the user request. Its final score is 
+
+s(k) 
+
+> m
+
+= λarg Sarg 
+
+
+
+z(k) 
+
+> m
+
+| q, t 
+
+
+
++ λout Sout 
+
+
+
+o(k) 
+
+> m
+
+| q, t 
+
+
+
+(2) Both Sarg and Sout lie in [0 , 1] . We require λarg , λ out ≥ 0
+
+and λarg + λout = 1 , ensuring that s(k) 
+
+> m
+
+∈ [0 , 1] . Here, o(k)
+
+> m
+
+denotes the observed MCP response. Proposals with schema violations, execution errors, timeouts, or empty responses are ineligible, but their traces are retained for refinement. Abstention proposals are not executed. Instead, the argument evaluator determines whether missing information or unsup-ported capability precludes a valid invocation. A justified abstention remains eligible and receives a calibrated score. Both proposal types use the same score range and acceptance threshold τ . Separating generation from evaluation reduces direct self evaluation bias, although LLM evaluators may re-tain systematic biases (Liu et al. 2023; Zheng et al. 2023; Ye et al. 2025). This design builds on verification pipelines combining structural checks, model based evaluation, and execution feedback (Liu et al. 2024b, 2025). In each round, Stage I selects the eligible proposal with the highest score. If the score reaches τ , it becomes the gold invocation target. Otherwise, proposals and evidence are appended to the refinement history and supplied to each generator in the next round. Unlike standard self refinement (Madaan et al. 2023), PCCF uses independent evaluator as-sessments, deterministic validation errors, and observed ex-ecution outcomes as repair signals. Refinement stops upon acceptance or after Rmax rounds. 
+
+Stage II: Scenario Grounded Synthesis and Behavioral Calibration 
+
+Stage II derives a scenario catalog from each plugin de-scription. Trigger scenarios represent supported requests that should invoke the plugin. Exclusion scenarios include re-quests that require no tool, require another plugin, or ex-ceed the target plugin’s capabilities. Each example verified in Stage I is assigned one primary scenario for coverage accounting, with other matches retained as auxiliary tags. Coverage units are further stratified by difficulty. For pos-itive examples, difficulty is determined by the minimum in-ference depth required for correct routing. Zero, one, and at least two steps correspond to Easy, Medium, and Hard, respectively (Wei et al. 2022). For negative examples, the construction target dsyn depends on the negative type: do-main distance for Type A, surface similarity for Type B, and capability boundary evidence for Type C. At round r, the deficit for unit u is 
+
+∆r (u) = max {0, b (u) − nr (u)}, (3) where nr (u) and b(u) denote its verified count and target budget, respectively. Stage II synthesizes examples only for units with ∆r (u) > 0.Generated candidates are filtered and returned to Stage I for verification. Verified positives retain their inference dif-ficulty. Verified negatives are assessed by a frozen reference router over K controlled runs (Yao et al. 2024): 
+
+pK (x) = 1
+
+K
+
+> K
+
+X
+
+> j=1
+
+1{by(j)(x)= y(x)}. (4) The behavioral difficulty dbeh (x) is Hard if pK (x) = 0 ,Medium if 0 < p K (x) < 1, and Easy if pK (x) = 1 (Polo et al. 2024). If the calibrated difficulty is lower than the tar-get, recognition evidence is used to strengthen the negative before further verification and calibration. Only verified ex-amples contribute to the coverage unit corresponding to their observed difficulty. 
+
+Closed Loop Integration and Extensibility 
+
+PCCF couples the two stages through verified examples and structured feedback. Stage I returns annotations, execution evidence, and failure traces. Stage II uses these outputs to up-date coverage, synthesize missing scenarios, and strengthen weak negatives before returning new queries to Stage I. The loop terminates when all coverage budgets are met, veri-fied coverage remains below an improvement threshold for 
+
+L consecutive rounds, or the synthesis budget is exhausted. This decomposition separates two questions often con-flated in benchmark construction: whether an example is trustworthy and whether it fills an identified coverage gap. Stage I establishes trustworthiness through verifica-tion grounded in execution. Stage II determines its necessity through scenario profiling and coverage analysis. Each ac-cepted example is thus directly linked to a coverage gap, a verification record, and a calibrated difficulty label. Given a plugin description, schema, executable interface, and capa-bility boundaries, PCCF requires no specific router architec-ture. It transforms single pass generation and filtering into an iterative process of scenario discovery, verification through execution, and refinement based on router behavior. 
+
+# Gold-Anchored Evaluation Framework 
+
+Semantic Consistency Criterion 
+
+Judging the correctness of tool-call arguments requires deter-mining whether the arguments of matched predicted calls are semantically consistent with their gold counterparts and the intent expressed in the user query. Exact string matching is inadequate for this purpose, as semantically equivalent argu-ments may differ in surface form. To improve judgment con-sistency and reproducibility, we introduce a gold-anchored 
+
+LLM judge that takes the predicted call list P, the human-verified gold call list G, and the user query as input, while treating G as the sole evaluation anchor. The judge uses the query only to interpret semantic equivalence and is explicitly prohibited from extending or overriding the gold specifica-tion with additional requirements. Consequently, a predicted call is not considered correct merely because it appears plau-sible; its arguments must be semantically consistent with the corresponding gold arguments under the structured evalua-tion procedure described below. 
+
+Hierarchical Tool-Call Verification 
+
+Our gold-anchored LLM judge verifies tool calls hierarchi-cally, proceeding from tool alignment to argument filtering and semantic verification. This ordering ensures that only comparable calls enter argument evaluation and prevents tool selection errors from being conflated with parameter errors. 
+
+Stage 1: Tool alignment. Let TP and TG denote the sets of tool names in the predicted and gold call lists, respectively. The judge matches tools by exact name and retains their intersection, I = TP ∩ T G, for argument verification. Tools appearing only in the prediction, TP \ T G, or only in the gold calls, TG \ T P , are recorded as tool selection mismatches. 
+
+Stage 2: Argument filtering. For each tool in I, the judge checks whether the predicted and gold calls contain valid, nonempty argument sets. If either side is empty or missing, the pair is excluded from semantic verification and recorded as a skipped case. This step restricts argument evaluation to calls for which a meaningful comparison can be made. 
+
+Stage 3: Semantic verification. For each remaining pair, the LLM judge determines whether the predicted arguments are semantically equivalent to the gold arguments under the user query. It returns a binary verdict r ∈ { 0, 1} together with a brief justification. The comparison follows semantic intent rather than surface form, allowing aliases, formatting variations, equivalent numeric or type representations, and list relations that preserve the requested constraint. Tempo-ral scope is evaluated strictly; for example, an interval with distinct endpoints is not equivalent to a single gold date. The procedure preserves the source of each failure. Un-matched tools indicate tool selection mismatches, skipped pairs identify calls without comparable arguments, and binary verdicts capture semantic inconsistencies among aligned calls. These outputs support fine-grained error at-tribution rather than collapsing structurally different failures into a single incorrect prediction. 
+
+Query-Level Evaluation and Error Attribution 
+
+We evaluate function calling at the query level because a re-quest may require multiple coordinated tool calls. A positive query is considered successful only when every required tool is recalled and all arguments are correct. Partial completion is therefore treated as unsuccessful, preventing incomplete multi-tool predictions from inflating performance. We construct a query-level confusion matrix by sample type. A true positive ( T P ) is a positive query completed correctly, whereas a false negative ( F N ) is a positive query containing a missing tool, an incorrect argument, or a judge failure. For a targeted negative query, invoking the designated target tool produces a false positive ( F P ); otherwise, it is a true negative ( T N ). For a global negative query, invoking any tool produces an F P , while producing no tool call yields a 
+
+T N . Cases marked as both_empty are excluded. We report query-level Recall, Recall = T P/ (T P +F N ),and Accuracy, Accuracy = ( T P +T N )/(T P +F N +T N +
+
+F P ). Under our strict query-level criterion, Recall measures end-to-end success on positive queries rather than tool-name recall alone, while Accuracy measures correctness across both positive and negative queries. Each failed query is further assigned to a mutually ex-clusive error category. Miss recall denotes missing required tools, parameter error denotes semantically incorrect argu-ments for an aligned tool, and over recall denotes an erro-neous tool activation on a negative query. Parameter errors are further classified as temporal errors, missing arguments, or incorrect values according to the judge justification, while judge failures are recorded separately. Accordingly, false neg-atives consist of miss recall, parameter errors, and judge fail-ures, whereas false positives correspond to over recall. 
+
+# Experiments 
+
+Experimental Setup 
+
+Benchmarks. Our primary evaluation uses PluginEval, a Chinese function calling benchmark with 3,000 human verified instances covering 54 plugins, 63 tools, and nine domains. It contains 2,500 positive queries requiring correct tool calls and grounded arguments, and 500 adversarial nega-tives requiring abstention. Easy, medium, and hard instances follow a 0.4 : 0 .4 : 0 .2 ratio. We additionally compare model performance on BFCL (Patil et al. 2025), APIBench (Patil et al. 2024), and NexusRaven (Srinivasan et al. 2023) using their respective evaluation protocols. 
+
+Models. We evaluate five frontier large language mod-els: GPT-5.4 (Singh et al. 2025), Claude 4.6 (Anthropic 2026), Gemini 3.1 Pro (Team et al. 2023), DeepSeek-V4-Pro (Xu et al. 2026), and Qwen3-235B-A22B (Yang et al. 2025). These models cover major proprietary and open-weight model families, enabling a broad comparison of cur-rent function-calling capabilities. 
+
+Judge Configuration. We use GPT-5.2 as the fixed LLM judge for all experiments, with the same prompt and inference configuration applied to every evaluated model. Failed API calls or invalid JSON outputs are retried up to five times. 
+
+Metrics. We report Recall and Accuracy at the query-level, together with breakdowns of miss recall, parameter errors, and over recall. Parameter errors are further grouped into temporal errors, missing arguments, and incorrect values. 
+
+Overall Performance across Difficulty Distributions 
+
+Table 1 compares five models under two difficulty distribu-tions, while Figure 3 reports Recall at each difficulty level. Easy Medium Hard 
+
+> Di ffi culty level
+> 020 40 60 80 100
+> Recall (%)
+> Claude Opus 4.6 Gemini 3.1 Pro DeepSeek V4 Pro Qwen3-235B-A22B GPT-5.4
+
+Figure 3: Recall across difficulty levels. All models decrease monotonically from Easy to Hard, with the largest cross-model gap on Medium instances. The original distribution contains easy, medium, and hard instances at a ratio of 0.40 /0.40 /0.20 , whereas the easy-weighted distribution uses 0.60 /0.30 /0.10 . Recall measures the proportion of positive queries for which all required tools are recalled and all arguments are correct, while Acc. denotes query-level Accuracy over positive and negative queries. Miss, Param., and Over denote miss recall, parameter er-rors, and over recall, respectively. Temp., Missing, and Value further divide parameter errors into temporal errors, missing arguments, and incorrect values. Positive query errors are normalized by the number of positive queries, whereas Over is normalized by the number of negative queries. On the original evaluation set, Claude Opus 4.6 achieves the strongest overall performance, with 67 .60% Recall and 
+
+68 .17% Accuracy. Gemini 3.1 Pro ranks second, reaching 
+
+64 .96% Recall and 67 .78% Accuracy, followed by DeepSeek V4 Pro. Figure 3 further reveals a sharp decline as difficulty increases. Recall ranges from 74 .5% to 93 .9% on easy in-stances, falls to 31 .5% –65 .3% on medium instances, and reaches only 2.8% –10 .8% on hard instances. Claude Opus 4.6 performs best at every level, but even its Recall drops to 10 .8% on hard queries. The error breakdown also shows that performance is not determined by argument generation alone. GPT-5.4 has the lowest parameter error rate, but its substantially higher miss recall and over recall reduce its overall performance. Increasing the easy instance proportion from 0.40 to 0.60 ,while reducing the medium and hard proportions, substan-tially improves every model. Recall rises by 14 .73 to 21 .15 
+
+percentage points, and Accuracy rises by 14 .20 to 22 .49 
+
+points. Claude Opus 4.6 remains the strongest model, reach-ing 82 .33% Recall and 83 .35% Accuracy, followed by Gem-ini 3.1 Pro and DeepSeek V4 Pro. The model ordering is largely preserved, although GPT-5.4 attains slightly higher Accuracy than Qwen3-235B-A22B despite lower Recall be-cause of its much lower over recall rate. Together with the difficulty-level results, these findings demonstrate that ag-gregate function calling scores are highly sensitive to the difficulty composition of the evaluation set. Performance Positive Query Errors Negative Query Errors Model Recall ↑ Acc. ↑ Miss ↓ Param. ↓ Temp. ↓ Missing ↓ Value ↓ Over ↓
+
+Original distribution (Easy/Medium/Hard = 0 .40 /0.40 /0.20 )GPT-5.4 0.4920 0.5213 0.3372 0.1708 0.0796 0.0540 0.0372 0.3320 Claude Opus 4.6 0.6760 0.6817 0.1395 0.1845 0.0936 0.0370 0.0539 0.2910 Gemini 3.1 Pro 0.6496 0.6778 0.1766 0.1738 0.0897 0.0434 0.0406 0.1855 DeepSeek V4 Pro 0.6294 0.6433 0.1829 0.1877 0.0949 0.0466 0.0462 0.2891 Qwen3-235B-A22B 0.5482 0.5840 0.2428 0.2090 0.1041 0.0583 0.0466 0.2422 Easy-weighted distribution (Easy/Medium/Hard = 0 .60 /0.30 /0.10 )GPT-5.4 0.7035 0.7462 0.2157 0.0808 0.0446 0.0217 0.0145 0.0419 Claude Opus 4.6 0.8233 0.8335 0.0833 0.0933 0.0429 0.0244 0.0260 0.1158 Gemini 3.1 Pro 0.7973 0.8198 0.1074 0.0954 0.0445 0.0244 0.0264 0.0692 DeepSeek V4 Pro 0.7852 0.8024 0.1158 0.0990 0.0409 0.0285 0.0297 0.1118 Qwen3-235B-A22B 0.7162 0.7413 0.1631 0.1206 0.0497 0.0425 0.0285 0.1337 Table 1: Performance and error rates under the original and easy-weighted difficulty distributions. The best and second-best Recall and Accuracy results in each setting are shown in bold and underlined, respectively. 
+
+PluginEval BFCL APIBench NexusRaven Model Rec. Acc. Rec. Acc. Rec. Acc. Rec. Acc. 
+
+DeepSeek-V4-Pro 0.6294 0.6433 0.6942 0.7370 0.4986 0.6440 0.5278 0.6667 GPT-5.4 0.4920 0.5213 0.6000 0.6860 0.5943 0.7090 0.7535 0.8260 Gemini-3.1-Pro 0.6496 0.6778 0.7029 0.7420 0.6643 0.7210 0.8056 0.8627 
+
+Claude-Opus-4.6 0.6760 0.6817 0.7304 0.7490 0.6514 0.7060 0.7569 0.8284 
+
+Table 2: Recall and Accuracy on PluginEval and three existing function calling benchmarks. The best and second best results for each benchmark are shown in bold and underlined, respectively. Miss Recall Temporal Error Missing Argument Incorrect Value Over Recall 
+
+> 010 20 30 Error rate (%)
+> GPT-5.4 Claude Opus 4.6 Gemini 3.1 Pro DeepSeek V4 Pro Qwen3-235B-A22B
+
+Figure 4: Error attribution on the original evaluation set. Positive-query errors and Over Recall are normalized by positive and negative queries, respectively. Lower is better. 
+
+Comparison with Existing Function Calling Benchmarks 
+
+Table 2 compares model performance on PluginEval with three function calling benchmarks. All four models achieve lower Recall and Accuracy on PluginEval than on BFCL. For example, Claude Opus 4.6 decreases from 73 .04% Recall and 74 .90% Accuracy on BFCL to 67 .60% and 68 .17% on PluginEval, respectively. GPT-5.4 shows a larger decrease, from 60 .00% Recall and 68 .60% Accuracy to 49 .20% and 
+
+52 .13% . PluginEval also yields a wider Accuracy range than BFCL and APIBench, revealing more pronounced perfor-mance differences among the evaluated models. Model rankings also vary across benchmarks. Claude Opus 4.6 ranks first on PluginEval and BFCL, whereas Gem-ini 3.1 Pro performs best on APIBench and NexusRaven. DeepSeek V4 Pro outperforms GPT-5.4 on PluginEval but ranks below it on APIBench and NexusRaven. These ranking shifts indicate that model performance depends strongly on the capabilities and failure modes emphasized by each bench-mark. PluginEval complements existing evaluations by plac-ing greater emphasis on adversarial negatives, hierarchical routing decisions, and strict argument grounding. 
+
+Fine-Grained Error Attribution 
+
+Figure 4 reveals distinct tool selection and rejection behav-iors across models. GPT-5.4 exhibits the highest Miss Recall and Over Recall rates, reaching 33 .72% and 33 .20% , respec-tively, indicating substantial difficulty in both identifying re-quired tools and avoiding unnecessary calls. Qwen3-235B-A22B shows a similar but less pronounced pattern. Claude Opus 4.6 achieves the lowest Miss Recall rate at 13 .95% ,demonstrating strong coverage of required tools, but its Over Recall remains high at 29 .10% . In contrast, Gemini 3.1 Pro attains the lowest Over Recall rate of 18 .55% , which helps explain its competitive Accuracy despite a lower Recall than Claude Opus 4.6. At the argument level, Temporal Error is the largest pa-# Component Metric Full w/o ∆ p                                              
+
+> Component ablation
+> 1 Content Validation FP ↓0% 78% +78 .0<0.001
+> 2 Calibration ( R=3 )Pass ↑39.7% 11.1% −28 .7<0.001
+> 3 Closed loop ‡Pass ↑64% 27% −37 .0—Cov ↑3.88 ×1.38 ×−64% —Diff ↓0.40 1.16 +0 .76 —4 BoN ( M=3 )Pass ↑17.1% 12.0% −5.2<0.001
+> Robustness & sensitivity
+> 5 Plugin Scale ( N=1 →8) Pass ↑22.3% 17.1% −5.2<0.001
+> 6 Hyperparam Rmax : 28.7 pp ≫M: 5.2 pp > K :∼0 pp Optimal: R=3 , M =3 , K ≥5
+
+Table 3: Ablation and sensitivity analysis of PCCF components.               
+
+> Metric NR1 R2 R3 κF
+> Need 300 99.00% 100.00% 99.33% 0.3966 Target 250 98.80% 98.80% 98.80% 1.0000 Args. 250 98.00% 96.40% 97.60% 0.6918 Overall 300 96.67% 96.33% 96.67% 0.6993
+
+Table 4: Human audit of reference quality. Entries are agree-ment rates; κF is Fleiss’ κ.rameter error subtype for every model, ranging from 7.96% 
+
+to 10 .41% , and consistently exceeds both Missing Argument and Incorrect Value. This identifies temporal grounding as a shared weakness across model families. The results also show that similar aggregate performance can arise from different failure sources: GPT-5.4 and Qwen3 are primarily limited by tool selection, Claude Opus 4.6 combines strong recall with weaker abstention, while Gemini 3.1 Pro exhibits the most balanced error profile. 
+
+Judge Reliability Analysis 
+
+We first audit the reference annotations, not model outputs. From the final evaluation set of 3,000 cases, containing 2,500 positives and 500 negatives, we sample 300 cases with seed 20260725 and preserve the original class prior, yielding 250 positives and 50 negatives. Three human reviewers assess plugin necessity on all cases, and target relevance and argu-ment grounding on positives. Table 4 reports high reference quality along the three de-cision levels in our formulation. Need audits whether the target plugin should be invoked over both positive and neg-ative cases; Target checks whether the intended plugin is matched on positives; Args. checks whether grounded argu-ments are correct on positives. Overall validity is 96.67%, 96.33%, and 96.67% for the three reviewers, respectively. Fleiss’ κ is highest for Target because all reviewers agree on the same target-selection errors; the lower Need κ reflects the rarity of negative labels under high marginal agreement. We then audit the judge on a separate stratified subset of 300 cases: 100 correct predictions, 50 missed calls, 50 spurious calls, and 100 parameter errors. Reviewers verify whether each judge attribution matches the gold outcome. Table 5 shows strong alignment between human review and judge attribution. The judge reaches 96.00%, 97.00%, and 94.33% observed agreement with the three reviewers,                         
+
+> Metric NR1 R2 R3 Correct 100 95.00% 99.00% 95.00% Miss 50 100.00% 100.00% 100.00% Over 50 100.00% 100.00% 100.00% Param. 100 93.00% 92.00% 88.00% Agreement ( Po) 300 96.00% 97.00% 94.33% Cohen’s κ300 0.9451 0.9585 0.9221
+
+Table 5: Human audit of judge reliability. Miss, Over, and Param. denote missed-call, spurious-call, and parameter-error categories. while reviewer-specific Cohen’s κ values are 0.9451, 0.9585, and 0.9221 after correcting for chance agreement. Separately, the three human reviewers show high inter-reviewer agree-ment, with Fleiss’ κ = 0 .9451 . All reviewers confirm all missed call and spurious call attributions; the remaining dis-agreements are concentrated in parameter errors, where con-firmation is 93.00%, 92.00%, and 88.00%. 
+
+Ablation Study 
+
+Table 3 demonstrates that the four PCCF components address complementary aspects of benchmark construction. Remov-ing content validation raises the false positive rate from 0% 
+
+to 78% , confirming that schema valid and executable calls may still return irrelevant results. Disabling iterative calibra-tion reduces the cumulative pass rate from 39 .7% to 11 .1% ,showing that feedback based refinement recovers many ini-tially invalid but correctable samples. For the complex plugin setting, replacing closed loop synthesis with single shot gen-eration lowers the pass rate from 64% to 27% , reduces sce-nario coverage from 3.88 × to 1.38 ×, and increases difficulty deviation from 0.40 to 1.16 . Reducing BoN sampling from 
+
+M = 3 to M = 1 further decreases the pass rate from 17 .1% 
+
+to 12 .0% . The effects of content validation, iterative calibra-tion, and BoN sampling are statistically significant, while the benefits of content validation and BoN remain consistent from one to eight plugins. Sensitivity analysis further identi-fies R = 3 , M = 3 , and K ≥ 5 as suitable settings. Overall, these results show that PCCF jointly improves data quality, effective yield, scenario coverage, and difficulty control. Conclusion 
+
+We introduced PluginEval, a Chinese benchmark for diag-nostic function calling evaluation. PCCF combines execution evidence for annotation, scenario specifications for synthe-sis, and model behavior for difficulty calibration. Its judge uses gold labels to attribute missed calls, spurious calls, and parameter errors. Across five LLMs, results show that test composition affects measured performance, while aggregate scores obscure routing failures. Human audits and ablations support the design. These findings motivate structured error attribution beyond aggregate success. 
+
+# References 
+
+Anthropic. 2026. Claude Opus 4.6. https://www.anthropic. com/news/claude-opus-4-6. Barres, V.; Dong, H.; Ray, S.; Si, X.; and Narasimhan, K. 2025. τ 2-Bench: Evaluating Conversational Agents in a Dual-Control Environment. arXiv preprint arXiv:2506.07982 .Basu, K.; Abdelaziz, I.; Kate, K.; Agarwal, M.; Crouse, M.; Rizk, Y.; Bradford, K.; Munawar, A.; Kumaravel, S.; Goyal, S.; et al. 2025. Nestful: A benchmark for evaluating llms on nested sequences of api calls. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , 33526–33535. Jimenez, C. E.; Yang, J.; Wettig, A.; Yao, S.; Pei, K.; Press, O.; and Narasimhan, K. 2024. Swe-bench: Can lan-guage models resolve real-world github issues? In Inter-national Conference on Learning Representations , volume 2024, 54107–54157. Kim, D.; Ren, Z.; Hao, J.; Sun, Z.; Wang, L.; Ma, X.; Ye, Z.; Han, X.; Yin, J.; Ji, H.; et al. 2026. Beyond Perfect APIs: A Comprehensive Evaluation of LLM Agents Under Real-World API Complexity. arXiv preprint arXiv:2601.00268 .Li, M.; Zhao, Y.; Yu, B.; Song, F.; Li, H.; Yu, H.; Li, Z.; Huang, F.; and Li, Y. 2023. Api-bank: A comprehensive benchmark for tool-augmented llms. In Proceedings of the 2023 conference on empirical methods in natural language processing , 3102–3116. Liu, W.; Huang, X.; Zeng, X.; Yu, S.; Li, D.; Wang, S.; Gan, W.; Liu, Z.; Yu, Y.; WANG, Z.; et al. 2025. Toolace: Winning the points of llm function calling. In International conference on learning representations , volume 2025, 41359–41381. Liu, X.; Yu, H.; Zhang, H.; Xu, Y.; Lei, X.; Lai, H.; Gu, Y.; Ding, H.; Men, K.; Yang, K.; et al. 2024a. Agentbench: Evaluating llms as agents. In International Conference on Learning Representations , volume 2024, 52989–53046. Liu, Y.; Iter, D.; Xu, Y.; Wang, S.; Xu, R.; and Zhu, C. 2023. G-eval: NLG evaluation using gpt-4 with better human align-ment. In Proceedings of the 2023 conference on empirical methods in natural language processing , 2511–2522. Liu, Y.; Niu, T.; Wang, Z.; Dai, Z.; Qing, Y.; Wang, W.; and Liu, J. 2026. EgoBench: An Interactive Egocentric Multi-modal Benchmark for Tool-Using Agents. arXiv preprint arXiv:2605.27820 .Liu, Z.; Hoang, T.; Zhang, J.; Zhu, M.; Lan, T.; Kokane, S.; Tan, J.; Yao, W.; Liu, Z.; Feng, Y.; et al. 2024b. Api-gen: Automated pipeline for generating verifiable and diverse function-calling datasets. arXiv preprint arXiv:2406.18518 .Lu, J.; Holleis, T.; Zhang, Y.; Aumayer, B.; Nan, F.; Bai, H.; Ma, S.; Ma, S.; Li, M.; Yin, G.; et al. 2025. Toolsandbox: A stateful, conversational, interactive evaluation benchmark for llm tool use capabilities. In Findings of the Association for Computational Linguistics: NAACL 2025 , 1160–1183. Luo, Z.; Kutralingam, T. P.; Okoani, O. N.; Xu, W.; Wei, H.; and Hu, X. 2026. Lost in Execution: On the Multilingual Robustness of Tool Calling in Large Language Models. arXiv preprint arXiv:2601.05366 .Madaan, A.; Tandon, N.; Gupta, P.; Hallinan, S.; Gao, L.; Wiegreffe, S.; Alon, U.; Dziri, N.; Prabhumoye, S.; Yang, Y.; et al. 2023. Self-refine: Iterative refinement with self-feedback. Advances in neural information processing sys-tems , 36: 46534–46594. Maekawa, S.; Hassell, J.; Pezeshkpour, P.; Mitchell, T.; and Hruschka, E. 2025. Towards Reliable Benchmark-ing: A Contamination Free, Controllable Evaluation Frame-work for Multi-step LLM Function Calling. arXiv preprint arXiv:2509.26553 .Patil, S. G.; Mao, H.; Yan, F.; Ji, C. C.-J.; Suresh, V.; Stoica, I.; and Gonzalez, J. E. 2025. The berkeley function calling leaderboard (bfcl): From tool use to agentic evaluation of large language models. In Forty-second International Con-ference on Machine Learning .Patil, S. G.; Zhang, T.; Wang, X.; and Gonzalez, J. E. 2024. Gorilla: Large language model connected with massive apis. 
+
+Advances in Neural Information Processing Systems , 37: 126544–126565. Polo, F. M.; Weber, L.; Choshen, L.; Sun, Y.; Xu, G.; and Yurochkin, M. 2024. tinyBenchmarks: evaluating LLMs with fewer examples. arXiv preprint arXiv:2402.14992 .Qin, Y.; Liang, S.; Ye, Y.; Zhu, K.; Yan, L.; Lu, Y.; Lin, Y.; Cong, X.; Tang, X.; Qian, B.; et al. 2024. Toolllm: Facilitat-ing large language models to master 16000+ real-world apis. In International Conference on Learning Representations ,volume 2024, 9695–9717. Schick, T.; Dwivedi-Yu, J.; Dessì, R.; Raileanu, R.; Lomeli, M.; Hambro, E.; Zettlemoyer, L.; Cancedda, N.; and Scialom, T. 2023. Toolformer: Language models can teach themselves to use tools. Advances in neural information processing systems , 36: 68539–68551. Singh, A.; Fry, A.; Perelman, A.; Tart, A.; Ganesh, A.; El-Kishky, A.; McLaughlin, A.; Low, A.; Ostrow, A.; Anan-thram, A.; et al. 2025. Openai gpt-5 system card. arXiv preprint arXiv:2601.03267 .Srinivasan, V. K.; Dong, Z.; Zhu, B.; Yu, B.; Mao, H.; Mosk-Aoyama, D.; Keutzer, K.; Jiao, J.; and Zhang, J. 2023. Nexusraven: a commercially-permissive language model for function calling. In NeurIPS 2023 Workshop on Instruction Tuning and Instruction Following .Team, G.; Anil, R.; Borgeaud, S.; Alayrac, J.-B.; Yu, J.; Sori-cut, R.; Schalkwyk, J.; Dai, A. M.; Hauth, A.; Millican, K.; et al. 2023. Gemini: a family of highly capable multimodal models. arXiv preprint arXiv:2312.11805 .Trivedi, H.; Khot, T.; Hartmann, M.; Manku, R.; Dong, V.; Li, E.; Gupta, S.; Sabharwal, A.; and Balasubramanian, N. 2024. Appworld: A controllable world of apps and people for benchmarking interactive coding agents. In Proceedings of the 62nd Annual Meeting of the Association for Computa-tional Linguistics (Volume 1: Long Papers) , 16022–16076. Wang, J.; Zhou, J.; Wen, M.; Mo, X.; Zhang, H.; Lin, Q.; Jin, C.; Wang, X.; Zhang, W.; and Peng, Q. 2024. Ham-merbench: Fine-grained function-calling evaluation in real mobile device scenarios. arXiv preprint arXiv:2412.16516 .Wang, X.; Wei, J.; Schuurmans, D.; Le, Q.; Chi, E.; Narang, S.; Chowdhery, A.; and Zhou, D. 2022. Self-consistency improves chain of thought reasoning in language models. 
+
+arXiv preprint arXiv:2203.11171 .Wataoka, K.; Takahashi, T.; and Ri, R. 2024. Self-preference bias in llm-as-a-judge. arXiv preprint arXiv:2410.21819 .Wei, J.; Wang, X.; Schuurmans, D.; Bosma, M.; Xia, F.; Chi, E.; Le, Q. V.; Zhou, D.; et al. 2022. Chain-of-thought prompt-ing elicits reasoning in large language models. Advances in neural information processing systems , 35: 24824–24837. Xu, A.; Lin, B.; Xue, B.; Wang, B.; Xu, B.; Wu, B.; Zhang, B.; Lin, C.; Dong, C.; Ling, C.; et al. 2026. Deepseek-v4: Towards highly efficient million-token context intelligence. 
+
+arXiv preprint arXiv:2606.19348 .Yang, A.; Li, A.; Yang, B.; Zhang, B.; Hui, B.; Zheng, B.; Yu, B.; Gao, C.; Huang, C.; Lv, C.; et al. 2025. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .Yao, S.; Shinn, N.; Razavi, P.; and Narasimhan, K. 2024. 
+
+τ -bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains. arXiv preprint arXiv:2406.12045 .Yao, S.; Zhao, J.; Yu, D.; Shafran, I.; Narasimhan, K. R.; and Cao, Y. 2022. React: Synergizing reasoning and acting in language models. In NeurIPS 2022 Foundation Models for Decision Making Workshop .Ye, J.; Wang, Y.; Huang, Y.; Chen, D.; Zhang, Q.; Moniz, N.; Gao, T.; Geyer, W.; Huang, C.; Chen, P.-Y.; et al. 2025. Justice or prejudice? quantifying biases in llm-as-a-judge. In International Conference on Learning Representations ,volume 2025, 102351–102390. Zhang, Z.; and Zhu, Y. 2026. Enhancing Tool Calling in LLMs with the International Tool Calling Dataset. arXiv preprint arXiv:2603.05515 .Zheng, L.; Chiang, W.-L.; Sheng, Y.; Zhuang, S.; Wu, Z.; Zhuang, Y.; Lin, Z.; Li, Z.; Li, D.; Xing, E.; et al. 2023. Judging llm-as-a-judge with mt-bench and chatbot arena. Ad-vances in neural information processing systems , 36: 46595– 46623.

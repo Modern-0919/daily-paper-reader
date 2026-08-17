@@ -1,0 +1,372 @@
+Title: FailForge: Distilling Procedural Competence from Persistent Failures into Code Agents
+
+URL Source: https://arxiv.org/pdf/2608.08570v1
+
+Published Time: Tue, 11 Aug 2026 01:11:29 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# FailForge: Distilling Procedural Competence from Persistent Failures into Code Agents 
+
+## Dongyi Lv 1,2 , Fushun E 2, Aichen Cai 2, Liang Huang 2, Ya Zhang 2, Qiuyu Ding, Canhui Wu 1,Zhi Wang 1, Yuesong Zhang 2, Jiaqi Wang 2, Nan Duan 2
+
+> 1
+
+Xi’an Jiaotong University, 2Joy Future Academy, JD lvdongyi@stu.xjtu.edu.cn 
+
+Abstract 
+
+Rejection sampling fine-tuning (RFT) is widely used to train code agents by generating trajectories on verifiable software engineering tasks, retaining those that pass the tests, and fine-tuning on the successful rollouts. However, even strong code agents repeatedly fail on a substantial fraction of such tasks, and standard RFT simply discards these failures. The dis-carded samples are precisely the hardest and most informative ones, drawn from verifiable instances that are costly to curate. Stronger base models may reduce the number of failures, but the remaining hard cases still define the frontier for further improvement. We propose FailForge, an agentic framework that converts failed rollouts into training signal. For each failed instance, an agent diagnoses the failure from error feedback and execution traces, distills the diagnosis into a concise and actionable skill, and injects the skill into the agent context for a guided second attempt. Trajectories that succeed under skill guidance are folded back into the RFT corpus. Crucially, the skill is removed at training time, so the model internalizes the recovered behavior rather than relying on external hints at in-ference. FailForge recovers over 26% of previously failed in-stances at marginal additional cost, and training Qwen3.5-4B on the augmented corpus improves the SWE-bench Verified resolve rate by 6.6 points over a strong RFT baseline, with gains concentrated on the hardest problems. 
+
+## Introduction 
+
+Large language model (LLM) agents have made rapid progress on real-world software engineering (SWE) tasks (Chen et al. 2021; Zhang et al. 2024; Huang et al. 2023). These agents can autonomously navigate reposito-ries, edit code, and validate fixes against test suites. Train-ing such agents increasingly relies on rejection fine-tuning (RFT) (Team et al. 2025; Zeng et al. 2026). For each task, the model samples multiple trajectories in an executable en-vironment. Trajectories that pass verification, such as the unit tests of a task, are retained as training data, while the rest are mostly discarded. Execution-based verification yields reli-ably correct supervision at scale without human annotation. However, RFT carries a structural inefficiency that grows more severe as tasks become harder. Tasks on which every sampled trajectory fails contribute absolutely nothing to the learning process. Even frontier models fail consistently on a substantial fraction of SWE tasks, meaning the entire sam-pling budget spent on those tasks is wasted (Yu et al. 2026; Issue Observation Action Env Feedback Final result                                      
+
+> ……
+> …
+> Naïve RFT
+> ………
+> FailForge
+> Repeat for T steps O0A0E0O1A1E1OT
+> O0A0E0O1A1E1OT
+> O0A0E0O1A1E1OT
+> O0A0E0O1A1E1OT
+> O0A0E0O1A1E1OT
+> O0A0E0O1A1E1OT
+> #1 #2 #3 #1 #2 #3
+> Keep Discard Discard Keep Keep
+> Code Agent Trajectory
+> Task Task
+> (Too Hard) (Too Hard) (Recovered)
+> Discard
+> (Too Hard)
+
+Figure 1: Recovering failed trajectories with skill guidance. Wu et al. 2026). Furthermore, the discarded tasks are not a random subset. They sit precisely at the capability frontier of the model, which is exactly where learning signals would be most valuable (Bengio et al. 2009; Jiang, Grefenstette, and Rocktäschel 2021). The remedy is not simply to sample more. Scaling the per-task budget from 5x to 10x recovers only a small portion of failed tasks. This indicates that per-sistent failures reflect missing capabilities rather than merely sampling variance. Figure 1 illustrates both the structure of a code agent trajectory and the key inefficiency of standard RFT, which discards failed instances that FailForge can partially recover through skill guidance. Existing methods that salvage discarded trajectories mostly operate within a failed trajectory. They mine use-ful actions from failed rollouts (Lan et al. 2025), mask the loss on erroneous steps (Slinko et al. 2026), reweight neg-ative trajectories by their reward (Liu et al. 2026), or fuse incorrect and correct rollouts into one trace (Deng et al. 2026), and a related line rebalances which solved instances are sampled (Koh et al. 2026). This is fragile on long horizon software engineering tasks, where sparse outcome feedback makes it difficult to attribute failure to individual actions (Jimenez et al. 2024; Tan et al. 2026). An agent may skip a relevant piece of code during early exploration and, lacking that context, later edit in the wrong order, so the patch fails even though no individual step is clearly incorrect. When guidance is derived at the step or fragment level, such fail-ures leave little to reuse and these methods reduce to standard RFT (Zelikman et al. 2022). What they extract is also tied to the specific instance rather than a transferable strategy, and most are studied on mathematical reasoning rather than repository tasks, where longer contexts make step level judg-ments less reliable. arXiv:2608.08570v1 [cs.AI] 9 Aug 2026 Our key observation is that many persistent failures stem not from missing knowledge about the instance, but from the absence of transferable procedural competence, the reusable strategy for how to investigate a problem. This includes knowing how to localize a fault across a large repository, how to read a complex test harness, and how to structure an efficient investigation. Motivated by this observation, we in-troduce FailForge, a pipeline that induces such a skill from the failed trajectories of an instance and re-attempts the in-stance with the skill supplied as guidance. Unlike guidance that points to the location of a bug, the skill states a gen-eral strategy that narrows the search over investigation paths without revealing the answer. Under the same sampling bud-get, this recovers nearly twice as many solvable instances as additional rounds of standard sampling. Our main contributions are summarized as follows: 
+
+• We introduce FailForge, which turns failed SWE in-stances discarded by standard RFT into transferable pro-cedural supervision. It diagnoses failures, uses the result-ing leakage-filtered skill to synthesize a successful trajec-tory, and removes the skill before training so that the pro-cedure is internalized without inference-time guidance. 
+
+• We demonstrate that FailForge produces stronger super-vision than additional sampling or instance level hints. On SWE-bench Verified, it improves pass@1 by 6.6 points over a strong RFT baseline, with all gains coming from instances discarded by standard RFT. 
+
+• We show that the recovered supervision transfers beyond the source instance, improves the value of each training sample, and induces more systematic problem solving behavior across diverse tasks. 
+
+## Related Work 
+
+Code Agents for Software Engineering 
+
+LLM-based agents have become a standard paradigm for repository-level software engineering, with systems such as SWE-agent, OpenHands, and Agentless combining reposi-tory navigation, code editing, and execution-based verifica-tion (Yang et al. 2024; Wang et al. 2025; Xia et al. 2024). Benchmarks and executable training environments includ-ing SWE-bench, SWE-Gym, SWE-smith, and R2E-Gym en-able large-scale evaluation and trajectory collection (Jimenez et al. 2024; Pan et al. 2024; Yang et al. 2026; Jain et al. 2025). Most existing training pipelines retain verified trajectories while discarding failed ones. FailForge instead targets in-stances for which repeated agent rollouts all fail and converts them into additional supervision. 
+
+Rejection Sampling Fine-Tuning 
+
+RFT, or filtered behavior cloning, trains a model on sam-pled trajectories that pass an outcome verifier (Yuan et al. 2023; Gulcehre et al. 2023), and STaR applies this self-bootstrapping principle to reasoning (Zelikman et al. 2022). A related zero-signal problem occurs in group-based RL, where uniformly failed groups yield no useful gradient and dynamic-sampling methods such as DAPO filter these groups rather than recover supervision from them (Shao et al. 2024; Yu et al. 2026). Other work reuses failures by extracting use-ful actions, masking erroneous steps, reweighting negative trajectories, or combining failed and successful traces (Lan et al. 2025; Slinko et al. 2026; Liu et al. 2026; Deng et al. 2026). These approaches mainly operate on steps or fragments within existing trajectories, which is difficult for repository-level tasks because sparse outcome feedback and long-range dependencies make individual failure steps hard to identify. FailForge instead diagnoses the complete fail-ure context and uses the induced procedure to synthesize a new verified trajectory. 
+
+Skill Internalization 
+
+A growing line of work equips agents with reusable skills or experiential memory. Voyager, ExpeL, Agent Workflow Memory, and ReasoningBank extract strategies or work-flows and retrieve them as additional context at inference time (Wang et al. 2023; Zhao et al. 2024; Wang et al. 2024; Ouyang et al. 2025), while reflection and self-correction methods likewise depend on iterative inference-time feed-back or stored reflections (Shinn et al. 2023; Madaan et al. 2023; Gou et al. 2024). Hindsight Hint Distillation derives an instance-level hint from failed self-rollouts, uses it to scaf-fold a successful SWE trajectory, and distills the result into a hint-free policy (Wang et al. 2026). In contrast, FailForge diagnoses full failed trajectories, test outputs, and reasoning traces to induce a high-level, non-task-specific procedural skill. It explicitly filters leakage and removes the injected skill before training, so that the recovered supervision targets transferable investigation competence rather than guidance bound to the source instance. 
+
+## Methodology 
+
+Problem Definition 
+
+We train a code agent by RFT on verifiable software en-gineering tasks. We adopt the distillation regime, in which trajectories are drawn from a teacher policy πT and a distinct student πθ is fine-tuned on those that pass verification. Let 
+
+D = {xi}Mi=1 be the task pool, where each xi pairs a reposi-tory snapshot and a natural-language issue with a hidden test suite Ti that acts as an execution-based verifier. A rollout of 
+
+πT on xi yields a trajectory 1 τ and a final patch, and the ver-ifier returns a binary reward R(xi, τ ) ∈ { 0, 1}, with R = 1 
+
+if the patch passes all tests in Ti.Standard RFT samples K trajectories per task and retains only the successful pairs, C = {(xi, τ ) | R(xi, τ ) = 1 }, and discards every task whose K rollouts all fail. The persistently failed set is: 
+
+F = { xi ∈ D | R(xi, τ (k) 
+
+> i
+
+) = 0 ∀k ∈ { 1, . . . , K } } .
+
+These persistently failed instances sit at the teacher’s capa-bility frontier, offering no trajectory to imitate yet the most valuable signal to learn from. Our goal is to recover trainable supervision from F for an unconditional student that sam-ples from πθ (· | xi) with no auxiliary context at test time.      
+
+> 1A trajectory of the harness including tool calls, edits, and ob-servations. Naïve Reject Sampling
+> Task Pool 𝒟 Sample K rollouts per task
+> Run Hidden tests
+> Leakage Filtering
+> Skill-Guided Re-rollout Skill Removal & Training
+> Repository Issue Test Case
+> Original Corpus 𝒞
+> Failed Corpus ℱ
+> Inject Skill for failed task
+> Gold Patch Skills Does the skill leak implementation details?
+> Clean Skills, keep Leaky Skills, Regenerate
+
+1 34 5
+
+> Clean Skill Pass (Keep) Fail (Discard)
+
+Recovered Corpus !𝒞 
+
+Original Corpus 𝒞   
+
+> Remove skill Content 𝜌 and cleanup
+
+Corpus        
+
+> 𝒞 ∪ 𝜌 $𝒞
+> Failed Task
+> Re-rollout for K times
+> Agentic Skill Induction
+> For each failed instance 𝑥 !∈ ℱ
+> Diagnosing Agent 𝒜
+> Procedural Skill
+> Failed Trajs 𝜏 !
+> Test Outputs 𝑜 !
+> Gold Patch 𝑝 !
+> Applicability Key Principles Common Pitfalls
+> Recommended Approach
+> (How to proceed) (What to avoid) (What matters) (When to use)
+> …
+
+2     
+
+> Run Hidden tests
+> Instance 𝑥 !
+> Transferable Repository-agnostic
+> Teacher
+> Teacher 𝜋 "
+> Teacher Student
+> 𝜋 "⋅ 𝑥 !⊕ 𝑠 !
+> Inference without skill Near Capability Frontier Stage 1: Diagnose & Generate Skills Stage 2: Re-rollout & Train
+
+Figure 2: Overview of FailForge. FailForge diagnoses persistently failed instances, induces leakage-filtered procedural skills, uses them to guide new rollouts, and removes the skills before fine-tuning. This sets it apart from methods that scaffold the policy at inference time, which condition on retrieved skills, stored reflections, or prepended hints and thus inherit the retrieval limits of their guidance channel. The difficulty is that super-vision must be manufactured from failures without leaking the manufacturing signal into the policy’s test time interface. 
+
+Method 
+
+A natural attempt to rescue F is to simply sample more trajectories per task, but increasing the per-task budget re-covers only a small fraction of F, and a taxonomy of the residual failures shows that the missing ingredient is rarely knowledge about the specific instance. What the agent lacks instead is transferable procedural competence, the kind of methodology that carries over from one repository to the next. An instance level hint, bound to a single bug, cannot convey such methodology, which is precisely why supplying more hints does not close the gap. Concretely, a compe-tent agent treats the existing test suite as the specification of the intended interface, audits every site that produces or consumes a changed identifier rather than patching only the one that surfaced the error, and verifies that a new helper is importable where the tests expect it and valid for the down-stream systems that consume its output. FailForge supplies this transferable competence as an explicit synthesis time scaffold and then distills it away, through a recovery pipeline over F comprising five stages, see Figure 2. 
+
+Naive RFT and failure identification. We first run stan-dard RFT. For each task xi ∈ D we sample K teacher tra-jectories {τ (k) 
+
+> i
+
+}Kk=1 ∼ πT(· | xi) and verify each against Ti,yielding the initial corpus C of successful pairs and the per-sistently failed set F. The subsequent four stages will operate exclusively on F.
+
+Agentic skill induction. For each failed instance xi ∈ F ,we invoke a diagnosing agent A that produces a skill: 
+
+si = A
+
+
+
+xi, {τ (k) 
+
+> i
+
+, o (k) 
+
+> i
+
+}Kk=1 , p i
+
+
+
+,
+
+where τ (k) 
+
+> i
+
+are the failed trajectories, o(k) 
+
+> i
+
+their test outputs and reasoning traces, and pi the gold patch provided as refer-ence material. This assumption is practical for offline SWE data construction because training instances are commonly derived from historical issue fix pairs, for which the merged patch is naturally available. The agent reasons over the full set of failed trajectories, test outputs, and reasoning traces to isolate the root cause. It emits a structured artifact rather than free form text, following a fixed schema of four parts, an applicability con-dition that states when the skill is relevant, a set of key prin-ciples that name the invariants a correct fix must respect, the common pitfalls that may lead to similar failures, and a 
+
+recommended approach that gives an ordered investigation and repair procedure. Every part is phrased at the level of methodology, naming the concepts a fix depends on, such as cross module identifier consistency or module import vis-ibility, without referring to the specific repository or bug. The resulting si is thus a concise, high level, and non-task-specific procedural guideline. Because si supplies a strategic prior rather than the solution itself, it narrows the agent’s search over investigation strategies without revealing where the bug is, which is what enables the guided re-attempt to succeed where unguided sampling repeatedly failed. 
+
+Leakage filtering. The gold patch is used only as priv-ileged supervision during offline synthesis on training in-stances. The training repositories are disjoint from those in both evaluation benchmarks, and neither the gold patch nor the induced skill is available at test time. Therefore, the privileged supervision does not expose solutions from the evaluation instances. It may nevertheless introduce solution specific information into the induced skill, making a training instance easier to recover while weakening the interpretation of the skill as a transferable procedure. To reduce this risk, we pass each pair (si, p i) to a separate judge model J defined as: 
+
+J (si, p i) = 
+
+1 if si leaks implementation detail of pi,
+
+0 otherwise, applying a concrete reconstruction test, under which si leaks if a reader could reconstruct pi from it, whether by copying identifiers, mirroring the patch’s control-flow structure even under renaming, or prescribing instance-specific fix steps. High level methodology that merely names a relevant concept is considered clean. A skill with J (si, p i) = 1 is regenerated until it passes the filter or the retry budget is exhausted. We retain only skills judged clean by J . We calibrate the judge against two independent human annotators. On the items for which the annotators agree, the judge matches the human consensus on 96 .7% of the samples, with Cohen’s κ = 0 .805 (Cohen 1960). Treating leakage as the positive class, it achieves 0.875 
+
+precision and 0.778 recall. These results support GPT-5.4 as a scalable leakage screening mechanism. Calibration results are provided in Supplementary Section B.2. 
+
+Skill-guided re-rollout. We re-attempt each failed in-stance with the retained skill si injected into the teacher’s context. Writing πT(· | xi ⊕ si) for the teacher conditioned on the task augmented with the skill ( ⊕ denotes context in-jection, e.g., writing si into CLAUDE.md for Claude Code or into the system prompt for OpenHands), we sample guided trajectories ˜τi ∼ πT(· | xi ⊕ si) and keep those that pass verification, forming the recovered corpus: 
+
+˜C = { (xi, ˜τi) | xi ∈ F , R (xi, ˜τi) = 1 }.
+
+These recovered trajectories constitute additional supervi-sion from instances that standard RFT discards entirely. 
+
+Skill removal and training. The skill enters only at syn-thesis time, as part of the teacher’s context. We treat si as a latent guidance variable that steers the teacher into a high reward region of trajectory space, and the removal operator 
+
+ρ then strips it out before training. Concretely, ρ removes the injected skill itself from the recovered trajectory but leaves the agent’s own actions and reasoning fully untouched, so that the student is trained to reproduce ρ(˜ τi) from xi alone. We then fine-tune πθ on the union of the original and de-contaminated recovered corpora by minimizing the standard negative log-likelihood objective: 
+
+L(θ) = − X  
+
+> (xi,τ )∈ C
+
+log πθ (τ | xi) − X  
+
+> (xi,˜τi)∈˜C
+
+log πθ (ρ(˜ τi) | xi) .
+
+Training thus distills the teacher’s skill-conditioned success, 
+
+πT(· | xi ⊕ si), into a skill-free student, πθ (· | xi). Because the target retains no trace of si, reproducing the recovered behavior requires encoding the underlying procedure in the weights rather than copying a visible hint. 
+
+## Experiments 
+
+Experimental Setup 
+
+Datasets and evaluation. We build our training data from SWE-Gym (Pan et al. 2024), which provides 2,401 Python task instances 2, each paired with an executable environment and a hidden test suite. We evaluate on SWE-bench Verified (Jimenez et al. 2024), the 500 -instance human-validated sub-set that is the standard benchmark for execution-based issue resolution, and on SWE-bench MultiLingual (Yang et al. 2026) which spans multiple languages to examine out-of-distribution transfer. The repositories used for training in SWE-Gym have no overlap with those in either SWE-bench Verified or SWE-bench MultiLingual, ensuring repository-level separation between training and evaluation. Following common SWE-bench evaluation practice, we allow up to five independent attempts per instance and stop once a suc-cessful patch is found. We report resolve rate as pass@k 
+
+for k ∈ { 1, 3, 5}, where pass@ k measures the fraction of instances solved within the first k attempts. 
+
+Agent harness and models. All trajectories are generated by a single teacher policy πT built on Kimi-K2.6 (Team et al. 2026) and collected with the OpenHands agent scaf-fold (Wang et al. 2025). The same teacher also performs skill induction and the guided re-rollouts, while GPT-5.4 is used as the leakage filter. The student policy πθ that we fine-tune and evaluate is Qwen3.5-4B and Qwen3.5-9B (Team 2026). Because every method distills from the same teacher under an identical harness, any difference between methods is at-tributable solely to how each treats the persistently failed set 
+
+F. Full implementation and training details are provided in Supplementary Section A. 
+
+Initial RFT and the failed set. We run standard RFT by sampling K = 5 trajectories per task from the teacher policy 
+
+πT and verifying each against its test suite. Of the 2,401 
+
+tasks, 1,569 are solved by at least one of the five rollouts and their successful trajectories form the RFT corpus C. The remaining 832 tasks, on which all five rollouts fail, constitute the persistently failed set F that our recovery pipeline targets. 
+
+Baselines 
+
+We compare FailForge against the following baselines, all trained from the same base model and initial RFT corpus 
+
+C. For every instance in F, RFT + More Sampling, RFT + Hint, and FailForge each use exactly five additional teacher rollouts. To ensure a fair comparison, we retain only the first successful trajectory among these additional rollouts and add it to the training corpus. They differ only in whether these rollouts are unguided, conditioned on an instance-level hint, or conditioned on a procedural skill. 
+
+> 2We discard 37 tasks without docker images.
+
+Base. The base model without any fine-tuning. 
+
+RFT. Standard rejection sampling fine-tuning on the suc-cessful trajectories C from the initial K = 5 sampling. All methods below add data on top of the same C.
+
+RFT + More Sampling. To test whether persistent failures are merely a matter of sampling variance, we draw five addi-tional unguided teacher trajectories for every instance in F,doubling the total per-task budget from 5 to 10 . Successful trajectories are added to C for training. 
+
+RFT + Hint. Following HHD (Wang et al. 2026), we gen-erate a short instance level hint from the failed trajectories and gold patch. The hint guides five additional rollouts, after which the first successful trajectory is retained and the hint is removed before training. This baseline matches FailForge in rollout budget and training procedure, differing only in the form of guidance. 
+
+Main Results 
+
+Table 1 reports the results under the OpenHands harness, since all methods share the same initial corpus C, every dif-ference is attributable to how each treats the discarded set 
+
+F. FailForge attains 66 .2 pass@1, improving the strong RFT baseline by +6 .6 points, with consistent gains of +3 .0
+
+at pass@3 and +3 .0 at pass@5, indicating that the recov-ered trajectories sharpen single-attempt solving rather than merely widening coverage across k.The two strongest alternatives fall short for complemen-tary reasons. Doubling the rollout budget reaches only 63 .0
+
+pass@1, confirming that persistent failures cannot be ad-dressed by additional sampling alone. Instance-level hints recover more trajectories than FailForge, yet produce a weaker student, reaching only 63 .8 pass@1 compared with 
+
+66 .2 for FailForge and trailing it at every k. Recovery count is therefore not a sufficient measure of supervision quality. Hints make individual instances easier to solve, whereas pro-cedural skills yield recovered trajectories with greater down-stream training value. The improvement also persists across model scales and evaluation domains. On SWE-bench Verified, FailForge raises the 9B model from 63 .6 to 67 .2 pass@1 and achieves the best result at every k. On SWE-bench MultiLingual, it improves the 4B RFT baseline from 52 .3 to 55 .7 pass@1 and the 9B baseline from 59 .7 to 61 .3. Although additional sam-pling matches FailForge at pass@1 in some MultiLingual settings, FailForge performs better at larger k, reaching 70 .7
+
+and 74 .0 pass@5 for the 4B and 9B models. These results suggest that the recovered supervision is not specific to one student scale or to the Python distribution used for training. 
+
+Cost efficiency. As shown in Table 2, instance level hints recover more instances and require fewer tokens for each re-covery, whereas FailForge incurs additional costs for skill induction and leakage filtering. However, recovery count alone does not determine the training value of the result-ing trajectories. FailForge achieves the lowest token cost for each point of pass@1 improvement, requiring 2.12 B to-kens per point, compared with 3.01 B for instance level hints and 4.32 B for additional sampling. The additional induction cost is therefore offset by the greater downstream value of the recovered trajectories. 
+
+Recovered data quality. To verify the gain is not merely a data volume effect, we hold the total number of training tra-jectories fixed and replace a fixed-size portion of the original RFT corpus C with an equal number of FailForge recov-ered trajectories, see Table 3. Because the training set size is identical, any difference isolates per-sample quality. Swap-ping in the recovered trajectories raises pass@1 from 59 .6 to 
+
+63 .8, showing that a recovered trajectory carries more useful supervision per sample than the original RFT trajectory it displaces. 
+
+Cross harness transfer. So far all trajectories, including the recovered ones, are generated with the OpenHands har-ness. Table 4 tests whether the learned behavior carries to a different harness by evaluating the models under Claude Code. A model trained purely on OpenHands trajectories overfits to that interface and, when evaluated under Claude Code, hallucinates OpenHands style tool calls the new har-ness does not expose. To prevent this we add 100 trajecto-ries sampled with Claude Code to every method’s training mixture, while all recovered supervision and induced skills remain OpenHands only, so what we measure is transfer of behavior rather than tool format. FailForge again attains the best pass@1 on both benchmarks, 62 .6 on Verified and 
+
+50 .3 on MultiLingual, indicating the recovered investigation procedure is not tied to the harness it was collected under. 
+
+Ablation Study 
+
+We ablate the three pipeline components of FailForge, namely skill-guided re-rollout (RR), leakage filtering (LF), and skill removal before training (SR), in Table 5, and the two skill-synthesis design choices in Table 6. The top row of Table 5 disables all three components and reduces to standard RFT 5× at 59 .6 pass@1, while the full pipeline reaches 66 .2 (+6 .6) without touching the base corpus C, so the entire gain comes from supervision recov-ered from F. Retaining the skill in the training target drops pass@1 to 64 .6, as leaving it in context lets the student lean on the supplied strategy rather than acquire it, whereas strip-ping it forces the behavior into the weights. Leakage filtering acts earlier, during skill induction. Without it the induced skills drift toward answers tied to the specific instance, so the trajectories they recover follow guidance that nearly en-codes the solution rather than transferable methodology, and distilling such solution-bound supervision lowers pass@1 to 
+
+63 .6, close to the hint baseline. Table 6 ablates how skills are induced. Withholding the gold patch from the diagnosing agent drops pass@1 from 
+
+66 .2 to 64 .2. The reference solution provides useful diag-nostic context. The calibrated leakage filter allows us to ex-ploit this signal while substantially reducing the risk that solution-specific implementation details enter the induced skill. Because the skill is injected into the agent context, the recovered reasoning may explicitly refer to the supplied guidance. Rewriting each reasoning trace so the trace reads as self-derived, drops pass@1 further to 62 .0. This is counter-intuitive, since the skill text is already stripped and dangling Qwen3.5-4B Qwen3.5-9B Benchmark Method pass@1 pass@3 pass@5 pass@1 pass@3 pass@5 SWE-Bench Verified 
+
+Base 54.0 68.8 72.0 61.2 71.4 74.6 RFT (5 ×) 59.6 70.4 73.0 63.6 73.8 75.4 RFT (10 ×) 63.0 71.6 75.6 66.4 72.4 75.6 RFT (5 ×) + Hint (5 ×) 63.8 71.4 73.4 65.2 73.0 74.4 FailForge (Ours) 66.2 73.4 76.0 67.2 74.0 76.0 SWE-Bench MultiLingual 
+
+Base 35.7 53.0 56.3 47.0 62.0 65.0 RFT (5 ×) 52.3 62.3 65.3 59.7 66.7 70.7 RFT (10 ×) 55.7 67.0 70.0 61.3 69.0 72.7 RFT (5 ×) + Hint (5 ×) 51.7 64.3 67.3 60.7 69.3 71.3 FailForge (Ours) 55.7 67.0 70.7 61.3 71.0 74.0 
+
+Table 1: Resolve rate (%) on SWE-bench Verified and SWE-bench MultiLingual with OpenHands harness.                           
+
+> Method Nrec Rec.% Tok/rec pass@1 Tok/ ∆
+> (M) (B)
+> RFT (5 ×)–––59.6 –RFT (10 ×)119 14.3 123.3 63.0 4.32 RFT + Hint 352 42.3 35.9 63.8 3.01 FailForge 218 26.2 64.1 66.2 2.12
+
+Table 2: Cost and performance on the persistently failed set F. The three recovery methods use comparable teacher token budgets on F. Nrec denotes the number of recovered instances, Rec.% denotes the recovery rate over F, Tok/rec denotes the teacher tokens per recovered instance in millions, and Tok/ ∆ denotes the teacher tokens per point of pass@1 improvement over RFT (5 ×) in billions. 
+
+Fill data pass@1 pass@3 pass@5 
+
+Original 59.6 70.4 73.0 FailForge 63.8 73.2 75.0 
+
+Table 3: Data quality at a fixed training budget. A fixed-size portion of the original RFT corpus is replaced with an equal number of recovered trajectories, holding the total training set size constant. references might be expected to read as hallucination. In practice the recovered reasoning is most useful left intact, and aggressive rewriting distorts the very investigation be-havior we want the student to imitate. We therefore keep the recovered traces verbatim in our main runs. 
+
+Cross Instance Transferability 
+
+We also test whether induced skills encode procedures that transfer beyond their source instances. From F, we select the subset F′ whose repositories contain at least two failed instances. Each instance receives one guided rollout under four conditions: its own skill, its own hint, a skill from a sibling instance in the same repository, or a hint from that sibling. The instance set and rollout budget are identical across conditions, so the only difference is the type and source of guidance. As shown in Figure 3, matched hints recover more instances than matched skills because they are tailored Instance-level Hint FailForge  
+
+> 050 100 150 200 250 300
+> Recovered instances
+> Matched Shuffled
+> 245 51 140 83
+> 20.8% 59.3%
+
+Figure 3: Within-repository guidance transfer on F′.
+
+Number of instances recovered under a single guided rollout when the guidance is matched to the target instance or shuf-fled to a sibling instance from the same repository. to the target problem. After shuffling, however, skills recover more instances and retain 59 .3% of their matched recovery, compared with only 20 .8% for hints. This comparison is conservative because the shuffled guidance still comes from the same repository and may therefore share code structure and conventions with the target instance. The substantially higher retention of skills indicates that they capture reusable investigation procedures rather than information tied to a particular solution. 
+
+Agent Behavioral Analysis 
+
+We analyze the single attempt OpenHands trajectories of all five 4B checkpoints on SWE-bench Verified along three di-mensions, as shown in Table 7. Verification discipline mea-sures whether the agent tests before editing, editing econ-omy measures the number of edits, and localization preci-sion measures the fraction of edited files that match the gold targets. Plain RFT substantially improves verification disci-pline and reduces the number of edits, but does not improve localization precision over the base model. FailForge exhibits the strongest overall investigation be-havior. It achieves the highest localization precision on both solved and unsolved instances, reaches the highest verifica-tion rate, and makes the fewest edits. The most pronounced difference lies in localization, especially on unsolved in-stances, suggesting that the recovered supervision helps the Qwen3.5-4B Qwen3.5-9B Benchmark Method pass@1 pass@3 pass@5 pass@1 pass@3 pass@5 SWE-Bench Verified 
+
+Base 47.6 65.0 69.0 60.6 75.0 77.2 RFT (5 ×) 59.6 75.0 78.0 61.0 75.2 77.2 RFT (10 ×) 59.4 72.2 77.0 61.4 75.0 78.2 RFT (5 ×) + Hint (5 ×) 60.0 74.2 78.2 62.2 74.6 77.4 FailForge (Ours) 62.6 74.0 78.4 63.0 75.8 78.6 SWE-Bench MultiLingual 
+
+Base 39.0 54.7 59.3 48.0 68.0 74.7 
+
+RFT (5 ×) 41.0 60.3 65.3 49.7 66.0 69.3 RFT (10 ×) 47.7 62.0 65.7 48.0 66.7 70.3 RFT (5 ×) + Hint (5 ×) 45.0 63.3 68.0 50.7 67.0 71.0 FailForge (Ours) 50.3 65.3 68.3 51.0 66.0 71.3 Table 4: Resolve rate (%) on SWE-bench Verified and SWE-bench MultiLingual with Claude Code harness. 
+
+LF RR SR pass@1 pass@3 pass@5 
+
+59.6 70.4 73.0 
+
+✓ ✓ 64.6 73.0 76.6 
+
+✓ ✓ 63.6 72.0 75.8 
+
+✓ ✓ ✓ 66.2 73.4 76.0 
+
+Table 5: Component ablation on SWE-bench Verified. LF: leakage filtering; RR: skill-guided re-rollout; SR: skill re-moval before training. 
+
+Variant pass@1 pass@3 pass@5 
+
+FailForge (full) 66.2 73.4 76.0 
+
+w/o gold patch 64.2 72.0 74.6 + trace rewrite 62.0 71.0 74.2 Table 6: Skill-synthesis design choices on SWE-bench Ver-ified. w/o gold patch : the gold patch is withheld from the diagnosing agent. trace rewrite : recovered reasoning traces are rewritten to launder their references to the injected skill. agent direct an already disciplined workflow toward more relevant code. These patterns support the interpretation that FailForge induces a more systematic investigation proce-dure rather than improving any single behavior in isolation. 
+
+Taxonomy of Extracted Skills 
+
+We classify all 832 induced skills into nine root-cause cat-egories plus an Other bucket, as shown in Figure 4. Full definitions and an inter-model agreement analysis are pro-vided in Supplementary Section C. On a random sample of 
+
+150 skills, independent classifications by GLM-5.1, GPT-5.4, and Kimi-K2.6 achieve Fleiss’ κ = 0 .800 , with unanimous labels on 75% of the samples. The four largest categories cover 72 .8% of all skills and concern test-contract ground-ing, fix placement, change propagation, and root-cause trac-ing. These recurring procedural capabilities align with the localization gap observed in Table 7. 
+
+Loc. prec. Method Resolve pass fail Repro Edits 
+
+Base 54.0 0.46 0.38 76.2 16.5 RFT (5 ×) 59.6 0.44 0.33 94.0 10.7 RFT (10 ×) 63.0 0.47 0.42 96.0 10.5 RFT (5 ×)+Hint 63.8 0.52 0.42 96.8 10.1 FailForge 66.2 0.52 0.45 97.2 9.9 
+
+Table 7: Single-attempt trajectory behavior on SWE-bench Verified. Localization precision is the fraction of edited source files that are gold-target files, on solved ( pass )vs. unsolved ( fail ) instances; Repro is the percentage of trajec-tories that verify before editing; Edits is the median number of edits. Resolve is pass@1 from Table 1. ACDBEIFG H O
+
+832           
+
+> total labels
+> ATest Grounding (181, 21.8%) CLayer Choice (179, 21.5%) DPropagation (154, 18.5%) BRoot Cause (92, 11.1%) EScope Control (50, 6.0%) IBuild Hygiene (40, 4.8%) FType Safety (36, 4.3%) GAPI Evolution (33, 4.0%) HInput Guard (24, 2.9%) OOther (43, 5.2%)
+
+Figure 4: Distribution of induced skills across procedural capability categories. 
+
+## Conclusion 
+
+We present FailForge, a framework that converts failed soft-ware engineering instances into training supervision by in-ducing transferable procedural skills for guided recovery. At a matched budget, FailForge recovers nearly twice as many instances as additional sampling, improves SWE-bench Ver-ified by 6.6 points over a strong RFT baseline, and induces more systematic and transferable problem-solving behaviors. References 
+
+Bengio, Y.; Louradour, J.; Collobert, R.; and Weston, J. 2009. Curriculum learning. In Proceedings of the 26th annual international conference on machine learning , 41–48. Chen, M.; Tworek, J.; Jun, H.; Yuan, Q.; Pinto, H. P. D. O.; Kaplan, J.; Edwards, H.; Burda, Y.; Joseph, N.; Brockman, G.; et al. 2021. Evaluating large language models trained on code. arXiv preprint arXiv:2107.03374 .Cohen, J. 1960. A coefficient of agreement for nominal scales. Educational and psychological measurement , 20(1): 37–46. Deng, J.; Tong, H.; Li, J.; Liang, S.; Wu, N.; Li, H.; and Xie, Y. 2026. Beyond Rejection Sampling: Trajectory Fusion for Scaling Mathematical Reasoning. In Liakata, M.; Moreira, V. P.; Zhang, J.; and Jurgens, D., eds., Findings of the Associ-ation for Computational Linguistics: ACL 2026 , 7943–7959. San Diego, California, United States: Association for Com-putational Linguistics. ISBN 979-8-89176-395-1. Gou, Z.; Shao, Z.; Gong, Y.; Yang, Y.; Duan, N.; Chen, W.; et al. 2024. Critic: Large language models can self-correct with tool-interactive critiquing. In International Conference on Learning Representations , volume 2024, 57734–57811. Gulcehre, C.; Paine, T. L.; Srinivasan, S.; Konyushkova, K.; Weerts, L.; Sharma, A.; Siddhant, A.; Ahern, A.; Wang, M.; Gu, C.; et al. 2023. Reinforced self-training (rest) for language modeling. arXiv preprint arXiv:2308.08998 .Huang, D.; Zhang, J. M.; Luck, M.; Bu, Q.; Qing, Y.; and Cui, H. 2023. Agentcoder: Multi-agent-based code genera-tion with iterative testing and optimisation. arXiv preprint arXiv:2312.13010 .Jain, N.; Singh, J.; Shetty, M.; Zhang, T.; Zheng, L.; Sen, K.; and Stoica, I. 2025. R2e-gym: Procedural environment gen-eration and hybrid verifiers for scaling open-weights SWE agents. In Second Conference on Language Modeling .Jiang, M.; Grefenstette, E.; and Rocktäschel, T. 2021. Prior-itized level replay. In International Conference on Machine Learning , 4940–4950. PMLR. Jimenez, C. E.; Yang, J.; Wettig, A.; Yao, S.; Pei, K.; Press, O.; and Narasimhan, K. R. 2024. SWE-bench: Can Language Models Resolve Real-world Github Issues? In The Twelfth International Conference on Learning Representations .Koh, R.; Oh, W.; Jang, J.; Lee, M.; Kim, H.; Kim, A.; Kim, J.; Lee, J.; Kim, T.; and Yun, S.-Y. 2026. Adastar: Adaptive data sampling for training self-taught reasoners. Advances in Neural Information Processing Systems , 38: 91484–91515. Lan, L.-C.; Bai, A.; Cheng, M.; Hsieh, C.-J.; and Zhou, T. 2025. Exploring expert failures improves llm agent tuning. 
+
+arXiv preprint arXiv:2504.13145 .Liu, Z.; Liu, S.; Zhong, T.; and Yuan, M. 2026. RIFT: Repur-posing Negative Samples via Reward-Informed Fine-Tuning. In Liakata, M.; Moreira, V. P.; Zhang, J.; and Jurgens, D., eds., Findings of the Association for Computational Lin-guistics: ACL 2026 , 14399–14415. San Diego, California, United States: Association for Computational Linguistics. ISBN 979-8-89176-395-1. Madaan, A.; Tandon, N.; Gupta, P.; Hallinan, S.; Gao, L.; Wiegreffe, S.; Alon, U.; Dziri, N.; Prabhumoye, S.; Yang, Y.; et al. 2023. Self-refine: Iterative refinement with self-feedback. Advances in neural information processing sys-tems , 36: 46534–46594. Ouyang, S.; Yan, J.; Hsu, I.; Chen, Y.; Jiang, K.; Wang, Z.; Han, R.; Le, L. T.; Daruki, S.; Tang, X.; et al. 2025. Reasoningbank: Scaling agent self-evolving with reasoning memory. arXiv preprint arXiv:2509.25140 .Pan, J.; Wang, X.; Neubig, G.; Jaitly, N.; Ji, H.; Suhr, A.; and Zhang, Y. 2024. Training software engineering agents and verifiers with swe-gym. arXiv preprint arXiv:2412.21139 .Shao, Z.; Wang, P.; Zhu, Q.; Xu, R.; Song, J.; Bi, X.; Zhang, H.; Zhang, M.; Li, Y.; Wu, Y.; et al. 2024. Deepseekmath: Pushing the limits of mathematical reasoning in open lan-guage models. arXiv preprint arXiv:2402.03300 .Shinn, N.; Cassano, F.; Gopinath, A.; Narasimhan, K.; and Yao, S. 2023. Reflexion: Language agents with verbal re-inforcement learning. Advances in neural information pro-cessing systems , 36: 8634–8652. Slinko, I.; Zavidnyi, I.; Bogomolov, E.; and Zharov, Y. 2026. Step Rejection Fine-Tuning: A Practical Distillation Recipe. 
+
+arXiv preprint arXiv:2605.10674 .Tan, H.-Z.; Yang, X.-W.; Chen, H.; Shao, J.-J.; Wen, Y.; Shen, Y.; Luo, W.; Du, X.; Guo, L.-Z.; and Li, Y.-F. 2026. Hindsight credit assignment for long-horizon llm agents. arXiv preprint arXiv:2603.08754 .Team, K.; Bai, T.; Bai, Y.; Bao, Y.; Cai, S.; Cao, Y.; Charles, Y.; Che, H.; Chen, C.; Chen, G.; et al. 2026. Kimi K2. 5: Vi-sual Agentic Intelligence. arXiv preprint arXiv:2602.02276 .Team, K.; Bai, Y.; Bao, Y.; Charles, Y.; Chen, C.; Chen, G.; Chen, H.; Chen, H.; Chen, J.; Chen, N.; et al. 2025. Kimi k2: Open agentic intelligence. arXiv preprint arXiv:2507.20534 .Team, Q. 2026. Qwen3.5: Accelerating Productivity with Native Multimodal Agents. Wang, G.; Xie, Y.; Jiang, Y.; Mandlekar, A.; Xiao, C.; Zhu, Y.; Fan, L.; and Anandkumar, A. 2023. Voyager: An open-ended embodied agent with large language models. arXiv preprint arXiv:2305.16291 .Wang, S.; Li, G.; Yang, Z.; and Gao, Y. 2026. Hindsight Hint Distillation: Scaffolded Reasoning for SWE Agents from CoT-free Answers. arXiv preprint arXiv:2605.11556 .Wang, X.; Li, B.; Song, Y.; Xu, F. F.; Tang, X.; Zhuge, M.; Pan, J.; Song, Y.; Li, B.; Singh, J.; et al. 2025. Openhands: An open platform for ai software developers as generalist agents. In International Conference on Learning Representations ,volume 2025, 65882–65919. Wang, Z. Z.; Mao, J.; Fried, D.; and Neubig, G. 2024. Agent workflow memory. arXiv preprint arXiv:2409.07429 .Wu, Y.; Li, S.; Wen, Z.; Zhou, X.; Talwalkar, A.; Yang, Y.; Huang, W.; and Cai, T. 2026. Learn hard problems dur-ing RL with reference guided fine-tuning. arXiv preprint arXiv:2603.01223 .Xia, C. S.; Deng, Y.; Dunn, S.; and Zhang, L. 2024. Agent-less: Demystifying llm-based software engineering agents. 
+
+arXiv preprint arXiv:2407.01489 .Yang, J.; Jimenez, C. E.; Wettig, A.; Lieret, K.; Yao, S.; Narasimhan, K. R.; and Press, O. 2024. SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineer-ing. In The Thirty-eighth Annual Conference on Neural In-formation Processing Systems .Yang, J.; Lieret, K.; Jimenez, C.; Wettig, A.; Khandpur, K.; Zhang, Y.; Hui, B.; Press, O.; Schmidt, L.; and Yang, D. 2026. Swe-smith: Scaling data for software engineering agents. 
+
+Advances in Neural Information Processing Systems , 38. Yu, Q.; Zhang, Z.; Zhu, R.; Yuan, Y.; Zuo, X.; Yue, Y.; Dai, W.; Fan, T.; Liu, G.; Liu, L.; et al. 2026. Dapo: An open-source llm reinforcement learning system at scale. Advances in Neural Information Processing Systems , 38: 113222– 113244. Yuan, Z.; Yuan, H.; Li, C.; Dong, G.; Lu, K.; Tan, C.; Zhou, C.; and Zhou, J. 2023. Scaling relationship on learning mathematical reasoning with large language models. arXiv preprint arXiv:2308.01825 .Zelikman, E.; Wu, Y.; Mu, J.; and Goodman, N. 2022. Star: Bootstrapping reasoning with reasoning. Advances in Neural Information Processing Systems , 35: 15476–15488. Zeng, A.; Lv, X.; Hou, Z.; Du, Z.; Zheng, Q.; Chen, B.; Yin, D.; Ge, C.; Huang, C.; Xie, C.; et al. 2026. Glm-5: from vibe coding to agentic engineering. arXiv preprint arXiv:2602.15763 .Zhang, K.; Li, J.; Li, G.; Shi, X.; and Jin, Z. 2024. Codeagent: Enhancing code generation with tool-integrated agent sys-tems for real-world repo-level coding challenges. In Pro-ceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 13643– 13658. Zhao, A.; Huang, D.; Xu, Q.; Lin, M.; Liu, Y.-J.; and Huang, G. 2024. Expel: Llm agents are experiential learners. In Pro-ceedings of the AAAI Conference on Artificial Intelligence ,volume 38, 19632–19642.

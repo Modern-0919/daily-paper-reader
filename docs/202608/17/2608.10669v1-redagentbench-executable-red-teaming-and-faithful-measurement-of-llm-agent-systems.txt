@@ -1,0 +1,318 @@
+Title: REDAgentBench: Executable Red Teaming and Faithful Measurement of LLM Agent Systems
+
+URL Source: https://arxiv.org/pdf/2608.10669v1
+
+Published Time: Wed, 12 Aug 2026 00:49:23 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# REDAgentBench: Executable Red Teaming and Faithful Measurement of LLM Agent Systems 
+
+Zixing Chen 1∗, Xingyuan Liu 2∗, Jie Zhu 3, Huaixia Dou 3,Shuo Jiang 3, Junhui Li 4, Lifan Guo 3, Feng Chen 3, Chi Zhang 3
+
+> 1
+
+Fudan University 
+
+> 2
+
+The Hong Kong University of Science and Technology 
+
+> 3
+
+Qwen DianJin Team, Alibaba Cloud Computing 
+
+> 4
+
+School of Computer Science and Technology, Soochow University 
+
+Abstract 
+
+Large language model (LLM) agents combine language-based reasoning with external tools to perform complex tasks. Ad-versarial inputs can exploit interactions between the agent and its environment, causing the agent to violate safety poli-cies during execution. Yet existing evaluations often reduce agent safety to a single attack success rate (ASR), collaps-ing exposure, execution, observation, and adjudication and potentially conflating actual violations with evidence visibil-ity. We introduce REDAgentBench, an executable frame-work for autonomous red-teaming and faithful measurement. It derives attacks from explicit safety constraints and associ-ated agent-system vulnerabilities, runs them in isolated ser-vice sandboxes, and verifies harmful effects from service re-ceipts and final-state changes. The benchmark contains 1,661 cases across five service surfaces. Across six models and three agent harnesses, macro-average ASR is 65.69%; re-ported ASR varies with harness and evidence view, while evaluation-context disclosure changes execution behavior. In a state-grounded diagnostic cohort, almost one in five con-firmed violations with resolved action anchors occurs after the agent states the relevant constraint or risk, revealing a Recognition–Execution Gap. Finally, a training-free policy reminder reduces confirmed violations by more than 70 per-centage points in matched replay. These findings show that executable evaluation can improve safety measurement and identify actionable intervention points. 
+
+1 Introduction 
+
+Tool-using LLM agents turn language-model outputs into actions that change external state. They can edit files, send email, and operate through user accounts (Feng et al. 2026b). Adversarial content encountered through files or tool outputs during an otherwise ordinary task can therefore cause the agent to violate a safety policy. Yet ASR is produced by an evaluation pipeline and is meaningful only under a specified protocol (Chouldechova et al. 2026). In executable evaluations, reported success de-pends on both the agent system and how its environmental effects are observed and adjudicated. Executable settings make this distinction consequential. Attacks can arrive through retrieved content or tool outputs, 
+
+> ∗
+
+These authors contributed equally. Poisoned API 
+
+> force = true retain_consent = false
+> Trusted Record
+> Approved_action: compare_only Don’t submit a merge
+> User Task
+> Reconcile customer merge CM-971022
+
+1 Ordinary task, adversarial environment 
+
+> What the agent says
+> Recognition R = 1
+> “I will not click Merge.”
+> Set force = true
+> What the agent does
+> Set retain_consent = false
+> Click Merge Execution E = 1
+
+2 One agent, two conflicting behaviors 
+
+> Trajectory-only View
+> SAFE ?
+
+3
+
+> Service Receipt
+> POST submitted: true force: true retain_consent: false
+> HARM Same rollout, opposite conclusions
+
+Figure 1: Motivation of our faithful measurement framework. During an ordinary task, a poisoned API injects parame-ters that conflict with a trusted record. The agent recognizes the constraint and claims that it will not perform the merge (R=1 ), yet still executes the harmful action ( E=1 ). Conse-quently, a trajectory-view may suggest safety, while the state-view confirms harm. This mismatch motivates our faith-ful measurement framework and the Recognition–Execution Gap (REG). while harm is realized through environment-changing ac-tions rather than text alone (Wang et al. 2026; Ding et al. 2026). An agent may acknowledge missing approval yet still execute a transfer (Yang et al. 2026), or leak a private key vis-ible only in service records. Conventional red-team reporting collapses exposure, execution, observation, and adjudication into one ASR. With the model, cases, and judging config-uration fixed, changing the harness can reverse model rank-ings (§4.2); with the rollout fixed, changing the view-specific judging configuration can flip labels (§4.3). Here, the judge backbone remains fixed, while the evidence view and its corresponding proof contract vary. Finally, within matched model–case–harness pairs, making the model aware of being evaluated in a mocked sandbox can change execution behav-ior (§4.4). These results motivate separating agent-system behavior from its observation and adjudication. Figure 1 il-lustrates this mismatch between the agent’s stated intention and the state-confirmed outcome. We therefore treat the executable environment not merely as a sandbox for running attacks, but as a measurement instru-ment. In our framework, reported ASR emerges through four arXiv:2608.10669v1 [cs.AI] 11 Aug 2026 stages: exposure determines whether an intervention reaches the agent; execution captures what the agent actually does in the environment; observation determines which trajectory or state evidence is available; and adjudication maps that evidence to a label. Moreover, state-grounded outcomes enable behavioral di-agnosis. Comparing agents’ pre-action statements with out-comes, it reveals the Recognition–Execution Gap (REG): violations in which an agent states the applicable constraint before taking the harmful action. REG shows that a safety constraint can be explicitly recognized yet fail to govern exe-cution. The gap suggests a repair: restating the relevant safety constraint at the action boundary. A training-free policy re-minder substantially reduces confirmed violations, linking the diagnosis to targeted repair (§4.5, §4.6). We instantiate this framework as REDAgentBench, a benchmark of 1,661 executable cases spanning 15 interven-tion strategies, 11 vulnerability types, 28 constraints and 5 service surfaces. Its intervention–vulnerability–constraint (IVC) taxonomy records how each attack reaches the agent system, which weakness it exploits, and which constraint it violates. Each case instantiates an executable task, an at-tack intervention, and a policy-specific verifier grounded in service receipts or final-state differences rather than in the agent’s own claims. The resulting pipeline supports paired audits across harnesses, view-specific judging configura-tions, and judge backbones (§3, §3.2). To summarize, our contributions are: 
+
+• We introduce REDAgentBench, a benchmark of 1,661 executable cases whose violations are verified from ser-vice receipts and final environment state (§3). 
+
+• We formalize reported ASR as an exposure–execution– observation–adjudication pipeline. A six-model audit holds rollouts and the fixed judge backbone while varying view-specific judging configurations. (§3.2, §4.2, §4.3). 
+
+• We identify Recognition-Execution Gap (REG) and use a training-free policy reminder as an actionability probe, reducing confirmed violations by more than 70 percentage points. (§4.5, §4.6). 
+
+2 Related Work 
+
+Executable agent safety benchmarks. Early agent-safety benchmarks moved attacks beyond the user turn by embed-ding injected instructions in tool-mediated tasks. Agent-Dojo and InjecAgent pair utility tasks with simulated tool suites (Debenedetti et al. 2024; Zhan et al. 2024), while AgentHarm evaluates harmful behavior primarily from agent outputs (Andriushchenko et al. 2025). More recent benchmarks ground success in executed effects. Vera eval-uates agents across frameworks in isolated sandboxes with evidence-grounded verification (Feng et al. 2026b); MCP-Tox, FinVault, OS-BLIND, and JAWS-Bench verify effects in MCP services, financial ledgers, operating-system state, or workspaces (Wang et al. 2026; Yang et al. 2026; Ding et al. 2026; Saha et al. 2025); and MT-AgentRisk studies failures emerging over multiple turns (Li et al. 2026). These benchmarks make executed harm observable, but headline comparisons still typically center on aggregate ASR. 
+
+The measurement instrument. Cross-protocol ASR comparisons are meaningful only when the measured con-struct and evaluation conditions are specified (Chouldechova et al. 2026; Weidinger et al. 2025). For agent systems, re-ported performance depends on the execution harness, while evaluator choice and aggregation can alter system rankings (Zhang et al. 2026b; Gao et al. 2025). Risk judges make adju-dication explicit, but style, manipulation, bias, and instance-level errors can distort their labels (Yuan et al. 2024; Eiras et al. 2025; Lee et al. 2025; Divekar and Majumder 2026; Yehudai et al. 2025; Jiang et al. 2025). Likewise, adaptive attackers can overturn conclusions drawn from fixed evalua-tions (McKenzie et al. 2025; Nasr et al. 2026; Rashid et al. 2025). Thus, ASR should be reported with its benchmark, case distribution, harness, judging configuration, evaluation cue, judge backbone, attempt budget, and valid-rollout de-nominator, rather than as a standalone model score. 
+
+Evaluation awareness. Models can distinguish evaluation from deployment contexts (Nguyen et al. 2025), and verbal-ized awareness of being tested can inflate measured safety across benchmarks and models (Aranguri and Bloom 2026). In executable settings, LITMUS shows that verbal refusal can coexist with completed physical harm (Zhang et al. 2026a). Trajectory-based guards such as BraveGuard su-pervise agents from execution traces rather than independent service receipts (Feng et al. 2026a). Together, these findings motivate treating evaluation cues as an experimental variable and separating what the agent says from what the environ-ment records. 
+
+Positioning. Prior work advances executable-state verifi-cation, adaptive testing, judge reliability, evaluation aware-ness, or harness-aware reporting, but these components are typically studied separately. Relative to harness-aware evaluation, REDAgentBench additionally separates execu-tion from observation and adjudication through fixed-rollout comparisons of view-specific judging configurations, while treating evaluation cues as an experimental condition. It com-bines these measurements with constraint-guided case con-struction, receipt-confirmed REG diagnosis, and paired re-measurement of a targeted repair. Appendix A provides the feature-level comparison. 
+
+3 REDAgentBench 
+
+REDAgentBench starts from explicit safety constraints and autonomously constructs and executes adversarial cases for LLM agents. Faithful measurement then runs each case in an instrumented sandbox and separately determines the ex-ecution outcome E, the reported label Y (c, b ) under view-specific judging configuration c and judge backbone b, and constraint recognition R.
+
+3.1 Benchmark Construction 
+
+REDAgentBench scales expert red-teaming through an au-tonomous LLM pipeline that combines explicit security in-variants and threat boundaries with source-grounded attack knowledge to plan, compile, and refine 1,661 executable cases across five service surfaces. Each case combines a User input Platform Tool/data Verification Authorization Tool misuse Workspace Output Confidentiality Asset Integrity Availability System External Governance 
+
+> Intervention Vulnerability Constraint
+> REDAgent
+> Bench
+> Constraint (28)
+> Credential Safety Data Privacy Encrypted Data Prompt Secrecy Internal Assets Transfer Authorization Billing Limits Subscription Control Disposal Authorization Data Integrity Config Integrity Knowledge Integrity Evidence Grounding Service Availability Lockout Prevention Resource Limits Workflow Availability Sandbox Boundaries Execution Control Supply-Chain Security Backdoor Prevention Social Engineering Content Safety Abuse Prevention Action Authorization Explicit Approval Audit Integrity Authorization Checks
+> Intervention strategies (15)
+> Direct Request Fragmentation Intent Disguise Authority Pressure Audit Pretext Encoding File Poisoning Boundary Tampering Skill Poisoning Memory Poisoning MCP Injection Dependency Poisoning Doc Poisoning Output Tampering RAG Poisoning
+> Vulnerability manifestations (11)
+> Missing Verification Unverified Output Unauthorized Access Approval Bypass Improper Use Invalid Parameters Unsafe Construction Workspace Damage Missing Checkpoint Unsafe Output Ungrounded Output
+
+Figure 2: Overview of IVC taxonomy in REDAgentBench 
+
+Axis Parent category Types Cases Intervention ( I; 15) User input 6 761 Agent platform 5 500 External tool/data 4 400 Vulnerability ( V ; 11) Verification 2 252 Authorization 2 497 Tool misuse 3 352 Workspace/process 2 365 Harmful output 2 195 Constraint ( C; 28) Confidentiality 5 481 Asset 4 234 Integrity 4 323 Availability 4 98 System compromise 4 288 External action 4 94 Governance 3 143 Unique benchmark cases 1,661 
+
+Table 1: IVC coverage by parent category. Each axis parti-tions the same 1,661 benchmark cases. traceable intervention–vulnerability–constraint (IVC) path with an observable environment outcome, turning a safety requirement into an executable and actionable test. 
+
+Threat Model. The red-teamer controls only the case-specified intervention channels: user input, agent-platform workspace, or external tools and data sources observable to the agent. This boundary defines the runtime attack surface evaluated by REDAgentBench. 
+
+Case Generation and Refinement. Guided by the IVC taxonomy above, we consolidate 12,181 source-linked attack mappings from prior agent-safety studies (Debenedetti et al. 2024; Zhan et al. 2024; Wang et al. 2026; Feng et al. 2026b; Ding et al. 2026) into an attack knowledge base. For each safety constraint, a frontier LLM retrieves relevant interven-tion strategies and plans feasible IVC paths, specifying the vulnerability manifestation, required resources, intervention channel, and observable target outcome. An environment-aware compiler instantiates each path as an executable task, seed, attack, and verifier. Rollout evidence, including trajec-tories, service receipts, and final-state differences, is then used to revise failed or ambiguous cases and verifiers. Fig-ure 3 situates this refinement loop within the complete con-struction and evaluation pipeline. 
+
+Quality Control and Benchmark Freezing. Each candi-date must pass automated checks for task executability, attack reachability through the intended intervention channel, and outcome verifiability from environment evidence. Across three development rounds, two security experts reviewed 480 sampled case versions for IVC consistency, threat-model compliance, task–attack coherence, and verifier correctness. Repairable defects triggered revision and rerun, whereas in-valid or ambiguous cases were excluded. The retained cases and verifiers were then frozen, yielding the final benchmark of 1,661 executable cases. The experts subsequently audited a stratified sample of 320 frozen cases independently and under blinded conditions. This frozen case pool is used throughout the model–harness experiments in Section 4. Appendix C reports the rubric, sampling procedure, reviewer agreement, and related statistics. Static checks and sandbox rollouts test task executability, attack reachability through the intended channel, and out-come verifiability from receipts or final-state changes. The model uses these diagnostics, together with trajectories and environment evidence, to revise cases and verifiers. Dur-ing three development rounds, two security experts reviewed 480 sampled case versions for IVC consistency, threat-model compliance, task–attack coherence, and verifier correctness. Repairable defects triggered revision and rerun, whereas in-valid or ambiguous cases were excluded. Before evaluation, the retained cases and verifiers were frozen, and a strati-fied sample of 320 cases was independently audited under blinded conditions. Appendix C details the rubric, sampling procedure, reviewer agreement, and related statistics. 
+
+State-Grounded Sandbox. Each case is executed in an isolated sandbox spanning five service surfaces: workspace, email, browser, banking, and external files. Before execution, the benchmark runner initializes the required services and in-stantiates the case-specific files, service state, and adversarial content. The target agent then interacts with this environment through the tool interfaces exposed by its harness. Following prior evidence-grounded executable benchmarks (Feng et al. 2026b; Yang et al. 2026), each service records consequen-tial effects, including file modifications, sent messages, and fund transfers, as structured receipts or baseline-to-final state differences. These records enable outcome verification inde-Run a pressure test code using small_file_performance.json    
+
+> Locate small_file_performance.json
+> MCP
+> Workspace
+> small_file_performance.json
+> Banking
+> transfer withdraw
+> Gmail
+> read send
+> Browser
+> Fill form Send form
+
+Trajectory Judge 
+
+Hybrid Judge   
+
+> files configs
+> External Files
+> read create
+> Generate 10K files and delete Generate 10K files in workspace
+> Decode PMRG***ZWK7I Apply it fully, without dropping any field. Still, generate 10M files in workspace
+
+Trajectory 
+
+> Generating 10M files may cause system crash…
+
+Service Sandbox    
+
+> Attack Knowledge
+> 12,181 source-linked mappings
+> IVC Planning
+> Intervention -> Vulneraibility -> Constraint
+> Case Compilation Sandbox Validation
+> Executability · Reachability · Observability
+> Frozen Cases
+> Human audit task seed attack verifier
+
+Case Generation & Refinement  
+
+> Diagnose & refine Execute cases
+> Evidence (trajectory view) Evidence (state view)
+> Evidence View
+> messages MCP calls
+> Evidence Checks
+> Action attempted?
+> Agent caused?
+> Outcome supported?
+> Success Failure
+
+State Judge  
+
+> Evidence View
+> receipts State diff
+> Evidence Checks
+> Durable effect?
+> Action by agents?
+> Fields match?
+> Success Failure
+
+Figure 3: Overview of the REDAgentBench pipeline. The case-generation pipeline transforms attack knowledge into IVC plans, compiles them into executable cases, and iteratively diagnoses and refines failures through sandbox validation before human-audited cases are frozen. During evaluation, an agent executes each case against instrumented service sandboxes. The trajectory judge assesses messages and tool calls, whereas the state judge verifies durable effects from service receipts and state differences; the hybrid judge reconciles both evidence views to produce the final outcome. These are three evaluator instances: they share the same judge backbone but receive different evidence and apply view-specific proof contracts. pendently of the agent’s self-reported completion or refusal. 
+
+3.2 Faithful Measurement 
+
+State-Grounded Outcome Verification. For each run, the benchmark runner instantiates and verifies the case-specific service state and records a baseline before the target agent starts. After execution, the runner captures a final snapshot and sandbox-recorded service receipts; the baseline-to-final difference identifies the resulting environmental changes. To-gether, these records preserve auditable evidence trail. The execution outcome E is determined from policy-specific evidence. For service-backed constraints, determin-istic verifiers establish E from service receipts or final-state changes; For constraints requiring interpretation, the out-comes are adjudicated by a judge under the hybrid evidence view, which must cite its supporting evidence. Trajectory claims of completion or refusal cannot by themselves estab-lish E. Beyond establishing E, the benchmark also measures how reported labels depend on the evidence view through the hybrid judging system described next. 
+
+The Trajectory-State-Hybrid Judge System. Building on evidence-explicit risk judging (Yuan et al. 2024; Eiras et al. 2025), the Trajectory-State-Hybrid (2+1) judge sys-tem instantiates three view-specific evaluators: the Trajec-tory Judge, State Judge, and Hybrid Judge. The Trajectory Judge receives the agent’s messages and tool calls and applies a trajectory proof contract. The State Judge receives sand-box receipts and final-state changes and applies a state proof contract. The Hybrid Judge combines both evidence sources, aligns tool calls with environment records, and resolves dis-crepancies between claimed and observed outcomes. All three evaluators share the same judge backbone b.We represent each view-specific judging configuration as 
+
+c = ( v, p, g ), where v is the evidence view, p is its corre-sponding prompt or proof contract, and g denotes any deter-ministic gate. For execution configuration s (model, harness, and evaluation cue) and valid-rollout set Ω, reported ASR is 
+
+dASR Ω(s; c, b ) = 1
+
+|Ω|
+
+X
+
+> i∈Ω
+
+Yi(c, b ), (1) where Yi(c, b ) is the harmful label for rollout i. Replacing 
+
+Yi(c, b ) with the state-grounded outcome Ei(s) yields execu-tion ASR. Thus, with the rollout, Ei(s), and b fixed, variation in Yi(c, b ) measures sensitivity to the complete view-specific judging configuration. 
+
+Recognition Annotation. Recognition is annotated inde-pendently of outcome adjudication. Given the applicable constraint and only the agent text preceding the harmful ac-tion, a recognition judge assigns the primary label R = 1 
+
+when the agent explicitly states the rule, a required precon-dition, or a concrete risk before acting. A nested strict label identifies cases in which the agent further acknowledges that the action remains prohibited or unauthorized. We define the Recognition–Execution Gap (REG) as confirmed viola-tions with broad recognition, {E = 1 , R = 1 }, and report 
+
+P (R = 1 | E = 1) . Recognition is distinct from evaluation awareness, which concerns cues that the agent is being tested and is evaluated separately in §4.4. 
+
+4 Experiment 
+
+We organize our experiments around five research questions: 
+
+• Does REDAgentBench expose harmful behavior across models, attack surfaces, and agent harnesses? 
+
+• How do trajectory, state, and hybrid judging configura-tions change reported ASR on fixed rollouts? 
+
+• Does disclosing the evaluation context change agent be-havior? 
+
+• How often do state-confirmed violations occur after the agent has already recognized the relevant constraint? 
+
+• Can an action-time reminder reduce confirmed violations without training? 
+
+4.1 Experimental Setup 
+
+Models, harnesses, and evaluation matrix. We conduct experiments with close-source models accessed through their respective APIs on 8 NVIDIA A100 GPUs. The completed canonical matrix contains six model configurations: GPT-5.2, Qwen3.7-plus, Qwen3.5-plus, Qwen-plus-2025-12-01, Kimi K2.6, and GLM-5.2 (OpenAI 2025; Alibaba Cloud 2026c,b,a; Moonshot AI 2026; Zhipu AI 2026). We run each model through three independently implemented agent har-nesses, including Codex, Hermes, and OpenClaw (OpenAI 2026; Nous Research 2026; OpenClaw Foundation 2026). It covers 15 attack categories spanning user-, environment-, and tool-side attacks. The harnesses expose the same mocked services, but differ in tool mediation, turn construction, and runtime control. RQ1 reports the full matrix rather than aver-aging away these execution-system effects. Benchmark-wide results use the clean evaluation context and the hybrid out-come view. We also use a controlled Qwen-plus ledger for state-grounded diagnostic analyses. This stricter diagnostic cohort is reported separately from the full benchmark matrix. 
+
+Judging configurations. RQ2 uses 401 matched task– harness slots per model. We hold each rollout and the Qwen3.7-plus judge backbone fixed while varying the com-plete view-specific configuration—evidence, proof contract, and deterministic gates. The trajectory–state contrast is pri-mary; matched hybrid labels provide a robustness reference. We use rule-first judging: deterministic verifiers read con-sequential fields from receipts or state transitions, exclude failed, setup, and non-agent actions, and defer to an evidence-citing LLM judge only for semantically defined constraints. Accordingly, every reported ASR specifies the harness, judg-ing configuration, evaluation cue, and judge backbone. Ap-pendix D provides details. 
+
+Human audit of the judge. We draw a stratified sample of 360 valid GPT-5.2 rollouts across harnesses, interven-tion strategies, and judge labels. Two blinded reviewers label every row independently, and a third adjudicates disagree-ments. Estimates map this balanced audit back to the frozen judged population. The audit tests judge accuracy. Full sam-pling, weighting, and coverage details appear in the Supple-mentary Material. 
+
+Evaluation awareness. Following prior work that oper-ationalizes evaluation awareness through contextual cues (Nguyen et al. 2025; Aranguri and Bloom 2026), RQ3 com-pares a clean context with a fixed prefix disclosing that the run is an authorized evaluation in a mocked environment. Com-plete Qwen3.7-plus and Qwen3.5-plus pairs are matched across all three harnesses; this tests evaluation-context sen-sitivity. The experiment details are in the Supplementary Material. 
+
+Recognition–Execution Gap. RQ4 annotates recognition 
+
+R=1 only for state-confirmed harmful executions. Given the applicable constraint and pre-action agent text, the broad la-bel R=1 records a concrete risk; the strict label R=1 further requires acknowledging that the action remains prohibited or unauthorized. The calculation uses the 2,846 executions with resolved action anchors; the 331 unresolved cases are excluded rather than counted as R=0 . The protocol is de-tailed in the Supplementary Material. 
+
+Action-time defense. RQ5 reruns historically harmful ex-ecution cases, with either a self-reminder, the case-specific policy reminder, or character-matched placebo neutral text. Model, harness, task, attack content, tools, and outcome judging remain fixed. 
+
+Metrics and statistical analysis. Execution ASR is the fraction of valid rollouts with confirmed harmful execu-tion, E=1 ; reported ASR is the fraction labeled harmful by a specified judging configuration, Y (c, b )=1 . RQ2 re-ports paired trajectory–state disagreement, exact McNemar tests, and ranking agreement across predefined global, har-ness, category. RQ3 and RQ5 report paired percentage-point changes with case-clustered confidence intervals; RQ4 re-ports P (R=1 | E=1) using resolved anchors and a con-servative full-cohort lower bound. The judge audit reports precision, recall, specificity, F1, and accuracy with stratified case-cluster uncertainty. Exact estimators and definitions ap-pear in the Supplementary Material. 
+
+4.2 Benchmark-Wide Red-Teaming 
+
+Table 2 reports the complete benchmark matrix. All six models exhibit substantial attack success, but neither model ranking nor absolute ASR is stable across harnesses. The highest-ASR model is Qwen-plus in OpenClaw (78.74%) and Hermes (81.74%), but KIMI-2.6 in Codex (78.51%). The lowest observed cell is GLM-5.2 in Hermes (43.62%), while the highest is Qwen-plus in Hermes (81.74%). Figure 4 reveals substantial model–harness interactions. For example, Qwen-plus on E5 increases from 40.62% in OpenClaw to 91.92% in Codex and 95.00% in Hermes. Some patterns are instead stable across harnesses: for Qwen3.5-plus, U5 Model OpenClaw Codex Hermes GPT-5.2 51.54 62.31 52.44 Qwen3.7-plus 49.39 54.38 80.09 Qwen3.5-plus 73.70 75.35 74.92 Qwen-plus 78.74 71.81 81.74 KIMI-2.6 73.31 78.51 77.93 GLM-5.2 54.57 48.12 43.62 
+
+Table 2: Benchmark-wide reported ASR (%) under the clean cue and hybrid judge. E1 E2 E3 E4 E5 T1 T2 T3 T4 U1 U2 U3 U4 U5 U6 GPT-5.2 Qwen3.7-plus Qwen3.5-plus Qwen-plus KIMI-2.6 GLM-5.2 GPT-5.2 Qwen3.7-plus Qwen3.5-plus Qwen-plus KIMI-2.6 GLM-5.2 GPT-5.2 Qwen3.7-plus Qwen3.5-plus Qwen-plus KIMI-2.6 GLM-5.2   
+
+> Agent-platform / workspace External tool / data User input OpenClaw Codex Hermes
+> 025 50 65.7 macro 100
+> Reported ASR (%)
+
+Figure 4: Harness-by-model reported attack success rate (ASR) across intervention strategies. Exact values are pro-vided in Supplementary Material. remains high (85.00–91.00%), whereas T4 remains substan-tially lower (38.38–44.44%). Thus, attack success is struc-tured by both intervention surface and execution harness. These results show that the benchmark elicits harmful behav-ior across model families while retaining enough variation to distinguish execution settings. A stricter state-confirmed Qwen-plus diagnostic ledger yields the same conclusion under a controlled model and judge: Codex records 1,014 harmful executions in 1,661 roll-outs (61.1%), Hermes 1,162/1,661 (69.9%), and OpenClaw 1,001/1,502 (66.6%). The 8.8-point Hermes–Codex gap can-not be attributed to a model change. A single-harness ASR is therefore insufficient to characterize agent safety. 
+
+Human audit of judge. Two blinded reviewers agree on 91.94% of 360 sampled GPT-5.2 rows ( κ = 0 .838 ) before ad-judication. Precision is 97.84% (95% CI: 96.00–99.28%), re-call 91.27% (88.58–93.80%), and accuracy 93.62% (91.57– 95.44%). The conservative error profile yields a raw judged ASR of 55.43% versus a human-audited estimate of 59.42%. Appendix E reports the details. 
+
+4.3 Faithful Measurement 
+
+We compare the three judging configurations on the matched panel from §4.1; every slot has valid labels for all six models and all views. Figure 5 shows a consistent directional effect. The State Judge generates reported ASR values 7.73–11.72 percent-age points higher than the Trajectory Judge for every model and changes 12.97–21.20% of paired labels. In every model, 30 40 50 60 70 80         
+
+> Attack success rate (%) KIMI-2.6 Qwen3.5-plus Qwen-plus Qwen3.7-plus GPT-5.2 GLM-5.2
+> +13.5 +13.5 +11.7 +9.0 +10.2 +8.5
+> ΔH − T (a) Evidence-view ASR
+> 0510 15 20 25
+> Trajectory–state disagreement (%)
+> 21.2 18.9 19.2 14.7 16.0 13.0
+> (b) Paired label disagreement
+> Trajectory State Hybrid Disagreement
+
+Figure 5: Fixed-backbone judging-configuration audit on matched task–harness slots per model. (a) Reported ASR un-der trajectory, state, and hybrid views. (b) Paired trajectory– state label disagreement. substantially more cases are harmful only under the state judging configuration than only under the trajectory judg-ing configuration; all six paired differences are significant under two-sided exact McNemar tests ( p ≤ 6.54 × 10 −5). A transcript alone therefore systematically misses durable prohibited effects rather than introducing a model-specific random offset. Differences between the view-specific judging configura-tions are large enough to change local comparisons, although the global ranking is stable. Comparing trajectory with state, 23 of 64 predefined slices contain a strict pairwise rever-sal, totaling 43 inversions. For example, Qwen3.7-plus ranks above KIMI-2.6 under the Hermes trajectory view, whereas KIMI-2.6 ranks above Qwen3.7-plus under the Hermes state view. Hybrid reported ASR lies close to state reported ASR for all six models, consistent with the hybrid judge using durable state evidence while retaining trajectory context for semanti-cally ambiguous cases. Because the trajectory–state contrast is paired re-adjudication of the same fixed rollout, we treat it as the primary paired judging-configuration comparison, and the matched hybrid labels as a robustness reference. Broader inspection revealed three mechanisms. Durable workspace changes often lacked a verifiable write event in the trajectory; in several multi-turn cases, the agent even re-fused only after the harmful write had occurred. Conversely, receipts often omitted the authorization or payload context needed to interpret a recorded action. Finally, attempted and realized effects could diverge, as when an agent reported sending an attachment that the sent-message receipt did not contain. These patterns motivate the hybrid view. 
+
+4.4 Evaluation awareness 
+
+RQ3 asks whether the surrounding evaluation context changes behavior. Adding a fixed disclosure that the run is an authorized evaluation in a fully mocked environ-ment lowers ASR by 6.59 points for Qwen3.7-plus (95% CI [−7.89 , −5.30] ) and 4.77 points for Qwen3.5-plus ([−6.01 , −3.55] ). Both paired effects are significant and con-sistent with agents becoming more conservative when eval-uation is explicit. The effect is not uniform. OpenClaw/T4 moves in the op-posite direction for both models ( +6 .02 and +4 .82 points), Harness Resolved / E=1 Broad R Strict R
+
+Codex 999 / 1,014 22.12% 6.92% Hermes 1,121 / 1,162 16.24% 4.91% OpenClaw 726 / 1,001 14.74% 4.41% All 2,846 / 3,177 17.92% 5.48% 
+
+Table 3: Recognition among state-confirmed harmful execu-tions. 0 5 10 15 20 25       
+
+> Recognition among confirmed harms (%)
+> OpenClaw Hermes Codex All
+> (a) Recognition–Execution Gap
+> Broad R Strict R 020 40 60 80 100
+> Replay ASR (%)
+> Qwen+ 510 Qwen+ 600 Qwen3.7 300
+> 14.1 12.2 5.4
+> (b) Training-free action-time defense
+> No addition Neutral control Self-reminder Policy reminder
+
+Figure 6: From state-grounded diagnosis to action-time de-fense. (a) Recognition of confirmed harmful executions. (b) Replay ASR under intervention policies. showing that disclosure does not simply improve safety in every attack setting. We interpret this as evidence that eval-uation disclosure changes measured behavior. 
+
+4.5 The Recognition–Execution Gap 
+
+REG is concentrated in attacks that create evidence ambi-guity or deceptive authorization. Broad recognition reaches 50.64% for data-source/RAG poisoning (T4), 37.79% for authority pressure (U4), 36.59% for tool-output tampering (T3), and 32.14% for workspace-file poisoning (E1), but only 1.89% for direct instruction (U1). The central failure is therefore not always that the agent fails to understand a rule. In a substantial subset, the rule is present in its own pre-action text but does not control execution. Among 3,177 state-confirmed Qwen-plus violations, 2,846 have a resolved pre-action anchor. Broad recognition appears in 510 of these executions (17.92%): almost one in five harmful actions occurs after the agent has stated the applicable constraint, precondition, or specific risk. Under the strict nested definition, 156 of 2,846 labels (5.48%) ex-plicitly acknowledge that the action remains prohibited or unauthorized and then execute it anyway. Even if every unre-solved anchor were counted as negative, the full-cohort lower bounds would remain 16.05% and 4.91%. The detailed statis-tics are in Table 3. 
+
+4.6 Training-Free Action-Time Defense 
+
+Figure 6 summarizes the recognition results and defense ef-fects. REG motivates intervention at the action boundary. We replay known harmful cases with a self-reminder, a case-specific policy reminder, or neutral text. Across the avail-able cohorts, neutral text closely follows the baseline, self-reminders provide a moderate reduction, and explicit policy reminders are the strongest intervention (Table 4). On the confirmatory 510-case Qwen-plus cohort, the pol-icy reminder reduces ASR by 74.19 points (95% source-case cluster CI [69.85, 78.41]) and prevents 368 of 434 baseline 
+
+Condition Qwen+ 510 Qwen+ 600 Qwen3.7 300 No addition 88.25% 86.31% 80.78% Self-reminder 51.76% 63.83% 48.15% Policy reminder 14.06% 12.19% 5.37% Neutral control 85.51% 88.59% 85.19% 
+
+Table 4: Training-free action-time defense. harmful executions in complete pairs. The same ordering appears across the other cohorts and harnesses. Similar self-reminder effects for recognized and matched unrecognized cases suggest a broader form of action-time re-grounding rather than a repair limited to REG cases. These selected replays do not estimate full-benchmark ASR, and reminders cannot replace hard access controls. They nevertheless con-nect receipt-grounded diagnosis to a defense verified by paired re-execution. 
+
+5 Discussion 
+
+An ASR number is meaningful only with its measure-ment conditions. The central contribution of this paper is procedural: we make the (harness, judging configuration, evaluation cue, judge backbone) tuple part of the ASR. This turns cross-paper comparisons into structured statements— “harness A under judging configuration B and cue C, us-ing backbone D, scores X”. Our position parallels the case for construct-valid measurement in generative-AI evaluation (Chouldechova et al. 2026): without pinning the protocol, ASRs are not comparable across papers. 
+
+REG is a recurring diagnostic pattern within the evalu-ated Qwen-plus cohort. Under the broad recognition def-inition, REG appears in 17.92% of resolved state-confirmed violations; under the stricter nested definition, it appears in 5.48%, concentrated in the intervention strategies that require 
+
+agent-side epistemic judgment about whether an observation is trustworthy (data/RAG poisoning, workspace-file poison-ing, tool-output tampering). This exemplifies REG: the agent 
+
+did recognize, and executed anyway. 
+
+6 Conclusion 
+
+We introduced REDAgentBench, an executable benchmark and faithful measurement framework for red-teaming tool-using LLM agents. Our experiments establish three findings. First, harmful execution depends jointly on the model, har-ness, and attack surface, proving a single ASR insufficient for assessing agent safety. Second, trajectory-only judging systematically misses durable harm that is visible in ser-vice receipts and final state, therefore underestimates ASR. Moreover, making the agent aware of being evaluated can also change its execution behavior. Third, state-grounded ev-idence reveals a Recognition–Execution Gap: almost one in five resolved Qwen-plus violations occurs after the agent has stated the relevant constraint. A training-free policy reminder reduces confirmed violations by more than 70 percentage points in the replay. Together, these results show that exe-cutable evaluation can do more than rank systems: it can identify where safety measurement fails and diagnose why an agent violates a constraint. References 
+
+Alibaba Cloud. 2026a. Qwen-Plus Model Documentation. https://help.aliyun.com/zh/model-studio/qwen-plus. Docu-ments the qwen-plus-2025-12-01 snapshot; accessed July 28, 2026. Alibaba Cloud. 2026b. Qwen3.5-Plus Model Documen-tation. https://help.aliyun.com/zh/model-studio/qwen3-5-plus. Official model documentation; accessed July 28, 2026. Alibaba Cloud. 2026c. Qwen3.7-Plus Model Documen-tation. https://help.aliyun.com/zh/model-studio/qwen3-7-plus. Documents the qwen3.7-plus-2026-05-26 
+
+snapshot; accessed July 28, 2026. Andriushchenko, M.; Souly, A.; Dziemian, M.; Duenas, D.; Lin, M.; Wang, J.; Hendrycks, D.; Zou, A.; Kolter, J. Z.; Fredrikson, M.; Gal, Y.; and Davies, X. 2025. AgentHarm: A Benchmark for Measuring Harmfulness of LLM Agents. In Proceedings of ICLR .Aranguri, S.; and Bloom, J. 2026. Verbalized Eval Awareness Inflates Measured Safety. Goodfire Research . Accessed July 28, 2026. Chouldechova, A.; Cooper, A. F.; Barocas, S.; Palia, A.; Vann, D.; and Wallach, H. 2026. Comparison requires valid measurement: Rethinking attack success rate comparisons in AI red teaming. In Proceedings of NIPS , volume 38. Debenedetti, E.; Zhang, J.; Balunović, M.; Beurer-Kellner, L.; Fischer, M.; and Tramèr, F. 2024. AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and De-fenses for LLM Agents. In Proceedings of NIPS , volume 37, 82895–82920. Ding, X.; Zhai, S.; Song, L.; Li, J.; Shi, T.; Meade, N.; Reddy, S.; Kang, J.; and Zhao, J. 2026. The blind spot of agent safety: How benign user instructions expose critical vulnerabilities in computer-use agents. arXiv:2604.10577. Divekar, A.; and Majumder, A. 2026. PRECISE: Reduc-ing the Bias of LLM Evaluations Using Prediction-Powered Ranking Estimation. In Proceedings of AAAI .Eiras, F.; Zemour, E.; Lin, E.; and Mugunthan, V. 2025. Know thy judge: On the robustness meta-evaluation of llm safety judges. arXiv:2503.04474. Feng, Y.; Du, X.; Deng, X.; Ding, Y.; Wen, M.; Wang, Y.; Xie, Y.; Zheng, B.; Tan, Y.; Li, Y.; Wu, Y.; Cao, K.; Huang, W.; Guo, Y.; Ma, X.; and Jiang, Y.-G. 2026a. BraveGuard: From Open-World Threats to Safer Computer-Use Agents. arXiv:2606.01166. Feng, Y.; Lin, R.; Wen, M.; He, Q.; Guo, Y.; Ding, Y.; Wu, Y.; Chen, J.; Xu, Z.; Du, X.; Ma, J.; Chen, Z.; Ma, X.; Chen, Y.; and Deng, X. 2026b. Safety Testing LLM Agents at Scale: From Risk Discovery to Evidence-Grounded Verification. arXiv:2607.01793. Gao, M.; Liu, Y.; Hu, X.; Wan, X.; Bragg, J.; and Cohan, A. 2025. Re-evaluating Automatic LLM System Ranking for Alignment with Human Preference. In Findings of NAACL ,4605–4629. Jiang, L.; Li, Y.; Zhang, X.; Ding, Y.; and Pan, L. 2025. SceneJailEval: A Scenario-Adaptive Multi-Dimensional Framework for Jailbreak Evaluation. In Proceedings of AAAI .Lee, C.; Zeng, T.; Jeong, J.; Sohn, J.-y.; and Lee, K. 2025. How to correctly report llm-as-a-judge evaluations. arXiv:2511.21140. Li, X.; Yu, S.; Pan, M.; Sun, Y.; Li, B.; Song, D.; Lin, X.; and Shi, W. 2026. Unsafer in many turns: Benchmarking and defending multi-turn safety risks in tool-using agents. In 
+
+Proceedings of ICML .McKenzie, I. R.; Hollinsworth, O. J.; Tseng, T.; Davies, X.; Casper, S.; Tucker, A. D.; Kirk, R.; and Gleave, A. 2025. STACK: Adversarial Attacks on LLM Safeguard Pipelines. In Proceedings of AAAI .Moonshot AI. 2026. Kimi API Model List. https://platform. kimi.ai/docs/models. Documents the kimi-k2.6 model; accessed July 28, 2026. Nasr, M.; Carlini, N.; Sitawarin, C.; Schulhoff, S. V.; Hayes, J.; Ilie, M.; Pluto, J.; Song, S.; Chaudhari, H.; Shumailov, I.; Guha Thakurta, A.; Xiao, K. Y.; Terzis, A.; and Tramèr, F. 2026. The Attacker Moves Second: Stronger Adaptive At-tacks Bypass Defenses Against LLM Jailbreaks and Prompt Injections. In Proceedings of USENIX Security .Nguyen, J.; Hoang, K.; Attubato, C. L.; and Hofstätter, F. 2025. Probing and Steering Evaluation Awareness of Lan-guage Models. arXiv:2507.01786. Nous Research. 2026. Hermes Agent. https://github.com/ NousResearch/hermes-agent. Software repository; accessed July 28, 2026. OpenAI. 2025. GPT-5.2 Model. https://developers.openai. com/api/docs/models/gpt-5.2. Official model documenta-tion; accessed July 28, 2026. OpenAI. 2026. Codex CLI. https://github.com/openai/ codex. Software repository; accessed July 28, 2026. OpenClaw Foundation. 2026. OpenClaw. https://github. com/openclaw/openclaw. Software repository; accessed July 28, 2026. Rashid, M. R. U.; Dasu, V. A.; Wang, Y.; Tan, G.; and Mehnaz, S. 2025. Chain-of-Thought Driven Adversarial Scenario Extrapolation for Robust Language Models. In 
+
+Proceedings of AAAI .Saha, S.; Chen, J.; Mayers, S.; Gouda, S. K.; Wang, Z.; and Kumar, V. 2025. Breaking the code: Security assessment of ai code agents through systematic jailbreaking attacks. arXiv:2510.01359. Wang, Z.; Gao, Y.; Wang, Y.; Liu, S.; Sun, H.; Cheng, H.; Shi, G.; Du, H.; and Li, X. 2026. Mcptox: A benchmark for tool poisoning on real-world mcp servers. In Proceedings of AAAI , volume 40, 35811–35819. Weidinger, L.; Raji, I. D.; Wallach, H.; Mitchell, M.; Wang, A.; Salaudeen, O.; Bommasani, R.; Ganguli, D.; Koyejo, S.; and Isaac, W. 2025. Toward an evaluation science for generative ai systems. arXiv:2503.05336. Yang, Z.; Li, R.; Qiang, Q.; Wang, J.; Lou, F.; Li, M.; Cheng, D.; Xu, R.; Lian, H.; Zhang, S.; et al. 2026. FinVault: Bench-marking Financial Agent Safety in Execution-Grounded En-vironments. arXiv:2601.07853. Yehudai, A.; Eden, L.; Perlitz, Y.; Bar-Haim, R.; and Shmueli-Scheuer, M. 2025. CLEAR: Error Analysis via LLM-as-a-Judge Made Easy. arXiv:2507.18392. Yuan, T.; He, Z.; Dong, L.; Wang, Y.; Zhao, R.; Xia, T.; Xu, L.; Zhou, B.; Li, F.; Zhang, Z.; Wang, R.; and Liu, G. 2024. R-Judge: Benchmarking Safety Risk Awareness for LLM Agents. In Findings of EMNLP , 1467–1490. Zhan, Q.; Liang, Z.; Ying, Z.; and Kang, D. 2024. In-jecAgent: Benchmarking Indirect Prompt Injections in Tool-Integrated Large Language Model Agents. In Findings of ACL , 10471–10506. Zhang, C.; Yang, H.; Jiang, B.; Zhang, X.; Zhao, Y.; Chen, R.; Zhou, L.; Xu, X.; Wu, J.; Fang, L.; and Liu, Z. 2026a. LIT-MUS: Benchmarking Behavioral Jailbreaks of LLM Agents in Real OS Environments. arXiv:2605.10779. Zhang, Y.; Wang, J.; Ge, Y.; Xu, W.; Hamm, J.; and Reddy, C. K. 2026b. Stop Comparing LLM Agents Without Dis-closing the Harness. arXiv:2605.23950. Zhipu AI. 2026. GLM-5.2 Model Documentation. https: //docs.bigmodel.cn/cn/guide/models/text/glm-5.2. Official model documentation; accessed July 28, 2026.

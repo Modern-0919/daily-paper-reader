@@ -1,0 +1,678 @@
+Title: CAP: A Scalable Benchmark for Evaluating Cross-Site Browser Agents with Complex Actions and Perception
+
+URL Source: https://arxiv.org/pdf/2608.08392v1
+
+Published Time: Tue, 11 Aug 2026 01:14:43 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+Published as a conference paper at COLM 2026 
+
+# CAP: A Scalable Benchmark for Evaluating Cross-Site Browser Agents with Complex Actions and Perception 
+
+Zejun Xu ∗† 1,4 Taiyi Chen ∗ 2,5 Jin Li ∗ 5 Yongtong Gu ∗ 3
+
+Qi Cheng † 4 Aixuan Lv 4 Shuai Zhu Pengfei Zhu 1
+
+Kaichen Yang † 4 Boyu Sun 3 Yixian Yang 1 Mulong Xie 4
+
+Xin Liu 1 Dagang Li B 1 Xiaoteng Ma B 2 Hongru Wang B 6
+
+> 1
+
+Macau University of Science and Technology 2Tsinghua University 
+
+> 3
+
+Southeast University 4FellouAI 5ARGUS Lab 6The University of Edinburgh 
+
+zejunx@student.must.edu.mo https://warriorxu0302.github.io/CAP-Bench/ 
+
+Abstract 
+
+Large language models are increasingly deployed as autonomous agents that interact with the web through browsers. While recent progress has been driven by benchmarks that evaluate end-to-end task success, these evaluations largely overlook two fundamental sources of difficulty in real web browsing: complex actions over rich user interfaces and visual perception of dynamically rendered content , especially in workflows that span multiple websites. We introduce CAP, a scalable benchmark for evaluating browser agents on cross-site, human-like web tasks that require non-trivial UI inter-actions and visual understanding. Specifically, we adopt a decomposition-and-recomposition pipeline that first abstracts each website into a struc-tured site card capturing user-facing functions, complex execution opera-tions, and perceptual requirements, and then recomposes these components into realistic cross-site workflows. Each task is therefore grounded in mul-tiple specific operations on each website, enabling fine-grained diagnosis. Built on this framework, we construct 420 tasks across 108 real-world websites and 24 domains under careful quality control. Experiments on state-of-the-art browser agents using our verifiable agent-as-a-judge evalu-ation framework show low success rates and reveal that perception-heavy interactions remain a major bottleneck, exposing substantial gaps between current agents and real-world web browsing demands. 
+
+1 Introduction 
+
+Large language models increasingly act as autonomous agents that perceive, reason, and execute actions in real-world environments (Wang et al., 2024b; Xi et al., 2023; Acikgoz et al., 2025; Wang et al., 2025a). Among the interfaces these agents operate on, the web browser is especially important: it is the universal gateway to online information, services, and applications (Yoran et al., 2024; Gou et al., 2025). Browser agents such as OpenAI’s Operator, Google’s Project Mariner, Anthropic’s computer use, and commercial products like Manus have appeared in quick succession (Hu et al., 2025). Yet real-world browser tasks are far more demanding than current benchmarks suggest. Consider a seemingly simple request from our benchmark: choosing a laptop . A user might filter by specs and budget on BestBuy, compare stock availability across Amazon and Target, interpret star ratings and parse negative reviews for recurring complaints, and watch video reviews on YouTube, all within a single workflow. Most existing benchmarks fall 
+
+> ∗
+
+Equal contribution. 
+
+> †
+
+Work done during internship at FellouAI. 
+
+> B
+
+Corresponding authors: Dagang Li ( dgli@must.edu.mo ), Xiaoteng Ma ( pony.xtma@gmail.com ), and Hongru Wang ( hongru.carrywang@gmail.com ). 
+
+1arXiv:2608.08392v1 [cs.AI] 9 Aug 2026 Published as a conference paper at COLM 2026 C = Cross-Site Workflows A = Complex Actions (Execution) P = Challenging Perception               
+
+> Cross-Site Info Flow Map Drawing Trimmed Text Multi-site Planning Video Control Lazy Load Scroll Animating Element Dynamic Dependency
+> Avg 3 sites per task Avg 7complex actions per task
+> 58 Action Types Covered Avg 4perception challenges per task 50 Perception Types Covered
+> Verifiable Agent-as-a-Judge Evaluation
+> Automated state verification
+> CAP’s Three Complexity Dimensions: C-A-P
+> Sequential Parallel Fan-out
+> Shopping Social Video
+
+Figure 1: Overview of the CAP framework. CAP targets three sources of difficulty in real-world web browsing ( Cross-site workflows, complex Actions, and challenging Perception) and evaluates agents through a verifiable agent-as-a-judge framework with explicit execu-tion and perception checkpoints. short of capturing such realistic demands. They either focus on single-site interactions with simple operations such as clicking links or entering text (Deng et al., 2023; Zhou et al., 2024), or address cross-site tasks but typically evaluate agents only on final answers without systematically measuring the difficulty of the underlying interactions (Yoran et al., 2024; Mialon et al., 2024). As a result, they offer limited insight into how and why agents fail in practice. In contrast, modern web applications present two intertwined challenges that existing evaluations largely overlook: 1) execution complexity : completing a task often requires non-trivial interactions (e.g., dragging map regions, manipulating date-range sliders, or navigating nested dropdown menus) that go well beyond simple clicking and typing; and 2) perception complexity : users must interpret rich visual content including charts, tables, images, and dynamically rendered elements to extract actionable information. Compounding these challenges, realistic workflows demand such complex interactions across multiple websites. We introduce CAP , a scalable benchmark designed to evaluate browser agents under realistic web browsing conditions. As illustrated in Figure 1, CAP targets three sources of difficulty central to human web use: Cross-site workflows, complex Actions, and challenging visual 
+
+Perception. To enable fine-grained grounding and diagnosis, we adopt a decomposition-and-recomposition strategy. We first decompose each website into a structured site card that catalogs what the site can do, what complex actions it requires (e.g., map dragging, video control), and what perceptual challenges it presents (e.g., interpreting charts, handling overlapping elements). We then recompose these building blocks into coherent cross-site task proposals through affinity-guided sampling, and finally instantiate them into concrete tasks with automatically generated evaluation criteria. This design supports both expansion and diagnosis. New websites can be added by anno-tating their site cards, after which they are automatically integrated into tasks alongside existing sites without manual task engineering. At the same time, because each task is composed of explicitly annotated execution and perception components, evaluation can be grounded in explicit checkpoints rather than end results alone. Building on this, we propose a verifiable agent-as-a-judge framework, where each task is automatically converted into a hierarchical rubric tree whose leaf nodes correspond to independently checkable execution and perception criteria, distinct from prior agent-as-a-judge approaches that rely on holistic LLM judgments over final outputs (Gou et al., 2025). Our contributions are as follows: 2Published as a conference paper at COLM 2026 • We present CAP, a benchmark of 420 cross-site tasks spanning 108 real-world websites across 24 functional domains, with an average of 7 complex execution operations and 4 perception challenges per task. • We develop a fully automated task synthesis pipeline that decomposes websites into structured site cards and recomposes them into diverse, difficult cross-site tasks, enabling continuous benchmark expansion. • We propose a verifiable agent-as-a-judge evaluation framework that automatically generates hierarchical rubrics from task structure, providing fine-grained diagnosis of execution and perception capabilities. • We evaluate eight state-of-the-art browser agent systems: even the best achieves only 8.0% success rate, with perception-heavy interactions emerging as the major bottleneck. 
+
+2 Related Work 
+
+Benchmarks. Browser-based agents have been studied as a general interface for real web tasks, motivating benchmarks that address increasingly diverse functional demands (Deng et al., 2023; Zhou et al., 2024; Wang et al., 2024a; Halluminate and Skyvern, 2025). Early benchmarks focused on programmatic interaction and structural information extraction within DOM-based environments (Liu et al., 2018; Chen et al., 2021); later work introduced richer multimodal signals such as vision, enabling agents to operate on rendered pages while raising new evaluation challenges (Xu et al., 2025; Song et al., 2025). Benchmarks have likewise moved from sandboxed simulators with fixed snapshots toward real-world, open environments that test agent robustness against the stochastic nature of the live web (Pan et al., 2024; Kara et al., 2026; Lu et al., 2025), and from short interactions toward long-horizon, multi-step tasks that demand sustained reasoning and long-term memory over extended trajectories (Gou et al., 2025). Yet as Table 1 shows, no existing benchmark jointly covers three dimensions of realistic browser use: cross-site workflows, complex execution operations, and challenging perceptual demands. Even benchmarks that support cross-site tasks (Gou et al., 2025) score agents only on final answers rather than diagnosing where execution or perception breaks down. In contrast, CAP annotates and evaluates both execution and perception complexity within long-horizon, cross-site workflows. 
+
+Evaluation Methodologies. Evaluation methods for web agents trade off precision against 
+
+scalability . Rule-based graders (Mialon et al., 2024; Yoran et al., 2024) use deterministic comparators over canonicalized outputs. They offer high precision and reproducibility, but require task-specific verification scripts whose authoring cost grows linearly with benchmark size, limiting scalability. LLM-as-a-judge approaches (He et al., 2024; Xue et al., 2025) address this scalability bottleneck by applying rubric-based scoring with a general-purpose model. However, observing only the static final output, they cannot reliably verify multi-step claims against the underlying web state, leading to known false-positive issues on long-horizon tasks. Agent-as-a-judge methods (Gou et al., 2025) instead shift from passive assessment to active verification (e.g., fetching and examining cited sources), at the cost of higher computational overhead. Yet existing agent-as-a-judge frameworks still judge                                                  
+
+> Benchmark # Tasks Horizon Dynamic Cross-site Exec. C. Perc. C. Evaluation
+> Online-Mind2Web (Xue et al., 2025) 300 Short ✓✗✗✗LLM-as-a-Judge WebVoyager (He et al., 2024) 643 Short ✓✗✗✗LLM-as-a-Judge GAIA (Mialon et al., 2024) 466 Med. ✗✗✗✗Answer Match AssistantBench (Yoran et al., 2024) 214 Med. ✗✗✗✗Answer Match Mind2Web2 (Gou et al., 2025) 130 Long ✓✓✗✗Agent-as-a-Judge
+> CAP (Ours) 420 Long ✓✓✓✓Verifiable Agent-as-a-Judge
+
+Table 1: Comparison with existing web browsing benchmarks. Horizon indicates task length, Dynamic indicates whether answers are time-varying, Cross-site indicates cross-website navigation, and Exec./Perc. Complex indicate requirements for complex execution and perception operations. 3Published as a conference paper at COLM 2026 Phase 1: Site Card Annotation Phase 4:Task Instantiation Phase 3: Task Proposal Phase 2: Cluster Sampling                                                       
+
+> 108 Websites from 24 Function Clusters Sw={F,A,P}
+> Browser-Use Agent
+> Automated Exploration
+> F(Functions )
+> (e.g. property search, mortgage calc)
+> A(Execution Items A)
+> 58 action types
+> P( Perception Items P)
+> 50 perception types
+> Site Card(Sw)
+> p=⟨ucomp , τ perc ,fassoc ⟩
+> Slider ➡Range Selection ➡Price Filter
+> Anchor Selection (Canchor =arg min h( Ci))
+> Ci∈C
+> Mij = workflow coherence
+> Affinity-Guided Expansion
+> Functional Affinity Matrix M Sampled Cluster Subset C
+> Academic Search
+> ↔Code Hosting
+> Information Flow Patterns
+> Sequential vi→ v j
+> Parallel vi‖vj
+> Fan-out vi→ { vj}
+> Fan-In {v i}→ v j
+> Chain vi→ v j→vk
+> LLM Task Proposer
+> Fan-out:v i→ { vj}Fan-In:{v i}→ v j
+> Chain: v i→v j→vk
+> Task Proposal(t prop )
+> uintent User Intent
+> Фprop Information Flow
+> oprop Planned Output
+> Dynamic Dependency √
+> Site Necessity √
+> “Drag the price slider” (UI operation) “Find apartments under $2000”(User goal)
+> LLM Instantiator Goal-Oriented Elicitation
+> Task Instance(t inst )
+> Rationality Complexity Evaluability Safety
+> E-commerce Travel Real Estate Academic
+> Rationality Complexity Executability Evaluability Safety
+> ddesc :Natural Language Description
+> ϕinst :Concrete Information Flow
+> Ԑ = Ԑ act UԐper c :Covered Points
+> oinst :Expected Outputs
+> mmeta :Metadata
+> ①②
+> ×
+> √
+
+Figure 2: Overview of the CAP construction pipeline: (1) site card annotation decomposes websites into structured functional representations; (2) cluster sampling selects coherent website subsets by functional affinity; (3) task proposal generates abstract cross-site work-flows; and (4) task instantiation produces concrete, verifiable task instances. only the final output and do not localize failures to specific execution or perception steps. Our verifiable agent-as-a-judge framework extends this line of work by decomposing each task into a hierarchical rubric tree of independently checkable execution and perception criteria, yielding per-criterion capability diagnosis rather than one end-to-end score. 
+
+3 CAP Construction Pipeline 
+
+We introduce CAP to evaluate agentic browsers on realistic cross-site tasks with non-trivial interactions. To construct the benchmark efficiently, we develop an automatic pipeline that generates such tasks. As illustrated in Figure 2, the pipeline consists of four phases: 1) site card annotation (§ 3.1); 2) cluster sampling (§ 3.2); 3) task proposal (§ 3.3); and 4) task instantiation (§ 3.4). 
+
+3.1 Site Card Annotation 
+
+We use websites as the units for task construction. To ensure broad coverage of real-world web applications, we define 24 functional clusters C = {C1, C2, . . . , C24 } commonly encountered in browser agent tasks, including e-commerce, travel booking, academic search, real estate, code hosting, video streaming, news media, and healthcare. Within each cluster 
+
+Ci we select high-traffic websites based on SimilarWeb rankings, yielding 139 candidates. We then exclude websites that block automated access or require mandatory login, since automated agents cannot reliably interact with them under standard configurations and including them would conflate agent capability failures with environment-level access barriers; 108 websites remain. To capture what each website contributes to a task, we annotate it with a site card , a structured summary that records what functions the website offers and what complex interactions those functions involve. For each website w, the site card is defined as sw = ⟨F , A, P ⟩ . F
+
+denotes the set of user-facing functions. Each function f ∈ F describes what users can accomplish on the website (e.g., property search, mortgage calculation). A denotes the set of execution items, defined as non-trivial interactions such as map dragging and map zooming. Each execution item a ∈ A is defined as a = ⟨ucomp , τact , fassoc ⟩, where ucomp is the UI component, τact is the action type, and fassoc ∈ F is the associated function. P denotes the set of perception items, i.e., elements requiring visual understanding such as chart trend recognition and image content understanding. Each perception item p ∈ P is defined as 
+
+p = ⟨ucomp , τperc , fassoc ⟩, where τperc is the perception type. By linking execution items a and perception items p to functions fassoc , we can phrase tasks in terms of user goals (e.g., “find apartments under $2000”) instead of UI operations (e.g., “drag the price slider”), making the tasks better reflect real user scenarios. To determine the scope of action types τact and perception types τperc that CAP should cover, we ground our taxonomy in UI components, since modern web applications are built from them and each component constrains the interactions it affords. We adopt the Ant Design component library 1, one of the most widely adopted enterprise-grade design 
+
+1https://ant.design/ 
+
+4Published as a conference paper at COLM 2026 systems (roughly 99k GitHub stars and over 3.5 million weekly npm downloads as of August 2026), as our reference framework. Building on its taxonomy, we retain its core categories ( Navigation , Data Entry , Data Display , and Feedback ), exclude General and Layout 
+
+components that primarily involve basic styling, and augment the taxonomy with Data Visualization , Media , and Editor components that frequently appear in real-world websites but are not explicitly covered by the library. Based on this grounded component taxonomy, three domain experts in web development iteratively identify 64 action types and 56 perception types. The complete taxonomy is provided in Appendix C. To annotate site cards sw efficiently, we use Browser-Use (Müller & Žuniˇ c, 2024) 2, an open-source browser agent (prompt details in Appendix D.1). Given a website w as input, the agent automatically explores the website, identifies user-facing functions F , and catalogs execution items A and perception items P, producing sw as output. The resulting 108 site cards cover 1,167 functions, with 58 of the 64 action types (90.6%) and 50 of the 56 perception types (89.3%) instantiated by at least one website. A manual error analysis of the automatically constructed site cards is reported in Appendix F. 
+
+3.2 Cluster Sampling 
+
+In this stage, we select which sw to combine into cross-site tasks. Not all combinations make sense: browsing Zillow and then searching GitHub feels disjointed, whereas reading arXiv and then locating code on GitHub is a natural workflow. Since websites within a cluster share similar functionality, coherence between clusters generalizes to their member websites. We thus assess coherence once per cluster pair rather than per website pair; we term this cluster-level coherence functional affinity .To quantify functional affinity, we prompt a language model to assess pairwise cluster compatibility based on the plausibility of information flow scenarios, producing an affinity matrix M where Mij represents the likelihood that clusters Ci and Cj form coherent work-flows (prompt details in Appendix D.2). For instance, academic search and code hosting receive high Mij since researchers frequently find papers and then locate implementations, whereas 
+
+real estate and code hosting receive low Mij due to the absence of natural information flow. Based on M, we sample a cluster subset C∗ ⊆ C through two steps: 
+
+Step 1: Anchor selection. We maintain historical usage statistics h(Ci) that record how often cluster Ci has appeared in generated tasks. We select the least-used cluster as the anchor, Canchor = arg min Ci ∈C h(Ci), preventing over-representation of common domains. 
+
+Step 2: Affinity-guided expansion. Starting from C∗ = {Canchor }, we prompt a language model to select 3–6 clusters that work well with the anchor. We provide historical co-occurrence counts h(Ci, Cj) for all cluster pairs and ask the model to favor high-affinity but rarely-combined clusters to diversify task coverage. We pass the resulting subset C∗ to the next stage for task proposal. 
+
+3.3 Task Proposal 
+
+The goal of this stage is to define what cross-site tasks should be performed over the websites that C∗ covers. Manually authoring such tasks does not scale; the functions F recorded in site cards provide natural building blocks: by exposing what each website can do, they let a language model combine functions across sites into plausible workflows (prompts in Appendix D.3; flow patterns in Appendix G). Given a sampled cluster subset C∗ and the site cards {sw} of all websites w belonging to clusters in C∗, each generated proposal tprop = ⟨uintent , oprop , ϕprop ⟩ contains three compo-nents: the user intent uintent describing who needs the task and why, the planned output 
+
+oprop defining what the user expects to receive, and the information flow ϕprop specifying 
+
+> 2https://github.com/browser-use/browser-use
+
+5Published as a conference paper at COLM 2026 how data transfers between websites as a directed acyclic graph (DAG) over workflow steps. Using this approach, we generate 600 task proposals (5 proposals per sampled cluster subset over 120 sampling rounds). Eight annotators manually review all proposals against two criteria: (i) the user intent reflects a meaningful real-world need rather than a contrived com-bination of features, and (ii) cross-site information dependencies are dynamically obtained during execution rather than preset in the task description. Inter-annotator agreement on these criteria is high (Cohen’s κ = 0.81), and 512 proposals (85.3%) pass both checks and are forwarded to the instantiation stage. 
+
+3.4 Task Instantiation 
+
+Given task proposals tprop from the previous stage, we instantiate each into a concrete bench-mark task tinst = ⟨ddesc , ϕinst , E, oinst , mmeta ⟩, comprising: a natural language description 
+
+ddesc phrased as a first-person user request, a concrete information flow ϕinst with specific entities and values, covered points E = Eact ∪ E perc denoting execution and perception items, expected outputs oinst , and metadata mmeta recording involved websites and func-tions. Each covered point e ∈ E is a tuple e = ( id , τ, d), where id is a unique identifier, 
+
+τ ∈ { action , perception } indicates the type, and d is a natural language description. To generate tinst , we select execution items a ∈ A and perception items p ∈ P from relevant site cards to include in E, then prompt a language model to instantiate the abstract information flow ϕprop (§3.3) into ϕinst by binding abstract slots to concrete entities, and to concretize the planned output oprop into the expected outputs oinst (prompt details in Appendix D.4). A key principle is goal-oriented elicitation : descriptions express user goals (e.g., “find what people are saying about this product”) rather than UI operations, so complex interactions arise from task requirements rather than explicit hints in the prompt. The outputs oinst serve both the user and verification: each covered point links to at least one output field reflecting its result, so the interaction can be checked indirectly. After manual review for rationality, complexity, executability, evaluability, and topic safety (details in Appendix F), we finalize 420 task instances (192 public, 228 private; we hold out the private split to mitigate test-set contamination in future evaluations). The benchmark spans 24 functional clusters and 108 websites, covering 405 functions and all 58 execution and 50 perception types instantiated in the site cards (90.6% and 89.3% of the full taxonomy). On average, each task involves 2 clusters and 3 websites. Detailed statistics are reported in Table B.1 and Figure B.2 (Appendix B), and a complete task instance with its covered points and generated rubric is shown in Appendix E. 
+
+4 Automated Evaluation Protocol 
+
+Evaluating browser agents on composite, cross-site tasks faces two challenges: (1) final-answer accuracy alone cannot reveal whether agents struggle with complex UI operations (e.g., slider manipulation) or perceptual reasoning (e.g., trend identification); and (2) man-ually authoring evaluation scripts for hundreds of heterogeneous tasks is prohibitively expensive. To address both challenges, we propose a verifiable agent-as-a-judge framework that uses the covered points annotated during task construction (§3) to automatically gener-ate fine-grained evaluation criteria. As illustrated in Figure 3, the framework operates in three stages: (i) an LLM code generator synthesizes a task-specific Python evaluation script from the task description and covered points (§4.2); (ii) the script materializes a hierarchical rubric tree whose leaves correspond to independently checkable execution and perception criteria (§4.3); and (iii) a judge agent traverses the tree, extracting and verifying claims from the agent’s response to compute the scores (§4.4). Unlike prior agent-as-a-judge approaches that score final outputs as a whole (Gou et al., 2025), our framework grounds evaluation in explicit, type-annotated checkpoints. 6Published as a conference paper at COLM 2026 Task Description (D) Covered Points Detail     
+
+> ID Type(Action/Perception) Description Reference Template ( R)API WhiteList ( Ω)
+> LLM Code Generator
+> Generated Python Evaluation Script
+> Self-Reflection Self-Debugging
+> Root Node
+> (Overall Score)
+> build a tree ( 𝐀 )
+> Action Node
+> Action Node
+> Perce-ption Node
+> Perce-ption Node
+> Other Node
+> Other Node
+> Internal Node
+> (Aggregation)
+> Leaf Node
+> (Atomic Criteria)
+> Verifies Execution Complexity Verifies Perception General Requirements
+> Critical Failure= Zero Parent Score
+> Agent’s Answer
+> (with Citations/URLS)
+> Extractor Tool
+> Parses Structured Info
+> Verifier Tool
+> Simple Verification URL Verification
+> Judge Agent
+> (Executing Script)
+> Live Webpage
+> Stage1: Prior Knowledge & Code Generation Stage2: Tree-Structured Evaluation Framework Stage3: Agent-Based Scoring Execution
+> Final Scores:
+> Partial Completion Action Score Perception Score
+> Iterative traversal over Rubric Tree
+
+Figure 3: Overview of the verifiable agent-as-a-judge evaluation framework: (1) an LLM synthesizes a task-specific evaluation script under an API whitelist and reference template; (2) the script materializes a hierarchical rubric tree with action, perception, and other leaf nodes; and (3) a judge agent performs extraction and URL-grounded verification to compute the four scores. 
+
+4.1 Problem Formulation 
+
+Let T = {t1, t2, . . . , tn} denote the set of task instances in CAP. Recall from §3.4 that each task 
+
+t ∈ T is associated with a set of covered points E = Eact ∪ Eperc , each a tuple e = ( id , τ, d),where Eact denotes execution points (non-trivial interactive operations the task requires) and 
+
+Eperc denotes perception points (elements requiring visual understanding). Given an agent’s response A to task t, our goal is to compute a score S(t, A) ∈ [0, 1 ] that reflects both overall task completion and capability along the execution and perception dimensions. 
+
+4.2 Evaluation Script Generation 
+
+Because manual verification does not scale, we use an LLM-based code generation pipeline corresponding to Stage 1 of Figure 3. Conditioned on the task description D and the set of covered points E, the generator synthesizes a Python evaluation script S following a detailed instruction prompt (Appendix H). For safety and standardization, generation is constrained by two artifacts: an API whitelist Ω that restricts the script to a predefined set of safe verification primitives, and a reference template R of manually verified scripts that fixes the script’s structural skeleton. The resulting S instantiates the rubric tree G (defined in §4.3), encapsulating both leaf-node verification logic and hierarchical score aggregation. To improve robustness, execution failures trigger a self-debugging loop, followed by a self-reflection phase that validates logical correctness against a checklist of common edge cases (e.g., missing fields, malformed URLs, ambiguous thresholds). 
+
+4.3 Rubric Tree Construction 
+
+Each evaluation script S implements a rubric tree G = ( V, E ), a rooted tree where each node corresponds to a verification criterion. Leaf nodes Vleaf ⊂ V represent atomic criteria, each producing a binary score s(v) ∈ { 0, 1 }; internal nodes aggregate scores from their children; and the root node vroot yields the final task score. To enable capability diagnosis, we classify leaf nodes into three categories: action nodes V act verify execution of complex UI operations, perception nodes V perc verify extraction of visually-presented information, and 
+
+other nodes V other verify general requirements such as output format. Nodes are further marked as critical , prerequisites whose failure invalidates downstream results and zeros out the parent score, or non-critical , which permit partial credit. This classification is automati-cally determined by the LLM during script generation based on task-specific dependency analysis. The rubric tree is constructed automatically from the task description D and covered points 
+
+E. Each covered point e ∈ E maps to one or more leaf nodes according to its type: action-type points generate nodes in Vact , while perception-type points generate nodes in Vperc .This mapping enables indirect verification that agents complete the required execution and 7Published as a conference paper at COLM 2026 perception operations, without intrusive instrumentation of the agent’s runtime. Because required operations are checked as critical leaves grounded in cited source pages, shortcut strategies such as answer guessing, plain search queries, or direct URLs fail verification (see Appendix E). 
+
+4.4 Score Computation 
+
+Given the rubric tree G and an agent’s response A, scoring proceeds in two phases. Each leaf node v ∈ Vleaf is first evaluated by a judge agent , an LLM-based tool operating in two modes: extraction-and-verification , which parses structured information from A and applies deterministic checks (e.g., numeric range, regex match, set membership), and URL verification , which fetches cited web pages and validates that the supporting content matches the agent’s claim. Internal nodes then aggregate child scores via a gate-then-average strategy. Let C(v) denote the children of an internal node v, partitioned into critical nodes K(v) and non-critical nodes N(v). The aggregated score is: 
+
+s(v) = 
+
+
+
+0 if ∃u ∈ K(v) : s(u) < 1¯sN if ∀u ∈ K(v) : s(u) = 1 and N(v)̸ = ∅
+
+1 otherwise (1) where ¯ sN = 1 
+
+> |N(v)|
+
+∑u∈N(v) s(u): any failed critical child propagates a zero up the tree (gating ), whereas non-critical children contribute their average once all critical prerequisites are satisfied ( averaging ). We report four metrics: (i) Partial Completion , the mean root-node score s(vroot ) averaged over all tasks, capturing graded progress; (ii) Success Rate , the proportion of tasks achieving a perfect score , defined as s(v) = 1 for every node v ∈ V, capturing end-to-end task success; (iii) Action Score , the mean leaf score over Vact , isolating execution capability; and (iv) 
+
+Perception Score , the mean leaf score over Vperc , isolating perceptual capability (reported as 
+
+Complex-A and Complex-P in §5). All metrics are normalized to [0, 1 ]. We further validate the judge against human judgments and across alternative judge backbones in Appendix I. 
+
+5 Experiments                                                                                               
+
+> Method Core Performance (%) Complexity (%) Output Partial Completion Success Rate Complex A Complex P Time (min) Len. ( ×10 3)
+> Commercial Browser Agents
+> Genspark 16.0 ±2.0 5.0 ±1.0 30.0 ±2.1 28.0 ±1.8 1.7 3.37 Manus 23.0 ±3.0 8.0 ±2.0 33.0 ±2.5 29.0 ±2.0 5.3 7.55 Dia 19.0 ±2.0 4.0 ±1.0 28.0 ±1.5 23.0 ±2.2 1.1 3.00 Fellou 24.0 ±2.0 7.0 ±2.0 28.0 ±1.9 25.0 ±2.1 22.1 3.47 Comet 48.0 ±3.5 6.0 ±1.5 67.0 ±4.2 58.0 ±3.8 6.5 104.36
+> Open Source Agents
+> GPT-5 15.0 ±1.0 2.0 ±1.0 29.0 ±2.0 23.0 ±1.5 15.3 2.95
+> Claude-4.5-Sonnet 21.0 ±3.0 5.0 ±2.0 32.0 ±2.4 32.0 ±2.5 29.9 5.52 DeepSeek-V4-Flash 25.0 2.9 33.7 34.2 ––Human 35.0 ±4.5 10.0 ±2.5 35.0 ±3.0 34.0 ±2.8 16.3 71.42
+
+Table 2: Main results on CAP benchmark. All performance metrics are reported in percent-ages (%). Error bars (indicated in gray) represent standard deviation; dashes indicate values not recorded. Note that GPT-5 , Claude-4.5-Sonnet , and DeepSeek-V4-Flash in the Open Source section refer to the Browser-Use agent framework driven by the respective backbone models. 8Published as a conference paper at COLM 2026 
+
+5.1 Setup Evaluated Systems. We evaluate both commercial and open-source browser agents on a fixed evaluation set of 198 CAP tasks 3 constructed in §3. We benchmark five commercial browser agent products, selected for their ability to handle complex multi-site interaction: Manus, Genspark, Fellou, Comet (Gemini 3.1 Pro), and Dia 4, all accessed through their official interfaces with default configurations during November–December 2025. For open-source baselines, we evaluate Browser-Use 2 driven by three backbones (GPT-5, Claude-4.5-Sonnet, and the open-weights DeepSeek-V4-Flash) with default agent configurations and a maximum of 50 reasoning–action steps per task; sharing one framework, these rows isolate backbone capability. Finally, we include a Human baseline produced by the twelve CS graduate students from our annotation pipeline (Appendix F), with each task completed under a one-hour time limit and scored by the same judge and rubrics as the agents; it calibrates CAP’s absolute difficulty under our strict conjunctive criterion rather than serving as a direct comparison target. 
+
+Evaluation Metrics. We report the four metrics defined in §4.4: Partial Completion ,
+
+Success Rate , and the two capability scores, reported as Complex-A (action) and Complex-P (perception). For context on cost, we additionally report the average end-to-end Time per task (minutes) and the average output Length (thousands of tokens). All systems are scored by the same judge with a GPT-4o backbone; Appendix I validates the judge against human judgments and across four alternative judge backbones. 
+
+5.2 Main Results Finding 1: State-of-the-art browser agents perform poorly on complex execution and perception tasks. The main results are presented in Table 2. Success rates are low across all evaluated systems: the best agent, Manus, reaches only 8.0% Success Rate, and even the Human baseline achieves just 10.0% full success and 35.0% partial completion. We attribute the modest human ceiling to two factors: (i) tasks deliberately span 2–14 websites with average 7 complex actions and 4 perception challenges, beyond what most users reliably execute in an hour; and (ii) our perfect-score criterion requires every execution, perception, and format leaf to be satisfied. A manual audit of failed human runs confirms this. Humans typically fail by omitting a single required constraint in a long workflow, not by being unable to perform individual steps. We therefore view Partial Completion as the more informative comparison metric. Comet is an outlier: it leads on Partial Completion (48.0%) and both complexity sub-scores, yet underperforms on Success Rate (6.0%). This gap, together with its order-of-magnitude longer outputs (104k vs. roughly 3–8k tokens), suggests Comet gets the intermediate reasoning right but fails to consolidate it into a final answer satisfying all rubric leaves. 
+
+Finding 2: Perception is a more severe bottleneck than execution for current browser agents. On Complex-A, Comet leads at 67.0%, while every system drops on Complex-P (Comet 58.0%, others 23.0–34.2%). All five commercial agents and Browser-Use + GPT-5 score higher on Complex-A than on Complex-P (e.g., Comet 67.0% vs. 58.0%), whereas the Human baseline is essentially balanced (35.0% vs. 34.0%), as are the Claude-4.5-Sonnet and DeepSeek-V4-Flash backbones. Together with the near-zero value reading score (§5.3), this asymmetry shows that visual reasoning over rendered content, rather than UI manipulation per se, is the dominant failure mode of current agents. 
+
+Finding 3: Extended reasoning correlates with task progress, but no agent matches human deliberation. Comet generates over 100k output tokens to reach its leading Partial Completion, an order of magnitude more than other agents (roughly 3–8k), and the Human baseline spends 16.3 minutes per task on average, whereas fast-responding agents (Genspark 1.7 min, Dia 1.1 min) sit at the bottom of the Partial Completion ranking. This is consistent     
+
+> 3The 192-task public split of CAP is released in full, while the remaining 228 tasks are held out to mitigate test-set contamination; submissions on the private split are evaluated by the authors.
+> 4https://manus.im/ ;https://www.genspark.ai/ ;https://fellou.ai/ ;https://www.perplexity .ai/comet ;https://www.diabrowser.com/ .
+
+9Published as a conference paper at COLM 2026 with multi-site workflows requiring sustained reasoning that short-horizon agents cannot shortcut; still, compute alone is insufficient: Browser-Use + GPT-5 spends 15.3 min yet achieves only 15.0% Partial Completion, echoing the view that acting efficiently matters more than acting more (Wang et al., 2025b). 
+
+5.3 Complexity Analysis Finding 4: Fine-grained visual reading and UI state inference are where agents fail most. 
+
+Figure B.1(a-b) (Appendix B) reveals the hardest components in CAP. Among execution operations, node manipulation (0.087) and date range selection (0.110) score lowest, both involving precise pointer control over composite widgets. Among perception operations, 
+
+value reading achieves a near-zero score (0.000) and expansion state awareness (0.092) is also severely impaired, indicating that extracting concrete values from rendered charts/tables and inferring whether a UI region is expanded remain unsolved for current agents (the near-zero value-reading score reflects attempted-but-failed extractions, not missing attempts). To quantify task-level complexity, we define two metrics over the evaluation set: raw-sum complexity , the total count of execution plus perception leaves per task, and normalized complexity , which divides each count by its benchmark-wide maximum and sums the two ratios, yielding a value in [0, 2 ].In Figure B.3 (Appendix B), each task contributes one point per panel, plotting its complexity against the number of websites it involves, colored by its score in [0, 1 ]. We find that task difficulty (score) is not monotonically explained by complexity quantity : high- and low-scoring tasks distribute across the entire complexity range under both metrics, so what makes a task hard is not the number of complex actions or perceptions but their kind : a single chart-value-reading step can derail an otherwise simple workflow. 
+
+5.4 Cross-site Analysis Finding 5: Domain-specific sites with specialized data structures are disproportionately hard. The per-website scores in Figure B.1(c) (Appendix B) vary substantially: cdc.gov 
+
+(0.033) and google.com/flights (0.048) are the hardest, while accuweather.com (0.139) and 
+
+wikipedia.org (0.131) are relatively tractable. The hardest sites present information through specialized visualizations or interactive widgets and often reveal the relevant content only after non-trivial filtering, dragging, or chart hovering, whereas easier sites expose the target information as nearly static text. Figure B.3 also shows a moderate positive correlation between website count and task complexity (normalized: r=0.496; raw-sum: r=0.486). This correlation is, however, domi-nated by tasks involving 2–4 websites ( n=41, 80, 22); buckets with ≥ 5 websites contain few samples ( n≤10) and are illustrative only. 
+
+6 Conclusion 
+
+We introduced CAP, a scalable benchmark of 420 tasks over 108 real-world websites that evaluates browser agents on Cross-site workflows, complex Actions, and challenging visual 
+
+Perception. Tasks are built by a decomposition-and-recomposition pipeline over structured site cards and scored by a verifiable agent-as-a-judge rubric framework for fine-grained diag-nosis. Across eight state-of-the-art systems, the best agent reaches only 8.0% Success Rate, and perception consistently lags execution; visual perception, rather than UI manipulation, is where progress is most needed. We release the public split, construction pipeline, and evaluation framework 5; limitations are discussed in Appendix A. 
+
+> 5https://github.com/WarriorXu0302/CAP-Bench
+
+10 Published as a conference paper at COLM 2026 
+
+Acknowledgments 
+
+This work was supported by the Fund for the Development of Science and Technology (FDCT) of Macau (Grant No. 0010/2024/AGJ). 
+
+Reproducibility Statement 
+
+We release the 192-task public split of CAP in full 6, together with site cards, task descriptions, rubric trees, evaluation scripts, and per-task annotation timestamps (with archived URLs where available); the remaining 228 tasks are held out to mitigate test-set contamination, and private-split submissions are evaluated by the authors via the CAP leaderboard 7. Because CAP runs against the live web, absolute scores will drift as websites evolve: we mitigate this by annotating and evaluating each task within roughly one week of each other, by avoiding volatile targets at construction time, and by grounding scoring in the judge’s source-URL verification. We recommend reporting the evaluation date alongside scores. Further limitations are discussed in Appendix A, and validation of the automated judge in Appendix I. 
+
+References 
+
+Emre Can Acikgoz, Cheng Qian, Hongru Wang, Vardhan Dongre, Xiusi Chen, Heng Ji, Dilek Hakkani-Tür, and Gokhan Tur. A desideratum for conversational agents: Capabilities, challenges, and future directions. arXiv preprint arXiv:2504.16939 , 2025. Xingyu Chen, Zihan Zhao, Lu Chen, JiaBao Ji, Danyang Zhang, Ao Luo, Yuxuan Xiong, and Kai Yu. Websrc: A dataset for web-based structural reading comprehension. In 
+
+Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing , pp. 4173–4185, 2021. Xiang Deng, Yu Gu, Boyuan Zheng, Shijie Chen, Samuel Stevens, Boshi Wang, Huan Sun, and Yu Su. Mind2web: Towards a generalist agent for the web. In NeurIPS , 2023. Boyu Gou, Zanming Huang, Yuting Ning, Yu Gu, Michael Lin, Weijian Qi, Andrei Kopanev, Botao Yu, Bernal Jiménez Gutiérrez, Yiheng Shu, et al. Mind2web 2: Evaluating agentic search with agent-as-a-judge. In The Thirty-ninth Annual Conference on Neural Information Processing Systems Datasets and Benchmarks Track , 2025. Halluminate and Skyvern. Webbench: Ai web browsing agent benchmark, 2025. https: //webbench.ai/ .Hongliang He, Wenlin Yao, Kaixin Ma, Wenhao Yu, Yong Dai, Hongming Zhang, Zhenzhong Lan, and Dong Yu. Webvoyager: Building an end-to-end web agent with large multimodal models. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 6864–6890, 2024. Xueyu Hu, Tao Xiong, Biao Yi, Zishu Wei, Ruixuan Xiao, Yurun Chen, Jiasheng Ye, Meiling Tao, Xiangxin Zhou, Ziyu Zhao, et al. Os agents: A survey on mllm-based agents for computer, phone and browser use. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pp. 7436–7465, 2025. Su Kara, Fazle Elahi Faisal, and Suman Nath. WAREX: Web agent reliability evaluation on existing benchmarks. Transactions on Machine Learning Research , 2026. URL https: //openreview.net/forum?id=o4pXVP8RCD .Evan Zheran Liu, Kelvin Guu, Panupong Pasupat, Tianlin Shi, and Percy Liang. Reinforce-ment learning on web interfaces using workflow-guided exploration. In International Con-ference on Learning Representations (ICLR) , 2018. URL https://arxiv.org/abs/1802.08802 .  
+
+> 6Dataset: https://huggingface.co/datasets/Warrior0302/CAP-Bench . Construction pipeline and evaluation framework: https://github.com/WarriorXu0302/CAP-Bench .
+> 7https://warriorxu0302.github.io/CAP-Bench/leaderboard.html
+
+11 Published as a conference paper at COLM 2026 Yuheng Lu, Qian Yu, Hongru Wang, Zeming Liu, Wei Su, Yanping Liu, Yuhang Guo, Maocheng Liang, Yunhong Wang, and Haifeng Wang. TransBench: Breaking barriers for transferable graphical user interface agents in dynamic digital environments. In Findings of the Association for Computational Linguistics: ACL 2025 , pp. 12464–12478, 2025. Grégoire Mialon, Clémentine Fourrier, Thomas Wolf, Yann LeCun, and Thomas Scialom. Gaia: A benchmark for general ai assistants. In The Twelfth International Conference on Learning Representations , 2024. Magnus Müller and Gregor Žuniˇ c. Browser use: Enable ai to control your browser, 2024. URL https://github.com/browser-use/browser-use . GitHub repository. Yichen Pan, Dehan Kong, Sida Zhou, Cheng Cui, Yifei Leng, Bing Jiang, Hangyu Liu, Yanyi Shang, Shuyan Zhou, Tongshuang Wu, et al. Webcanvas: Benchmarking web agents in online environments. arXiv preprint arXiv:2406.12373 , 2024. Yixiao Song, Katherine Thai, Chau Minh Pham, Yapei Chang, Mazin Nadaf, and Mohit Iyyer. Bearcubs: A benchmark for computer-using web agents. arXiv preprint arXiv:2503.07919 ,2025. Hongru Wang, Rui Wang, Boyang Xue, Heming Xia, Jingtao Cao, Zeming Liu, Jeff Z. Pan, and Kam-Fai Wong. AppBench: Planning of multiple APIs from various APPs for complex user instruction. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , pp. 15322–15336, 2024a. Hongru Wang, Cheng Qian, Manling Li, Jiahao Qiu, Boyang Xue, Mengdi Wang, Heng Ji, Amos Storkey, and Kam-Fai Wong. Position: Agent should invoke external tools ONLY when epistemically necessary. arXiv preprint arXiv:2506.00886 , 2025a. Hongru Wang, Cheng Qian, Wanjun Zhong, Xiusi Chen, Jiahao Qiu, Shijue Huang, Bowen Jin, Mengdi Wang, Kam-Fai Wong, and Heng Ji. Acting less is reasoning more! Teaching model to act efficiently. arXiv preprint arXiv:2504.14870 , 2025b. Lei Wang, Chen Ma, Xueyang Feng, Zeyu Zhang, Hao Yang, Jingsen Zhang, Zhiyuan Chen, Jiakai Tang, Xu Chen, Yankai Lin, et al. A survey on large language model based autonomous agents. Frontiers of Computer Science , 18(6):186345, 2024b. Zhiheng Xi, Wenxiang Chen, Xin Guo, Wei He, Yiwen Ding, Boyang Hong, Ming Zhang, Junzhe Wang, Senjie Jin, Enyu Zhou, et al. The rise and potential of large language model based agents: A survey. arXiv preprint arXiv:2309.07864 , 2023. Kevin Xu, Yeganeh Kordi, Tanay Nayak, Adi Asija, Yizhong Wang, Kate Sanders, Adam Byerly, Jingyu Zhang, Benjamin Van Durme, and Daniel Khashabi. Turkingbench: A challenge benchmark for web agents. In Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) , pp. 3694–3710, 2025. Tianci Xue, Weijian Qi, Tianneng Shi, Chan Hee Song, Boyu Gou, Dawn Song, Huan Sun, and Yu Su. An illusion of progress? assessing the current state of web agents. In Second Conference on Language Modeling , 2025. Ori Yoran, Samuel Joseph Amouyal, Chaitanya Malaviya, Ben Bogin, Ofir Press, and Jonathan Berant. Assistantbench: Can web agents solve realistic and time-consuming tasks? In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , pp. 8938–8968, 2024. Shuyan Zhou, Frank F Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng, Tianyue Ou, Yonatan Bisk, Daniel Fried, Uri Alon, and Graham Neubig. Webarena: A realistic web environment for building autonomous agents. In The Twelfth International Conference on Learning Representations , 2024. 12 Published as a conference paper at COLM 2026 
+
+A Limitations 
+
+Several scope decisions keep the benchmark focused and interpretable, but each brings limitations. We discuss the main ones below, along with our mitigations. 
+
+Coverage of evaluated systems. Our experimental study evaluates eight representative browser agent systems rather than exhaustively covering all existing systems or model vari-ants. This choice reflects CAP’s focus on interaction-level capabilities (complex UI execution and visual perception) rather than model scaling effects. Including a small number of strong commercial systems alongside widely used open-source agents lets us expose capability gaps that persist across architectures, but the absolute numbers reported here should be read as a snapshot of late 2025 systems rather than a final ranking; we will refresh results as new agents emerge. 
+
+Coverage of tasks and domains. While CAP spans 24 functional domains and 108 websites, it does not aim to cover every possible web interaction or long-tail domain. We deliberately emphasize interaction patterns that (i) commonly occur in real user workflows and (ii) admit automatic verification through our rubric framework. Tasks requiring real-money transactions, account-bound private data, or strong real-world side effects (e.g., actually purchasing items, sending emails) are excluded for safety and reproducibility, and are left to future work. 
+
+Reliability of the automated construction pipeline. Site cards, task proposals, and task instances are produced by LLM-driven agents and audited by human annotators (§3.4, Appendix F). Despite multi-stage quality control, automatically extracted site cards may miss rare or deeply-nested functions, and synthesized tasks may carry minor phrasing artifacts that no human author would write. Our manual error analysis of site cards (Appendix F) finds 92.3% of entries accurate, with residual errors concentrated in over-predicted action items that cannot propagate into tasks thanks to the manual execution check. Human auditing scales to the current 420 tasks but does not scale linearly to tens of thousands of tasks; this remains an open problem for any automated benchmark of this kind. 
+
+Residual noise in the verifiable agent-as-a-judge framework. Our evaluation framework reduces the cost of authoring per-task scripts by relying on LLM code generation and an LLM-based judge agent. Although we constrain the generator with an API whitelist, a reference template, and an iterative self-debug/self-reflection loop, the resulting scripts may still contain edge-case bugs, and the judge agent inherits the residual unreliability of its underlying LLM (e.g., when verifying claims against fetched web pages whose content has shifted between agent execution and judge inspection). We mitigate this by auditing the judge against human judgments on a 50-task sample (96% verdict agreement, judge–human 
+
+κ = 0.84; Appendix I), by checking that generated rubrics faithfully capture their tasks (96%), and by reporting standard deviations across repeated runs in Table 2, but we do not claim noise-free verification. 
+
+Live-web reproducibility. CAP runs against the live web, which makes the benchmark realistic but also non-stationary: website layouts, content, and feature availability change over time, and absolute scores reported here will drift. Construction avoids volatile targets (relative time windows instead of fixed dates, range filters over exact values, and multiple acceptable answers rather than one fragile target), annotation and evaluation are separated by roughly one week, and the judge’s source-URL verification grounds scoring in what pages actually show at evaluation time; see the Reproducibility Statement for the release plan that lets future drift be audited. Still, exact score reproducibility across long time intervals is not guaranteed. 13 Published as a conference paper at COLM 2026 
+
+B Benchmark Statistics and Experimental Results 
+
+Category Types Avg Min Max 
+
+Clusters 24 2 1 5Websites 108 3 2 14 Functions 405 5 2 15 Execution 58 7 2 20 Perception 50 4 2 15 
+
+Table B.1: Statistics of our benchmark. Types refers to the total distinct types across all queries. Avg, Min, and Max refer to the number of operations/elements per task. Node Manipulation Date Range Selection Location Search Marker Interaction Multi-step Navigation Panel Toggle Item Click Page Turning Multi-field Completion Infinite Scroll 
+
+0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 
+
+> Average Score
+
+0.087 0.110 0.112 0.117 0.122 0.150 0.152 0.153 0.155 0.165 
+
+(a) Lowest Scoring Execution Types 
+
+> Value Reading Expansion State Awareness Object Recognition Visual Feature Extraction Cross-image Comparison Marker Position Understanding Hierarchy Understanding Text Recognition Status & Badge Recognition Content Understanding
+
+0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 
+
+> Average Score
+
+0.000 0.092 0.110 0.111 0.119 0.137 0.155 0.159 0.163 0.164 
+
+(b) Lowest Scoring Perception Types 
+
+> cdc.gov google.comflights open.spotify.com google.com/maps coursera.org espn.com yelp.com tripadvisor.com wikipedia.org accuweather.com
+
+0.00 0.02 0.04 0.06 0.08 0.10 0.12 0.14 0.16 
+
+> Average Score
+
+0.033 0.048 0.060 0.067 0.067 0.083 0.108 0.125 0.131 0.139 
+
+(c) Lowest Scoring Websites 
+
+Figure B.1: Distributions over the bottom-10 (by mean score) complex-execution types, complex-perception types, and websites. 14 Published as a conference paper at COLM 2026 13.9% 13.0% 11.0% 9.5% 8.5% 4.9% 4.7% 4.4% 4.2% 4.1% 21.9% 
+
+> (a) Execution Type Distribution
+> Multi-item Selection Click Trigger Dropdown Selection Trigger & Select Tab Panel Switch Panel Toggle Date Range Selection Item Click Search-filtered Selection Page Turning Other
+> 38.8% 25.8% 8.8% 7.0% 10.0%
+> (b) Perception Type Distribution
+> Content Understanding Status & Badge Recognition Image Content Understanding Data Understanding Object Recognition Trend Identification Hierarchy Understanding Date State Recognition Marker Position Understanding Value Reading Other
+
+Figure B.2: Distribution of (a) complex execution types and (b) complex perception types in our benchmark. 2 4 6 8 10 12 14 
+
+Website Count 
+
+0.50 0.75 1.00 1.25 1.50 1.75 2.00 
+
+> Normalized Complexity (Execution/max + Perception/max)
+
+Method 1: Normalized Complexity 
+
+Trend line (r=0.496) 2 3 4 5 6 7 8 9 14 
+
+Website Count 
+
+0.50 0.75 1.00 1.25 1.50 1.75 2.00  
+
+> Normalized Complexity
+> n=41 n=80 n=22 n=10 n=1 n=2 n=1 n=1 n=1
+
+Distribution (Normalized) 
+
+2 4 6 8 10 12 14 
+
+Website Count 
+
+510 15 20 25 30 
+
+> Raw Complexity (Execution + Perception)
+
+Method 2: Raw Sum 
+
+Trend line (r=0.486) 2 3 4 5 6 7 8 9 14 
+
+Website Count 
+
+510 15 20 25 30   
+
+> Raw Complexity
+> n=41 n=80 n=22 n=10 n=1 n=2 n=1 n=1 n=1
+
+Distribution (Raw Sum) 
+
+0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Score
+
+Figure B.3: Task complexity as a function of the number of websites a task involves, under the two complexity definitions of §5.3 (normalized and raw-sum). Left: each point is one task, with linear fits; point color encodes the task’s evaluation score (red = low, green = high). Right: the same data as box plots grouped by website count, with the number of tasks n annotated above each box. 
+
+C Taxonomy of Complex Interaction Types 
+
+We define a taxonomy comprising 64 action types and 56 perception types. The taxonomy is grounded in the Ant Design component library, excluding basic categories ( General , Layout )and extending with Data Visualization , Media , and Editor to cover complex interactions in real-world applications. The complete lists are provided in Table C.1 and Table C.2. 
+
+C.1 Action Types 
+
+Action types ( τact ) define the interactive operations that an agent must perform on UI components. We categorize these into seven primary categories: Navigation , Data Entry ,
+
+Data Display , Feedback , Data Visualization , Media , and Editor .15 Published as a conference paper at COLM 2026 
+
+ID Component Action Type Description 
+
+Navigation 
+
+AT01 Dropdown Trigger & Select Click or hover to trigger dropdown and se-lect target item AT02 Dropdown Multi-level Naviga-tion Navigate through nested dropdown menus to locate target AT03 Menu Submenu Expansion Expand multi-level submenus via hover or click (e.g., mega menu) AT04 Pagination Page Turning Click page numbers or prev/next buttons to switch pages AT05 Pagination Page Jump Input specific page number to jump directly AT06 Steps Multi-step Naviga-tion Execute prev/next transitions in wizard workflows AT07 Tabs Tab Panel Switch Click tab labels to switch content panels AT08 Tabs Tab Bar Scrolling Scroll tab bar to reveal hidden tab options AT09 Breadcrumb Path Navigation Click breadcrumb items to navigate to target hierarchy 
+
+Data Entry 
+
+AT10 Checkbox Multi-item Selection Select multiple checkboxes for combined fil-tering AT11 Checkbox Select All/Inverse Execute select all, inverse selection, or dese-lect all AT12 Cascader Hierarchical Selec-tion Expand levels sequentially to complete selec-tion (e.g., region) AT13 Cascader Search-based Selec-tion Search keywords to directly locate and select deep options AT14 DatePicker Single Date Selection Open calendar panel and select date with quick options AT15 DatePicker Date Range Selection Select start/end dates with shortcuts (e.g., last 7 days) AT16 DatePicker DateTime Selection Select both date and specific time simultane-ously AT17 Form Multi-field Comple-tion Identify and complete forms with multiple input types AT18 Select Dropdown Selection Open dropdown list for single or multi-select scenarios AT19 Select Search-filtered Selec-tion Filter options via keywords then select target item AT20 Slider Single Value Drag Drag slider to select a single value AT21 Slider Range Selection Drag dual sliders to set value range (e.g., price range) AT22 TimePicker Time Selection Select specific hour/minute via scroll or in-put AT23 TreeSelect Tree Node Selection Expand tree structure and select target nodes AT24 Upload File Upload Upload files via click or drag-and-drop 
+
+Data Display 
+
+AT25 Calendar Date Selection Click to select target date in calendar view AT26 Calendar View Switch Switch between different month or year views AT27 Card Click Trigger Click card for details or action buttons (fa-vorite, add to cart) AT28 Card Hover Trigger Hover to reveal quick actions or additional information AT29 Carousel Slide Switch Switch via arrows/indicators or drag ges-tures AT30 Collapse Panel Toggle Click header to expand/collapse, including accordion mode AT31 Image Preview Operations Open thumbnail for zoom, rotate, or image switching AT32 Popover Popover Interaction Trigger popover via click/hover and per-form actions within 
+
+16 Published as a conference paper at COLM 2026 
+
+ID Component Action Type Description 
+
+AT33 Table Column Sorting Click header to sort by column in ascend-ing/descending order AT34 Table Column Filtering Use column filters to filter table data by con-ditions AT35 Table Row Operations Select rows, expand details, or click inline action buttons AT36 Tree Node Manipulation Expand/collapse nodes, select, or drag to adjust structure AT37 List Infinite Scroll Scroll to bottom to trigger loading more items AT38 List Item Click Click list item to enter corresponding detail page AT39 List Drag Reorder Drag list items to adjust display order 
+
+Feedback 
+
+AT40 Drawer Drawer Operations Open/close side drawer for filtering or form operations AT41 Modal Modal Operations Open/close modal dialog for form or con-tent selection AT42 Popconfirm Confirmation Action Trigger confirmation popover and execute confirm/cancel 
+
+Data Visualization 
+
+AT43 Chart Data Point Hover Hover chart elements to display data tooltip AT44 Chart Legend Filtering Click legend to toggle data series visibility AT45 Chart Zoom & Pan Box-select zoom or drag to pan for data de-tails AT46 Chart Data Drill-down Click chart elements to drill into finer-grained data AT47 Map Zoom & Pan Adjust map view via scroll zoom and drag pan AT48 Map Marker Interaction Click map markers to view POI details AT49 Map Location Search Search place names and navigate to location AT50 Map Route Planning Set origin/destination and plan navigation route AT51 Map 3D View Adjustment Adjust pitch and bearing angles via Ctrl+drag AT52 Map Street View Enter street view, click to move, drag to look around AT53 Panorama Panoramic Browsing Drag to rotate view, scroll to zoom details AT54 Panorama Hotspot Navigation Click hotspot markers to switch panorama scenes AT55 Model3D Model Interaction Drag to rotate, scroll to zoom, switch config-urations 
+
+Media 
+
+AT56 Video Playback Control Play/pause video, drag progress bar to seek AT57 Video Playback Settings Adjust volume, speed, quality, subtitles, or fullscreen 
+
+Editor 
+
+AT58 TextEditor Text Editing Edit rich text including formulas and special symbols AT59 TextEditor Format & Content Use toolbar for formatting or insert im-ages/links/tables AT60 Spreadsheet Cell Editing Select and edit spreadsheet cell contents AT61 Spreadsheet Formula Input Enter formulas in cells for calculations AT62 Spreadsheet Drag Fill Drag cell edges to batch fill data AT63 Canvas Element Manipula-tion Select, move, and resize elements on canvas AT64 Canvas Node Connection Drag from anchors to create connection lines 
+
+Table C.1: Action types for UI components. 17 Published as a conference paper at COLM 2026 
+
+C.2 Perception Types 
+
+Perception types ( τperc ) characterize the visual understanding capabilities required to in-terpret UI states and content. These span four primary categories: Data Display , Data Visualization , Media , and Editor .
+
+ID Component Perception Type Description 
+
+Data Display 
+
+PT01 Tooltip Content Understand-ing Hover to obtain and understand tooltip text content PT02 Tooltip Type Recognition Distinguish help, warning, error, and other tooltip types PT03 Calendar Date Marker Recogni-tion Identify dates with event or price markers on calendar PT04 Calendar Date State Recognition Identify available, disabled, and selected date states PT05 Card Image Content Under-standing Recognize objects, scenes, and product types in card images PT06 Card Visual Feature Extrac-tion Extract color, material, and style features from card images PT07 Card Status & Badge Recog-nition Identify status markers (sold out, promo) and badge values PT08 Carousel Image Content Under-standing Recognize carousel image themes and pro-motional content PT09 Carousel Embedded Text Recog-nition OCR text embedded within carousel im-ages PT10 Carousel Position Awareness Perceive current carousel position (n of to-tal) PT11 Image Object Recognition Identify specific objects and their categories in images PT12 Image Scene Understanding Understand scene semantics (in-door/outdoor, purpose) PT13 Image Feature Extraction Extract color, material, and style visual fea-tures PT14 Image Text Recognition OCR text embedded within images PT15 Image Cross-image Compari-son Compare similarity across images, identify key differences PT16 Collapse Expansion State Awareness Identify whether collapse panel is ex-panded or collapsed PT17 Popover Content Understand-ing Understand comprehensive information in popover cards PT18 List Content Understand-ing Understand list item content and extract key information PT19 List Sort State Awareness Identify current list sorting method and or-der PT20 Table Data Understanding Understand table data semantics and row-column relations PT21 Table Cell State Awareness Identify row/cell states (highlighted, dis-abled, abnormal) PT22 Table Sort State Awareness Identify current sort column and direction PT23 Table Cross-cell Understand-ing Understand data relations across rows or columns PT24 Tree Hierarchy Under-standing Understand tree structure levels and parent-child relations PT25 Tree Node State Awareness Identify node selection, expansion, and dis-abled states PT26 Tree Path Understanding Understand complete path from root to tar-get node 
+
+Data Visualization 
+
+PT27 Chart Value Reading Accurately read specific values from visual positions PT28 Chart Trend Identification Identify data trends (rising, falling, fluctu-ating, turning) 
+
+18 Published as a conference paper at COLM 2026 
+
+ID Component Perception Type Description 
+
+PT29 Chart Multi-series Compari-son Compare differences and relations across data series PT30 Chart Proportion Under-standing Understand proportional relations in pie/donut charts PT31 Chart Extrema Identification Find maximum/minimum points and cor-responding positions PT32 Chart Anomaly Detection Detect outliers, anomalies, and sudden changes in data PT33 Chart Legend Mapping Understand correspondence between leg-end and data series PT34 Map Marker Position Un-derstanding Understand geographic positions and spa-tial relations PT35 Map Spatial Distribution Awareness Identify distribution patterns, clusters, and coverage PT36 Map Route Understanding Understand route path, distance, and esti-mated time PT37 Map Region Boundary Un-derstanding Understand regional divisions and admin-istrative boundaries PT38 Map View State Awareness Identify current view mode (2D, 3D, street) and tilt degree PT39 Map Street View Under-standing Understand buildings, roads, and environ-ment in street view PT40 Map Street View Orienta-tion Understand directional orientation in street view PT41 Map 3D Occlusion Under-standing Understand occlusion relations between buildings in 3D PT42 Panorama Spatial Layout Under-standing Understand room layout and spatial struc-ture in panorama PT43 Panorama Hotspot Recognition Identify interactive hotspot marker posi-tions PT44 Panorama Orientation Aware-ness Understand current panorama viewing di-rection PT45 Panorama Environment Under-standing Understand decoration style, furniture in panorama PT46 Model3D Structure Understand-ing Understand 3D model components and overall structure PT47 Model3D Material Perception Identify surface materials and colors of model PT48 Model3D Proportion Perception Understand relative proportions and size relations PT49 Model3D Viewpoint Recogni-tion Identify current viewing angle (front, side, back, etc.) 
+
+Media 
+
+PT50 Video Frame Content Under-standing Recognize content, objects, and scenes in video frames PT51 Video Playback State Aware-ness Identify playback state (playing, paused, buffering) PT52 Video Progress Position Awareness Understand current position within total duration 
+
+Editor 
+
+PT53 Spreadsheet Data Understanding Understand spreadsheet data semantics and calculation logic PT54 Spreadsheet Format Semantics Recognize conditional formatting and color-coded meanings PT55 Canvas Element Recognition Identify shapes, lines, and text elements on canvas PT56 Canvas Relation & Layout Un-derstanding Understand element connections, logic flow, and layout 
+
+Table C.2: Perception types for UI components. 19 Published as a conference paper at COLM 2026 
+
+D Prompts for Task Construction 
+
+This appendix presents the prompts used in each phase of the CAP construction pipeline. 
+
+D.1 Site Card Annotation Prompt 
+
+This prompt guides the annotation of site cards that document website capabilities. Given a target website URL, the annotation agent browses the site to identify functional modules, then enumerates complex execution items and perception items by analyzing the rendered HTML structure. The key insight is that complex UI components can be identified through their HTML signatures: for instance, a date range picker can be recognized by its character-istic DOM structure and attributes (e.g., <input type="date"> , calendar container classes) without actually completing date selection. 
+
+Site Card Annotation Prompt 
+
+You are a frontend evaluation expert agent with browser automation capabilities. Your task is to visit the target website and systematically document its functions, UI components, and complex interaction points. INPUT: - A target website URL to analyze - A component taxonomy reference defining action types and perception types IDENTIFICATION METHOD: Identify complex UI components through HTML analysis: - Inspect DOM structure, element tags, class names, and attributes - Match against known component signatures from the taxonomy - Record components based on their HTML presence, not execution success Examples of HTML-based identification: - Date picker: <input type="date">, calendar containers, date-range classes - Map component: <div class="map-container">, Leaflet/Google Maps scripts - Video player: <video>tags, player control elements, playback-rate options - Slider: <input type="range">, slider track/handle elements - Expandable section: aria-expanded attributes, collapse/accordion classes IMPORTANT: Your task is to IDENTIFY components through HTML inspection, not to COMPLETE complex operations. A component should be recorded if its DOM signature is present, regardless of whether you can fully operate it. VERIFICATION PRINCIPLES: 1. Record What You Can Identify in HTML - DOM structure matches known component pattern -> record - Relevant classes/attributes present -> record - No HTML evidence found -> do not record 2. When In Doubt, Leave It Out - Missing a real feature: causes incompleteness (acceptable) - Recording a non-existent feature: causes downstream failure (unacceptable) STEP 1: IDENTIFY FUNCTIONS (F) Browse the website and identify user-facing functional modules. Naming: Use verb + domain-specific noun - WRONG: "Search", "View Details" - RIGHT: "Video Search", "Property Listing", "Course Reviews" Tags (combinable): - [Core]/[Standard]: whether this is the primary draw of the site - [Read]/[Write]: whether operations have persistent effects STEP 2: IDENTIFY EXECUTION ITEMS (A) For each function, identify complex UI components through HTML inspection. 
+
+20 Published as a conference paper at COLM 2026 
+
+Two roles in tasks: 1. Parameter Constraint - specifies how to perform an operation - "Filter by price $50-100, rating above 4.5, pet-friendly" - "Play at 1.5x speed with subtitles enabled" 2. Navigation Bridge - required step to access deeper capabilities - "Enter detail page" -> enables further actions/perceptions - "Expand fee breakdown" -> reveals hidden pricing Complexity Threshold: - INCLUDE: Multi-criteria filtering, parameter configuration, map interactions, media control, complex forms - EXCLUDE: Simple clicks, single inputs, basic navigation STEP 3: IDENTIFY PERCEPTION ITEMS (P) For each function, identify elements requiring visual understanding. Two roles in tasks: 1. Information Output - agent must extract and return this - "What is the monthly rent and deposit?" - "Describe the price trend over 3 months" 2. Filter Criteria - perception determines selection - "Find pet-friendly apartments" (requires policy recognition) - "Find items with recent price drops" (requires trend detection) Complexity Threshold: - INCLUDE: Status recognition, structured data extraction, chart interpretation, spatial understanding - EXCLUDE: Direct text reading, fixed-position extraction OUTPUT FORMAT: functions.csv: id, name, tags, description // description: core capabilities and typical use cases execution_items.csv: id, component, action_type, associated_functions, description // description: location path and concrete usage scenario perception_items.csv: id, component, perception_type, associated_functions, description // description: location path and what to extract or verify 
+
+D.2 Functional Affinity Assessment Prompt 
+
+This prompt assesses pairwise cluster compatibility to produce the affinity matrix M. Given two functional clusters as input, the model evaluates whether they can form coherent cross-site workflows and outputs an affinity score with justification. 
+
+Functional Affinity Assessment Prompt 
+
+You are assessing whether two functional clusters can form coherent cross-site workflows. INPUT: Two functional clusters C_i and C_j, each with member websites and their representative functions. TASK: Evaluate the plausibility of information flow scenarios: - Can information from C_i naturally serve as input for tasks in C_j? - Can information from C_j naturally serve as input for tasks in C_i? - Do real user workflows commonly involve both clusters? RATING SCALE: 
+
+21 Published as a conference paper at COLM 2026 
+
+- HIGH: Frequent real-world workflows connect these clusters Example: Academic Search + Code Hosting (researchers find papers then locate implementations) - MEDIUM: Plausible but less common workflows exist - LOW: No natural information flow Example: Real Estate + Code Hosting (no coherent user scenario) OUTPUT: Affinity score (HIGH/MEDIUM/LOW) with brief justification. 
+
+D.3 Task Proposal Prompt 
+
+This prompt generates task proposals that define the semantic structure of cross-site work-flows. Given a sampled cluster subset C∗ and the corresponding site cards, the model produces an array of task proposals, each specifying user intent, information flow pat-tern, and planned outputs. The proposals serve as semantic skeletons for downstream instantiation. 
+
+Task Proposal Prompt 
+
+You are designing cross-site tasks for an AI browser agent benchmark. Your goal is to create tasks that real users would genuinely want AI assistance with—NOT artificial capability tests. INPUT: - Website cluster C containing functional clusters to use - Site cards for each website, including: functions F, execution items A (complex UI operations like map dragging, date picker interaction), perception items P (visual understanding requirements like chart reading, table parsing) CORE PRINCIPLE: Imagine yourself as a user facing a tedious multi-site problem, thinking "I wish AI could handle this." That authentic feeling is the starting point for a good task. Do NOT design tasks just to test capabilities. INFORMATION FLOW PATTERNS: Compose tasks using these primitives: - Sequential (A -> B): A’s output feeds B’s input - Parallel (A || B): Same goal across platforms for comparison - Fan-out (A -> {B1, B2}): One source, multiple follow-ups - Fan-in ({A1, A2} -> B): Multiple sources, unified processing - Chain (A -> B -> C): Multi-hop information refinement AUTHENTICITY REQUIREMENTS: - Task must address genuine user pain points (cross-platform switching, repetitive operations, scattered information) - Manual completion should be tedious enough to warrant AI assistance - Must require actual website operations (filtering, sorting, pagination, state verification), NOT just answerable by web search CROSS-SITE NECESSITY: - Information flow between websites must be natural, not contrived - Each website must provide unique, essential information - Removing any website should break the task (Skip Test) DYNAMIC DEPENDENCY (CRITICAL): All information passed between sites must be obtained during task execution, NOT preset in the task description. Reject these anti-patterns: 1. Preset Keywords WRONG: "Find ’Roman Architecture’ courses on Coursera, then search ’Basilica’ and ’Forum’ on Getty Museum" Problem: ’Basilica’ and ’Forum’ are preset, not discovered from Coursera 2. Hypothetical Linking 
+
+22 Published as a conference paper at COLM 2026 
+
+WRONG: "Assuming CVPR is one of the conferences you found, search for hotels in San Francisco..." Problem: "Assuming" indicates the input is preset by task designer, not dynamically obtained 3. Isolated Outputs WRONG: "Check flu activity level on CDC, find immunity-boosting ingredients on WebMD, then find recipes on FoodNetwork" Problem: CDC output doesn’t affect subsequent steps; removing it doesn’t break the task GOOD EXAMPLES: 1. "Find 5 Greek mythology artworks currently on display at Getty, note the artwork names and mythological figures, then find educational videos about EACH figure on Bilibili" Why good: Must obtain specific artwork/figure names from Getty before knowing what to search on Bilibili 2. "Check Saturday’s precipitation probability on AccuWeather and AQI on EPA; if precipitation > 30% OR AQI > 50, find indoor oven recipes, otherwise find outdoor BBQ recipes" Why good: Weather data determines which recipe category to search—true conditional branching OUTPUT FORMAT: Return a JSON array of task proposals: [{"task_id": "PROP-001", "user_scenario": { "persona": "...", // Specific role, e.g., "ML researcher preparing a survey" "situation": "...", // Concrete context triggering this task "pain_point": "...", // Why manual execution is tedious "decision_goal": "..." // Actionable outcome user seeks }, "information_flow": { "pattern": "...", // One of: sequential, parallel, // fan-out, fan-in, chain, mixed "description": "..." // How data transfers between sites }, "websites_involved": ["site1.com", "site2.com", ...], "function_points": ["site1.com:F1", "site2.com:F3", ...], "planned_outputs": ["...", "..."] // What user expects to receive }, ... // More proposals ]
+
+D.4 Task Instantiation Prompt 
+
+This prompt transforms each task proposal into a concrete, executable benchmark instance. Given a single proposal and the relevant site cards, the model produces a detailed task specification including natural language description, structured output fields, and covered execution/perception items. The instantiation process binds abstract slots to concrete entities while ensuring complex interactions are triggered implicitly through goal-oriented descriptions. 
+
+Task Instantiation Prompt 
+
+You are instantiating a task proposal into a concrete, executable, and verifiable benchmark task. INPUT: 
+
+23 Published as a conference paper at COLM 2026 
+
+- A single task proposal with user scenario and information flow - Site cards with functions F, execution items A and perception items P for involved websites GOAL-ORIENTED ELICITATION: Express requirements through user goals, NOT UI operations. This ensures complex interactions are triggered implicitly while keeping task descriptions natural. WRONG: "Use the duration filter to select videos under 10 minutes" RIGHT: "Find tutorial videos under 10 minutes" WRONG: "Scroll down to load more comments, then click expand" RIGHT: "Check what users are discussing about this product" WRONG: "Click the expand button to show the full description" RIGHT: "Verify if the video description mentions the original paper" WRONG: "Hover over the seller name to view reputation score" RIGHT: "Find products from sellers with reputation above 4.8" OUTPUT FIELD DESIGN: Every output field must serve one of three verification roles: 1. User Value: Core information the user actually needs Examples: product name, course title, paper abstract 2. Condition Verification: Fields to validate filter criteria used in the task CRITICAL: If task says "rating >= 4.5", output MUST include the rating If task says "published within 2 years", output MUST include date If task says "distance under 5 miles", output MUST include distance 3. Provenance: URLs for source verification to prevent hallucination Every claimed fact should be traceable to a source URL ROBUSTNESS GUIDELINES: 1. Prefer Range Filtering over Superlatives WRONG: "Find the most downloaded model" (sorting may not be supported) RIGHT: "Find 5 models with downloads exceeding 10,000" Reason: Superlatives require specific sorting features; range filters are more robust 2. Prefer Relative Time over Absolute Dates WRONG: "Find events on June 20, 2026" (task expires) RIGHT: "Find events next weekend" Reason: Absolute dates make tasks time-sensitive and eventually invalid 3. Include Fallback Instructions for Dynamic Content "If this weekend has no events, check next weekend" "If the course is unavailable, find alternatives from the same instructor" Reason: Web content changes; fallbacks ensure task remains completable 4. Specify Quantities Explicitly WRONG: "Find some highly-rated restaurants" RIGHT: "Find 5 restaurants with rating above 4.5" Reason: Explicit quantities enable objective evaluation 5. Consolidate Output Requirements Place all output requirements at the END of task description, not scattered throughout WRONG: "Find books on Goodreads, note title and author. Then check reviews on StoryGraph, record the mood tags. Finally..." RIGHT: "Find books on Goodreads... check reviews on StoryGraph... Output for each book: title, author, Goodreads rating, StoryGraph mood tags, and URLs for both platforms." TASK DESCRIPTION STYLE: - First person ("I want...", "Help me...") - Natural conversational tone, as if talking to an AI assistant - 100-250 words 
+
+24 Published as a conference paper at COLM 2026 
+
+- Include context that implicitly triggers complex operations OUTPUT FORMAT: {"task_id": "TASK-001", "source_proposal": "PROP-001", // Reference to the source proposal "task_description": "...", // First-person natural language, 100-250 words "information_flow_summary": "...", // e.g., "Site A -> Site B -> Site C" "core_outputs": [ {"id": "o1", // Unique identifier for this output field "name": "...", // Field name, e.g., "listing_price" "type": "...", // One of: text, number, boolean, url, list "source": "...", // Website this field comes from "role": "..." // One of: user_value, condition_verify, provenance }, ... ], "covered_points": [ {"point_id": "...", // Format: website.com:Fx:Ay or website.com:Fx:Pz "ability_type": "...", // e.g., "date range filter", "scroll loading" "trigger_method": "...", // How task description triggers this ability "output_ref": "...", // Which output field (e.g., "o2") verifies execution "verify_method": "..." // How to verify, e.g., "check value >= threshold" }, ... ], "metadata": { "websites_involved": ["site1.com", "site2.com", ...], "action_points": ["site1.com:F1:A2", ...], // Covered execution items "perception_points": ["site2.com:F3:P1", ...] // Covered perception items }}
+
+E A Complete Task Instance 
+
+This appendix presents a real task instance from CAP together with the websites it spans, its covered points, and the automatically generated rubric. This instance covers 17 execution and 8 perception points, above the benchmark average of 7 and 4, and was chosen to illustrate all three dimensions (cross-site workflow, complex actions, and perception) at once. 
+
+Why shortcuts cannot pass. Task descriptions are phrased as user goals rather than UI instructions, so no method is prescribed; instead, the rubric enforces that the required operations are actually reflected in the answer. Each required execution and perception point maps to a critical leaf whose claims must be supported by cited source pages, so an answer that merely looks right, whether guessed, retrieved through a plain search query, or reached via a direct URL, fails verification. Because tasks chain sites such that each step’s output feeds the next step’s input, skipping an early operation starves every downstream step. During task validation (§3.4), annotators also executed each task on a live browser and confirmed that the target operations admit no reliable shortcut. 
+
+Task Description 
+
+I’m writing a sci-fi script about AI ethics and want to systematically gather creative source material. First, go to IMDb and search for sci-fi films with theme tags including “artificial intelligence” or “dystopia,” with ratings above 7.5. Select 5 classic works and record the title, director, IMDb rating, and detail-page link for each. 
+
+25 Published as a conference paper at COLM 2026 
+
+Then, search these 5 films on Letterboxd. For each film, check the community rating and top user reviews (prioritize highly liked reviews; if the page cannot be reliably sorted by likes, select the 3 most relevant visible reviews and state your selection criteria), and extract keywords describing commonly discussed narrative techniques (e.g., “multi-thread narrative,” “time loop,” “first-person perspective”). Next, on Goodreads, try to find the original novels corresponding to these films or books from the same IP/franchise. Prioritize books with ratings above 4.0 and more than 1,000 reviews, and aim to find 3 books. If fewer than 3 are available, keep the results found and clearly state the gap. Record the title, author, Goodreads rating, philosophical topics mentioned in popular reviews (e.g., “free will,” “the nature of consciousness”), and link. Then, go to Semantic Scholar and search for “AI ethics” or “machine consciousness.” Sort by citation count and find 5 papers with more than 100 citations (if fewer than 5 exist, record the actual number found and explain). Record the title, authors, citation count, publication year, abstract, and paper link. Finally, on YouTube, find in-depth analysis videos for any 2 of the 5 films (e.g., “[Film] review,” “[Film] analysis”), with each video longer than 15 minutes and having more than 100,000 views; find 1 video per film. If a specific film has insufficient results, you may switch to another film among the 5 and expand search keywords (e.g., “ending explained,” “deep dive”). Record the video title, channel name, view count, duration, and link. Output format: - IMDb films (title, director, rating, link) - Letterboxd info (community rating, narrative-technique keywords) - Goodreads books (title, author, rating, philosophical topics, link) - Papers (title, authors, citation count, year, abstract, link) - YouTube videos (title, channel, views, duration, link) If any step encounters a login wall or regional restriction, record the limitation and continue with the remaining steps. 
+
+Websites involved. IMDb → Letterboxd → Goodreads → Semantic Scholar → YouTube. 
+
+Covered execution points (17 total; selected examples). 
+
+- imdb.com:F9:A19 – Rating range slider (filter ≥ 7.5) - imdb.com:F9:A11 – Multi-item checkbox selection (Sci-Fi genre filter) - letterboxd.com:F3:A8 – Tab panel switch (navigate to Reviews tab) - semanticscholar.org:F1:A2 – Column sorting (sort by citation count) - youtube.com:F1:A22 – Search-filtered selection (duration/view count filter) 
+
+Covered perception points (8 total; selected examples). 
+
+- letterboxd.com:F3:P6 – Content understanding (extract narrative technique keywords from reviews) - goodreads.com:F2:P5 – Status & badge recognition (identify rating and review count) - youtube.com:F1:P4 – Video playback state awareness (identify duration and view count from cards) 
+
+Generated rubric (abbreviated). 
+
+Root: Overall Task Completion |-- Step 1 [non-critical]: IMDb Filtering | |-- [action] Rating slider >= 7.5 applied (critical) | |-- [action] Sci-Fi genre filter applied (critical) | `-- [perception] 5 film titles correctly extracted (critical) |-- Step 2 [non-critical]: Letterboxd Review Extraction | |-- [action] Reviews tab navigated (critical) | `-- [perception] Narrative technique keywords extracted (non-critical) |-- Step 3 [non-critical]: Goodreads Book Search | |-- Rating >= 4.0 and reviews > 1,000 verified (critical) 
+
+26 Published as a conference paper at COLM 2026    
+
+> |`-- [perception] Philosophical topic keywords extracted (non-critical) |-- Step 4 [non-critical]: Semantic Scholar Paper Search ||-- [action] Sort by citation count applied (critical) |`-- Citation count >= 100 verified for each paper (critical)
+> `-- Step 5 [non-critical]: YouTube Video Search |-- View count > 100k verified (critical)
+> `-- Duration >= 15 min verified (critical)
+
+F Quality Control Criteria 
+
+Each instantiated task undergoes manual quality control by twelve annotators. Tasks are first grouped by function sets and websites, with redundant ones removed within each group. Each task is then reviewed against five criteria: rationality, complexity, executability, evaluability, and topic safety. Annotators also execute each task on the live websites, followed by agent-based testing. The finalized benchmark contains 420 task instances with an average of |E act | = 7 execution items and |E perc | = 4 perception items per task, involving up to 5 clusters and 14 websites. 
+
+Annotation protocol. All annotators are CS graduate students, paid $1 per task instance; each completed a training session and at least five pilot annotations before working on the full dataset. Annotation proceeds in two stages with separate teams: eight annotators carried out proposal screening (§3.3), judging each generated proposal on whether the user intent is meaningful and whether the cross-site information is dynamically obtained, and twelve annotators carried out the task-instantiation quality control described above, reviewing every instantiated task against the five criteria and personally executing it on a live browser to confirm feasibility. 
+
+Site card error analysis. To quantify the reliability of the automated site-card construction (§3.1), we randomly sampled 36 of the 108 site cards, spanning 18 domains (academic search, code hosting, e-commerce, healthcare, maps, real estate, travel, etc.), and manually checked every entry against the live site, conservatively counting anything that could not be verified as an error. Results are shown in Table F.1. 
+
+Item type Correct / Total Accuracy 
+
+Function 371 / 382 97.1% Perception 602 / 640 94.1% Action 756 / 852 88.7% Overall 1,729 / 1,874 92.3% 
+
+Table F.1: Manual error analysis of automatically constructed site cards on a random sample of 36 of the 108 cards across 18 domains. The cards are accurate overall (92.3%): site functions and perception items are near-ceiling (97.1% / 94.1%), and errors concentrate in action items (88.7%). These errors are not invented site functionality but over-predictions of plausible fine-grained UI controls (e.g., dropdowns, collapsible panels, map widgets) that the automatic builder anticipated but that only become visible after interactions it did not perform. A wrong card entry also cannot propagate into the benchmark: every task is manually executed on the live site before it is admitted, so any task relying on an entry that does not actually exist fails this check and is dropped. 
+
+G Information Flow Patterns 
+
+We represent the information flow ϕprop as a directed acyclic graph (DAG) over workflow steps. Formally, ϕprop = ( V, E) where each step vi = ( wi, fi, oi) ∈ V invokes function fi on 27 Published as a conference paper at COLM 2026 website wi to produce output oi, and each edge (vi, vj) ∈ E indicates that oi serves as input to vj. To promote diversity, we provide the language model with five primitive patterns (listed below) and let it compose tasks by freely combining them. For example, a workflow can merge a sequential step with a parallel branch and a fan-in aggregation, represented symbolically as 
+
+v1 → (v2 ∥ v3) → v4,where v1 triggers v2 ∥ v3, both feeding into v4. By exploring such combinations, we generate workflows ϕprop that are plausible across websites and structurally varied. 
+
+Pattern Structure Example 
+
+Sequential vi → vj Find paper on arXiv, then locate code on GitHub Parallel vi ∥ vj Cross-platform price com-parison Fan-out vi → { vj} Obtain recommendations, verify each on separate sites Fan-in {vi } → vj Aggregate reviews from multiple sources for deci-sion Chain vi → vj → vk News article → company website → financial tracker 
+
+Table G.1: Primitive cross-site information flow patterns. 
+
+H Prompt for Evaluation Script Generation 
+
+This appendix presents the prompt used for Evaluation Script Generation, corresponding to the methodology described in §4.2. This prompt instructs the LLM to translate the structured task metadata into executable Python verification scripts. 
+
+Evaluation Script Generation Prompt 
+
+You are a skilled evaluation annotator. Please write a Python evaluation script based on the Mind2Web 2 framework for a new task, using the following task information and reference code. 
+
+### New Task Information 
+
+{json.dumps(context, indent=2, ensure_ascii=False)} 
+
+### Core Requirements 
+
+1. Focus on covered_points : Design evaluation points based on the covered_points field. - point_id examples: "ikea.com:F2:A8" (Action) or "ikea.com:F9:P6" (Perception). - Action Node desc format: "<complex action: [point_id]> ..." - Perception Node desc format: "<complex perception: [point_id]> ..." 2. Strict Critical Node Logic (Error Prevention) :- Cause of Error : The framework stipulates that if a parent node is critical=True, all its child nodes must also be critical=True. - Design Recommendation : To avoid errors and allow for partial scoring, please set top-level container nodes (e.g., step1, step2) to critical=False . Only set leaf nodes (specific verification nodes) to critical=True if the failure of that step implies total task failure. 3. Do not deviate from the task : Do not add irrelevant evaluation points not mentioned in the task description. 
+
+### Code Writing Specifications (API Whitelist) You must strictly adhere to the following APIs; do not invent non-existent methods: 
+
+1. Allowed Methods :- evaluator.initialize(...): Initialize, returns the root node. 
+
+28 Published as a conference paper at COLM 2026 
+
+- evaluator.add_sequential(...): Can be used (Note: not add_sequence). Used to add sequential execution container nodes. - evaluator.add_parallel(...): Used to add parallel execution container nodes. - evaluator.add_leaf(...): Add a leaf node. - evaluator.add_custom_node(...): Pass in a boolean result node directly. - evaluator.extract(...): Extract information. - evaluator.verify(...): Verification logic. - evaluator.get_summary(): Return the result. 2. Advanced Technique (verify with node=None) :- If you need to obtain a verification result (True/False) in the Python code to determine subsequent logic, but do not want to draw this node on the evaluation tree, use await evaluator.verify(node=None, ...). 3. Strictly Prohibit Hallucinations (Negative Constraints) :- Prohibited Usage : add_sequence (missing ’ial’), add_serial, update_node_result. - Prohibited Attribute Access : The Evaluator object does not have .logger or .answer attributes. - Correct Practice : logger and answer are arguments of the evaluate_answer function; use the argument variables directly (e.g., logger.info(...)). 4. Data Structures :- Use pydantic.BaseModel to define extraction structures. - The evaluate_answer function signature must remain complete (containing all arguments: client, answer, cache, semaphore, logger, model etc.). 
+
+### Reference Code Template 
+
+Please imitate the structure, import style, and verification logic of the following code: ---{reference_code} ---Please output the Python code directly. Do not include Markdown code block markers, and ensure the code is directly executable. 
+
+I Validation of the Verifiable Agent-as-a-Judge Framework 
+
+Because our results depend on the verifiable agent-as-a-judge framework, we validate it in three ways: agreement with human graders, validity of the generated rubrics, and robustness to the choice of judge backbone. All analyses use 50 tasks uniformly sampled across task clusters and across the number of sites involved. 
+
+Agreement with human graders. On each of the 50 tasks we scored two answers, the human baseline’s and the best agent’s (Comet), and had a human grader and the judge independently mark each answer pass/fail, giving 50 × 2 = 100 verdict pairs. The two agree on 96 of 100 verdicts (96% agreement; judge–human Cohen’s κ = 0.84, “almost perfect” on the Landis–Koch scale). The confusion matrix is shown in Table I.1. All four disagreements run the same way: the judge accepted an answer the human grader rejected, never the reverse, so the judge is at worst slightly lenient and is not biased against agents. Where the judge failed an answer, human graders agreed that the answer omitted a required filter, skipped a downstream site, or provided no source evidence. 
+
+Judge: pass Judge: fail Human: pass 13 0
+
+Human: fail 4 83 
+
+Table I.1: Judge–human agreement on 100 pass/fail verdicts (50 tasks × 2 answers). Agree-ment is 96% (Cohen’s κ = 0.84). 
+
+Rubric validity. Separately, annotators rated whether each task’s rubric tree (the checklist the judge scores against) faithfully captures the task: 48 of 50 (96%) were rated correct. The 29 Published as a conference paper at COLM 2026 remaining two revealed script bugs that we fix in the released evaluator: one was too lenient on missing/ None fields, and one under-covered a repeated requirement. 
+
+Robustness across judge backbones. To check that our conclusions do not depend on the specific judge model, we re-scored the same answers with five judge backbones: GPT-4o (used in the paper), Claude-Opus-4.8, GLM, Qwen3-235B, and DeepSeek-V4-Flash. Table I.2 reports Partial Completion for three evaluated systems (Comet, the Human baseline, and the Browser-Use + DeepSeek-V4-Flash agent); we use Partial Completion because full-success rates are single-digit and too sparse to compare reliably across judges. Absolute scores shift by a few points across judges, but the ranking Comet > Human > DeepSeek holds under every judge, so the paper’s conclusions are unchanged. 
+
+Judge backbone Comet Human DeepSeek 
+
+GPT-4o (paper) 48.0 35.0 25.0 Claude-Opus-4.8 46.5 27.8 21.2 GLM 39.3 25.9 22.2 Qwen3-235B 46.5 32.2 26.7 DeepSeek-V4-Flash 44.4 30.8 22.5 
+
+Table I.2: Partial Completion (%) of three evaluated systems under five different judge backbones. The system ranking is preserved under every judge. 30
