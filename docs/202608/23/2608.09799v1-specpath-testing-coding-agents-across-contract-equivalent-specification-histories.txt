@@ -1,0 +1,364 @@
+Title: SpecPath: Testing Coding Agents Across Contract-Equivalent Specification Histories
+
+URL Source: https://arxiv.org/pdf/2608.09799v1
+
+Published Time: Tue, 11 Aug 2026 02:34:41 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# SpecPath: Testing Coding Agents Across Contract-Equivalent Specification Histories 
+
+## Yangfan Wu 1, Haozhe Wang 1, Huanyu Yang 2, Jianmin Ji 2, Fangzhen Lin 1
+
+> 1
+
+The Hong Kong University of Science and Technology 
+
+> 2
+
+University of Science and Technology of China 
+
+Abstract 
+
+Modern coding agents increasingly appear capable of follow-ing complex software requirements, yet their success leaves a critical ambiguity: do they resolve the active specification, or merely follow the most salient path by which it was stated? We identify specification-path sensitivity , a failure mode in which requirement histories that are equivalent in their final meaning lead the same agent system to produce behaviorally different programs. This reframes evolving-requirement evaluation as active-contract resolution: before writing code, an agent must determine which requirements still count. Building on this view, we introduce SpecPath, a diagnos-tic evaluation that holds the repository, final contract, veri-fier, agent system, and execution budget fixed while changing only the revision path that leads to the contract. Rather than treating each patch as an isolated pass or failure, SpecPath uses paired executable outcomes to reveal whether an agent realizes the same tested behavior across contract-equivalent histories. Across five calibrated software tasks and fourteen coding-agent configurations, aggregate direct and revision-history accuracy is nearly unchanged; nevertheless, 35 of 100 complete blocks that succeed on the direct specification fail on at least one equivalent history. These results show that implementation success on a consolidated request does not guarantee specification-path invariance. Evaluating evolving requirements therefore calls for controlled tests of whether agents are robust to the path by which a specification becomes final. 
+
+## Introduction 
+
+Software requirements rarely remain consolidated while an agent works. Issue updates and review comments may re-place a rule, withdraw a workaround, or narrow its scope. A reliable coding agent must therefore determine not only 
+
+how to implement a request, but which requests still form the active contract. The second problem logically precedes the first: even flawless implementation skill realizes the wrong program if the agent resolves the wrong contract. The source of this difficulty is a mismatch between repre-sentation and state. A conversation is an append-only record, but its specification is mutable. When turns are additive, ac-cumulating them is correct. When a later turn supersedes, scopes, or cancels an earlier one, neither “remember every-thing” nor “follow the latest turn” is sufficient. The agent must instead recover a normalized set of currently binding obligations from the complete history. We call this inference step active-contract resolution .Figure 1 shows the problem using a real task derived from Tracecat PR #1245. The final contract distinguishes required from optional secret retrieval. A missing required secret must raise SecretNotFoundError ; an optional lookup must return a supplied default or None . The direct history states both rules once. The override history first asks for the old behavior and then explicitly replaces it with the same two rules. Thus the histories differ in route but not in what remains binding. Canonical repository benchmarks usually expose one con-solidated issue and ask whether an agent can implement it (Jimenez et al. 2024; Yang et al. 2024; Xia et al. 2025; Wang et al. 2026a). Multi-turn and evolving-code benchmarks re-veal interaction, accumulation, and long-context failures, but often change the active target or workspace together with the conversation (Rawal et al. 2025; Wang et al. 2026f; Yan, Chen, and Zhang 2026; Raghavendra et al. 2026; Shen et al. 2026; Deng et al. 2026; Wang et al. 2026e). In those set-tings, presentation, the active target, and accumulated code can change together. They therefore do not provide the coun-terfactual in Fig. 1: when only the path to a fixed final con-tract changes, does the same agent system remain contract-correct? We call the observed dependence specification-path sensi-tivity and the desired robustness property specification-path invariance . If histories H and H′ resolve to the same final contract C⋆, a path-invariant agent should remain contract-correct under a fixed repository, verifier, and execution pol-icy. Patch or trace identity is unnecessary because many programs may satisfy the same behavioral obligations. What should remain invariant is tested contract realization. Measuring this property requires more than splitting a prompt into several turns. First, equivalent histories must agree on every active obligation, including scope and polar-ity; topical similarity is not enough. Second, revision seman-tics must be distinguished from ordinary effects of wording, repetition, length, and integration. Third, the comparison must preserve the repository and execution policy so that the history itself is the manipulated factor. Finally, correctness must be behavioral rather than textual: two different patches may both be correct, while a plausible-looking patch may retain an explicitly superseded rule. arXiv:2608.09799v1 [cs.SE] 10 Aug 2026 DIFFERENT HISTORIES                                           
+
+> HD̸=HO
+> SAME ACTIVE CONTRACT
+> Resolve( HD) = Resolve( HO) = C⋆
+> MATCHED EXECUTION
+> fresh runs; controls fixed
+> DIFFERENT BEHAVIOR
+> BD̸=BO
+> Direct Override State C⋆directly
+> required missing →raise optional missing →default
+> Old C0
+> req. →
+> None
+> Turn 2: C⋆
+> req. →raise opt. →default
+> Resolve( HD) = C⋆
+> same active atoms
+> required: raise ·optional: default
+> Resolve( HO) = C⋆
+> SAME CONTROLS FOR BOTH RUNS
+> repo ·agent configuration 20-min budget ·verifier
+> Agent run D fresh R0
+> resulting patch PD
+> Agent run O fresh R0
+> resulting patch PO
+> Required-missing probe
+> raises SecretNotFoundError
+> ✓
+> Block score 5/5 Required-missing probe
+> returns None ×
+> Block score 4/5
+> stale behavior from superseded C0
+
+Figure 1: A specification-path counterfactual from Tracecat PR #1245. The direct and override histories resolve to the same active contract C⋆, while repository, agent configuration, budget, and verifier are held fixed across fresh runs. Nevertheless, the override run preserves the superseded behavior and fails the required-missing probe. SpecPath scores this verified behavioral difference rather than patch identity. SpecPath turns these requirements into a controlled diag-nostic evaluation. For each task family, it constructs multiple histories that resolve to one final contract, then holds the repository, verifier, agent configuration, and execution bud-get fixed across histories. Direct and control conditions sep-arate canonical implementation competence from sensitivity to revision path, wording, and added context. Each execution begins only after the complete history is visible and starts from a fresh copy of the same base repository. This deferred execution design isolates contract resolution from the inertia of code written at intermediate turns. The central empirical result is a failure of conditional robustness, not a leaderboard-wide accuracy drop. Final-contract realization (FCR) is 78.8% for the direct condition and 78.7% when averaged over the four contract-equivalent history conditions. Yet 35 of 100 complete blocks that suc-ceed directly fail on at least one alternative. Thus average success can remain stable while the identities of successful executions change across equivalent paths. This work makes three contributions: 
+
+• We identify specification-path sensitivity and formal-ize the corresponding invariance criterion over contract-equivalent requirement histories. 
+
+• We introduce SpecPath, which isolates revision path while holding the repository, final contract, verifier, agent configuration, and budget fixed. 
+
+• We show that stable aggregate accuracy can conceal sub-stantial path-conditioned failures among executions that succeed on the direct specification. 
+
+## Related Work 
+
+Repository-Level Coding-Agent Evaluation 
+
+Repository benchmarks pair issues with code snapshots and executable tests; agent studies add repository navigation, editing, and validation (Jimenez et al. 2024; Yang et al. 2024; Xia et al. 2025; Wang et al. 2026c). RepoBench instead studies repository-aware completion (Liu, Xu, and McAuley 2024). These settings establish realistic implementation com-petence, but normally present one consolidated specification. They do not test whether the same contract is recovered from alternative histories. 
+
+Interactive Coding and Evolving Requirements 
+
+Fixed-goal conversations, alternative construction orders, and progressively disclosed tasks show that presentation alone can change coding performance (Rawal et al. 2025; Wang et al. 2026f; Yan, Chen, and Zhang 2026; Raghavendra et al. 2026; Laban et al. 2026; Wang et al. 2026d). Bench-marks of genuinely evolving software also expose adaptation, stale behavior, and regression (Wang et al. 2025b; Zhan et al. 2025; Wang et al. 2025c; Sobal et al. 2026; Shen et al. 2026; Deng et al. 2026; Lam et al. 2026; Huang et al. 2026; Wang et al. 2025a). These are essential precedents, but their active target, workspace, or prior implementation often changes with the conversation. SpecPath holds those factors fixed and varies complete contract-equivalent histories. 
+
+Instruction Updating and History Sensitivity 
+
+Instruction-following work studies replacement, prioritiza-tion, retraction, and stale state across turns (Rakotonirina et al. 2025; Han et al. 2025; Yan, Luo, and Zhang 2024; Zhu et al. 2026; Zhai, Li, and Wang 2026; Wang et al. 2026b). Long-context results show that length, position, splitting, and interference are competing explanations for any history effect (Bai et al. 2024; Liu et al. 2024; Laban et al. 2026; Gupta et al. 2024; Jaffe, Reicin, and Choi 2026). Accordingly, duplicate, split, paraphrase-direct, and length-matched conditions help separate revision structure from repetition, integration, and generic context burden. They do not by themselves identify an internal mechanism. 
+
+Metamorphic and Executable Evaluation 
+
+Metamorphic testing evaluates relations between trans-formed inputs and outputs (Segura et al. 2016); behavioral checklists and contrast sets turn this idea into matched coun-terfactual tests (Ribeiro et al. 2020; Gardner et al. 2020). Code-generation work has applied semantics-preserving prompt and history transformations (Wang et al. 2023; Wang and Zhu 2024; Guo et al. 2026). SpecPath’s input relation is equality of the resolved final contract; its output relation is contract-correct executable behavior, not patch identity. Be-cause tests are incomplete oracles, claims remain bounded by tested behavior (Barr et al. 2015; Liu et al. 2023; Wang, Pradel, and Liu 2026). Requirements-change taxonomies in-form the history operators and validation gates (Madampe, Hoda, and Grundy 2022; Zowghi and Gervasi 2003). 
+
+Positioning. SpecPath contributes the controlled con-junction of these ideas: independently validated contract-equivalent histories, repository-level paired execution under a fixed verifier and budget, and conditional measurement among blocks with demonstrated direct competence. This conjunction makes the path to the contract observable as a factor rather than leaving it entangled with a changing goal or workspace. 
+
+## Problem Formulation 
+
+Requirements, Contracts, and Histories 
+
+For task i, a requirement atom q ∈ Q i is the smallest be-havior that can be activated or revoked and tested inde-pendently. It records scope, input condition, polarity, and required observation. Polarity matters: the absence of a re-quest is not automatically a prohibition, whereas an explicit restoration requirement can make retention of an obsolete behavior testably wrong. Let Mt be the history-manipulated state and Pi fixed obligations that remain active in every history. The final contract is 
+
+C⋆i = M ⋆i ∪ Pi. (1) Construction uses a hidden trace ZH = (( At, D t, R t)) Tt=1 
+
+of activated, deactivated, and restated atoms. Starting from 
+
+M0, replay applies 
+
+Mt = ( Mt−1 \ Dt) ∪ At. (2) A restatement leaves Mt unchanged; an override deactivates an old atom and activates its replacement; a cancellation de-activates a temporary atom. The trace is rendered as natural-language history H = ( u1, . . . , u T ) without event labels or atom identifiers. Histories H and H′ are contract-equivalent when replay and normalization give 
+
+Norm (Replay (ZH )∪Pi) = Norm (Replay (ZH′ )∪Pi) = C⋆i .
+
+(3) Normalization removes presentation order while preserving atom identity, scope, polarity, and observation. Because re-play validates the hidden program, not its prose, independent reviewers must also recover the same final contract from each visible history. Figure 1 instantiates this definition. The direct Tracecat history activates the two final atoms at once. The override history first activates an old atom, then deactivates it while activating the same two final atoms. Replay therefore yields an identical C⋆ even though the visible paths differ. This example also shows why the final turn alone is insufficient: in a split history, an earlier atom may remain active without being repeated in the last message. 
+
+Measurement Unit and Claim Boundary 
+
+A task family Ti contains one initial repository R0 
+
+> i
+
+, final contract C⋆i , contract-equivalent histories Hi, verifier Vi,and execution protocol Πi. Every history receives a fresh 
+
+R0 
+
+> i
+
+under the same Vi and Πi. Let A(R0 
+
+> i
+
+, H ; Π i) be the repository produced by an agent system. If Vi contains mi
+
+executable probes, the behavioral signature on repeat k is 
+
+Si,H,k = ( vi1, . . . , v im i ), vij ∈ { 0, 1}. (4) The primary outcome requires every final-contract probe to pass: 
+
+Yi,H,k =
+
+> mi
+
+Y
+
+> j=1
+
+vij . (5) The signature retains more information than the binary outcome. For example, the illustrated Tracecat block changes from (1 , 1, 1, 1, 1) under direct to a signature with one required-lookup failure under override. We use such vectors to show what behavior changed, while primary inference re-mains on final-contract realization. We do not infer an agent’s internal representation from a failed probe. 
+
+Why Paired Measurement Is Necessary 
+
+Two complementary questions arise once the unit is a matched block. First, how often does each condition suc-ceed on average? This is ordinary benchmark accuracy and describes end performance. Second, when direct succeeds, does the same block remain correct across equivalent his-tories? This is an invariance question. The two answers can diverge because gains and losses in different blocks cancel. If ten direct successes become failures while ten direct failures become successes, condition-level accuracy is unchanged even though the mapping from specification to program is path-sensitive. Conditioning on direct success serves a specific purpose. A direct failure does not reveal whether an alternative fail-ure arose from contract resolution or from inability to im-plement the consolidated request at all. Direct success es-tablishes competence for that task, agent configuration, and repeat; failure elsewhere in the complete block then supplies a counterexample to path invariance. This diagnostic condi-tioning does not turn the block into an independent task or estimate population prevalence. The task/PR family, not an execution, history, or verifier probe, is the inferential unit. The five frozen verifiers contain final-contract probes only. We therefore measure contract realization within their scope; we do not infer latent beliefs, prove program equivalence, identify stale-state mechanisms, or estimate the prevalence of revision failures in software tasks generally. Repository PR Final-contract behavior           
+
+> kedro-org/kedro 4958 catalog replacement precedence NVIDIA/NeMo-Agent-Toolkit 513 conversion failures raise errors camptocamp/pytest-odoo 86 subtest compatibility restoration google/sbsim 113 bounded time inputs raise errors TracecatHQ/tracecat 1245 required/optional secret retrieval
+
+Table 1: The five source PR/task families. Descriptions ab-breviate the executable final contracts; exact atoms, commits, and verifier hashes are released with the artifact. 
+
+## The SpecPath Suite 
+
+Task Families 
+
+SpecPath construction follows five ordered stages: source anchoring, contract reconciliation, verifier validation, path construction, and independent audit (Fig. 2). Each stage pro-duces an explicit artifact and must pass its validity gate before the next stage. This order separates evidence used to define a task from outcomes later used to evaluate agents. The frozen suite contains five deliberately curated tasks derived from five public pull requests; it is a controlled diagnostic suite, not a random sample of software changes. 
+
+Source Selection and Contract Extraction 
+
+Candidate discovery combined a broad PR funnel with high-touch curation. The automatic gate retained merged, non-bot changes with both source and test modifications and excluded changes dominated by generated files or too large for reliable focused extraction. These signals established constructabil-ity, not semantic ground truth. Final admission additionally required a reproducible base checkout, an observable behav-ior change, a focused executable verifier, and enough evi-dence to distinguish the final behavior from a plausible al-ternative. Task selection did not use scores from the systems reported here. For each admitted PR, a curator inspected the linked issue, PR description, review discussion, source diff, and changed tests. The curator then restricted the task to one co-herent behavioral slice and decomposed that slice into atoms with explicit conditions, scopes, polarities, and observations. This focusing step prevents a large PR from becoming one opaque label. For example, the SBSim source PR changes twenty files, but the family retains only bounded day-of-week and hour-of-day normalization; an adjacent coordinate-regex change is outside the contract. Similarly, the Tracecat fam-ily excludes integration call sites unrelated to required and optional secret retrieval. Table 1 summarizes the resulting final contracts. Each fam-ily fixes the base commit, requirement catalog, verifier, and reference patch before evaluated-agent execution. Extraction models, where used, proposed candidate observations from the evidence; their proposals were construction aids rather than labels. Human curation determined the admitted atoms and recorded rejected or merged candidates.                                   
+
+> Condition State path Diagnostic role
+> Direct M⋆Consolidated-contract competence. Duplicate M⋆→M⋆Inert repetition. Split ∅ → M1→M⋆Monotonic integration. Override Mold →M⋆Explicit replacement. Cancellation Mtmp →M⋆Explicit retraction. Paraphrase-direct
+> M⋆Wording control. Length-matched
+> M⋆→M⋆Extra-history control.
+
+Table 2: All seven conditions resolve to the same family-specific final contract. The first five form the complete block used for CPV. 
+
+History Construction and Controls 
+
+Every family supplies the five core histories in Table 2. Two additional direct conditions are negative controls. 
+
+Paraphrase-direct is a manually reviewed single-turn re-statement. Length-matched-no-revision appends neutral no-op turns to the direct condition and exactly matches cancel-lation in turn count and whitespace-token count; it is a token proxy, not equality under every provider tokenizer. The five core conditions change one structural property at a time. Duplicate tests inert repetition, while split tests whether final atoms introduced in separate turns are integrated. Over-ride and cancellation introduce the non-monotonic opera-tions of replacement and retraction. These transformations do not claim to reproduce the empirical frequency of real review conversations. They are controlled interventions that make competing explanations measurable. 
+
+Executable Calibration and Data Cleaning 
+
+Verifier calibration asks whether each task can distinguish the final contract from concrete near-misses before it judges an agent. In a fresh base checkout, the reference patch must pass every final-contract probe and the unmodified base must fail. Nonempty selective negative patches then remove or reverse one accepted atom while preserving the others; each must fail its target probe. Finally, fixed patches are replayed under all five core histories. Their probe signatures must remain identical across histories, because a verifier whose behavior changes with prompt presentation cannot support the intended counterfactual. This process found and removed several construction ar-tifacts. A pytest-odoo negative initially materialized as an empty patch and was replaced by a nonempty statement-level mutant. Parameterized SBSim tests initially produced incomplete node identifiers, so the curator expanded them to the collected test nodes and changed the runner to fail closed on empty verifier buckets. A copied Tracecat pack-age shadowed the patched package on the import path; the duplicate was removed and the corrected environment was replayed. These are task-cleaning changes made from verifier evidence, not evaluated-agent performance. All five accepted families satisfy the same semantic ad-mission content: provenance is bound to a real PR; atom-GROUND THE TASK VALIDATE THE ORACLE CONSTRUCT AND AUDIT COUNTERFACTUALS 1 Anchor source state                                           
+
+> public PR ·base/head scoped code and tests
+> OUTPUT
+> source snapshot S
+> SOURCE GATE ✓
+> reproducible base; focused scope
+> 2Reconcile contract
+> issue ·review ·diff ·
+> tests reconcile scoped atoms
+> OUTPUT
+> active contract C⋆
+> CONTRACT GATE ✓
+> complete, scoped, and unambiguous
+> 3Validate verifier
+> ✓gold patch passes
+> ×base + targeted mutants fail
+> OUTPUT
+> validated verifier V
+> VERIFIER GATE ✓
+> every contract atom is detected
+> 4Construct matched paths
+> direct ·duplicate ·split override ·cancellation
+> OUTPUT
+> history family H
+> PATH GATE ✓
+> different histories, same resolved C⋆
+> 5Independent audit
+> structural replay ·blind text review adjudicate, then review again
+> OUTPUT
+> audited S+C⋆+V+H
+> AUDIT GATE
+> pass / remediate
+> FROZEN TASK FAMILY T
+> PASS FAIL →REMEDIATE THE AFFECTED STAGE →RE-RUN INDEPENDENT AUDIT CONSTRUCTION FREEZE: NO EVALUATED-AGENT OUTCOMES USED FOR REPAIR OR SELECTION
+> AGENT EVALUATION
+
+Figure 2: Construction and validation of each SpecPath task family. Every stage emits a named artifact and must pass its validity gate; a failed audit returns the affected stage for remediation and re-review. Only the frozen package crosses into agent evaluation, whose outcomes never influence task repair or selection. to-test coverage is explicit; gold passes all five histories; base passes none; selective negatives are nonempty and rejected; patch application is clean; and fixed-patch signa-ture disagreement across histories is zero. Kedro and pytest-odoo additionally package these checks in the newer uniform 
+
+construction_audit_v4 envelope. The other three re-tain earlier family-specific records with the same substantive checks. We report this artifact-format asymmetry rather than treating the files as byte-identical evidence. 
+
+Visible-History Review and Freeze 
+
+Automatic replay first checks that all raw histories end at the same normalized active set. Two reviewers then inde-pendently extract active requirements from the visible text without the gold trace. Four ambiguous duplicate histories were revised because a restatement could be read as nar-rowing the unrepeated obligations. The revised items were independently re-reviewed rather than silently relabeled. In the frozen audit, both reviewers exactly match the gold final set on all 25 histories, agree on all 50 encoded operations, and report no unresolved ambiguity. The adjudicated gate therefore passes for all five families. The full task packages and accepted histories were frozen before the primary agent matrix. After that boundary, con-struction records could document a known asymmetry but could not be upgraded in response to model outcomes. This ordering is essential: otherwise a benchmark might acciden-tally clean difficult paths more aggressively than paths on which agents already succeed. 
+
+## Experimental Design 
+
+Research Questions and Factorial Matrix 
+
+The experiment follows three questions that mirror the pa-per’s argument. RQ1 asks whether aggregate FCR changes across contract-equivalent histories. RQ2 asks whether direct-success blocks remain correct when only the path changes. RQ3 asks whether wording, added context, scaf-fold, missing metadata, or execution time can bound the in-terpretation of an observed path violation. RQ1 describes average performance; RQ2 is the direct invariance test; RQ3 prevents a violation from being assigned to revision seman-tics without controls. We cross five task families, seven model deployments, two scaffolds, seven conditions, and three repeats: 
+
+5 × 7 × 2 × 7 × 3 = 1 ,470 (6) planned primary rows. The model deployments are MiniMax-M3, DeepSeek-V4-Flash, Qwen3.7-Max, Kimi-K2.7-Code, GLM-5.2, GPT-5.4-Mini, and Grok-4.20-Nonreasoning deployments. The two scaffolds are mini-swe-agent 2.4.5 ( Mini ) and OpenHands CLI 1.16.0 / SDK 1.21.0. We call each model-deployment–scaffold pair a system con-figuration; executions are nested measurements, not 14 inde-pendent populations. Rows are randomized within repeat using seed 20260729, with a barrier between repeats. All 14 configuration cells passed deployment canaries and synthetic edit preflights be-fore the primary run. Failed deployments are not silently substituted. 
+
+Isolated Execution 
+
+Each row starts an independent session and fresh base workspace. The complete chronological history is visible before implementation begins. Agent execution runs in an isolated Podman container; setup and hidden verification run from a fresh host verifier workspace. The primary agent timeout is 1,200 seconds and each verifier command has a 120-second timeout. Mini has a USD 0.25 native cost limit; OpenHands has the same wall-time limit but no equivalent native hard cost control. Holding these details fixed is part of the estimand, not merely an engineering convenience. A scaffold determines how a transcript is rendered, what tools are available, and how long planning or validation takes. Likewise, a timeout can turn a nearly complete patch into a fixed-budget failure. We therefore define an agent configuration by its model de-ployment, scaffold, prompts, tools, retry policy, and budget, and compare histories only within that configuration. 
+
+Run Cleaning and Scoring 
+
+Run processing applies a fixed decision sequence so that in-frastructure loss is not mistaken for agent failure. The sched-uler first resolves provider-limit attempts, selecting the earli-est complete non-external attempt under a maximum of three same-budget tries. The selected record then passes protocol and metadata gates. Only after those checks do we classify a record as a scored fixed-budget outcome or as an exter-nal invalid. Paired blocks are formed last and include only histories with scored outcomes. Agent timeout, no patch, forbidden content, patch-apply failure, nonzero agent exit, and verifier test failure are fixed-budget failures. Provider, runner, metadata, protocol, and verifier-infrastructure invalidity are excluded and reported as attrition. Provider-limit attempts may retry at the same bud-get up to three times. This policy selects the first complete non-external attempt and never changes the primary timeout or model deployment. In particular, an empty or incorrect patch remains an agent outcome; it is not cleaned away be-cause it looks uninformative. Conversely, a missing provider response is not scored as evidence that the agent misunder-stood the contract. 
+
+Sensitivity Analyses 
+
+Two analyses are deliberately separate from the frozen pri-mary estimand. First, metadata-invalid records with complete verifier evidence are regraded post hoc; records without that evidence remain excluded. Second, records whose genera-tion quality was agent-timeout receive one 2,400-second run with the same task, condition, model deployment, scaffold, and repeat. These reruns join to the primary schedule by 
+
+parent_schedule_id and are never pooled with the 1,200-second results. 
+
+## Metrics and Statistical Analysis 
+
+Final-contract realization. For task i, history h, and scored executions Ki,h , FCR is 
+
+bpi,h = |K i,h |−1 X
+
+> k∈K i,h
+
+Yi,h,k , bPh = 5 −15X
+
+> i=1
+
+bpi,h . (7) This task-macro quantity describes average success but can hide discordant outcomes whose net difference is near zero. 
+
+Conditional path violation. A block b = ( i, e, a, k ) fixes task, model deployment, scaffold, and repeat. It is complete when all five core histories are scored. Let Db denote direct        
+
+> Primary-flow quantity Count
+> Planned / terminal 1,470 / 1,470 Completed / exhausted provider-limit 1,377 / 93
+> Fixed-budget scored 1,194 Final success / agent failure 928 / 266
+> External invalid 276 provider / metadata / verifier 93 / 170 / 13
+
+Table 3: Primary attrition. External invalid records do not estimate agent capability and are excluded rather than scored as failures. success and let Rb indicate failure on at least one of duplicate, override, cancellation, or split. Within task i, any-CPV is 
+
+bqi =
+
+P 
+
+> b∈B i
+
+1[Db = 1] Rb
+
+P 
+
+> b∈B i
+
+1[Db = 1] , bQ = 5 −15X
+
+> i=1
+
+bqi. (8) Variant-specific CPV replaces Rb with failure under one his-tory. CPV is undefined when direct fails; such a block is not counted as invariant. 
+
+Direct controls. For control c, we pair scored control and direct-condition rows within the same task, model deploy-ment, scaffold, and repeat and report the task-macro differ-ence bPc − bPd. These controls estimate average wording or extra-history effects. They are not an any-CPV baseline and therefore cannot, by themselves, identify revision semantics causally. 
+
+Inference. Point estimates first average nested observa-tions within each source task and then weight the five tasks equally. Percentile 95% intervals use 10,000 nonparamet-ric task/PR-family cluster resamples with seed 20260729. Histories, repeats, model deployments, and scaffolds never increase cluster N . Individual history-law and deploy-ment comparisons are exploratory; no large-benchmark or population-prevalence interpretation is made. 
+
+## Results 
+
+Execution Attrition 
+
+Before comparing histories, we separate agent behavior from external invalidity because missing rows determine which paired blocks are eligible. This accounting also prevents a provider outage or malformed runner record from becoming an apparent specification failure. All 1,470 planned primary rows reached scheduler termi-nal state. Corrected selection yields 1,377 completed rows and 93 exhausted provider-limit rows. The scoring policy re-tains 1,194 outcomes: 928 final-contract successes and 266 agent failures. The remaining 276 are external invalids: 93 provider, 170 metadata, and 13 verifier invalids (Table 3). Provider failures concentrate in GLM and Kimi, with five MiniMax rows; no deployment is replaced. Because invalid-ity is uneven across systems, every result reports its actual support. Stable Means Conceal Conditional Path Violations 
+
+The condition-level answer to RQ1 appears reassuring. Task-macro FCR is 78.8% (95% CI 63.6–89.6%) for direct. Du-plicate, override, cancellation, and split reach 75.8%, 81.1%, 80.3%, and 77.7%, respectively; their mean is 78.7%. The corresponding scored supports are 166, 173, 169, 171, and 165. Thus no contract-equivalent history produces a large aggregate collapse (Fig. 3a). The paired answer to RQ2 is different. Of 210 possible five-history blocks, 127 have all core histories scored. Direct succeeds in 100 of those complete blocks, and 35 then fail under at least one contract-equivalent history. The any-CPV task-macro estimate is 36.4% (95% CI 25.6–45.1%). Im-provements on some blocks therefore offset losses on others: aggregate accuracy remains stable because it forgets which 
+
+blocks succeed, whereas CPV retains that pairing. The sensitivity is not confined to one history operator. Du-plicate, override, cancellation, and split produce 19, 8, 13, and 11 positive blocks, with task-macro CPV estimates of 18.3%, 10.8%, 14.1%, and 12.2% (Fig. 3b–c). Counts overlap because one block may violate several histories. Duplicate has the largest observed estimate, but the ordering changes across repeats; individual operator rankings are therefore ex-ploratory. The result supports path sensitivity as a family of presentation changes, not a unique failure mechanism tied only to explicit override or cancellation. The any-CPV signal is present in every source family rather than being driven by one repository. Positive/eligible counts are 4/10 for Kedro, 4/25 for NeMo Agent Toolkit, 9/19 for pytest-odoo, 8/24 for SBSim, and 10/22 for Tracecat, corresponding to within-family rates from 16.0% to 47.4%. These five rates are averaged equally in the 36.4% macro estimate; the 100 executions do not create 100 inferential clusters. Positive blocks also occur in every repeat. Together, these checks show that the paired result is replicated across the frozen suite, while the five-family scale still limits gen-eralization. 
+
+Scaffold Is a Moderator, Not a Ranked Winner 
+
+Mini contributes 78 complete blocks and OpenHands 49. Their task-macro any-CPV estimates are 43.0% (95% CI 32.9–53.1%; 57 eligible) and 30.7% (95% CI 10.3–51.1%; 43 eligible), respectively. The intervals overlap substantially, and OpenHands has wider uncertainty and more invalid sup-port. We therefore describe scaffold as a plausible moderator, not a ranked winner. Deployment-specific any-CPV estimates range from 0.0% to 71.3%, but eligible support ranges from only 5 to 28 blocks and three deployment estimates contribute only four of the five task families. This spread motivates cross-deployment replication but does not support a stable deployment ranking from the present data. These comparisons answer whether system components moderate the observed diagnostic; their uneven support prevents a leaderboard interpretation. 
+
+Direct Controls Bound the Interpretation 
+
+Relative to the paired direct condition, length-matched-no-revision changes FCR by −4.0 percentage points (95% CI 
+
+−8.1 to +0 .1; 151 pairs), while paraphrase-direct changes it by −3.1 points (95% CI −10 .9 to +5 .6; 152 pairs). Both intervals include zero. These controls do not show a large, precisely estimated average penalty from wording or neu-tral added history. However, they are average FCR con-trasts, whereas any-CPV is a one-sided block diagnostic. We therefore conclude that contract-equivalent presentation can change which executions succeed, but do not attribute the effect uniquely to non-monotonic revision semantics. 
+
+Sensitivity Analyses Preserve the Main Boundary 
+
+Metadata regrading. Of 170 primary metadata-invalid records, 37 have complete verifier evidence and can be re-graded post hoc; 133 remain excluded. Under this sensitiv-ity, overall any-CPV changes from 36.4% to 38.6% (95% CI 25.6–48.0%), and OpenHands changes from 30.7% to 34.6%. The two control contrasts remain near their primary values. The sensitivity estimate therefore remains close to the primary estimate, although post-hoc regrading cannot resolve the 133 records without complete evidence and does not replace primary scoring. 
+
+Doubled timeout. Additional time recovers many selected timeout cases, showing that budget is part of the evaluated agent configuration rather than a nuisance variable. Forty-one generation-timeout records receive the predeclared 2,400-second sensitivity run, and all finish. Of 32 scored recoveries, 26 succeed and six remain agent failures; nine further rows are metadata-invalid. Mini recovers 10/10 scored rows and OpenHands 16/22. Because the analysis selects rows by a primary timeout, it neither retroactively converts the 1,200-second outcomes nor estimates a population treatment effect. 
+
+## Discussion 
+
+What the central result establishes. Canonical success is not sufficient evidence of specification-path invariance. In this suite, direct and average alternative FCR are almost iden-tical, yet more than one third of task-macro direct-success blocks fail somewhere else in the same contract-equivalent family. The logical chain is direct: the direct condition estab-lishes that a block can realize the consolidated contract; an alternative history preserves that tested contract; and a sub-sequent verifier failure supplies an observed counterexample to invariance for the block. A condition-level mean discards the pairing and can therefore hide the exchange of successes and failures. 
+
+What it does not establish. The experiment does not show that revision histories universally lower coding accuracy, nor that an internal stale-memory mechanism causes the ob-served failures. Duplicate is the largest observed variant-specific CPV, and the two direct controls have small negative average contrasts whose intervals include zero. Moreover, separately sampled agent runs remain stochastic even when the configuration is fixed. The evidence therefore supports a narrower claim: under matched execution policy, contract-equivalent presentation can change which directly competent blocks remain correct. The present controls do not identify a unique internal mechanism or a pure causal effect of non-monotonic revision semantics. (a) Aggregate FCR is nearly stable     
+
+> 0% 25% 50% 75% 100%
+> Direct Duplicate Override Cancellation Split Paraphrase Length-matched
+
+(b) CPV exposes paired failures      
+
+> 0% 10% 20% 30% 40% 50%
+> Any Duplicate Override Cancellation Split
+
+(c) Executable signatures within 100 complete direct-success blocks       
+
+> Direct Any failure Duplicate Override Cancellation Split
+> Kedro NeMo pytest-odoo SBSim Tracecat
+> ■pass
+> ■fail columns grouped by task and sorted by failure pat-tern
+
+Figure 3: Stable aggregate accuracy conceals path-conditioned failures. Panel (a) reports task-macro FCR and 95% task-cluster bootstrap intervals; the dashed line marks direct FCR. Panel (b) reports task-macro CPV under the same cluster bootstrap. In panel (c), each column is one of 100 complete blocks in which direct passes; cells show whether the same agent configuration realizes the same final contract under each history. The 35 any-failure columns are a union, so row counts overlap. Columns are sorted within task only for display. Runs are nested observations; the five source PR families are the resampling units. 
+
+From Long Context to Contract Resolution 
+
+The distinction between retrieval and contract resolution ex-plains why simply extending context windows does not set-tle the problem. In the override example, the obsolete rule remains available; the agent must recognize its supersession and prevent it from influencing implementation. Split creates the opposite demand: an earlier atom remains active although the last turn does not repeat it. Robustness therefore requires selective status tracking, not wholesale retention or recency. The observed ordering supports this broader view. Dupli-cate has the largest variant-specific estimate, and split also produces violations, so the data do not isolate non-monotonic updating. Repetition may alter salience and splitting may al-ter integration cost. Specification-path sensitivity is the sup-ported phenomenon; stale memory, recency, and interference remain hypotheses. 
+
+Implications for Evaluation 
+
+Coding-agent evaluation should report canonical compe-tence and conditional robustness as separate quantities. FCR answers whether a system commonly implements a condi-tion. CPV asks whether success on the clearest statement sur-vives equivalent presentation. Neither subsumes the other: a system may have high FCR and still expose path violations, while low direct FCR leaves few eligible CPV blocks. Equal means need not describe the same behavior. Controls should align with the suspected alternative expla-nation: paraphrase for wording, length matching for added context, duplicate for repetition, split for integration, and override or cancellation for status changes. A compact report should include direct and condition-level FCR, complete-block coverage, any- and variant-specific CPV, actual sup-port, and executable signatures. The raster in Fig. 3 makes visible the overlap that one score would discard. 
+
+Implications for Agent Design 
+
+The benchmark suggests a concrete intervention: maintain an explicit contract ledger before editing. Such a ledger would assign each requirement a stable identity, scope, polarity, and status such as active, superseded, or canceled. The im-plementation plan would then derive from the active subset. This design targets resolution rather than relying on a sum-mary that may preserve the same ambiguity in shorter form. The ledger remains a hypothesis. A valid follow-up should compare it with token-matched summaries under the same budget and test whether it reduces CPV without sacrific-ing direct FCR. An oracle final-contract recap can bound remaining implementation difficulty, but must not reveal im-plementation locations or the reference patch. 
+
+Study scale. The 1,470 executions replicate configura-tions and histories, but remain nested observations of five source tasks. This is a controlled multi-system experiment and benchmark-design demonstration, not a large task bench-mark. 
+
+## Threats to Validity 
+
+External and statistical validity. Inference has only five task/PR-family clusters. Cluster-bootstrap intervals represent variation across these families, not a guarantee of coverage for a broad software-task population. Deployment-level rank-ings are especially fragile because invalidity leaves uneven support; operator comparisons are exploratory. Missingness and measurement validity. Only 127 of 210 possible core-history blocks are complete. Provider failures are concentrated in particular deployments, and 170 records fail the primary metadata gate. Attrition tables and post-hoc regrading expose this problem but cannot prove missing-at-random. Finite final-contract probes may also miss be-havior outside the tested contract. They support tested re-alization, not program equivalence or state-level diagnosis. Runs within a block are independently sampled; CPV is an observed-robustness diagnostic, not a common-randomness estimate of a deterministic prompt treatment. 
+
+Construction validity. The visible-history gate passes all five families after documented remediation, but only two families have the uniform v4 construction matrix. The re-maining human curation and calibration records are accepted under the frozen protocol but are not treated as identical ev-idence. Mixed source selection and a focus on constructable Python PRs prevent a prevalence claim. Synthetic paths pro-vide control, not their frequency in practice; reviewer dis-agreement in naturalness also shows that semantic equiva-lence need not imply equal conversational style. 
+
+## Conclusion 
+
+SpecPath tests whether coding agents realize one final con-tract across equivalent requirement histories. An execution can succeed on a consolidated request yet fail after revision reaches the same contract, a pattern that aggregate accu-racy hides. Although the mechanism and prevalence remain open, evaluation should measure specification-path invari-ance rather than infer it from canonical success. References 
+
+Bai, Y.; Lv, X.; Zhang, J.; Lyu, H.; Tang, J.; Huang, Z.; Du, Z.; Liu, X.; Zeng, A.; Hou, L.; Dong, Y.; Tang, J.; and Li, J. 2024. LongBench: A Bilingual, Multitask Benchmark for Long Context Understanding. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 3119–3137. Bangkok, Thailand: Association for Computational Linguistics. Barr, E. T.; Harman, M.; McMinn, P.; Shahbaz, M.; and Yoo, S. 2015. The Oracle Problem in Software Testing: A Survey. IEEE Transactions on Software Engineering , 41(5): 507–525. Deng, G.; Chen, Z.; Yu, Z.; Fan, H.; Liu, Y.; Yang, Y.; Parikh, D.; Kannan, R.; Cong, L.; Wang, M.; Zhang, Q.; Prasanna, V.; Tang, X.; and Wang, X. 2026. SWE-Milestone: Evaluating AI Agents on Continuous Software Evolution. Version 4; ICML 2026, arXiv:2603.13428. Gardner, M.; Artzi, Y.; Basmov, V.; Berant, J.; Bogin, B.; Chen, S.; Dasigi, P.; Dua, D.; Elazar, Y.; Gottumukkala, A.; Gupta, N.; Hajishirzi, H.; Ilharco, G.; Khashabi, D.; Lin, K.; Liu, J.; Liu, N. F.; Mulcaire, P.; Ning, Q.; Singh, S.; Smith, N. A.; Subramanian, S.; Tsarfaty, R.; Wallace, E.; Zhang, A.; and Zhou, B. 2020. Evaluating Models’ Local Decision Boundaries via Contrast Sets. In Findings of the Association for Computational Linguistics: EMNLP 2020 , 1307–1323. Online: Association for Computational Linguistics. Guo, G. A.; Aleti, A.; Neelofar, N.; Tantithamthavorn, C.; Qi, Y.; and Chen, T. Y. 2026. MORTAR: Multi-turn Meta-morphic Testing for LLM-based Dialogue Systems. IEEE Transactions on Software Engineering , 1–18. Gupta, A.; Sheth, I.; Raina, V.; Gales, M.; and Fritz, M. 2024. LLM Task Interference: An Initial Study on the Impact of Task-Switch in Conversational History. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , 14633–14652. Miami, Florida, USA: Association for Computational Linguistics. Han, C.; Liu, X.; Wang, H.; Li, S.; Yang, J.; Jiang, H.; Wang, Z.; Yin, Q.; Qiu, L.; Yu, C.; Gao, Y.; Li, Z.; Yin, B.; Shang, J.; and Ji, H. 2025. Can Language Models Follow Multiple Turns of Entangled Instructions? In Findings of the Associ-ation for Computational Linguistics: EMNLP 2025 , 25445– 25460. Suzhou, China: Association for Computational Lin-guistics. Huang, Y. A.; Ma, L.; Tahir, A.; Zhang, Q.; Xiao, L.; and Xiao, L. 2026. Regression Accumulation in Multi-Turn LLM Programming Conversations. Accepted to ASE 2026; formal proceedings metadata not yet available, arXiv:2607.01855. Jaffe, A.; Reicin, N.; and Choi, J. D. 2026. RIFT: Re-ordered Instruction Following Testbed To Evaluate Instruc-tion Following in Singular Multistep Prompt Structures. arXiv:2601.18924. Jimenez, C. E.; Yang, J.; Wettig, A.; Yao, S.; Pei, K.; Press, O.; and Narasimhan, K. R. 2024. SWE-bench: Can Language Models Resolve Real-World GitHub Issues? In The Twelfth International Conference on Learning Representations .Laban, P.; Hayashi, H.; Zhou, Y.; and Neville, J. 2026. LLMs Get Lost in Multi-Turn Conversation. In The Fourteenth International Conference on Learning Representations .Lam, M. H.; Wang, C.; Liu, H.; Xiao, J.; Li, H.-s.; Huang, J.-t.; Zhuo, T. Y.; and Lyu, M. R. 2026. SWE-Chain: Bench-marking Coding Agents on Chained Release-Level Package Upgrades. arXiv:2605.14415. Liu, J.; Xia, C. S.; Wang, Y.; and Zhang, L. 2023. Is Your Code Generated by ChatGPT Really Correct? Rigorous Eval-uation of Large Language Models for Code Generation. In 
+
+Advances in Neural Information Processing Systems , vol-ume 36, 21558–21572. Liu, N. F.; Lin, K.; Hewitt, J.; Paranjape, A.; Bevilacqua, M.; Petroni, F.; and Liang, P. 2024. Lost in the Middle: How Language Models Use Long Contexts. Transactions of the Association for Computational Linguistics , 12: 157–173. Liu, T.; Xu, C.; and McAuley, J. 2024. RepoBench: Bench-marking Repository-Level Code Auto-Completion Systems. In The Twelfth International Conference on Learning Repre-sentations .Madampe, K.; Hoda, R.; and Grundy, J. 2022. A Faceted Tax-onomy of Requirements Changes in Agile Contexts. IEEE Transactions on Software Engineering , 48(10): 3737–3752. Raghavendra, M.; Gunjal, A.; Sabharwal, A.; and He, Y. 2026. SWE-INTERACT: Reimagining SWE Bench-marks as User-Driven Long-Horizon Coding Sessions. arXiv:2606.30573. Rakotonirina, N. C.; Hamdy, M.; Campos, J. A.; Weber, L.; Testoni, A.; Fadaee, M.; Pezzelle, S.; and Del Tredici, M. 2025. From Tools to Teammates: Evaluating LLMs in Multi-Session Coding Interactions. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 19609–19642. Vienna, Austria: Association for Computational Linguistics. Rawal, R.; Chiang, J. Y. F.; Shen, C.; Tian, J. S.; Maha-jan, A.; Goldstein, T.; and Chen, Y. 2025. Benchmarking Correctness and Security in Multi-Turn Code Generation. arXiv:2510.13859. Ribeiro, M. T.; Wu, T.; Guestrin, C.; and Singh, S. 2020. Beyond Accuracy: Behavioral Testing of NLP Models with CheckList. In Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics , 4902–4912. Online: Association for Computational Linguistics. Segura, S.; Fraser, G.; Sánchez, A. B.; and Ruiz-Cortés, A. 2016. A Survey on Metamorphic Testing. IEEE Transactions on Software Engineering , 42(9): 805–824. Shen, H.; Chen, X.; Xu, W.; Ma, Y.; Chen, L.; and Li, K. 2026. EvoCode-Bench: Evaluating Coding Agents in Multi-Turn Iterative Interactions. arXiv:2605.24110. Sobal, V.; Yang, S.; Zhang, Y.; Xia, W.; and Soatto, S. 2026. StaminaBench: Stress-Testing Coding Agents over 100 Inter-action Turns. arXiv:2606.19613. Wang, H.; Feng, W.; Yu, J.; Liu, C.; Nie, P.; Lin, F.; Liu, J.; Huang, R.; Lin, J.; Chen, W.; et al. 2026a. Search Beyond What Can Be Taught: Evolving the Knowledge Boundary in Agentic Visual Generation. arXiv preprint arXiv:2607.05382 .Wang, H.; Li, L.; Qu, C.; Xu, W.; Zhu, F.; Chu, W.; and Lin, F. 2025a. To code or not to code? adaptive tool integration for math language models via expectation-maximization. In 
+
+Findings of the Association for Computational Linguistics: ACL 2025 , 3060–3075. Wang, H.; Que, H.; Xu, Q.; Liu, M.; Zhou, W.; Feng, J.; Zhong, W.; Ye, W.; Yang, T.; Huang, W.; et al. 2026b. Reverse-Engineered Reasoning for Open-Ended Generation. In International Conference on Learning Representations (ICLR) .Wang, H.; Wei, C.; Ren, W.; Liu, J.; Lin, F.; and Chen, W. 2026c. RationalRewards: Reasoning Rewards Scale Visual Generation Both Training and Test Time. arXiv preprint arXiv:2604.11626 .Wang, H.; Xu, Q.; Liu, C.; Wu, J.; Lin, F.; and Chen, W. 2026d. Emergent Hierarchical Reasoning in LLMs through Reinforcement Learning. In International Conference on Learning Representations (ICLR) .Wang, H.; Xu, Q.; Wang, C.; Xue, T.; Peng, C.; Chen, W.; and Lin, F. 2026e. Bad Seeing or Bad Thinking? Rewarding Perception for Multimodal Reasoning. In Proceedings of the 43rd International Conference on Machine Learning .Wang, P.; Zhang, L.; Liu, F.; Shi, L.; Li, M.; Shen, B.; and Fu, A. 2025b. CodeIF-Bench: Evaluating Instruction-Following Capabilities of Large Language Models in Inter-active Code Generation. Version 4, revised 23 November 2025, arXiv:2503.22688. Wang, S.; Li, Z.; Qian, H.; Yang, C.; Wang, Z.; Shang, M.; Kumar, V.; Tan, S.; Ray, B.; Bhatia, P.; Nallapati, R.; Ra-manathan, M. K.; Roth, D.; and Xiang, B. 2023. ReCode: Robustness Evaluation of Code Generation Models. In Pro-ceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 13818– 13843. Toronto, Canada: Association for Computational Lin-guistics. Wang, S.; Wang, Z.; Ma, D.; Yu, Y.; Ling, R.; Li, Z.; Xiong, F.; and Zhang, W. 2026f. CodeFlowBench: A Multi-turn, Iterative Benchmark for Complex Code Generation. In Pro-ceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 4369– 4402. San Diego, California, United States: Association for Computational Linguistics. Wang, X.; and Zhu, D. 2024. Validating LLM-Generated Programs with Metamorphic Prompt Testing. arXiv:2406.06864. Wang, Y.; Pradel, M.; and Liu, Z. 2026. Are “Solved Is-sues” in SWE-bench Really Solved Correctly? An Empirical Study. In 2026 IEEE/ACM 48th International Conference on Software Engineering . New York, NY, USA: Association for Computing Machinery. ISBN 979-8-4007-2025-3. Wang, Z.; Ling, R.; Wang, C.; Yu, Y.; Wang, S.; Li, Z.; Xiong, F.; and Zhang, W. 2025c. MaintainCoder: Maintainable Code Generation Under Dynamic Requirements. In Advances in Neural Information Processing Systems , volume 38. Xia, C. S.; Deng, Y.; Dunn, S.; and Zhang, L. 2025. Demys-tifying LLM-Based Software Engineering Agents. Proceed-ings of the ACM on Software Engineering , 2(FSE): 801–824. Yan, J.; Luo, Y.; and Zhang, Y. 2024. RefuteBench: Eval-uating Refuting Instruction Following for Large Language Models. In Findings of the Association for Computational Linguistics: ACL 2024 , 13775–13791. Bangkok, Thailand: Association for Computational Linguistics. Yan, L.; Chen, X.; and Zhang, X. 2026. When the Specifi-cation Emerges: Benchmarking Faithfulness Loss in Long-Horizon Coding Agents. arXiv:2603.17104. Yang, J.; Jimenez, C. E.; Wettig, A.; Lieret, K.; Yao, S.; Narasimhan, K.; and Press, O. 2024. SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineer-ing. In Advances in Neural Information Processing Systems ,volume 37, 50528–50652. Zhai, Z.; Li, M.; and Wang, X. 2026. Revisable by Design: A Theory of Streaming LLM Agent Execution. arXiv:2604.23283. Zhan, Z.; Gao, S.; Hu, R.; and Gao, C. 2025. SR-Eval: Evaluating LLMs on Code Generation under Stepwise Re-quirement Refinement. Version 2, revised 17 March 2026, arXiv:2509.18808. Zhu, J.; Ro, Y.; Robertson, J. T.; Wang, K.; Li, J.; Vikalo, H.; Akella, A.; and Wang, Z. 2026. Your Agents Are Ag-ing Too: Agent Lifespan Engineering for Deployed Systems. arXiv:2605.26302. Zowghi, D.; and Gervasi, V. 2003. On the Interplay Be-tween Consistency, Completeness, and Correctness in Re-quirements Evolution. Information and Software Technol-ogy , 45(14): 993–1009.

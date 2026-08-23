@@ -1,0 +1,350 @@
+Title: Hallucination Span Detection with Input-Side Evidence Alignment
+
+URL Source: https://arxiv.org/pdf/2608.15804v1
+
+Published Time: Tue, 18 Aug 2026 01:14:15 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Hallucination Span Detection with Input-Side Evidence Alignment 
+
+## Miyu Yamada and Yuki Arase 
+
+## Institute of Science Tokyo 
+
+## yamada.m.ee1b@m.isct.ac.jp , arase@c.titech.ac.jp 
+
+## Abstract 
+
+Hallucinations remain a major obstacle to the reliable use of large language models (LLMs) in conditional text generation. Existing meth-ods primarily assess the factuality of an entire generated text, providing limited insight into which output spans are hallucinated or how they relate to the input. We introduce the task of hallucination span detection with input-side ev-idence alignment, which jointly identifies hallu-cinated spans and aligns output tokens with the corresponding input evidence. Our approach is based on the observation that faithful output tokens are predictable from the input, whereas hallucinated tokens are not. We therefore train an encoder-based model to predict masked out-put tokens from the input representation, using prediction confidence for hallucination detec-tion while naturally producing alignments to the input. Experiments show that the proposed method effectively detects hallucinated spans and identifies meaningful input-side evidence. Human evaluation confirms the quality of the predicted alignments. 
+
+## 1 Introduction 
+
+Large language models (LLMs) have substantially advanced conditional text generation tasks, includ-ing text summarization and question answering. Despite these remarkable improvements, they re-main prone to hallucinations, generating content that is unsupported or contradicted by the input text (Kaddour et al., 2023; Niu et al., 2024). Such hallucinations undermine the reliability of LLM-generated outputs and limit their deployment in real-world applications. To facilitate the verifica-tion of generated content, it is important not only to detect hallucinated spans in the output but also to identify the relevant portions of the input that sup-port or contradict them. Such input–output align-ment is particularly valuable for long documents, where manually tracing generated content back to its source is difficult. 
+
+Figure 1: Example of hallucination span detection with input-side evidence alignment. 
+
+Most existing studies have formalized hallucina-tion detection as a binary classification problem at the sentence or document level (Jiang et al., 2024; Hu et al., 2024). Although effective for estimating the factuality of an entire output, these approaches neither localize hallucinated spans nor identify the input evidence associated with individual output spans. This limits their usefulness for interpreting model predictions and assisting users in verifying generated content. To address this limitation, we introduce the task of hallucination span detection with input-side evidence alignment , which jointly identifies hallucinated spans in generated text and aligns output spans with their corresponding ev-idence in the input. Figure 1 illustrates the task using text summarization as an example. In the output summary, the phrase of “ADA [...] to em-ployers with twenty or more employees” is halluci-nated, because the source text states “four to fifteen” employees. An ideal model should therefore detect the hallucinated word “twenty” while identifying the relevant input span of “four to fifteen”. Obtaining alignments between generated text arXiv:2608.15804v1 [cs.CL] 16 Aug 2026 and its input requires expensive manual annotation. Moreover, because LLMs evolve rapidly, construct-ing such annotations for every new model or do-main is impractical. This motivates an approach that does not rely on manually aligned training data. We formulate the task under distant supervi-sion, avoiding the need for manually aligned input-output pairs. Specifically, we exploit the observa-tion that faithful output tokens are generally pre-dictable from their supporting context in the input text, whereas hallucinated tokens are not. Based on this intuition, we cast hallucination span detec-tion as an input-grounded masked token prediction problem. Specifically, an encoder model predicts masked output tokens conditioned solely on the input representation. Intuitively, faithful tokens can be recovered with high confidence from the input, whereas hallucinated tokens cannot. We therefore use prediction confidence to distinguish faithful to-kens from hallucinated ones. Because each predic-tion is retrieved from the input representation, the framework simultaneously produces token-level ev-idence alignments. Unlike recent approaches that rely on large decoder-based LLMs for hallucination detection (Su et al., 2025; Niu et al., 2024; Mishra et al., 2024), our method employs a lightweight en-coder model, making inference considerably more efficient. Experiments demonstrate that the proposed method effectively detects hallucinated spans while simultaneously identifying their supporting ev-idence in the input. Human evaluation con-firms the quality of the predicted alignments for both faithful and hallucinated words. Our code is available at https://github.com/miyu-y/ HalluSpan_EviAlign .
+
+## 2 Related Work 
+
+2.1 Hallucination Detection 
+
+Hallucination detection has been conventionally formulated as text-level classification, where the goal is to determine whether a generated text con-tains hallucination. Representative approaches estimate consistency across multiple sampled re-sponses (Manakul et al., 2023) and LLM-based fact-checking against reference documents (Hu et al., 2024). More recently, several studies have addressed hallucination span detection. CoT rea-soning methods (Akbar et al., 2024) and reasoning models (Su et al., 2025) are employed to explain why particular spans are hallucinated. However, they do not necessarily provide correspondences between output spans and input evidence. Other studies use encoder-based models to directly clas-sify output tokens or spans (Kovács and Recski, 2025; Elchafei and Abu Elkheir, 2025). None of these previous studies has considered alignments of faithful and hallucinated tokens between input and generated texts. 
+
+2.2 Monolingual Word Alignment 
+
+Word alignment identifies correspondences be-tween two sentences, and is therefore closely re-lated to the alignment component of our task. Most monolingual word alignment methods (e.g., Lan et al., 2021) have relied on supervised learning. However, human annotation of word alignment is expensive because it requires high expertise. There are a few unsupervised monolingual word align-ment methods (Jalili Sabet et al., 2020; Arase et al., 2023). Among them, OTAlign (Arase et al., 2023) formalizes word alignment as an optimal trans-port problem and models null-alignments using unbalanced optimal transport. This property is par-ticularly relevant to our setting because halluci-nated spans may not have corresponding evidence in the input. Unlike monolingual word alignment, however, our objective is not to align semantically equivalent texts but to jointly detect hallucinated spans and ground generated content in the input texts. 
+
+## 3 Proposed Method 
+
+We assume that faithful output tokens are gener-ally predictable from their supporting context in the input text, whereas hallucinated tokens are not. Based on this assumption, we formulate hallucina-tion span detection as an input-grounded masked token prediction task. The proposed method is in-spired by the Non-Parametric Masked Language Models (NPM) (Min et al., 2023), which recover masked tokens by matching their contextual rep-resentations with those of a reference text. As il-lustrated in Figure 2, the proposed method masks a token in the generated text and predicts it by re-trieving the most relevant representation from the input text. Prediction confidence is then used to distinguish faithful tokens from hallucinated ones, while the retrieved input token provides the corre-sponding evidence alignment. Figure 2: Proposed method 
+
+3.1 Training 
+
+For efficient training, the model is optimized using span-level masking, allowing multiple tokens to be predicted simultaneously. 
+
+Span Segmentation We first segment output texts into semantically meaningful spans based on semantic role labeling (SRL). Elchafei and Abu Elkheir (2025) also employed SRL-based spans for hallucination span detection. The below shows an example of our segmentation: 
+
+Original Keonna Thomas was charged with at-tempting to travel to Syria. 
+
+Segmented : [Keonna Thomas] [was charged] [with attempting] [to travel] [to Syria] . We extract predicates and their arguments using SRL, and segment them as spans. When a sentence contains multiple verbs, we merge the SRL results for all predicates, and identify the finest possible spans. Specifically, if a span identified by one predicate is further divided by another predicate, we adopt the smallest spans identified. Words that are not included in any predicate or argument spans, such as conjunctions, are excluded from masking. Finally, we merge two adjacent spans of predicates to handle passive or progressive constructions. 
+
+Prediction Confidence We then fine-tune an encoder model using span-level mask prediction. Each masked span s is replaced with two consec-utive special tokens, namely, <mask><mask> . The input and the masked output texts are concatenated and encoded; ms ∈ Rd and me ∈ Rd denote the 
+
+d-dimensional embeddings of the former and lat-ter <mask> token, respectively. The embeddings of tokens of the input text, t1, t 2, . . . , t n, are also extracted as the hidden representation of the final encoder layer: (d1, d2, . . . , dn), where di ∈ Rd.The prediction confidence is defined as 
+
+c(s, i, j ) := sim( ms, di) + sim( me, dj ), (1) where i and j are index of input tokens ( i ≤ j) and 
+
+sim() function computes cosine similarity. The output span s is then regarded as corresponding to an input span (k, ℓ ) whose confidence is highest: 
+
+cs 
+
+> max
+
+= max (k,ℓ ) c(s, k, ℓ ).
+
+Loss Function We design a loss function so that the model predicts input text tokens with higher confidence for faithful spans, while assigning lower confidence to hallucinated spans. 
+
+L = 1
+
+M
+
+X
+
+> i∈M
+
+f (si), (2) 
+
+f (si) = 
+
+(
+
+max(0 , c si 
+
+> max
+
+− γh), if hallucination ,
+
+max(0 , γ f − csi
+
+> max
+
+), otherwise ,
+
+(3) where si is the i-th span in the total of M output spans, γh and γf are the higher and lower bounds of confidence for hallucinated and faithful spans, respectively. We further add a loss weight w to hard examples: hallucinated spans whose confidence is higher than γf and faithful spans whose confidence are lower than γh.
+
+3.2 Inference 
+
+While we use span-level masking during training, we perform token-level prediction for inference to obtain fine-grained hallucination detection and evidence alignment. Each output token is replaced with a single <mask> token and encoded in the same way as training. Finally, the input-side token with the highest confidence, computed in the same way as Equation (1), is regarded as most strongly associated with the masked output token. We classify each output token as hallucinated or faithful using a simple threshold λh on the maxi-mum confidence score cs
+
+> max
+
+. We regard the output token as hallucinated if its maximum confidence is lower than λh, and as faithful otherwise. As a tok-enizer may split a word into multiple subwords, we aggregate token-level predictions into word-level predictions. A word is judged as hallucinated only when all of its subword tokens are classified as hallucinated. 
+
+## 4 Experiment Settings 
+
+This section describes the common experiment set-tings and implementation details for the automatic and human evaluations. QA Summary Overall Train (FT) 4, 134 
+
+(8.6%) 
+
+3, 858 
+
+(3.0%) 
+
+7, 992 
+
+(5.9%) Dev 400 
+
+(9.0%) 
+
+400 
+
+(3.3%) 
+
+800 
+
+(6.1%) Dev ( λ) 500 
+
+(9.9%) 
+
+500 
+
+(3.5%) 
+
+1, 000 
+
+(6.7%) Test 900 
+
+(5.4%) 
+
+900 
+
+(2.9%) 
+
+1, 800 
+
+(4.1%) 
+
+> Table 1: Number of samples in RAGTruth (the parenthe-ses indicate the proportion of hallucinated characters)
+
+4.1 Dataset 
+
+We use RAGTruth (Niu et al., 2024), which pro-vides outputs by 6 different LLMs (OpenAI et al., 2023; Jiang et al., 2023; Touvron et al., 2023) on QA, data-to-text, and news summarization tasks. In this study, we use the QA and news summarization tasks because the input of the data-to-text task is different from natural texts. In the QA task, the input consists of a passage and a question from MS MARCO (Nguyen et al., 2016), and the out-put is an answer. In the news summarization task, the input is a news article from datasets such as the CNN/Daily Mail dataset (See et al., 2017), and the output is its summary. Human annotations are provided, which indicate hallucinated spans in the generated outputs. However, alignment between input and generated outputs is unavailable. 
+
+Data Split Table 1 shows the number of samples in RAGTruth with the proportion of hallucinated characters in each split. Because RAGTruth does not provide an official development set, we ran-domly extracted 800 examples ( 400 examples for each task) from the training set (Dev). We further randomly extracted 1, 000 examples ( 500 examples for each task) for tuning the threshold λh (Dev ( λ)). The remaining examples were used for training. 
+
+Evaluation Metrics The official evaluation met-rics of RAGTruth is character-level precision, re-call, and F 1 score. 
+
+4.2 Implementation of the Proposed Method 
+
+We followed the training strategy of NPM, mask-ing 15 .0% tokens of output texts. We sampled the target mask sizes from the geometric distribu-tion with p = 0 .5, and selected SRL-based spans whose lengths were closest to the sampled mask size. If a selected span contained at least one hal-
+
+Instruction 
+
+Your task is to determine whether the answer contains either or both of the following two types of hallucinations: 
+
+1. conflict: instances where the answer presents direct contradiction or opposition to the passages; 
+
+2. baseless info: instances where the answer includes information which is not substanti-ated by or inferred from the passages. Then, compile the labeled hallucinated spans into a JSON dict, with a key “hallucination list” and its value is a list of hallucinated spans. If there exist potential hallucinations, the out-put should be in the following JSON format: {{“hallucination list”: [hallucination span 1,hallucination span 2, ...]}}. Otherwise, leave the value as a empty list as following: {{“hal-lucination list”: []}}. Output: 
+
+> Table 2: Prompt for Llama-SFT
+
+lucinated character, it was labeled as hallucinated; otherwise, it was labeled as faithful. Because hal-lucinated spans are much fewer than faithful ones, we prioritized hallucinated spans on the mask-span sampling. We repeated this process until the mask-ing budget was exhausted. As a result, the masked spans for training consisted of 35 , 578 faithful and 
+
+13 , 269 hallucinated spans, respectively. For SRL-based chunking, we used the off-the-shelf SRL model released by AllenNLP (Shi and Lin, 2019). As the base model, we employed ModernBERT-large whose parameter size is 0.4B(Warner et al., 2024). The ModernBERT model was fine-tuned for 5 epochs with a learning rate of 
+
+1.0e-5. We set the hyperparameters to γf = 1 .4,
+
+γh = 0 .8, and w = 2 .0 to maximize the F 1 score on Dev. The threshold λh was determined using Dev ( λ) to maximize the F 1 score of hallucination detection, resulting in λh = 0 .68 .
+
+4.3 Compared Methods 
+
+We compare the proposed method with the follow-ing baseline methods. 
+
+Llama-SFT. To compare the proposed method with a larger LLM, we fine-tuned Llama-3.1-8B-Instruct (Grattafiori et al., 2024) for hallucination span detection. Given an input text and an output text, the model is trained to generate hallucinated Method QA Summary P R F1 P R F1                         
+
+> Llama-SFT 45 .035 .639 .864.1 37 .947.6
+> LettuceDetect 66.9 62 .164.4 60 .235 .544 .6
+> OTAlign 8.945 .314 .94.534 .87.9
+> Proposed 40 .982.7 54 .842 .838.0 40 .3
+> Table 3: Performance of each method in hallucination span detection (P: Precision, R: Recall, F 1: F 1score)
+
+spans in the JSON format. We adopted the same prompt as Niu et al. (2024) (Table 2). We fine-tuned the model for one epoch with a learning rate of 2.0e-5 following Niu et al. (2024). 
+
+LettuceDetect. As the state-of-the-art in halluci-nation span detection models, we adopt LettuceDe-tect (Kovács and Recski, 2025). It fine-tunes an encoder-based LLM as a token classifier: it takes the input text and the generated output as input, and predicts whether each output token is halluci-nated or not. As the base model, we used the same ModernBERT-large as the proposed method. 
+
+OTAlign. As the baseline that can align input and output texts, we employ a word alignment method, namely, OTAlign (Arase et al., 2023). It solves word alignment as the optimal transport problem. For each word in a generated text, we extracted aligned input words associated with trans-port weights. These aligned words are regarded as faithful while the null-aligned words are regarded as hallucinated. As input and generated texts in RAGTruth have significantly different lengths, we chose the unbalanced optimal transport on OTAl-ign for its robustness on null-alginment. Since RAGTruth does not provide gold-standard align-ment annotations across input and generated texts, we use the unsupervised version of OTAlign. The hyperparameters in OTAlign were tuned using the Dev ( λ) to maximize the F 1 score of hallucination detection. Namely, we set τ = 0 .02 as the weight of the marginal relaxation term and λOT = 0 .35 as the threshold to decide null-alignment. 
+
+## 5 Automatic Evaluation 
+
+We first conduct an automatic evaluation to investi-gate the capability of the proposed method to detect hallucinated spans. Table 3 shows the precision, recall, and F 1 scores of hallucination detection on QA and summarization tasks. In terms of F 1, Let-tuceDetect achieves the highest score on QA, while Llama-SFT performs best on summarization. In Score Criterion 
+
+3 Predicted input token is exactly the evidence. 
+
+2 Predicted input token is in the sen-tence where the evidence is described, or in the relevant sentence. 
+
+1 Predicted input token is irrelevant to the true evidence. 
+
+0 Hallucination judgment is incorrect (false-positive or false-negative). 
+
+> Table 4: Criteria for manual assessment of input-side evidence alignment
+
+contrast, the proposed method achieved the best recall on both QA and summarization tasks, which is advantageous in a scenario where hallucination should not be missed. OTAlign performed poorly on hallucination detection. This is reasonable be-cause OTAlign assumes alignment between a sen-tence pair, not the sets of sentences. In addition, largely different lengths of generated and input texts make the alignment problem extremely unbal-anced, thus even unbalanced optimal transport may not be able to model it well. 
+
+## 6 Human Evaluation 
+
+We conduct a human evaluation to manually evalu-ate the input-side evidence alignment. 
+
+6.1 Settings 
+
+We sampled 70 output texts and randomly selected 
+
+10 content words from each text, resulting in 700 
+
+words for manual assessment. 1 For each sam-pled word, one of the authors inspected top-k
+
+(k = {1, 3}) prediction of input-side tokens and assessed the alignment quality based on the criteria in Table 4. RAGTruth distinguishes hallucinations of “baseless” and “conflict”; the former fabricates unsupported information, and the latter generates conflicting information. When the baseless hallu-cination does not have relevant information at all in the input, we allow such tokens to align with non-informative tokens such as punctuations and function words and assign a score 3. We regard predictions with higher than score 2 as useful as evidence to interpret the hallucination and faithful generations.    
+
+> 1We chose input texts with at most 3,000 characters to reduce the evaluator’s burden. In addition, we avoided sam-pling words segmented into subwords to ensure word-level assessment.
+
+Method Top-k Type # of words 3 2 1 0 Avg. OTAlign Top-1 Faithful 588 255 57 91 185 1.65 
+
+Top-3 Faithful 588 295 54 54 185 1.78 
+
+Proposed Top-1
+
+Faithful 588 188 267 59 74 1.97 
+
+Baseless 71 40 0 19 12 1.96 
+
+Conflict 41 2 3 4 32 0.39 
+
+Top-3
+
+Faithful 588 268 216 30 74 2.15 
+
+Baseless 71 49 0 10 12 2.21 
+
+Conflict 41 2 5 2 32 0.44 
+
+> Table 5: Human evaluation results
+
+We compare the proposed method with OTAlign to evaluate the quality of input-side evidence align-ment. Because OTAlign represents hallucinated words as null-alignments rather than explicitly de-tecting them, we evaluate its alignment quality only on faithful output tokens. For each output token, we select the top-k input tokens according to the optimal transport weights produced by OTAlign. 
+
+6.2 Results 
+
+Table 5 shows the distributions of words per score for top-1 and 3 predictions. 
+
+Input-side alignments produced by the proposed method are judged to provide useful evidence for both faithful and baseless hallucinated tokens. 
+
+For faithful and baseless hallucination words, their alignment to the input texts is assessed on average score around 2, which means these input tokens are at least relevant evidence. On faithful words, OTAl-ign has more alignment to exact evidence tokens (i.e, score 3) than our method, while it has more ir-relevant alignment or prediction failures, too (score 
+
+1 and 0). This should be again due to the OTAlign’s limitation on sentence-set alignment. In contrast, the alignments produced by the proposed method receive more score 2 judgments. We attribute this tendency to the distantly supervised training objec-tive. As shown in Equation (3), the model is opti-mized to confidently predict masked output tokens from the input for faithful spans while assigning low confidence to hallucinated spans. Because the objective does not directly supervise token-level alignments, the ability to recover the exact masked token relies on the pre-trained knowledge of Mod-ernBERT. Nevertheless, the model consistently re-trieves semantically relevant input tokens, which are often judged as useful evidence despite not ex-actly matching the evidence. 
+
+Conflict Hallucination is Challenging. Al-though the occurrence of conflict hallucination is rare, the proposed method struggles to detect hal-lucinations of this category, i.e., the majority of cases are scored 0. This is because, for conflicting hallucination cases, there should be highly relevant texts in the input. These relevant texts may result in closer token embeddings, and thus confuse the similarity-based confidence estimation of the pro-posed method. As future work, we will explore a richer modeling of confidence prediction by, for example, employing non-linear neural models. 
+
+6.3 Case Study 
+
+Table 6 provides examples of input-side evidence alignment by the proposed method, for faithful and hallucinated words. In the first example, the masked faithful word April is aligned to the same word in the input text, directly indicating the sup-porting evidence. In the second example, the masked faithful word found is aligned to a para-phrased word of located . The third faithful exam-ple shows that the top-3 predictions can recover word to phrase alignment; the output word thresh-old is aligned to the correct evidence of a certain value in the input text. In the first conflict hallucination example, the output describes that the regulation applies to em-ployers with twenty or more employees. This word is aligned to four with lower confidence, which re-veals the evidence that twenty is a hallucination. In the second conflict example, the output states that the association has urged laws, whereas the input states that the association opposes the laws. Al-though the proposed method aligned these words, it failed to judge it as a hallucination due to the high confidence score, which was likely caused by highly similar surrounding contexts. Type Output Text Input Text Conf. Faithful [...] and a commemorative Fiesta de la Flor event is planned for April 17 and 
+
+18 .[...] The commemorative Fiesta de la Flor in Corpus Christi, Texas – which celebrates her life – is scheduled for April 17 and 18 [...] 
+
+0.782 
+
+Faithful [...] it drew the attention of multiple law enforcement agencies including At-lanta Police Department, FBI and Fed-eral Homeland Security. This led to her arrest on August 9th, where a firearm and three computers were found in her home. [...] [...] authorities obtained a search war-rant for her residence. They took her into custody while executing that war-rant. “A firearm along with three com-puters was located during the search,” East Point police said [...] 
+
+0.723 
+
+Faithful [...] As you drive through tolls, the system deducts the toll amounts from your balance until it reaches a certain threshold ($ 10 for the TX-Tag). [...] [...] They deduct the tolls from that balance till the balance goes below a certain value ($ 10 for the TX-Tag) and they charge your credit card [...] 
+
+0.767 
+
+Conflict [...] we can see that the FEHA (Fair Employment and Housing Act) ap-plies to all employers with four to fifteen employees , while the ADA (Americans with Disabilities Act) ap-plies to employers with twenty or more employees. Additionally, the ADA distinguishes between private and public employers, whereas the FEHA does not. [...] [...] One difference between the FEHA (the Fair Employment and Housing Act) and the ADA (Americans with Disabilities Act) is that the ADA ap-plies to all employers in the private sec-tor that have four to fifteen employees, whereas the FEHA affects more em-ployees, and it doesn’t distinguish be-tween private and public employers like the ADA does. [...] 
+
+0.471 
+
+Conflict [...] The APhA has previously opposed the use of the term “drug” for chemicals used in lethal injection and has urged laws prohibiting pharmacists from par-ticipating in such cases. [...] [...] This bolsters the association’s pre-vious positions to oppose the use of the term “drug” for chemicals used in lethal injection and to oppose laws that require or prohibit pharmacists from participation in lethal injection cases. [...] 
+
+0.787      
+
+> Table 6: Examples of input-side evidence alignment by the proposed method. Bold text indicates the gold hallucination span. Cyan and red indicate masked faithful and hallucinated output words, respectively. Green, orange, and purple indicate the top-1, -2, and -3predicted input-side words, respectively. “Conf.” colum shows the confidence values.
+
+## 7 Analysis 
+
+We further analyze the performance of the proposed method from the perspectives of hallucination types and generation tasks. 
+
+7.1 Effect of Hallucination Types 
+
+RAGTruth categorizes hallucinations into conflict and baseless types, each of them is further divided into evident and subtle hallucinations. Evident cases are explicit errors such as generating un-supported entities or facts, whereas subtle cases involve more implicit or nuanced inconsistencies. Type QA Sum Evident Conflict 2, 349 5, 812 
+
+Subtle Conflict 0 339 
+
+Evident Baseless Info 23 , 441 10 , 820 
+
+Subtle Baseless Info 5, 545 1, 020 
+
+> Table 7: Number of hallucinated characters for each hallucination type
+
+Table 7 shows the numbers of hallucinated charac-ters in each hallucination type. Table 8 presents the recall of the proposed Type QA Sum Evident Conflict 14 .0 16 .6
+
+Subtle Conflict - 18 .3
+
+Evident Baseless Info 87 .6 50 .1
+
+Subtle Baseless Info 91 .2 37 .7  
+
+> Table 8: Recall of hallucination detection by type
+> Figure 3: Distribution of maximum confidence values by hallucination type. The red dashed line indicates the decision threshold λh= 0 .68 .
+
+method to detect each hallucination type. 2 Our method achieves much higher recall for baseless hallucinations than for conflict hallucinations. The overall recall is 75 .8 and 82 .9 for evident and subtle baseless hallucinations, but only 15 .8 and 18 .3 for evident and subtle conflict hallucinations. Figure 3 shows the distributions of maximum confidence values for each hallucination type. Baseless hallu-cinations are concentrated in the lower value region, well below the threshold λh. We conjecture that this is because baseless hallucinations often con-tain information that does not appear in the input text, thus their representations are distinctive from those of input text tokens. In contrast, the distribu-tion of conflict hallucinations indicates their much higher confidence values, which makes it difficult to distinguish them from faithful tokens. 
+
+7.2 Effects of Generation Tasks 
+
+Figures 4 to 6 reveal the shift of maximum confi-dence distributions before and after fine-tuning. In the original ModernBERT model, the confidence scores, i.e., representation similarities, of faithful and hallucinated words against input texts largely overlap (Figure 4). Figures 5 and 6 indicate that the training of the proposed method effectively shifts these distributions apart to be clearly distinguish-able. The distributions of confidence scores of hallucinated words are bimodal. Our observation confirms that the baseless hallucinations concen-  
+
+> 2Because we do not distinguish hallucination types for detection, precision and F 1are not computable.
+> Figure 4: Original maximum confidence distributions. Blue and orange correspond to faithful and hallucinated tokens, respectively. The red dashed line represents the threshold λh.
+> Figure 5: Maximum confidence distributions after fine-tuning on QA
+> Figure 6: Maximum confidence distributions after fine-tuning on Summarization
+
+trate on the first peak with lower confidence scores, and the conflict hallucinations occupy another peak. This trend is more noticeable in the summarization task, as there are twice more conflict hallucinations than in the QA task while baseless hallucinations are only half of the QA task. 
+
+## 8 Conclusion 
+
+We introduced the task of hallucination span de-tection with input-side evidence alignment, which aims to jointly identify hallucinated spans in gen-erated text and align output tokens with the cor-responding portions of the input. Although the proposed method effectively detects baseless hallu-cinations, improving the detection of conflict hallu-cinations remains an important direction for future work. We plan to address this limitation by de-veloping more sophisticated confidence estimation methods for input-grounded token prediction. 
+
+## Limitations 
+
+The proposed method has several limitations. First, inference is computationally expensive because the model processes each output token independently. Specifically, the method masks one output token at a time and re-encodes both the input text and the masked output for every prediction, resulting in inference cost that grows linearly with the output length. Although the encoder model is lightweight, repeated forward passes can become expensive for long generated texts. Improving inference effi-ciency, for example through more efficient masking strategies or shared representations across output tokens, is an important direction for future work. Second, our experiments are limited to ques-tion answering and news summarization using the RAGTruth benchmark. The effectiveness of the proposed framework on other conditional genera-tion tasks, domains, languages, and LLM families remains to be investigated. 
+
+## Acknowledgments 
+
+This work was supported by JST K Program Grant Number JPMJKP 24 C3, Japan. This study was car-ried out using the TSUBAME 4.0 supercomputer at Institute of Science Tokyo. 
+
+## References 
+
+Shayan Ali Akbar, Md Mosharaf Hossain, Tess Wood, Si-Chi Chin, Erica M Salinas, Victor Alvarez, and Erwin Cornejo. 2024. HalluMeasure: Fine-grained hallucination measurement using chain-of-thought reasoning. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing ,pages 15020–15037, Miami, Florida, USA. Yuki Arase, Han Bao, and Sho Yokoi. 2023. Unbal-anced optimal transport for unbalanced word align-ment. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Vol-ume 1: Long Papers) , pages 3966–3986, Toronto, Canada. Passant Elchafei and Mervat Abu Elkheir. 2025. Hal-lucination detectives at SemEval-2025 task 3: Span-level hallucination detection for LLM-generated an-swers. In Proceedings of the 19th International Work-shop on Semantic Evaluation (SemEval-2025) , pages 601–606, Vienna, Austria. Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schel-ten, Alex Vaughan, Amy Yang, Angela Fan, Anirudh Goyal, Anthony Hartshorn, Aobo Yang, Archi Mi-tra, Archie Sravankumar, Artem Korenev, Arthur Hinsvark, and 542 others. 2024. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 .Xiangkun Hu, Dongyu Ru, Lin Qiu, Qipeng Guo, Tianhang Zhang, Yang Xu, Yun Luo, Pengfei Liu, Yue Zhang, and Zheng Zhang. 2024. Refchecker: Reference-based fine-grained hallucination checker and benchmark for large language models. arXiv preprint arXiv:2405.14486 .Masoud Jalili Sabet, Philipp Dufter, François Yvon, and Hinrich Schütze. 2020. SimAlign: High quality word alignments without parallel training data using static and contextualized embeddings. In Findings of the Association for Computational Linguistics: EMNLP 2020 , pages 1627–1643, Online. Albert Q. Jiang, Alexandre Sablayrolles, Arthur Men-sch, Chris Bamford, Devendra Singh Chaplot, Diego de las Casas, Florian Bressand, Gianna Lengyel, Guil-laume Lample, Lucile Saulnier, Lélio Renard Lavaud, Marie-Anne Lachaux, Pierre Stock, Teven Le Scao, Thibaut Lavril, Thomas Wang, Timothée Lacroix, and William El Sayed. 2023. Mistral 7b. arXiv preprint arXiv:2310.06825 .Che Jiang, Biqing Qi, Xiangyu Hong, Dayuan Fu, Yang Cheng, Fandong Meng, Mo Yu, Bowen Zhou, and Jie Zhou. 2024. On large language models’ halluci-nation with regard to known facts. In Proceedings of the 2024 Conference of the North American Chap-ter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Pa-pers) , pages 1041–1053, Mexico City, Mexico. Jean Kaddour, Joshua Harris, Maximilian Mozes, Her-bie Bradley, Roberta Raileanu, and Robert McHardy. 2023. Challenges and applications of large language models. arXiv preprint arXiv:2307.10169 .Ádám Kovács and Gábor Recski. 2025. Lettucedetect: A hallucination detection framework for rag applica-tions. arXiv preprint arXiv:2502.17125 .Wuwei Lan, Chao Jiang, and Wei Xu. 2021. Neural semi-Markov CRF for monolingual word alignment. In Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Lan-guage Processing (Volume 1: Long Papers) , pages 6815–6828, Online. Potsawee Manakul, Adian Liusie, and Mark Gales. 2023. SelfCheckGPT: Zero-resource black-box hallucina-tion detection for generative large language models. In Proceedings of the 2023 Conference on Empiri-cal Methods in Natural Language Processing , pages 9004–9017, Singapore. Sewon Min, Weijia Shi, Mike Lewis, Xilun Chen, Wen-tau Yih, Hannaneh Hajishirzi, and Luke Zettlemoyer. 2023. Nonparametric masked language modeling. In Findings of the Association for Computational Linguistics: ACL 2023 , pages 2097–2118, Toronto, Canada. Abhika Mishra, Akari Asai, Vidhisha Balachandran, Yizhong Wang, Graham Neubig, Yulia Tsvetkov, and Hannaneh Hajishirzi. 2024. Fine-grained hallucina-tion detection and editing for language models. In 
+
+First Conference on Language Modeling .Tri Nguyen, Mir Rosenberg, Xia Song, Jianfeng Gao, Saurabh Tiwary, Rangan Majumder, and Li Deng. 2016. Ms marco: A human generated machine reading comprehension dataset. arXiv preprint arxiv:1611.09268 .Cheng Niu, Yuanhao Wu, Juno Zhu, Siliang Xu, KaShun Shum, Randy Zhong, Juntong Song, and Tong Zhang. 2024. RAGTruth: A hallucination cor-pus for developing trustworthy retrieval-augmented language models. In Proceedings of the 62nd An-nual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 10862– 10878, Bangkok, Thailand. OpenAI, Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Ale-man, Diogo Almeida, Janko Altenschmidt, Sam Alt-man, Shyamal Anadkat, Red Avila, Igor Babuschkin, Suchir Balaji, Valerie Balcom, Paul Baltescu, Haim-ing Bao, Mohammad Bavarian, Jeff Belgum, and 262 others. 2023. Gpt-4 technical report. arXiv preprint arXiv:2303.08774 .Abigail See, Peter J. Liu, and Christopher D. Manning. 2017. Get to the point: Summarization with pointer-generator networks. In Proceedings of the 55th An-nual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 1073– 1083, Vancouver, Canada. Peng Shi and Jimmy Lin. 2019. Simple bert models for relation extraction and semantic role labeling. arXiv preprint arXiv:1904.05255 .Hsuan Su, Ting-Yao Hu, Hema Swetha Koppula, Kun-dan Krishna, Hadi Pouransari, Cheng-Yu Hsieh, Cem Koc, Joseph Yitan Cheng, Oncel Tuzel, and Raviteja Vemulapalli. 2025. Learning to reason for hallucination span detection. arXiv preprint arXiv:2510.02173 .Hugo Touvron, Louis Martin, Kevin Stone, Peter Al-bert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, Dan Bikel, Lukas Blecher, Cristian Canton Ferrer, Moya Chen, Guillem Cucurull, David Esiobu, Jude Fernandes, Jeremy Fu, Wenyin Fu, and 49 oth-ers. 2023. Llama 2: Open foundation and fine-tuned chat models. arXiv preprint arXiv:2307.09288 .Benjamin Warner, Antoine Chaffin, Benjamin Clavié, Orion Weller, Oskar Hallström, Said Taghadouini, Alexis Gallagher, Raja Biswas, Faisal Ladhak, Tom Aarsen, Nathan Cooper, Griffin Adams, Jeremy Howard, and Iacopo Poli. 2024. Smarter, better, faster, longer: A modern bidirectional encoder for fast, memory efficient, and long context finetuning and inference. arXiv preprint arXiv:2412.13663 .

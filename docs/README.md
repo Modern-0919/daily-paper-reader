@@ -6,137 +6,104 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-17
-- 运行时间：2026-08-17 20:37:07 UTC
+- 最新运行日期：2026-08-23
+- 运行时间：2026-08-23 19:49:10 UTC
 - 运行状态：成功
-- 本次总论文数：39
-- 精读区：26
+- 本次总论文数：28
+- 精读区：15
 - 速读区：13
 
 ### 今日简报（AI）
-今日精读26篇、速读13篇，共追踪39篇论文，重点聚焦LLM Agent应用测试与多智能体协作评估。最值得关注的是《Tangent》对Agent测试实践的实证分析，以及《ForestBench》提出的统一图框架评估方法，两者均获9分高分。建议普通读者优先关注Agent应用的质量保障与协作效能评估方向，这两块是当前落地痛点。
-- 详情：[/202608/17/README](/202608/17/README)
+今日精读聚焦长程智能体失败归因，重点推荐《LongRCA Bench》对责任角色与根因的高分诊断；速读另涉及循环策略进化、编码代理路径测试与机器人验证层。建议关注长程任务中智能体的可解释性评估，以提升复杂场景下的可靠性。
+- 详情：[/202608/23/README](/202608/23/README)
 
 ### 精读区论文标签
-1. [Tangent: An Empirical Study of Testing Practices for LLM-Based Agent Applications](/202608/17/2608.08413v1-tangent-an-empirical-study-of-testing-practices-for-llm-based-agent-applications)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：对基于LLM的智能体应用测试实践的经验研究，涵盖测试层级、目标和验证策略
-2. [ForestBench: A Unified Graph Framework for Evaluating Multi-Agent Collaboration](/202608/17/2608.08605v1-forestbench-a-unified-graph-framework-for-evaluating-multi-agent-collaboration)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：用于评估多智能体执行轨迹的统一图框架
-3. [ForestBench: A Unified Graph Framework for Evaluating Multi-Agent Collaboration](/202608/17/2608.08605v2-forestbench-a-unified-graph-framework-for-evaluating-multi-agent-collaboration)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：用于评估多智能体执行轨迹的统一图框架
-4. [PluginEval: A Diagnostic Benchmark for Fine-Grained Error Attribution in Function Calling](/202608/17/2608.08700v1-plugineval-a-diagnostic-benchmark-for-fine-grained-error-attribution-in-function-calling)  
+1. [LongRCA Bench: Diagnosing Responsible Roles and Root Causes in Long-Horizon Agent Failures](/202608/23/2608.15242v2-longrca-bench-diagnosing-responsible-roles-and-root-causes-in-long-horizon-agent-failures)  
+   标签：评分：10.0/10、query:agent-errors
+   evidence：用于长时程智能体轨迹中故障归因与根因步骤定位的基准
+2. [LongRCA Bench: Diagnosing Responsible Roles and Root Causes in Long-Horizon Agent Failures](/202608/23/2608.15242v1-longrca-bench-diagnosing-responsible-roles-and-root-causes-in-long-horizon-agent-failures)  
    标签：评分：9.0/10、query:agent-errors
-   evidence：面向函数调用/工具路由的细粒度错误归因诊断基准
-5. [Independent Patch Verification for Coding Agents with a Bidirectional Reconstruct-and-Verify Framework](/202608/17/2608.08950v1-independent-patch-verification-for-coding-agents-with-a-bidirectional-reconstruct-and-verify-framework)  
+   evidence：长时程智能体失败根因与责任角色诊断基准
+3. [Agent Gym: A Framework for Continuous Evaluation and Evolution of LLM Agents Through Human-in-the-Loop Feedback](/202608/23/2608.15591v1-agent-gym-a-framework-for-continuous-evaluation-and-evolution-of-llm-agents-through-human-in-the-loop-feedback)  
+   标签：评分：9.0/10、query:agent-traj
+   evidence：对LLM代理进行持续评估与演化
+4. [Hallucination Span Detection with Input-Side Evidence Alignment](/202608/23/2608.15804v1-hallucination-span-detection-with-input-side-evidence-alignment)  
    标签：评分：9.0/10、query:agent-output
-   evidence：针对编码智能体生成的补丁进行事后验证的框架
-6. [ActBench: Self-Evolving Benchmark of Behavioral Safety in Cowork Agents](/202608/17/2608.09476v1-actbench-self-evolving-benchmark-of-behavioral-safety-in-cowork-agents)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：从执行轨迹而非最终回复评估行为安全的自演进基准
-7. [Automating and Scaling Behavioral Scientific Research on AI Agents](/202608/17/2608.10030v1-automating-and-scaling-behavioral-scientific-research-on-ai-agents)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：自动化受控实验测试 AI 智能体行为
-8. [DSAgentBench: Can Agents Automate End-to-End Data-Science Workflows in Real Computer Environments?](/202608/17/2608.10366v1-dsagentbench-can-agents-automate-end-to-end-data-science-workflows-in-real-computer-environments)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：评估端到端数据科学工作流作为智能体轨迹的基准
-9. [Actionable Hallucination Detection: Translating Latent Uncertainty into Agentic Critique](/202608/17/2608.10430v1-actionable-hallucination-detection-translating-latent-uncertainty-into-agentic-critique)  
+   evidence：联合检测幻觉区间并对齐输出词元与输入证据，直接支持智能体输出中的幻觉检测
+5. [From Sequence to Structure: Relational Uncertainty Propagation for LLM Agents](/202608/23/2608.16002v1-from-sequence-to-structure-relational-uncertainty-propagation-for-llm-agents)  
+   标签：评分：9.0/10、query:agent-errors
+   evidence：轨迹级不确定性传播，用于识别LLM智能体执行中由长程错误累积导致的失败
+6. [From Sequence to Structure: Relational Uncertainty Propagation for LLM Agents](/202608/23/2608.16002v2-from-sequence-to-structure-relational-uncertainty-propagation-for-llm-agents)  
+   标签：评分：9.0/10、query:agent-errors
+   evidence：提出轨迹级不确定性传播框架，跨步骤检测智能体失败与错误累积
+7. [HalluTracer: Hallucination Detection via Depth-Averaging Truth Signals](/202608/23/2608.16353v1-hallutracer-hallucination-detection-via-depth-averaging-truth-signals)  
    标签：评分：9.0/10、query:agent-output
-   evidence：实时检测并定位智能体动作中的幻觉
-10. [ASCon: A Direction-Aware Reciprocal Agent--Step Contextualization Model for Failure Attribution in Multi-Agent Systems](/202608/17/2608.10646v1-ascon-a-direction-aware-reciprocal-agent--step-contextualization-model-for-failure-attribution-in-multi-agent-systems)  
-   标签：评分：9.0/10、query:agent-errors
-   evidence：多智能体轨迹中识别故障智能体和错误步骤的失败归因模型
-11. [REDAgentBench: Executable Red Teaming and Faithful Measurement of LLM Agent Systems](/202608/17/2608.10669v1-redagentbench-executable-red-teaming-and-faithful-measurement-of-llm-agent-systems)  
+   evidence：白盒幻觉检测，跨层聚合真值信号
+8. [Towards Risk-free AI Agent Deployment](/202608/23/2608.16411v1-towards-risk-free-ai-agent-deployment)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：对LLM智能体系统安全行为进行可执行红队测试与忠实度量
-12. [Self-Correcting Long-Horizon Search Agents via Tree-Structured Memory](/202608/17/2608.10676v1-self-correcting-long-horizon-search-agents-via-tree-structured-memory)  
-   标签：评分：9.0/10、query:agent-errors
-   evidence：树结构记忆机制在智能体轨迹中修正错误事实及其下游推理
-13. [UniProbe: A Learnable Token-Level Hallucination Detector for Large VLMs using Multi-Structural Internal Representations](/202608/17/2608.10835v1-uniprobe-a-learnable-token-level-hallucination-detector-for-large-vlms-using-multi-structural-internal-representations)  
+   evidence：倡导以执行轨迹为基础的智能体测试与调试，讨论oracle问题与轨迹验证
+9. [Auditing Self-Evolution in Financial Agents: Capability Gains, Security Drift, and Execution-Interface Mismatch](/202608/23/2608.17684v1-auditing-self-evolution-in-financial-agents-capability-gains-security-drift-and-execution-interface-mismatch)  
+   标签：评分：9.0/10、query:agent-traj
+   evidence：使用执行接地检查和独立状态重放对匹配轨迹进行智能体审计
+10. [Mixture-of-Expert Blocks Contain Strong Hallucination Detection Signals](/202608/23/2608.17687v1-mixture-of-expert-blocks-contain-strong-hallucination-detection-signals)  
    标签：评分：9.0/10、query:agent-output
-   evidence：利用内部表示对视觉语言大模型输出进行token级幻觉检测
-14. [Benchmarking LLM Judges for Mobile Agent Evaluation](/202608/17/2608.11434v1-benchmarking-llm-judges-for-mobile-agent-evaluation)  
+   evidence：利用MoE内部路由信号进行逐词元幻觉检测
+11. [Beyond Suspicious Steps: Ontological Trust in Long-Horizon Agents](/202608/23/2608.17718v1-beyond-suspicious-steps-ontological-trust-in-long-horizon-agents)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：构建包含931条人工标注轨迹的基准，用于评估移动智能体轨迹上的LLM裁判方法
-15. [Diagnosis Before Recovery: Turning Agent Failures into Selective Self-Correction](/202608/17/2608.11772v1-diagnosis-before-recovery-turning-agent-failures-into-selective-self-correction)  
+   evidence：提出本体论信任作为轨迹前缀的任务条件属性，并实例化为在线监控器RGE检测轨迹漂移
+12. [ComponentBench: Diagnosing Component-Level Failures in Computer-Use Agents](/202608/23/2608.18307v1-componentbench-diagnosing-component-level-failures-in-computer-use-agents)  
+   标签：评分：9.0/10、query:agent-traj
+   evidence：提供包含2910个任务和人工参考轨迹的基准，用于诊断计算机使用智能体的组件级故障
+13. [LEDGER: Claim-to-Evidence Trace Graphs for Auditing LLM Agents](/202608/23/2608.18398v1-ledger-claim-to-evidence-trace-graphs-for-auditing-llm-agents)  
    标签：评分：9.0/10、query:agent-errors
-   evidence：提出DARC，一种基于失败诊断选择性决定恢复干预的诊断引导自我修正方法
-16. [Agent Skills Can Be Harmful: An Empirical Study of Skill-Induced Failures in LLM Agents](/202608/17/2608.11888v1-agent-skills-can-be-harmful-an-empirical-study-of-skill-induced-failures-in-llm-agents)  
+   evidence：构建分层追踪图来核验LLM智能体输出与证据的一致性，确保正确可信
+14. [Beyond LLM-Based Reasoning: Lightweight GNNs for Agent Failure Attribution](/202608/23/2608.18575v1-beyond-llm-based-reasoning-lightweight-gnns-for-agent-failure-attribution)  
    标签：评分：9.0/10、query:agent-errors
-   evidence：差分分析框架将任务失败归因于LLM智能体中特定加载的技能
-17. [Retry, Switch, or Abstain? Learning Strategy-Aware Tool-Use Policies via Controlled Error Injection](/202608/17/2608.11977v1-retry-switch-or-abstain-learning-strategy-aware-tool-use-policies-via-controlled-error-injection)  
-   标签：评分：9.0/10、query:agent-errors
-   evidence：通过受控错误注入转换基准，学习重试、切换和放弃策略以进行工具故障恢复
-18. [Beyond Retrieval: Query-Conditioned Reuse of Long-Horizon Agent Trajectories](/202608/17/2608.12847v1-beyond-retrieval-query-conditioned-reuse-of-long-horizon-agent-trajectories)  
+   evidence：提出轻量级GNN方法，对多智能体轨迹进行失败归因，识别故障智能体与错误类型
+15. [One Success Isn't Reliability: Thinkingbox, a Sandbox and Benchmark for Agents in Stateful Business Workflows](/202608/23/2608.19741v1-one-success-isnt-reliability-thinkingbox-a-sandbox-and-benchmark-for-agents-in-stateful-business-workflows)  
    标签：评分：9.0/10、query:agent-traj
-   evidence：长周期智能体轨迹复用的评估框架
-19. [Practice Makes Unsafe: Skill Misevolution in Self-Improving LLM Agents](/202608/17/2608.12851v1-practice-makes-unsafe-skill-misevolution-in-self-improving-llm-agents)  
-   标签：评分：9.0/10、query:agent-errors
-   evidence：面向自改进LLM智能体轨迹失败归因的生命周期感知基准
-20. [Beyond Final Scores: A Systematic Evaluation of Agents for Long-Horizon AI Research and Development](/202608/17/2608.13417v1-beyond-final-scores-a-systematic-evaluation-of-agents-for-long-horizon-ai-research-and-development)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：超越最终分数的系统评估，用基于规则的指标刻画运行内轨迹行为
-21. [SSP: An Event-Matched Syn2Sim2Phy Cross-Domain Evaluation Framework for Autonomous Driving VLA Models](/202608/17/2608.14024v1-ssp-an-event-matched-syn2sim2phy-cross-domain-evaluation-framework-for-autonomous-driving-vla-models)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：面向自动驾驶VLA模型驾驶轨迹的跨域评估框架
-22. [Demystifying Agent Skills: Why They Work-Until They Don't](/202608/17/2608.14036v1-demystifying-agent-skills-why-they-work-until-they-dont)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：通过配对轨迹分析与控制实验评估智能体技能在哪些条件下有效，属轨迹评估方法
-23. [A Graph-Based Reinforcement Learning Framework for Structured Drift Diagnosis and Recovery in Autonomous LLM Agents](/202608/17/2608.14109v1-a-graph-based-reinforcement-learning-framework-for-structured-drift-diagnosis-and-recovery-in-autonomous-llm-agents)  
-   标签：评分：9.0/10、query:agent-errors
-   evidence：基于图强化学习的自主LLM智能体步骤级漂移诊断与恢复框架
-24. [LegacyWorld: Atomicity-Aware Evaluation of GUI Agents for Legacy Workflows](/202608/17/2608.14131v1-legacyworld-atomicity-aware-evaluation-of-gui-agents-for-legacy-workflows)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：基于原子性的GUI智能体评估基准，面向状态性旧版工作流
-25. [ATLAS: Discovering Agent Strategies through LLM-Guided Abstraction and Automata Learning](/202608/17/2608.14352v1-atlas-discovering-agent-strategies-through-llm-guided-abstraction-and-automata-learning)  
-   标签：评分：9.0/10、query:agent-traj
-   evidence：使用自动机学习从智能体轨迹中恢复可解释行为模型
-26. [AgentRewind: Recoverable Execution for Long-Horizon LLM Agents](/202608/17/2608.14380v1-agentrewind-recoverable-execution-for-long-horizon-llm-agents)  
-   标签：评分：9.0/10、query:agent-errors
-   evidence：直接针对多步LLM智能体工作流中早期错误级联传播的问题，提出运行时回滚恢复机制
+   evidence：提供完整执行轨迹与结果评估的智能体测试沙盒
 
 ### 速读区论文标签
-1. [CAP: A Scalable Benchmark for Evaluating Cross-Site Browser Agents with Complex Actions and Perception](/202608/17/2608.08392v1-cap-a-scalable-benchmark-for-evaluating-cross-site-browser-agents-with-complex-actions-and-perception)  
+1. [OpenLoopEvolve: A Verifiable Self-Evolution Framework for Loop Policies in Long-Horizon Complex Tasks](/202608/23/2608.09380v1-openloopevolve-a-verifiable-self-evolution-framework-for-loop-policies-in-long-horizon-complex-tasks)  
+   标签：评分：8.0/10、query:agent-errors
+   evidence：面向长时程任务的可验证自进化框架，包含验证与故障恢复
+2. [SpecPath: Testing Coding Agents Across Contract-Equivalent Specification Histories](/202608/23/2608.09799v1-specpath-testing-coding-agents-across-contract-equivalent-specification-histories)  
    标签：评分：8.0/10、query:agent-traj
-   evidence：面向跨站浏览器智能体的复杂动作与感知评估的可扩展基准
-2. [Branch2Skill: Efficient Skill Evolution Through Reasoning Trees](/202608/17/2608.08677v1-branch2skill-efficient-skill-evolution-through-reasoning-trees)  
+   evidence：在契约等价规范历史下对编码智能体进行诊断式测试
+3. [Agentic Harnesses: LLM-Driven Verification Layers for Robot Autonomy](/202608/23/2608.09857v1-agentic-harnesses-llm-driven-verification-layers-for-robot-autonomy)  
    标签：评分：8.0/10、query:agent-errors
-   evidence：针对轨迹中早期推理错误传播问题，利用失败轨迹进行技能演化
-3. [Evidence-Calibrated Runtime Reconstruction for Agent Skills Across Heterogeneous Coding Agents](/202608/17/2608.08793v1-evidence-calibrated-runtime-reconstruction-for-agent-skills-across-heterogeneous-coding-agents)  
+   evidence：提出LLM驱动的验证层，在执行前检查智能体规划动作的可行性与安全性
+4. [UserToolBench: A User-Profile-Hidden Benchmark for Personalized Decision Making in Tool-Use LLMs](/202608/23/2608.10042v1-usertoolbench-a-user-profile-hidden-benchmark-for-personalized-decision-making-in-tool-use-llms)  
+   标签：评分：8.0/10、query:agent-traj
+   evidence：基准测试工具使用LLM中个性化决策的工具调用轨迹
+5. [When Visual Signals Mislead: A Mechanistic Study of Attribute Hallucination in Vision-Language Models](/202608/23/2608.11024v1-when-visual-signals-mislead-a-mechanistic-study-of-attribute-hallucination-in-vision-language-models)  
    标签：评分：8.0/10、query:agent-output
-   evidence：被动运行时智能系统，重构技能生命周期阶段并对异构编码智能体进行证据校准诊断
-4. [TRACE: TRajectory Attribution for Automated Context Engineering](/202608/17/2608.09153v1-trace-trajectory-attribution-for-automated-context-engineering)  
-   标签：评分：8.0/10、query:agent-errors
-   evidence：通过轨迹归因诊断智能体工作流中的上下文故障
-5. [SkillSentry: Reliable Skill Execution for LLM Agents via Runtime Assurance](/202608/17/2608.09253v1-skillsentry-reliable-skill-execution-for-llm-agents-via-runtime-assurance)  
-   标签：评分：8.0/10、query:agent-output
-   evidence：监控技能执行并检测步骤偏差的运行时保证框架
-6. [FailForge: Distilling Procedural Competence from Persistent Failures into Code Agents](/202608/17/2608.08570v1-failforge-distilling-procedural-competence-from-persistent-failures-into-code-agents)  
+   evidence：对视觉语言模型输出中属性幻觉的机制研究与诊断
+6. [Hierarchical Agentic Incident Response with Digital-Twin-Validated Attack Inference](/202608/23/2608.15016v1-hierarchical-agentic-incident-response-with-digital-twin-validated-attack-inference)  
    标签：评分：7.0/10、query:agent-errors
-   evidence：将代码智能体的失败轨迹转化为训练信号，从持续失败中提炼程序性能力
-7. [Evo-Bench: Can Language Models Improve Agent Harness?](/202608/17/2608.09096v1-evo-bench-can-language-models-improve-agent-harness)  
+   evidence：数字孪生验证缓解LLM智能体幻觉攻击与响应
+7. [TRACE: Trajectory Aware Reasoning for Multi-Turn Adversarial Conversation Evaluation](/202608/23/2608.15594v1-trace-trajectory-aware-reasoning-for-multi-turn-adversarial-conversation-evaluation)  
    标签：评分：7.0/10、query:agent-traj
-   evidence：面向智能体外壳进化能力的跨域评测基准
-8. [OpenCodeReview: Determinism over Non-Determinism for Cost-Effective Agent-Based Code Review](/202608/17/2608.09290v1-opencodereview-determinism-over-non-determinism-for-cost-effective-agent-based-code-review)  
-   标签：评分：7.0/10、query:agent-output
-   evidence：减少代码评审智能体的幻觉评论
-9. [SHE: Trajectory-driven Safety Harness Evolution for LLM Agents](/202608/17/2608.09885v1-she-trajectory-driven-safety-harness-evolution-for-llm-agents)  
-   标签：评分：7.0/10、query:agent-output
-   evidence：利用轨迹驱动安全边界演化，提升LLM智能体系统输出整体安全性
-10. [Evo-Bench: Can Language Models Improve Agent Harness?](/202608/17/2608.09096v2-evo-bench-can-language-models-improve-agent-harness)  
+   evidence：利用轨迹感知的结构化推理评估多轮对抗对话，防御越狱攻击
+8. [A Policy Algebra for Trust-Preserving Agentic AI Execution](/202608/23/2608.16402v1-a-policy-algebra-for-trust-preserving-agentic-ai-execution)  
+   标签：评分：7.0/10、query:agent-errors
+   evidence：用政策代数校验执行轨迹的合规性
+9. [SkillEffect: Checked Lowering for Memory-Bounded Agent Tools](/202608/23/2608.17007v1-skilleffect-checked-lowering-for-memory-bounded-agent-tools)  
+   标签：评分：7.0/10、query:agent-errors
+   evidence：在执行前校验智能体工具程序的降级过程，避免工具调用的内存溢出错误
+10. [JarvisBench: Always-on Intelligence Between Humans and Agents](/202608/23/2608.14870v1-jarvisbench-always-on-intelligence-between-humans-and-agents)  
    标签：评分：6.0/10、query:agent-traj
-   evidence：评估智能体内在harness进化能力的基准，覆盖搜索、办公和通用领域
-11. [Agentic Router: An Execution-Grounded Continual Learning Approach With Memory](/202608/17/2608.09184v1-agentic-router-an-execution-grounded-continual-learning-approach-with-memory)  
+   evidence：评估长时程智能体与人机协作行为
+11. [Harness the Memory: A Holistic Evaluation of Memory Substrates in Memory Agents](/202608/23/2608.15008v1-harness-the-memory-a-holistic-evaluation-of-memory-substrates-in-memory-agents)  
+   标签：评分：6.0/10、query:agent-traj
+   evidence：对记忆增强智能体的记忆基板进行整体评估
+12. [When Tool-Backed Skill Retrieval Fails: Source-Style Collapse in Executable Capability Retrieval](/202608/23/2608.16502v1-when-tool-backed-skill-retrieval-fails-source-style-collapse-in-executable-capability-retrieval)  
    标签：评分：6.0/10、query:agent-errors
-   evidence：基于执行经验的智能体预测后果并风险重排以避免命令失败
-12. [FlowScout: From Execution Feedback to Reliable Tool-Using Agent Workflows](/202608/17/2608.10039v1-flowscout-from-execution-feedback-to-reliable-tool-using-agent-workflows)  
-   标签：评分：6.0/10、query:agent-traj
-   evidence：基于历史任务轨迹与执行反馈生成工具集成智能体工作流
-13. [Efficient Reinforcement Learning for Long-Horizon Tool-Use Agentic Tasks](/202608/17/2608.10357v1-efficient-reinforcement-learning-for-long-horizon-tool-use-agentic-tasks)  
-   标签：评分：6.0/10、query:agent-traj
-   evidence：面向长时程工具使用智能体的RL训练系统，涉及多轮rollout与延迟奖励
+   evidence：智能体技能检索中的工具选择失败模式
+13. [Zetta $ζ$: An Efficient Closed-Loop Embodied Harness for Self-Evolving Physical Intelligence](/202608/23/2608.16590v1-zetta--an-efficient-closed-loop-embodied-harness-for-self-evolving-physical-intelligence)  
+   标签：评分：6.0/10、query:agent-errors
+   evidence：运行时批评与恢复技能实现在线自纠错
 
 
 <div class="dpr-home-promo-card">

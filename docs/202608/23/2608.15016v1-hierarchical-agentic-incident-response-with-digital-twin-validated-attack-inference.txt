@@ -1,0 +1,400 @@
+Title: Hierarchical Agentic Incident Response with Digital-Twin-Validated Attack Inference
+
+URL Source: https://arxiv.org/pdf/2608.15016v1
+
+Published Time: Tue, 18 Aug 2026 00:24:16 GMT
+
+Number of Pages: 6
+
+Markdown Content:
+# Hierarchical Agentic Incident Response with Digital-Twin-Validated Attack Inference 
+
+Yiran Gao 1, Juntao Chen 2, Tao Li 1,† 1Department of Systems Engineering, City University of Hong Kong, Hong Kong SAR, 99977, Emails: gaoyiran525@gmail.com, li.tao@cityu.edu.hk 
+
+> 2
+
+Department of Computer and Information Sciences, Fordham University, New York, NY, 10023, USA, Email: jchen504@fordham.edu 
+
+Abstract —Network incident response remains slow and labor-intensive as the defender must infer multi-stage attacks from partial observations and translate recovery decisions into reliable system commands. Decision-theoretic planners provide principled optimization but typically rely on abstract states and predefined actions, while large language model (LLM) agents can reason over operational context but may hallucinate attacks and re-sponses. Toward automating response planning, we present a hierarchical agentic response framework that integrates LLM-based attack inference, rollout planning, and digital-twin val-idation. A fine-tuned LLM infers the attack progression and affected hosts from security alerts and system measurements. An emulated network digital twin replays the inferred attack and returns discrepancies between predicted and observed effects to calibrate the inference. A separately fine-tuned planning agent uses the rollout planning method to prioritize affected components at the tactical layer. At the operational layer, the planning agent proposes high-level recovery actions, and an execution agent translates selected actions into recovery and verification commands that are validated in the digital twin. We evaluate the framework on a 33-component enterprise-network testbed under three multi-stage attack scenarios. The results show that our framework outperforms frontier-LLM baselines in recovery success rate by 18–31%. 
+
+I. I NTRODUCTION 
+
+Network incident response encompasses the analysis, con-tainment, eradication, and recovery activities that follow an intrusion. Current practice relies heavily on human operators, who must interpret fragmented evidence and translate deci-sions into specific operations. These labor-intensive tasks are difficult to scale amid the persistent shortage of cybersecu-rity professionals. Autonomous cyber defense (ACD) [1] has therefore emerged as a promising approach in which security analysis and response are delegated to intelligent agents. Decision-theoretic approaches to ACD use control and optimization, game theory, and reinforcement learning (RL) for response planning [2]. They provide principled security decision-making through abstract models, including Markov decision processes (MDPs) and security games [3]. However, they typically assume access to abstract security states and predefined defensive actions and are not designed to recon-struct concrete multi-stage attacks from partial observations or translate tactical decisions into executable recovery actions. 
+
+> Yiran Gao and Tao Li are supported by CityU internal grant No. 9610792. †Corresponding author: Tao Li.
+
+LLM agents offer a promising way to close this gap because they can interpret system context and security observations and generate system-specific response guidance and commands [4]. Recent works use prompt-based reasoning or multi-agent orchestration to select defensive actions and decompose incident-response tasks [4], [5]. Although these prior works include planning components, they generally rely on prompted reasoning rather than decision-theoretic sequential optimiza-tion. Consequently, their outputs can be sensitive to prompt design and available context, while hallucination remains an important concern [6]. To bridge attack inference, tactical recovery planning, and operational execution, we develop a hierarchical response framework that integrates LLM agents, rollout planning, and digital-twin emulation. As shown in Fig. 1, a fine-tuned inference agent first reconstructs the sequence of core attack actions and their target hosts from system context and IDS observations. The digital twin then replays the inferred attack sequence and returns discrepancies between its observable effects and the incident observations to calibrate the infer-ence. At the tactical layer, a lookahead rollout planner [7] uses an abstract recovery-state model to prioritize affected components. At the operational layer, a fine-tuned planning agent proposes candidate high-level recovery actions for the prioritized component, and an execution agent translates each action into recovery and verification commands. Candidate actions are selected using Monte Carlo estimates of digital-twin-verified recovery costs. We implement and evaluate the proposed framework on a containerized enterprise-network testbed comprising 33 in-terconnected components across multiple subnets. The envi-ronment includes multi-homed hosts, heterogeneous services with diverse vulnerabilities, IDS monitoring points, and attack paths requiring lateral movement across network segments. We consider three multi-stage attack scenarios with increasing attacker capability and attack-path complexity. Across these scenarios, our framework outperforms frontier-LLM baselines in recovery success rate by 18–31 percentage points. Our contributions are summarized as follows.  
+
+> •
+
+We propose a hierarchical incident-response framework that integrates attack inference with tactical and opera-tional recovery planning. At the tactical layer, decision-theoretic rollout prioritizes affected components across arXiv:2608.15016v1 [cs.CR] 15 Aug 2026 Inference agent Rollout planner   
+
+> (tactical level) Planning agent
+> (operational level)
+> Execution agent
+> (operational level)
+> Digital twin
+> Attack replay Recovery verification
+> >_
+> System measurements Recovery commands Recovery Priority Updated Security State
+> Verification Cost Emulation Inference Calibration
+> Fig. 1. Overview of the hierarchical agentic incident-response framework.
+
+the network. At the operational layer, LLM agents pro-pose component-specific recovery actions and translate the selected actions into executable commands.  
+
+> •
+
+We ground both attack inference and recovery planning in a network digital twin. Inferred attack sequences are replayed and calibrated using discrepancies in their observable effects, while generated recovery commands undergo emulation-based verification.  
+
+> •
+
+We implement the framework using locally deployed lightweight LLM agents and evaluate it on a 33-component, segmented enterprise-network testbed under three multi-stage attack scenarios. The framework outper-forms frontier-LLM baselines in recovery success rate by 18–31 percentage points. II. R ELATED WORK 
+
+Decision-theoretic incident response. Incident response is naturally a sequential decision-making problem in which states represent the network security posture and actions represent defensive responses. Recent studies have investigated online, meta, and multi-agent learning for adaptive defense [8]–[11]. RL further enables data-driven planning when an explicit transition model is unavailable [2]. However, training and evaluating RL agents typically require a sufficiently faithful simulator or testbed, since extensive exploration on an opera-tional network is unsafe and costly. 
+
+LLM-based incident response. LLMs offer a more operational alternative to decision-theoretic response methods by inter-preting security observations and generating context-specific recovery actions. Existing approaches include prompt-based LLM orchestration [4], [5], which typically does not perform explicit sequential optimization and can be sensitive to prompt design. Recent work combines decision-theoretic planning with LLM generation by using rollout or Monte Carlo tree search [6], [12]. 
+
+Cyber digital twins. Digital twins originated as digital replicas of physical systems that operate alongside their real-world counterparts to support situational awareness and decision making [13]–[15]. In cybersecurity, digital twins can support high-fidelity emulation that reproduces operational system be-havior in a controlled environment, enabling forensic analysis, vulnerability assessment, and the execution and validation of security operations before deployment [16]. 
+
+Novelty of our approach. Unlike methods that assume the incident and affected assets are known, our framework uses a fine-tuned LLM to infer core attack actions and target hosts from system context and IDS observations and executes the inferred attack in a digital twin, thereby calibrating the infer-ence against observable compromise effects. Compared with the most closely related approaches [6], [12], our framework integrates decision-theoretic tactical planning, LLM-generated operational recovery actions, and digital-twin validation in a single hierarchy. This design combines abstract-model rollout for efficient tactical planning with digital-twin emulation for attack replay and operational recovery verification. III. F ORMALIZING INCIDENT RESPONSE PLANNING 
+
+We formulate incident response at two levels: (i) tactical planning, which prioritizes affected components for recovery, and (ii) operational planning, which selects recovery actions for a chosen component. For cross-level planning, we consider a factorized partially observable Markov decision process, in which the system state factors into network-level security posture and component-level recovery states. 
+
+System States, Observations, and Beliefs. We represent the affected system by a graph G = ( V, E), where V = {1, . . . , N }
+
+is the set of system components and E captures their com-munication or dependency relationships. The system operator, henceforth the defender , monitors these components through intrusion-detection alerts, logs, and service measurements, which are referred to as partial observations. We define the global security state as an N -dimensional Boolean vector gt = ( g1 
+
+> t
+
+, . . . , g Nt ), g kt ∈ { 0, 1}, where gkt = 1 
+
+indicates that component k is compromised, while gkt = 0 in-dicates that it is safe. Each component k also has a local recov-ery state ℓkt = ( ℓk(c) 
+
+> t
+
+, ℓ k(a) 
+
+> t
+
+, ℓ k(p) 
+
+> t
+
+, ℓ k(e) 
+
+> t
+
+, ℓ k(h) 
+
+> t
+
+, ℓ k(r) 
+
+> t
+
+) ∈ { 0, 1}6,
+
+whose entries record completion of the six response stages [17]: 1) attack containment , 2) attack assessment , 3) forensic 
+
+preservation , 4) attack eviction , 5) network hardening , and 6) service restoration . For example, ℓk(c) 
+
+> t
+
+= 1 means that the attack on component k has been contained. The terminal local state is ℓR = (1 , 1, 1, 1, 1, 1) . For a component that is initially safe, we set its local state to ℓR. The joint system state across the two levels is st = (( gkt , ℓ kt )k∈[N ]), [N ] := {1, . . . , N }.While the true system state remains hidden from the de-fender, the defender receives an observation ot that includes IDS alerts and system measurements and is correlated with st.Based on the historical observations o0: t, the defender forms a state belief bt(s) = Pr( st = s | o0: t). Following the state factorization across the global and local levels, we represent 
+
+bt by a global belief bgt ∈ [0 , 1] N and local beliefs bkt ∈ [0 , 1] 6
+
+for k ∈ [N ]. Here, bgt (k) is the probability that component k
+
+is safe, and bkt (i) is the probability that its ith response stage is complete. These beliefs are based on the assumption that 2recovery progress across components is independent, thereby reducing the dimensionality of the belief space. 
+
+Hierarchical Action and Cost. A response action is the pair 
+
+at = ( agt , a ℓt ). The tactical action agt is a permutation of [N ]
+
+that specifies the response priority of each component, where 
+
+agt (k) is the priority rank of component k. For a global state g,let U(g) = {j ∈ [N ] : gj = 1 } denote the set of compromised components that have not yet been recovered. Denote by k
+
+the highest-priority component in U(g) under priority order 
+
+ag . The operational action aℓt is the high-level recovery action applied to the selected component. Let τ (ℓkt , a ℓt ) denote the wall-clock time for completing aℓt
+
+on component k when its local state is ℓkt . During this interval, component k incurs its own execution time, while every other unrecovered component incurs the same amount of delay. We therefore define the unweighted aggregate recovery-delay cost as c(st, a t) = |U (gt)| τ (ℓkt , a ℓt ).
+
+System Transition. Let θ ∈ Θ denote the attack-action sequence executed during an incident, where Θ denotes the set of admissible attack sequences. Specifically, define the actual attack sequence as θ = (( u1, v 1), . . . , (ud, v d)) , where d is the number of attack steps, uj is the core attack action at step j,and vj ∈ V is its target component. The attack sequence influences the component-level re-covery dynamics. Let ℓt = (ℓ1 
+
+> t
+
+, . . . , ℓ Nt ) collect the local recovery states, and let k be the component selected by the tactical action. Because the operational action is applied only to component k, the local transition is 
+
+P ℓθ (ℓt+1 | ℓt, a t) = P kθ (ℓkt+1 | ℓkt , a ℓt ) Y 
+
+> j̸=k
+
+1{ℓjt+1 = ℓjt },
+
+where P kθ describes the progress of component k through the response stages. The realized local states then drive the global transition: Pθ (st+1 | st, a t) = P ℓθ (ℓt+1 | ℓt, a t)P g (gt+1 |
+
+gt, ℓ t+1 ). Since gjt records only whether component j remains compromised, its update is deterministic: 
+
+P g (gt+1 | gt, ℓ t+1 ) = 
+
+> N
+
+Y
+
+> j=1
+
+1
+
+n
+
+gjt+1 = gjt 1{ℓjt+1 ̸ = ℓR}
+
+o
+
+.
+
+Thus, a safe component remains safe, whereas a compro-mised component becomes safe exactly when its local state reaches complete recovery. The complete-recovery state is 
+
+sR = ((0 , ℓ R)j∈[N ]) and is absorbing: Pθ (sR | sR, a ) = 1 
+
+for every response action. 
+
+Planning objective. A response policy π maps the current belief to a hierarchical response action, i.e., at ∼ π(· | bt). The defender seeks a response policy π that minimizes the expected cumulative recovery cost over a finite horizon H under the transition model induced by the inferred attack sequence: 
+
+min  
+
+> π
+
+EPθ ,π 
+
+" HX
+
+> t=0
+
+c(st, a t)
+
+#
+
+. (1) The expectation accounts for the uncertainty in both the partially observed recovery state and its evolution under the response policy. The next section develops a hierarchical planning method that approximates this objective across the tactical and operational levels. IV. H IERARCHICAL PLANNING IN AGENTIC RESPONSE 
+
+Our method consists of an offline fine-tuning stage and an online hierarchical response stage. In the offline stage, we fine-tune two variants of a lightweight local model, DeepSeek-R1-Distill-Qwen-14B [18], on three instruction-response tasks. The first variant, referred to as the inference agent , is trained on incident examples and aims to infer the attack sequence 
+
+θ. The second variant, called the planning agent , is tasked with generating beliefs and actions. In the online stage, the inference agent reconstructs and calibrates the attack sequence, after which tactical rollout prioritizes the affected components and the planning agent generates high-level recovery ac-tions. Finally, an execution agent , powered by Qwen3.6-27B, translates selected high-level recovery actions into executable recovery and verification commands, which are validated in the digital twin. 
+
+A. Offline Fine-Tuning 
+
+We fine-tune the DeepSeek model, denoted by Φw, using low-rank adaptation (LoRA) on an open-source corpus of approximately 68 ,000 security incidents and corresponding responses, as in the previous work [19]. Let D = {(xi, yi)}Ki=1 
+
+denote the resulting instruction–response dataset, where xi
+
+contains the task instruction and incident context and yi =(yi
+
+> 1
+
+, . . . , y iLi ) is the target output sequence. We optimize the trainable model parameters w using the autoregressive cross-entropy objective 
+
+L(w) = − 1
+
+B
+
+> B
+
+X
+
+> i=1
+> Li
+
+X
+
+> n=1
+
+log Φ w
+
+ yin | xi, y i
+
+> 1: n−1
+
+ , (2) where B is the mini-batch size, Li is the number of target tokens in training example i, and Φw(yin | xi, y i
+
+> 1: n−1
+
+) denotes the model’s conditional probability of target token yin.Under task-specific instructions, the fine-tuned model per-forms three functions for use in the online procedure. 1) For the attack inference tasks (inference agent), the task instruction 
+
+x includes the incident description and IDS alerts, while the response y contains the corresponding MITRE ATT&CK tactics and techniques, as well as attack sequences. 2) For state prediction (planning agent), the task instruction x remains the same, while the response contains the labeled state st
+
+and its supporting evidence summary mt. During deployment, we sample multiple state predictions and use their empirical frequencies to construct the belief bt. 3) For action generation (planning agent), the instruction x is further augmented with the belief bt, evidence summary mt, and previous response ac-tion at−1, while the response contains the next recovery action recorded in the training dataset. In summary, we obtain two model weights, wI and wP , for the two agents, respectively. 3B. Digital Twin-Based Attack Inference and Calibration 
+
+The online stage unfolds as follows. The defender first in-vokes the inference agent, ΦwI , to estimate the unknown attack sequence θ by inspecting the available partial observations 
+
+o0, including system context, IDS alerts, logs, and service measurements. The conjecture ˆθ is then executed in a network digital twin that replicates the affected system to produce an emulated observation ˆo0. We deem ˆo0 and o0 consistent when they agree on the affected hosts, privilege and service states, backdoor indicators, IDS alerts, and attack-path reachability. If they are consistent, the inferred attack sequence is accepted for response planning. Otherwise, the observed discrepancies are returned to the inference agent, which revises the attack sequence before response planning begins. Calibration can repeat until the observations are consistent or a preset iteration limit is reached. In our experiments, we allow one revision because it already provides a satisfactory improvement in attack-inference accuracy, as shown in Table II. 
+
+C. Tactical Rollout Planning 
+
+The inferred attack sequence identifies the affected com-ponents and induces an estimated global transition model 
+
+P g 
+
+> ˆθ
+
+(gt+1 | gt, a gt ) for tactical planning. At each tactical step, the priority order agt selects the highest-priority unrecovered component. The model assumes that this component is fully recovered through a sequence of operational actions before the next tactical decision, while the global states of the other components remain unchanged. At recovery step t, the tactical planner constructs a candidate set Agt of component-priority permutations and evaluates which component should be recovered next. For each candidate priority order ˜ag , let k
+
+denote the highest-priority component in U(g). Let bτ kt denote the estimated duration of recovering component k, computed from previously completed local recoveries when available and initialized using an offline average otherwise. Recovering k
+
+delays every other unrecovered component by this duration. We therefore define the unweighted tactical delay cost as 
+
+bcg (g, ˜ag ) = |U (g) \ { k}| bτ kt . The planner samples Mg possible global states {ˆgit}Mg 
+
+> i=1
+
+from the global belief bgt and simulates each candidate for Hg lookahead steps. Its estimated rollout cost is given by 
+
+Jg (˜ ag ) = 1
+
+MgMg
+
+X
+
+> i=1
+> Hg
+
+X
+
+> h=0
+
+bcg (ˆ git+h, ˜ag ), (3) where ˆgit+h+1 ∼ P g 
+
+> ˆθ
+
+(· | ˆgit+h, ˜ag ) for h = 0 , . . . , H g − 1.The selected tactical action is agt ∈ arg min ˜ag ∈A gt Jg (˜ ag ).
+
+Since enumerating all N ! priority orders is intractable for large networks, the initial order ranks components by decreasing compromise probability 1 − bg
+
+> 0
+
+(k). At subsequent recovery steps, Agt is restricted to the priority orders obtained by permuting up to the three highest-priority unrecovered compo-nents in the previous order. Under the selected priority order 
+
+agt , let k denote the highest-priority unrecovered component. This component is passed to operational planning. 
+
+D. Operational Planning and Command Validation 
+
+Let k denote the component selected by the tactical priority order agt . Conditioned on the current belief bt, its supporting evidence summary mt, and the previous local action, the planning agent generates a set of candidate high-level recovery actions Aℓt = {ˆa1 
+
+> t
+
+, . . . , ˆaNℓ 
+
+> t
+
+}. For each candidate ˆait, the model generates Mℓ rollout trajectories {ζi,r }Mℓ
+
+> r=1
+
+, each beginning with ˆait and continuing until the local terminal state ℓR or the rollout-depth limit. Every high-level action ˆa in a trajectory is translated by the execution agent into a command plan q(ˆ a) = ( C(ˆ a), Q(ˆ a)) ,where C(ˆ a) and Q(ˆ a) contain the recovery and verification commands, respectively. The first validation stage checks whether the recovery and verification commands are compat-ible with the available containers, files, services, interfaces, and network paths. The second stage executes the plan in the emulated digital twin and verifies whether it produces the intended recovery-state transition. We define the verified operational cost as 
+
+cDT (ˆ a) = 
+
+(
+
+Time DT (q(ˆ a)) , if both validation stages pass ,
+
+∞, otherwise ,
+
+where Time DT is the wall-clock time required to execute the recovery and verification commands in the digital twin. Command generation, compatibility checking, and checkpoint restoration are measured separately as planning overhead. All candidate rollouts begin from the same restored digital-twin checkpoint, ensuring that their costs are comparable, while actions within each rollout are executed sequentially. After all candidates are evaluated, the digital twin is restored once more to the pre-decision checkpoint before the selected command plan is executed. A candidate is considered feasible only if every command plan in all of its sampled trajectories passes both validation stages; otherwise, its estimated cost is set to infinity. The Monte Carlo estimate of the remaining operational recovery cost and the associated best response are, respectively, given by 
+
+Q(bt, ˆait) = 1
+
+MℓMℓX
+
+> r=1
+
+X
+
+> ˆa∈ζi,r
+
+cDT (ˆ a), aℓt ∈ arg min 
+
+> ˆait∈A ℓt
+
+Q(bt, ˆait).
+
+If every candidate has infinite cost, no operational action is committed, and the planning attempt is declared unsuccessful. Otherwise, the command plan for the selected action aℓt is executed in the digital twin. The resulting recovery observation 
+
+ot+1 , together with the current belief, evidence summary, and response action, is then returned to the planning agent. Multiple updated state predictions are sampled to construct 
+
+bt+1 from their empirical frequencies and update the support-ing evidence summary mt+1 . This generate–rollout–validate– execute cycle continues until the local state of component k
+
+reaches ℓR and the component is marked safe, after which tactical planning selects the next component. 4TABLE I CORE ATTACK ACTIONS IN THE THREE EVALUATION SCENARIOS .                 
+
+> Scenario Core attack actions Novice TELNET_SAME_USER_PASS_DICTIONARY ,FTP_SAME_USER_PASS_DICTIONARY ,SHELLSHOCK_EXPLOIT ,
+> SSH_SAME_USER_PASS_DICTIONARY ,CVE_2010_0426_PRIV_ESC
+> Experienced SAMBACRY_EXPLOIT ,SSH_SAME_USER_PASS_DICTIONARY ,CVE_2010_0426_PRIV_ESC ,DVWA_SQL_INJECTION ,
+> CVE_2015_1427_EXPLOIT
+> Expert SAMBACRY_EXPLOIT (edge Samba) ,DVWA_SQL_INJECTION ,CVE_2015_1427_EXPLOIT ,SAMBACRY_EXPLOIT (deep internal Samba)
+> Fig. 2. Enterprise-network digital-twin topology.
+
+V. E XPERIMENTAL EVALUATION 
+
+We evaluate the end-to-end recovery performance of the proposed framework using recovery time and recovery rate. The training-data construction, fine-tuning procedure, and standalone evaluation of the local DeepSeek-R1-Distill-Qwen-14B model are reported in our previous work [19]; hence, we do not repeat the model-level evaluation here because of space limitations. 
+
+A. Experimental Setup 
+
+Digital-twin environment. We conduct the experiments on a containerized enterprise network digital twin comprising ap-proximately 33 interconnected components distributed across multiple subnets, adapted from [20]. The environment includes multi-homed hosts, heterogeneous vulnerable services, routing components, and IDS monitoring points. This topology, as shown in Fig. 2, supports attack paths that cross network segments and therefore requires the response planner to reason about affected components and their network dependencies. 
+
+Attack scenarios. We consider three multi-stage attack sce-narios, denoted novice , experienced , and expert . The scenarios represent increasing attacker capability and attack-path com-plexity, ranging from a comparatively short compromise path to attacks involving additional exploitation and lateral move-ment across multi-homed components. Table I summarizes the core attack actions in each scenario. 
+
+Implementation. The local inference model is DeepSeek-R1-Distill-Qwen-14B with the fine-tuned adapter described in [19]. We use the same four-dataset LoRA fine-tuning configu-ration as in [19]. At each operational decision step, the model proposes two candidate high-level recovery actions, with two Monte Carlo rollouts per candidate. The execution agent translates semantic actions into component-specific recovery and verification commands, which are validated and executed in the digital twin. All experiments are performed on a Google Cloud virtual-machine instance equipped with one NVIDIA A100 GPU with 40 GB of memory. 
+
+B. Metrics and Baselines 
+
+Core attack-action accuracy. We first evaluate whether the fine-tuned LLM can infer the core attack actions used in each multi-stage attack. For each scenario, we generate 20 predictions from the same system description and IDS obser-vations, normalize each into an attack-action set, and compare it with the reference set. Per-action accuracy is the fraction of predictions containing a given ground-truth action. Let True Positive (TP) denote correctly inferred attack actions, False Positive (FP) denote inferred actions that are not in the reference attack, and False Negative (FN) denote ref-erence attack actions missed by the model. Following the class-agnostic evaluation used in our prior work, we aggre-gate TP, FP, and FN over all repeated predictions before computing precision, recall, and F1. They are computed as 
+
+Precision = TP /(TP + FP) , Recall = TP /(TP + FN) , and 
+
+F1 = 2 · Precision · Recall /(Precision + Recall) .
+
+Recovery success and recovery time. We then evaluate the recovery stage using recovery success rate, planning time, and operational execution time. A trial is successful only if the selected recovery sequence reaches the terminal six-stage recovery state and the corresponding operational commands pass digital-twin validation. Planning time includes high-level action generation, rollout evaluation, command generation and validation, and digital-twin state restoration. Operational execution time measures the execution and verification of the selected recovery commands. 
+
+C. Results Discussion 
+
+For attack inference, precision exceeds 78% across all three scenarios, as shown in Table III. Turning to recovery, Table IV shows that our method achieves recovery success rates of 90%, 88%, and 86% in the novice, experienced, and 5TABLE II PER -ACTION ATTACK INFERENCE ACCURACY ACROSS SCENARIOS BEFORE AND AFTER CALIBRATION .                                    
+
+> Novice Pre-Calibration Post-Calibration
+> SSH_SAME_USER_PASS_DICTIONARY 50% 55%
+> TELNET_SAME_USER_PASS_DICTIONARY 60% 70%
+> FTP_SAME_USER_PASS_DICTIONARY 25% 55%
+> SHELLSHOCK_EXPLOIT 40% 45%
+> CVE_2010_0426_PRIV_ESC 75% 75% Experienced Pre-Calibration Post-Calibration
+> SAMBACRY_EXPLOIT 95% 95%
+> SSH_SAME_USER_PASS_DICTIONARY 90% 95%
+> CVE_2010_0426_PRIV_ESC 15% 65%
+> DVWA_SQL_INJECTION 90% 90%
+> CVE_2015_1427_EXPLOIT 90% 90% Expert Pre-Calibration Post-Calibration
+> SAMBACRY_EXPLOIT (edge Samba) 100% 100%
+> DVWA_SQL_INJECTION 100% 100%
+> CVE_2015_1427_EXPLOIT 100% 100%
+> SAMBACRY_EXPLOIT (deep internal Samba) 100% 100%
+
+TABLE III SCENARIO -LEVEL PRECISION , RECALL , AND F1 SCORES FOR ATTACK -ACTION INFERENCE .      
+
+> Scenario Novice Experienced Expert (P, R, F1; %) (78.1, 50.0, 61.0) (98.7, 76.0, 85.9) (88.9, 100.0, 94.1)
+
+expert scenarios, versus 72%, 67%, and 60% for the strongest baselines, yielding gains of 18, 21, and 26 percentage points. Execution logs show that our planning agent typically commits six high-level actions per recovered component, corresponding to the six local recovery stages. In contrast, the baselines generate seven to fifteen actions, requiring more command-generation and execution rounds and potentially contributing to longer and more variable execution times. VI. C ONCLUSION 
+
+We present a hierarchical agentic incident-response frame-work combining LLM-based attack inference, decision-theoretic planning, and digital-twin emulation. Digital-twin replay calibrates inferred attack progression, tactical rollout prioritizes affected components, and planning and execution agents generate recovery actions and commands that are validated in the twin. On a 33-component, multi-subnet testbed under three multi-stage attack scenarios, our framework im-proves recovery success over frontier-LLM baselines by 18– 31 percentage points while achieving the shortest mean oper-ational execution time in every scenario. REFERENCES [1] S. Vyas, V. Mavroudis, and P. Burnap, “Towards the deployment of realistic autonomous cyber network defence: A systematic review,” ACM Computing Surveys , vol. 58, no. 1, pp. 1–36, 2025. [2] T. Li and Q. Zhu, “Agentic AI for cyber resilience: A new secu-rity paradigm and its system-theoretic foundations,” arXiv preprint arXiv:2512.22883 , 2025. [3] T. Li, Y. Pan, and Q. Zhu, “Decision-dominant strategic defense against lateral movement for 5g zero-trust multi-domain networks,” in Network Security Empowered by Artificial Intelligence , Y. Chen, J. Wu, P. Yu, and X. Wang, Eds. Cham: Springer Nature, 2024, pp. 25–76. [4] X. Lin, J. Zhang, G. Deng, T. Liu, T. Zhang, R. Chen, and Q. Guo, “IR-COPILOT: Automated incident response with large language models,” 
+
+arXiv:2505.20945 , 2025. TABLE IV RECOVERY PLANNING AND OPERATIONAL EXECUTION TIME .                                                                                        
+
+> Scenario Agent Planning (min) Execution (s) Success Novice Our agent 79.8 ±2.1 43.5 ±4.8 90% GPT-5.5 28.5 ±5.6 66.7 ±12.4 72% Gemini-3.1-Pro 34.4 ±6.4 74.6 ±14.2 68% Claude Opus 4.8 29.8 ±5.8 69.4 ±12.9 71% Experienced Our agent 102.9 ±7.7 137.9 ±6.1 88% GPT-5.5 71.4 ±8.5 142.8 ±17.6 66% Gemini-3.1-Pro 82.7 ±9.6 153.8 ±21.4 62% Claude Opus 4.8 73.9 ±8.8 151.6 ±18.7 67% Expert Our agent 106.7 ±5.6 144.4 ±6.4 86% GPT-5.5 77.2 ±6.3 148.6 ±18.1 59% Gemini-3.1-Pro 89.6 ±7.8 165.4 ±20.2 55% Claude Opus 4.8 80.4 ±7.1 145.0 ±17.8 60%
+
+[5] H. Mohammadi, J. J. Davis, M. Kiely, and H. Mohammadi, “Leveraging large language models for autonomous cyber defense: Insights from CAGE-2 simulations,” IEEE Intelligent Systems , vol. 40, no. 4, pp. 29– 36, 2025. [6] K. Hammar, T. Alpcan, and E. C. Lupu, “Incident response planning using a lightweight large language model with reduced hallucination,” in Network and Distributed System Security (NDSS) Symposium , 2026. [7] T. Li, H. Lei, and Q. Zhu, “Self-adaptive driving in nonstationary environments through conjectural online lookahead adaptation,” in 2023 IEEE International Conference on Robotics and Automation (ICRA) ,2023, pp. 7205–7211. [8] K. Hammar, T. Li, R. Stadler, and Q. Zhu, “Adaptive security response strategies through conjectural online learning,” IEEE Transactions on Information Forensics and Security , vol. 20, pp. 4055–4070, 2025. [9] K. Hammar and T. Li, “Online incident response planning under model misspecification through bayesian learning and belief quantization,” in 
+
+Proceedings of the 18th ACM Workshop on Artificial Intelligence and Security , ser. AISec, 2025, pp. 40–51. [10] Y. Ge, T. Li, and Q. Zhu, “Scenario-agnostic zero-trust defense with ex-plainable threshold policy: A meta-learning approach,” in IEEE Confer-ence on Computer Communications Workshops (INFOCOM WKSHPS) ,ser. IEEE INFOCOM, vol. 00, 2023, pp. 1–6. [11] T. Li, K. Hammar, R. Stadler, and Q. Zhu, “Conjectural online learning with first-order beliefs in asymmetric information stochastic games,” in 
+
+2024 IEEE 63rd Conference on Decision and Control (CDC) , 2024, pp. 6780–6785. [12] Y. Gao, K. Hammar, and T. Li, “In-context autonomous network incident response: An end-to-end large language model agent approach,” in 
+
+Proceedings of the 2026 AAAI Summer Symposium Series , vol. 9, 2026. [13] M. Grieves and J. Vickers, “Digital twin: Mitigating unpredictable, undesirable emergent behavior in complex systems,” in Transdisci-plinary perspectives on complex systems: New findings and approaches .Springer, 2016, pp. 85–113. [14] T. Li, H. Lei, H. Guo, M. Yin, Y. Hu, Q. Zhu, and S. Rangan, “Digital twin-enhanced wireless indoor navigation: Achieving efficient environment sensing with zero-shot reinforcement learning,” IEEE Open Journal of the Communications Society , vol. 6, pp. 2356–2372, 2025. [15] T. Li, Z. Bian, H. Lei, F. Zuo, Y.-T. Yang, Q. Zhu, Z. Li, Z. Chen, and K. Ozbay, “Digital twin-based driver risk-aware predictive mobility analytics for real-time situational awareness through cooperative sens-ing,” IEEE Transactions on Intelligent Transportation Systems , vol. 26, no. 11, pp. 20 071–20 090, 2025. [16] M. Repetto, “Cybersecurity digital twins: Concept, blueprint, and chal-lenges for multi-ownership digital service chains,” Journal of Informa-tion Security and Applications , vol. 96, p. 104299, 2026. [17] P. E. Kaloroumakis and M. J. Smith, “Toward a knowledge graph of cybersecurity countermeasures,” The MITRE Corporation, Tech. Rep., 2021. [18] D. Guo et al. , “DeepSeek-r1 incentivizes reasoning in LLMs through reinforcement learning,” Nature , vol. 645, no. 8081, pp. 633–638, 2025. [19] Y. Gao, T. Li, and K. Hammar, “Agentic incident response through digital twin-enhanced multiscale planning,” arXiv preprint arXiv:2608.02422 , 2026. [Online]. Available: https://arxiv.org/abs/2608. 02422 [20] K. Hammar, “CSLE: A reinforcement learning platform for autonomous security management,” in Ninth Conference on Machine Learning and Systems , 2026. 
+
+6

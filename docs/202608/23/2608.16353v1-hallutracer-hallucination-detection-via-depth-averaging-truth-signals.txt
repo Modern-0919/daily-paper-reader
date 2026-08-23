@@ -1,0 +1,2629 @@
+Title: HalluTracer: Hallucination Detection via Depth-Averaging Truth Signals
+
+URL Source: https://arxiv.org/pdf/2608.16353v1
+
+Published Time: Tue, 18 Aug 2026 01:53:23 GMT
+
+Number of Pages: 39
+
+Markdown Content:
+# HalluTracer: Hallucination Detection via Depth-Averaging Truth Signals 
+
+Zhihao Guo 1,2 ∗ Zonghan Wu 1∗ Huan Huo 2 DaYong Ye 3
+
+Junwei Zhang 4 Weiran Yao 5 Zhiwei Liu 6 Qingsong Wen 1,7 † Yilei Shao 1†
+
+> 1
+
+East China Normal University, China 2University of Technology Sydney, Australia 
+
+> 3
+
+City University of Macau, Macau 4Meta, USA 5actAVA AI, USA 
+
+> 6
+
+Microsoft AI, USA 7Squirrel Ai Learning, USA 
+
+zhihao.guo-1@student.uts.edu.au, zhwu@sem.ecnu.edu.cn, Huan.Huo@uts.edu.au dyye@cityu.edu.mo, Junweizhang23@gmail.com, weiran@actava.ai zhiweiliu@microsoft.com, qingsongedu@gmail.com, yileishao@sem.ecnu.edu.cn 
+
+## Abstract 
+
+Even well-aligned large language models confidently generate factually incorrect text, making hallucination a persistent reliability risk in high-stakes deployments. These models nonetheless carry linearly separable truthfulness signals in their inter-nal representations. Existing white-box detectors, however, collapse this evidence to isolated components or a single depth, discarding discriminative information distributed across the full forward pass. We introduce HalluTracer, a detection framework that reads and aggregates truthfulness evidence across every layer of the forward pass before the model emits any answer token. A geometric analy-sis reveals that the per-layer signals are weakly correlated, so that simple depth averaging suppresses layer-specific noise and captures nearly all linearly accessi-ble information. Across six open-source language models and five hallucination benchmarks, HalluTracer consistently outperforms matched white-box baselines, with gains ranging from one to fourteen points. Collectively, our work recasts hallucination detection from a layer-selection problem into a depth-aggregation problem governed by the geometric sparsity of the truthfulness signal. 
+
+## 1 Introduction 
+
+Large language models (LLMs) produce fluent but unfaithful text, a failure mode termed hallucination, which poses concrete risks in safety-critical deployments [18, 33, 17] and persists despite alignment training [29, 3]. Mechanistic studies, however, reveal that these models internally encode truth-relevant structure that is not fully exploited during generation: linear probes recover separable truthfulness directions from hidden activations [26], and models can exhibit calibrated self-evaluation when explicitly prompted [20]. This gap between internal knowledge and output fidelity suggests a detection opportunity for token cost saving—if the model’s representations already distinguish fact from fabrication, that distinction can in principle be read out before any text is generated. Reliably doing so remains an open problem. In practice, existing methods capture only a fraction of this internal evidence. For example, Contrast-Consistent Search [6] discovers latent truth directions without supervision but requires paired state-ments and operates at a single depth.        
+
+> ∗Equal contribution.
+> †Corresponding authors. Preprint. arXiv:2608.16353v1 [cs.CL] 17 Aug 2026 Readout
+> Logistic Regression
+> 00.5 1
+> Truthful
+> hidden state
+> Layer 00.5 1
+> Hallucination
+> Logit Trajectory
+> learned probe
+> Per-Layer Readout & Probe
+> answer-onset
+> (a) Layer-wise Activation Extraction (b) Truthfulness Projection (c) Trajectory Aggregation and Detection
+> ...of France is
+> attention head
+> Layer 0
+> attention head
+> Layer 1
+> attention head
+> Layer
+
+Figure 1: Overview of HalluTracer. (a) At each Transformer layer, a readout extractor selects the hidden state at the answer-onset position. (b) A per-layer learned probe projects the readout onto a scalar truth logit. (c) The truth logits across all layers form a logit trajectory whose depth-averaged mean is fed to a logistic classifier for hallucination detection. Inference-Time Intervention [23] steers model behaviour using truthfulness directions extracted from a few attention heads, ignoring how factual commitment continuously develops across depth. Fact-Probe [16] demonstrates that a simple linear classifier on one layer’s hidden state can detect hallucinations, yet the choice of which layer to probe remains dataset-dependent. Representation Engineering [35] extracts concept-level reading vectors, and IRIS [30] classifies the terminal hidden state of a self-verification trace with an multi-layer perceptron. The common thread is that these methods collapse internal evidence to isolated components or limited depths, implicitly assuming that truthfulness is a layer-localized property rather than a quantity that spans across the forward pass. However, feed-forward layers function as distributed key-value memories that hierarchically refine predictions [14], and the residual stream acts as a shared channel through which successive blocks compose representations [10]; truthfulness is progressively constructed rather than instantaneously encoded. Existing work has observed or exploited partial depth information, but the aggregation problem itself, namely how to combine truthfulness evidence across all layers and when simple averaging suffices, has not been systematically characterised for hallucination detection. In this work, we introduce HalluTracer (Figure 1 provides an overview), a detection framework that treats the truthfulness signal as an evolving quantity across depth rather than a property of any single layer. A layer-specific linear probe at each Transformer block maps the answer-onset representation to a scalar truth logit; stacking these scalars across all layers yields a logit trajectory that records how factual commitment develops through the network. Because the readout position is fixed by the prompt, this trajectory is available before the model emits any answer token, enabling anticipatory detection. A geometric analysis then reveals that adjacent probe directions are near-orthogonal across depth, we observe the truthfulness signal occupies less than one percent of the representation variance. This weak correlation across layers means that depth-averaging the probe outputs suppresses per-layer noise, yielding a detection statistic unavailable to single-layer methods. Our contributions are as follows: 1. Depth-wise pre-decoding detector. We introduce HalluTracer, a lightweight hallucination detector that reads truthfulness evidence from every Transformer layer at the answer-onset position and aggregates these layer-wise scores into a single pre-decoding risk signal. 2. Geometry-guided explanation of depth averaging. We show that truthfulness readouts are low-energy and weakly aligned across depth, and derive a covariance-aware diagnostic explaining when simple depth averaging captures nearly all linearly accessible detection signal. 3. Matched-budget empirical validation. Across six open-weight LLMs and five hallucination benchmarks, HalluTracer consistently improves over matched pre-decoding white-box baselines, with ablations showing that the gains come primarily from depth aggregation rather than head selection, readout choice, or additional trajectory features. 
+
+## 2 Related Work 
+
+Output-Level and Internal-State Detection. Hallucination detection divides into output-level and internal-access methods. Output-level methods, often usable in black-box settings, such as SelfCheckGPT [25] and Semantic Entropy [11], score consistency or uncertainty from generated responses, but require multiple sampled outputs and incur substantial decoding cost. Post-generation 2white-box methods such as HalluGuard [32] instead use gradient geometry over the full generated response, providing a richer information budget but operating after answer emission. Internal-access methods probe model activations: Burns et al. [6] discover latent truth directions unsupervised, Li et al. [23] steer model behaviour via targeted layer interventions, and follow-up work deploys classifiers on selected hidden states, attention heads, or terminal representations [16, 30, 31, 7]. Recent pre-decoding studies further show that query-side or input-side hidden states already encode hallucination risk before generation [19], and FactCheckmate [1] uses such signals for learned detection and hidden-state intervention. These works establish that factuality-related signals are accessible from generated outputs, post-generation gradients, or selected internal states, but they typically rely on sampled generations, generated responses, selected layers, selected heads, token positions, or learned intervention modules. In contrast, we keep the pre-decoding setting but replace layer or head selection with a full-depth truth-logit trajectory, thereby using the depth profile and covariance structure of internal evidence rather than a single selected readout. Prior work [13, 20] shows that factual and hallucinated examples can differ not only in mean signal but also in uncertainty, motivating our explicit variance and covariance diagnostics. 
+
+Cross-Layer Dynamics. Mechanistic interpretability has established that semantic properties are refined across depth: feed-forward layers function as key-value memories [14], the residual stream serves as a communication channel for blocks [10], and the logit lens [28] and its learned variant [4] reveal how token predictions sharpen across layers. Several hallucination methods exploit depth or generation-time dynamics: DoLa [9] contrasts layer-wise vocabulary logits during decoding, HalluGuard [32] uses NTK gradients over the full generated response, Mir [27] analyses layer-wise semantic dynamics, and ICR Probe [34] tracks residual-stream update dynamics across layers. These approaches are complementary but either intervene during decoding, operate after answer emission, select layer/module-specific signals, or learn cross-layer detectors. In contrast, HalluTracer assigns a pre-decoding risk score from answer-onset truth-logit trajectories and provides a covariance-aware account of when uniform aggregation across all depths is Fisher-near-optimal. 
+
+## 3 Method 
+
+3.1 Overview 
+
+At each Transformer layer, a supervised probe projects the internal representation at the answer-onset position onto a scalar truth logit. Stacking these scalars across depth yields a logit trajectory (§3.2; Figure 1). The scope and limitations of this answer-onset detection paradigm are discussed in Appendix J.1. We analyse the geometry of the probe directions and show that adjacent probes occupy near-orthogonal coordinate frames, so that successive readouts are weakly correlated (§3.3). An SNR (Signal-to-Noise Ratio) analysis shows that the depth-averaged mean is a near-optimal detection statistic under the empirically verified level-dominant regime, yielding a single-scalar detector fed to a linear classifier (§3.4). An exact decomposition of each layer-to-layer logit increment provides a mechanistic account of how depth averaging concentrates the class signal (§3.5). 
+
+3.2 Layer-wise Truthfulness Trajectory Setup. Let m denote the number of Transformer layers, and l ∈ { 0, . . . , m − 1} index depth. Let t⋆ denote the answer-onset position, defined as the final prompt token immediately preceding answer generation. At layer l, let sl,t ⋆ denote the model’s internal state at position t⋆. A layer-specific extractor Al maps sl,t ⋆ into a shared observation space (Figure 1a), yielding the readout representation 
+
+al := Al
+
+ sl,t ⋆
+
+ ∈ Rd, (1) where d is the readout dimension. Because t⋆ is determined entirely by the prompt, the resulting trajectory is available before the model emits any answer token, enabling anticipatory detection. In this work, Al extracts a single attention head per layer (Appendix A.1), though the detector is robust to the choice of head and readout mechanism (§4). 
+
+Definition 3.1 (Truthfulness Observable) . A truthfulness observable at layer l is a learned affine function mapping any readout vector a ∈ Rd to a scalar: 
+
+ϕl(a) = v⊤ 
+
+> l
+
+a + bl, (2) 3where vl ∈ Sd−1 is a unit-norm direction learned by a regularised linear probe and bl ∈ R is a scalar geometric bias. The truthfulness coordinate (or truth logit ) at layer l is the scalar projection 
+
+Ll = ϕl(al), (3) where al = Al(sl,t ⋆ ) is the readout representation at layer l.Cross-layer evaluations such as ϕl(al+1 ) are algebraically well-defined under the fixed readout gauge that identifies all layer coordinates with Rd; they should not be interpreted as gauge-invariant comparisons across heads. 
+
+Logit Trajectory. Evaluating the sequence of observables sweeps out the logit trajectory :
+
+τ = L0, L 1, . . . , L m−1
+
+⊤ ∈ Rm. (4) This trajectory is a depth-wise trace of the model’s latent internal state, not a sequence over generated tokens. For a single inference graph, this projection traces a static curve over depth. Evaluated over the data distribution D, these curves form a trajectory distribution whose class-conditional geometry determines the discriminative power of trajectory-level statistics; this geometry is shaped by both the common-mode variance and the structure of the probe directions {vl}.
+
+3.3 Probe Isotropy and Variance Structure 
+
+Before specifying the detector, we analyse the geometric structure of the probe directions {vl}, as this structure determines how much discriminative information depth aggregation can recover. The argument proceeds in three steps: a structural condition on the readout distributions (Assumption 3.2), a geometric consequence for the probe directions (Property 3.3), and a variance decomposition whose conclusions directly motivate the detector design (Remark 3.4). Full derivations are deferred to Appendix H. Empirical verification appears in §4.3. The following assumption identifies a geometric condition on the readout distributions under which adjacent probes are sufficiently decorrelated for depth aggregation to be effective. 
+
+Assumption 3.2 (Sparse Semantic Separation) . For each intermediate layer l, the class-conditional distributions of the readout representation al ∈ Rdh (dh is the attention head dimension, d = dh in Eq. 1) satisfy three conditions (formal definitions and quantitative calibration in Appendix H): (i) Mean separation: the factual and hallucinated class means differ. (ii) Signal sparsity: the learned probe direction vl (Definition 3.1) captures no more variance from the within-class pooled covariance than a uniformly random direction in Rdh .(iii) Directional calibration: the class-conditional variances along the probe direction are of compa-rable magnitude. This condition governs the tightness of the SNR bound but is not required for the framework’s validity. 
+
+Justification. Low energy alone does not imply isotropy. We therefore treat probe isotropy as an empirical prediction of the perturbative quiet-subspace model (Appendix H.6) rather than a direct consequence of variance sparsity: because the probe captures less than 1/d h of the total variance, its orientation is effectively unconstrained by the covariance spectrum, and each Transformer block is predicted to resample this orientation. This prediction is verified across all models in Table 2. 
+
+Property 3.3 (Probe Isotropy) . Under Assumption 3.2 and the perturbative quiet-subspace model of Appendix H.6, adjacent-layer probe directions are predicted to occupy near-orthogonal coordinate frames: |⟨ vl, vl+1 ⟩| ≈ p2/(π d h), matching the theoretical expectation for independent unit vectors on Sdh−1. Define the sample-level common mode αi := ¯L(i) − ¯μ(ci) as the depth-averaged deviation of sample i from its class mean ¯μ(ci), where ci ∈ {H , F} , H denotes hallucinated examples, and F
+
+denotes factual examples. After removing αi, residual cross-layer correlations are predicted to decay rapidly with layer separation (Table 14). Near-orthogonality motivates weak residual correlation after removing the sample-level common mode αi; it is not assumed to imply unconditional statistical independence (Appendix D). 
+
+Remark 3.4 (Level–Shape Decomposition) . Under Property 3.3, the logit trajectory decomposes into two components: 
+
+L(i) 
+
+> l
+
+= αi + ¯ μ(ci)
+
+| {z }
+
+> level (shared)
+
++ ( μ(ci) 
+
+> l
+
+− ¯μ(ci)) + εi,l 
+
+| {z }
+
+> shape (layer-specific)
+
+, (5) 4where L(i) 
+
+> l
+
+denotes the truth logit (Eq. 3) of sample i at layer l, μ(ci) 
+
+> l
+
+:= E[Ll | ci] is the class-conditional mean at layer l, and εi,l := L(i) 
+
+> l
+
+− μ(ci) 
+
+> l
+
+− αi is the layer-specific residual (by construction P 
+
+> l
+
+εi,l = 0 ). The modelling content lies in treating αi ∼ (0 , σ 2
+
+> α
+
+) and εi,l ∼ (0 , σ 2 
+
+> ε
+
+) as independent random components with the variance structure of a random-intercept model. Note that the empiri-cal projection used to estimate variance components (Appendix H) constructs residuals satisfying P 
+
+> l
+
+εi,l = 0 by construction, whereas Prop. 3.5 treats them as independent across layers. The trajec-tory mean ¯L = 1
+
+> m
+
+Pm−1 
+
+> l=0
+
+Ll captures the level component αi + ¯ μ(ci), which carries the dominant class-conditional signal (Table 14). A single well-chosen layer already captures most of this signal. Depth averaging improves robustness by suppressing εi,l . The shape statistics, constructed from centred increments ∆Ll, act as high-pass filters on the depth profile. Their discriminative power depends on the divergence ratio ρ: when the class-conditional gap δl varies slowly across depth (ρ ≪ 1), the mean captures the dominant signal and shape statistics are noise-dominated. This decomposition predicts two testable consequences verified in §4: (i) ¯L alone captures nearly all discriminative power, and (ii) trajectory features consistently outperform the best single-layer probe. These conclusions directly inform the detector architecture presented next. 
+
+3.4 Detection via Depth-Averaged Truth Logits 
+
+The level–shape decomposition (Remark 3.4) shows that the trajectory mean ¯L captures the dominant class-conditional signal (Figure 1c). We formalise this via the signal-to-noise ratio (SNR), defined as the magnitude of the class-conditional mean gap divided by the pooled within-class standard deviation [12] (formal definition in Appendix F). We compare the SNR of integral (level) and differential (shape) statistics to determine when ¯L is near-optimal. We use SNR as an analytically tractable proxy for linear separability; empirical verification appears in §4.4. 
+
+Proposition 3.5 (SNR Dominance of the Trajectory Mean) . In the level–shape model (5) with independent residuals, let δl := μ(F) 
+
+> l
+
+− μ(H) 
+
+> l
+
+denote the per-layer class gap, ¯δ := m−1 P 
+
+> l
+
+δl the depth-averaged gap, and ˆβ := P 
+
+> l
+
+wlLl the ordinary least-squares (OLS) slope of the trajectory on the depth index, where the centred weights wl ∝ (l − ¯l) satisfy P 
+
+> l
+
+wl = 0 (details in Appendix F). Define the divergence ratio ρ := |¯δ′| · m / |¯δ|, where ¯δ′ := P 
+
+> l
+
+wlδl is the OLS slope of the class-gap profile, and the origin penalty factor γ := p1 + m σ 2
+
+> α
+
+/σ 2 
+
+> ε
+
+. Then the exact SNR ratio is: 
+
+SNR( ˆβ)SNR( ¯L) = ρ · γ
+
+√12 
+
+q
+
+1 − 1 
+
+> m2
+
+, (6) 
+
+which simplifies to ργ/ √12 with a relative overestimation bounded by 1/m 2 (Appendix F). When 
+
+ρ · γ/ √12 ≪ 1, the trajectory mean is the SNR-dominant statistic among representative centred linear filters; empirical verification of this condition appears in §4.4. 
+
+Prop. 3.5 establishes mean dominance over representative centred statistics such as slope and zone contrast under the independent-residual idealisation. Appendix F extends this to all unit-norm zero-sum linear filters. Neither Prop. 3.5 nor Thm. 3.6 claims Bayes optimality under unequal class covariances or nonlinear decision rules; both are Fisher-criterion statements about linear aggregation under pooled within-class covariance. The following theorem handles the unrestricted linear case without the independent-residual assumption, exactly quantifying the possible Fisher gain of any linear aggregation over uniform averaging. 
+
+Theorem 3.6 (Covariance-Aware Fisher Gap) . Let Στ ≻ 0 denote the within-class trajectory covariance (no structural assumption on Σε), d ∈ Rm the class-gap vector with entries δl, and 
+
+u = m−1/2 1 the uniform-averaging direction. Decompose both d and Στ into level ( u) and shape (u⊥) components (explicit construction in Appendix F.2), yielding a level signal s = u⊤d = √m ¯δ,a shape signal coordinate z ∈ Rm−1, and covariance blocks: level variance a, level–shape cross-covariance b, and shape covariance C. Assume s̸ = 0 , define three empirical diagnostics: 
+
+θ := b⊤C−1b
+
+a , χ2 := a z⊤C−1z
+
+s2 , t := b⊤C−1z
+
+s . (7) 
+
+Then the Fisher-optimal linear score w⋆ ∝ Σ−1 
+
+> τ
+
+d satisfies the exact identity: 
+
+SNR 2(w⊤ 
+
+> ⋆
+
+τ )SNR 2( ¯L) = χ2 + (1 − t)2
+
+1 − θ . (8) 5When θ ≪ 1 and χ ≪ 1, the right-hand side reduces to 1 + O(χ2 + θ), and uniform averaging is Fisher-near-optimal (proof, Cauchy–Schwarz bound |t| ≤ √θ χ , and upper bound in Appendix F.2). 
+
+Thm. 3.6 is an exact identity for arbitrary within-class covariance. The Fisher identity does not prescribe uniform averaging universally; rather, it provides three directly estimable diagnostics (θ,
+
+χ, t) under which uniform averaging is certified to lose little relative to the population-optimal linear score. The diagnostics have transparent interpretations: χ measures whether the shape coordinate vector z falls on discriminative directions of C; θ quantifies whether shape coordinates serve as control variates for the level mean; and t captures the alignment of b and z under the C−1-inner product. Empirical evaluation of these diagnostics appears in §4.4 and Appendix F.3. A sufficient condition for near-optimality is θ ≪ 1 and χ ≪ 1; in the measured regimes, however, both are moderate. Near-optimality is instead certified directly by the exact identity, because the cross term t nearly saturates its Cauchy–Schwarz upper bound, yielding systematic cancellation in the (1 − t)2/(1 − θ)
+
+term (Appendix F.3). Crucially, any Fisher gain over uniform averaging is a population upper bound that assumes exact knowledge of Στ and d; in practice, realising it would require estimating and inverting the full m × m within-class covariance at O(N m 2 + m3) cost, and the resulting estimation variance is expected to exceed the marginal oracle benefit (detailed in Appendix F.4). The aggregation rule is parameter-free and requires no covariance estimation, transferring across models and datasets without refitting the aggregation weights; the per-layer probes are still trained within each training fold (§4.1). Under these conditions, HalluTracer reduces to a single scalar: 
+
+¯L = 1
+
+m
+
+> m−1
+
+X
+
+> l=0
+
+Ll , (9) fed to a logistic regression classifier. By restricting the meta-classifier to an affine mapping, we ensure that performance gains arise intrinsically from the geometric properties of the trajectory rather than the capacity of the classifier. The remaining trajectory diagnostics serve exclusively as ablation controls for verifying the SNR prediction. The SNR theory covers centred linear filters such as slope and zone contrast, while nonlinear high-pass summaries are included as empirical ablation controls. Exact definitions of all five diagnostics appear in Appendix E. We also provide an approximate sufficiency argument under a Gaussian increment model motivating this diagnostic set in Appendix G. 
+
+3.5 Algebraic Decomposition of Trajectory Increments 
+
+While the SNR analysis predicts that ¯L is near-optimal, it does not reveal the algebraic structure by which depth averaging concentrates the class signal. Each discrete increment ∆Ll = Ll+1 − Ll
+
+admits an exact additive decomposition ∆Ll = Wl + Kl (Proposition H.2, Appendix H), where the intrinsic displacement Wl evaluates the frozen layer-l probe on adjacent representations, and the readout change Kl absorbs both the probe-frame rotation and the head-switch contribution. Under the chosen readout gauge, Wl isolates the empirically higher-SNR component of the class-conditional drift, while Kl projects onto a near-orthogonal, noisier direction that nonetheless retains correlated class information (Property 3.3). Depth averaging primarily suppresses the idiosyncratic, frame-specific component of K while preserving the shared class signal carried by both components, providing an algebraic account consistent with the observed SNR dominance of the mean. A four-way decomposition of Kl (Lemma I.1, Appendix I) and the source-level feature ablation (Tables 3 and 17) confirm this interpretation. 
+
+## 4 Experimental Validation 
+
+4.1 Experimental Setup Datasets and Models. We evaluate HalluTracer on five benchmark datasets spanning distinct phenomenological categories of hallucination and factuality: TruthfulQA [24], TrueFalse [2], HaluE-val2 [22], HELM [31], and Agentic [15]. To ensure generality across parameter scales and ar-chitectural families, we employ six large language models spanning two families: LLaMA-2-7B and Meta-LLaMA-3.1-8B from the LLaMA series, and Qwen2.5-7B, 14B, 32B, and 72B from the Qwen2.5 series. 
+
+Baselines. We compare against three internal-state baselines that share our information budget: Fact-Probe [16] trains a linear classifier on a single layer’s hidden state, ITI-Probe [23] selects 6Table 1: Hallucination detection results (AUROC / AUPRC, %) across five benchmarks and six LLMs. Bold : best; underline: second best. ±: std. over 5-fold CV. 
+
+Qwen2.5-7B Qwen2.5-14B Qwen2.5-32B Qwen2.5-72B LLaMA2-7B LLaMA3.1-8B Dataset Method AUROC AUPRC AUROC AUPRC AUROC AUPRC AUROC AUPRC AUROC AUPRC AUROC AUPRC TRUTHFUL QA  HalluGuard 60.57 31.95 59.84 35.33 52.25 18.21 53.96 16.81 54.98 46.25 51.60 42.96 Fact-Probe 67.26 48.40 60.30 22.00 75.53 40.14 72.24 32.22 69.20 62.98 66.07 59.33 ITI-Probe 64.46 44.71 69.92 42.95 74.57 42.72 70.51 37.33 64.90 56.09 63.43 57.04 IRIS 68.44 50.10 72.54 43.51 74.29 40.63 74.28 32.66 71.12 60.64 65.04 58.17 HalluTracer 68.71 ±0.3 50.50 ±0.4 73.65 ±0.4 46.76 ±0.5 80.42 ±0.3 49.08 ±0.3 79.83 ±0.1 45.77 ±0.3 71.54 ±0.2 63.51 ±0.1 69.01 ±0.1 63.76 ±0.1
+
+> TRUE -F ALSE
+
+HalluGuard 52.17 52.13 50.38 50.23 58.55 56.40 57.53 61.21 50.84 50.77 51.11 49.78 Fact-Probe 88.95 88.35 57.78 53.24 61.98 61.30 62.17 61.33 52.66 52.48 54.10 53.68 ITI-Probe 96.98 96.76 98.08 97.87 98.05 97.98 95.51 94.95 94.59 94.19 96.97 96.69 IRIS 95.36 94.41 94.86 90.38 97.78 97.53 98.56 98.33 93.94 93.49 96.73 96.42 HalluTracer 97.59 ±0.3 97.49 ±0.3 98.40 ±0.3 98.23 ±0.3 98.54 ±0.3 98.45 ±0.3 98.96 ±0.2 98.77 ±0.5 95.34 ±0.1 95.00 ±0.1 97.44 ±0.4 97.26 ±0.6
+
+> HALU EVAL 2
+
+HalluGuard 50.46 45.91 53.19 47.73 51.29 47.46 52.66 49.12 50.48 45.63 50.61 46.26 Fact-Probe 57.13 53.73 58.20 54.49 62.37 57.73 62.83 59.60 58.63 55.61 59.71 56.26 ITI-Probe 81.42 76.31 82.34 76.37 82.98 76.87 85.03 79.69 79.11 74.10 82.24 77.39 IRIS 79.96 74.68 81.78 74.53 81.83 77.98 85.65 80.38 78.86 74.31 81.43 75.59 HalluTracer 82.42 ±0.8 78.14 ±0.3 83.88 ±0.3 79.11 ±0.3 84.53 ±0.8 79.39 ±1.3 86.61 ±0.9 81.64 ±0.5 80.68 ±0.5 76.25 ±0.9 83.85 ±0.4 79.46 ±0.1
+
+> HELM
+
+HalluGuard 52.18 51.61 51.89 49.08 51.56 55.09 57.26 49.08 51.61 54.27 54.31 56.72 Fact-Probe 59.14 59.89 57.78 59.55 67.76 67.00 68.41 67.78 57.53 59.40 58.14 58.94 ITI-Probe 85.45 86.48 85.54 85.51 86.07 86.49 86.33 86.65 84.25 84.50 80.38 80.05 IRIS 86.08 86.49 87.40 87.33 87.45 87.82 88.92 89.13 87.15 86.69 79.51 80.38 HalluTracer 87.84 ±0.5 88.50 ±0.9 88.34 ±0.4 89.15 ±0.2 88.59 ±1.3 89.23 ±0.4 89.33 ±0.4 89.45 ±0.2 87.65 ±0.1 88.06 ±0.4 88.73 ±0.4 89.21 ±0.4
+
+> AGENTIC
+
+HalluGuard 55.13 31.70 63.66 35.52 62.08 21.43 75.62 58.35 54.41 40.35 58.71 48.12 Fact-Probe 89.81 52.01 81.86 77.73 70.59 58.82 82.74 79.96 67.89 55.29 71.76 50.53 ITI-Probe 81.02 53.46 82.57 79.79 72.01 58.12 86.16 85.16 63.87 58.19 70.37 42.79 IRIS 74.31 59.75 87.57 80.42 79.69 56.85 84.51 81.91 76.64 66.93 70.33 41.22 HalluTracer 94.91 ±1.3 82.98 ±0.4 93.57 ±0.2 90.68 ±0.5 96.05 ±0.2 88.93 ±0.3 97.86 ±0.8 94.94 ±0.3 82.91 ±0.1 75.86 ±0.3 94.91 ±0.8 81.64 ±0.3
+
+the single best attention head across all layers via probing, and IRIS [30] classifies the last-layer representation with an MLP. We also include HalluGuard [32], a post-generation detector that scores the full generated response via NTK analysis; comparisons should be read as cross-regime, since it operates under a richer information budget. 
+
+Implementation Details. All models are loaded in FP32 precision on NVIDIA H200 GPUs. We use stratified 5-fold cross-validation with group-disjoint splits (no question-level overlap between folds). All probe training, per-layer normalisation (zero-mean, unit-variance using training-fold statistics only), head selection, feature extraction, and classifier fitting are performed strictly within each training fold; no information from test samples influences any pipeline component. HalluTracer operates on a single scalar: the trajectory mean ¯L (§3.4); four shape statistics are retained only as ablation controls. We report AUROC and AUPRC as primary metrics. Probe training details and evaluation protocol are in Appendix A. All complete feature definitions are in Appendix E. 
+
+4.2 Main Comparison: Dynamic versus Static Detection 
+
+Table 1 reports the AUROC and AUPRC of HalluTracer and four baselines across six models and five benchmarks. First, HalluTracer uniformly achieves the highest AUROC and AUPRC among all matched-budget baselines, with AUROC gains ranging from one to fourteen points depending on the benchmark. Single-layer white-box methods (ITI-Probe, Fact-Probe, IRIS) achieve strong performance on individual datasets but remain limited by reading a fixed depth; depth aggregation consistently recovers additional discriminative signal. Second, the advantage is most pronounced on complex sequential tasks. On the Agentic benchmark, the best single-layer baseline (ITI-Probe) achieves 86.16% AUROC and 85.16% AUPRC for Qwen2.5-72B, whereas HalluTracer reaches 97.86% AUROC and 94.94% AUPRC, yielding an 11.70-point AUROC improvement and a 9.78-point AUPRC improvement. Third, HalluGuard is included only as a cross-regime reference. Its lower scores under our evaluation should not be interpreted as a direct failure of post-generation detection, since it operates with a different information budget and objective. These results provide direct empirical support for the depth aggregation argument (Remark 3.4): the trajectory mean captures a dominant class-conditional signal present at every depth, consistent with the SNR prediction that ¯L is near-optimal under the level-dominant regime. 7Table 2: Validation of structural hypotheses (mid-60% layer averages, n > 10 ,000 ). Signal & Decomposition : class separation, variance ratio, and covariance distance of the intrinsic increment 
+
+Wl (§3.5). Geometric Invariants : probe–mean-shift alignment, probe energy fraction, and adjacent-probe cosine | cos | testing Property 3.3 ( t-test: p = 0 .60 for Llama-3.1-8B, consistent with random baseline). Probe-Free Direct : raw mean-shift norm, Chen and Qin [8] energy ratio, and layer-wise significance count (no trained probe required).                                                                            
+
+> Signal & Decomposition Geometric Invariants Probe-Free Direct Model Cohen’s drw∥dCov ∥ |⟨ v,ˆμ∆⟩| v2Top90 E(v)/Tr |cos |∥μ∆∥2TCQ /Tr CQ sig. LLaMA-2-7B 0.546 1.135 0.551 0.191 0.21 0.35% 0.09 0.092 3.46% 20/20 LLaMA-3.1-8B 0.666 1.382 0.610 0.184 0.16 0.31% 0.07 0.074 8.68% 20/20 Qwen2.5-7B 0.513 1.202 0.559 0.136 0.12 0.26% 0.06 0.324 6.86% 18/18 Qwen2.5-14B 0.597 1.150 0.503 0.153 0.15 0.27% 0.05 0.156 6.41% 30/30 Qwen2.5-32B 0.531 1.060 0.475 0.172 0.14 0.31% 0.06 0.236 5.99% 39/40 Qwen2.5-72B 0.520 1.210 0.555 0.377 0.29 0.36% 0.07 0.182 4.29% 46/48
+
+4.3 Empirical Validation of Geometric Assumptions 
+
+The detection results above demonstrate what trajectory analysis achieves. We now validate why it works by testing the two structural assumptions from §3.3. 
+
+Sparse Signal Validation. Assumption 3.2 requires that each probe direction vl captures no more variance than a uniformly random direction ( 1/d h ≈ 0.78% for dh = 128 ). Table 2 confirms this across all six models via two complementary diagnostics. First, the fractional energy v⊤ 
+
+> l
+
+¯Σl vl/Tr( ¯Σl)
+
+remains below 0.37% , well under the random baseline, and the projection onto the top-90% variance subspace ( v2Top90 ) stays below 0.22 for five of six models. Second, a probe-free analysis independently corroborates the sparsity finding. The Chen and Qin [8] high-dimensional two-sample test rejects equal class means at virtually all intermediate layers, yet the bias-corrected energy ratio TCQ /Tr(Σ) 
+
+remains below 9% , confirming that separation is genuine but low-energy. 
+
+Probe Isotropy Validation. Property 3.3 predicts that adjacent probe directions are near-orthogonal, with expected absolute cosine p2/(π d h) ≈ 0.071 for dh = 128 . In Table 2, the measured cosines 
+
+|⟨ vl, vl+1 ⟩| across all consecutive layer pairs fall in [0 .05 , 0.09] , closely tracking this prediction. A formal t-test also confirms no significant deviation from the random baseline. This near-orthogonality, together with the residual ACF analysis after common-mode removal (Table 14), supports the weak-residual-correlation mechanism underlying depth averaging (Remark 3.4). 
+
+4.4 Ablation Studies Readout Robustness. Before analysing trajectory-level statistics, we verify that the per-layer co-ordinate Ll is robust to the choice of extraction strategy. Three complementary ablations address spatial pooling, readout dimensionality, and head selection respectively (Appendices B, C, and C.1). First, among eight candidate spatial pooling strategies, the answer-onset readout yields the highest AUROC, with performance degrading monotonically as the pooling window extends beyond posi-tion t⋆. Second, substituting full residual-stream probes ( d = dmodel ) for per-head probes produces near-equivalent trajectory-mean AUROC ( |∆| < 0.5 pp on most datasets). This confirms that the sparse truthfulness signal is recoverable from multiple readout subspaces, and that the trajectory geometry is not an artefact of the head-level extraction. Third, within-layer head selection exhibits low sensitivity (coefficient of variation < 0.08 ), consistent with the interpretation that attention heads within the same layer provide highly correlated projections of the same low-energy signal. These results collectively indicate that the critical design choice is not the readout mechanism at each layer, but rather the aggregation strategy across layers. The following ablation tests this prediction directly. 
+
+Mean Sufficiency. The SNR analysis (Proposition 3.5) and the Fisher decomposition (Theorem 3.6) jointly predict that the trajectory mean ¯L is a near-optimal detection statistic among all linear aggregations, and that centred linear filters such as slope and zone contrast carry negligible additional power. Nonlinear high-pass summaries (total variation and range) are included as empirical controls that lie outside the linear theory. Comprehensive numerical results across six models and three datasets appear in Appendix F.3. We verify this prediction at two levels of granularity. 8meff  = 2   
+
+> 481st  half 2nd  half All
+> 75 80 85 90 95
+> AUROC  ×100
+> Llama-2-7B
+> meff  = 2
+> 481st  half 2nd  half All
+> Llama-3.1-8B
+> meff  = 2
+> 481st  half 2nd  half All
+> Qwen2.5-7B
+> HaluEval2 TrueFalse HELM
+
+Figure 2: Depth subsampling ablation. AUROC as a function of the number of included layers 
+
+meff across three models and three datasets (averaged over 5 seeds). 
+
+Table 3: Mean-dominance ablation on Llama-3.1-8B (AUROC, averaged over 5 runs; std ≤
+
+0.05 pp). (a) Trajectory-level diagnostics: ¯L uses the depth-averaged mean only, median replaces the mean with the trajectory median, +shape appends four shape statistics to ¯L and shape only uses the four shape statistics. (b) Source-level diagnostics: Full uses all 13 decomposed features; State (3D), Kinematic (5D), Friction (2D), and Output (3D) denote individual feature groups used in isolation. 
+
+(a) Trajectory Diagnostics 
+
+¯L median +shape shape only 
+
+HaluEval2 83.9 83.8 83.8 51.5 TrueFalse 97.4 97.3 97.3 78.0 HELM 88.7 88.5 88.8 55.6 
+
+(b) Source-Level Diagnostics Full State Kinem. Frict. Output 
+
+HaluEval2 83.4 83.3 82.3 65.3 82.0 TrueFalse 97.1 97.2 96.7 88.5 96.0 HELM 88.2 87.7 86.0 62.4 86.8 
+
+At the trajectory level, Table 3(a) confirms this prediction: ¯L alone matches the full 5D diagnostics (|∆| < 0.5 pp across three datasets), whereas removing it collapses AUROC by more than 19 pp. Even when a centred statistic has comparable marginal SNR on some datasets (Appendix F.3), it provides little incremental AUROC once the trajectory mean is included. Replacing the mean with the trajectory median yields a consistent but negligible loss ( ≤ 0.2 pp), indicating that the per-layer noise is symmetric and light-tailed; a full 3-model ablation including a trimmed mean is reported in Appendix F.5. Figure 2 provides complementary validation of the depth aggregation prediction: AUROC increases monotonically with the number of included layers with diminishing returns beyond 
+
+meff = 8 , consistent with the σ2 
+
+> ε
+
+/m eff variance reduction predicted by Prop. 3.5. At the source level, Table 3(b) reports an ablation in the 13D decomposed feature space. The State group (3D), which contains low-frequency trajectory anchors such as zone-level means and the endpoint difference, alone recovers the full 13D AUROC to within 0.5 pp, whereas the Friction group (2D) is insufficient in isolation. This confirms that the depth-averaged mean dominates detection-relevant information across both the trajectory-level and the source-level representations. 
+
+Mechanistic Decomposition. The W /K decomposition (§3.5) provides an algebraic account of 
+
+why depth averaging concentrates the class signal; we now verify its predictions empirically. Re-constructing trajectory-level diagnostics from the decomposed source features closely recovers the trajectory-level AUROC on core benchmarks, with the State group dominating the discriminative sig-nal and the Kinematic group contributing correlated but lower-SNR class information, consistent with the mechanistic model (Table 13; Appendix F.3). A four-way decomposition of Kl via Lemma I.1 further indicates that probe-drift accounts for the majority of the discriminative content in K, while head-switch and metric-drift effects contribute primarily nuisance variance (Table 17; Appendix I). 
+
+## 5 Conclusion 
+
+We introduced HalluTracer, a pre-decoding hallucination detector that replaces layer selection with depth aggregation. The key insight is geometric: per-layer truthfulness probes are low-energy and nearly orthogonal, so their depth-averaged mean suppresses layer-specific noise while a covariance-aware Fisher identity certifies that, in the evaluated regimes, population-optimal linear reweighting would add only two to four percent in SNR over this parameter-free statistic. Across six LLMs and 9five benchmarks, HalluTracer consistently outperforms matched pre-decoding baselines, with the largest gains on challenging tasks. Because the detector reads propensity signals at the answer-onset position, it should be paired with generation-time monitors for hallucinations introduced during decoding. Promising extensions include streaming trajectory monitors that update risk estimates during token generation and training-time objectives that optimise for factual trajectory stability. 
+
+## References 
+
+[1] Deema Alnuhait, Neeraja Kirtane, Muhammad Khalifa, and Hao Peng. FACTCHECKMATE: Preemptively detecting and mitigating hallucinations in LMs, November 2025. URL https: //aclanthology.org/2025.findings-emnlp.663/ .[2] Amos Azaria and Tom Mitchell. The internal state of an llm knows when it’s lying, 2023. URL 
+
+https://arxiv.org/abs/2304.13734 .[3] Yuntao Bai, Saurav Kadavath, Sandipan Kundu, Amanda Askell, Jackson Kernion, Andy Jones, Anna Chen, Anna Goldie, Azalia Mirhoseini, Cameron McKinnon, et al. Constitutional ai: Harmlessness from ai feedback. arXiv preprint arXiv:2212.08073 , 2022. [4] Nora Belrose, Igor Ostrovsky, Lev McKinney, Zach Furman, Logan Smith, Danny Halawi, Stella Biderman, and Jacob Steinhardt. Eliciting latent predictions from transformers with the tuned lens, 2025. URL https://arxiv.org/abs/2303.08112 .[5] Patrick Billingsley. Probability and Measure . John Wiley & Sons, 3rd edition, 1995. [6] Collin Burns, Haotian Ye, Dan Klein, and Jacob Steinhardt. Discovering latent knowledge in language models without supervision. In The Eleventh International Conference on Learning Representations, ICLR 2023, Kigali, Rwanda, May 1-5, 2023 . OpenReview.net, 2023. URL 
+
+https://openreview.net/forum?id=ETKGuby0hcs .[7] Chao Chen, Kai Liu, Ze Chen, Yi Gu, Yue Wu, Mingyuan Tao, Zhihang Fu, and Jieping Ye. Inside: Llms’ internal states retain the power of hallucination detection. In The Twelfth International Conference on Learning Representations , 2024. [8] Song Xi Chen and Ying-Li Qin. A two-sample test for high-dimensional data with applications to gene-set testing. The Annals of Statistics , 38(2):808–835, 2010. [9] Yung-Sung Chuang, Yujia Xie, Hongyin Luo, Yoon Kim, James R. Glass, and Pengcheng He. Dola: Decoding by contrasting layers improves factuality in large language models. In The Twelfth International Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024 . OpenReview.net, 2024. URL https://openreview.net/forum? id=Th6NyL07na .[10] Nelson Elhage, Neel Nanda, Catherine Olsson, Tom Henighan, Nicholas Joseph, Ben Mann, Amanda Askell, Yuntao Bai, Anna Chen, Tom Conerly, et al. A mathematical framework for transformer circuits. Transformer Circuits Thread , 2021. [11] Sebastian Farquhar, Jannik Kossen, Lorenz Kuhn, and Yarin Gal. Detecting hallucinations in large language models using semantic entropy. Nature , 630:625–630, 2024. doi: 10.1038/ s41586-024-07421-0. [12] Ronald A. Fisher. The use of multiple measurements in taxonomic problems. Annals of Eugenics , 7(2):179–188, 1936. [13] Jiahui Geng, Fengyu Cai, Yuxia Wang, Heinz Koeppl, Preslav Nakov, and Iryna Gurevych. A survey of confidence estimation and calibration in large language models. In Kevin Duh, Helena Gomez, and Steven Bethard, editors, Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) , pages 6577–6595, Mexico City, Mexico, June 2024. Association for Computational Linguistics. doi: 10.18653/v1/2024.naacl-long.366. URL 
+
+https://aclanthology.org/2024.naacl-long.366/ .10 [14] Mor Geva, Roei Schuster, Jonathan Berant, and Omer Levy. Transformer feed-forward layers are key-value memories. In Marie-Francine Moens, Xuanjing Huang, Lucia Specia, and Scott Wen-tau Yih, editors, Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing, EMNLP 2021, Virtual Event / Punta Cana, Dominican Republic, 7-11 November, 2021 , pages 5484–5495. Association for Computational Linguistics, 2021. doi: 10.18653/V1/2021.EMNLP-MAIN.446. URL https://doi.org/10.18653/v1/2021. emnlp-main.446 .[15] Dadi Guo, Qingyu Liu, Dongrui Liu, Qihan Ren, Shuai Shao, Tianyi Qiu, Haoran Li, Yi R. Fung, Zhongjie Ba, Juntao Dai, Jiaming Ji, Zhikai Chen, Jialing Tao, Yaodong Yang, Jing Shao, and Xia Hu. Are your agents upward deceivers?, 2025. URL https://arxiv.org/abs/ 2512.04864 .[16] Jiatong Han, Neil Band, Muhammed Razzak, Jannik Kossen, Tim G.J. Rudner, and Yarin Gal. Simple factuality probes detect hallucinations in long-form natural language generation. In 
+
+Findings of the Association for Computational Linguistics: EMNLP 2025 . Association for Com-putational Linguistics, 2025. URL https://aclanthology.org/2025.findings-emnlp. 880/ .[17] Lei Huang, Weijiang Yu, Weitao Ma, Weihong Zhong, Zhangyin Feng, Haotian Wang, Qianglong Chen, Weihua Peng, Xiaocheng Feng, Bing Qin, and Ting Liu. A survey on hallucination in large language models: Principles, taxonomy, challenges, and open ques-tions. ACM Trans. Inf. Syst. , 43(2):42:1–42:55, 2025. doi: 10.1145/3703155. URL 
+
+https://doi.org/10.1145/3703155 .[18] Ziwei Ji, Nayeon Lee, Rita Frieske, Tiezheng Yu, Dan Su, Yan Xu, Etsuko Ishii, Ye Jin Bang, Andrea Madotto, and Pascale Fung. Survey of hallucination in natural language generation. 
+
+ACM Computing Surveys , 55(12):1–38, 2023. [19] Ziwei Ji, Delong Chen, Etsuko Ishii, Samuel Cahyawijaya, Yejin Bang, Bryan Wilie, and Pascale Fung. LLM internal states reveal hallucination risk faced with a query. In Yonatan Belinkov, Najoung Kim, Jaap Jumelet, Hosein Mohebbi, Aaron Mueller, and Hanjie Chen, editors, 
+
+Proceedings of the 7th BlackboxNLP Workshop: Analyzing and Interpreting Neural Networks for NLP , pages 88–104, Miami, Florida, US, November 2024. Association for Computational Linguistics. doi: 10.18653/v1/2024.blackboxnlp-1.6. URL https://aclanthology.org/ 2024.blackboxnlp-1.6/ .[20] Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, Scott Johnston, Sheer El Showk, Andy Jones, Nelson Elhage, Tristan Hume, Anna Chen, Yuntao Bai, Sam Bowman, Stanislav Fort, Deep Ganguli, Danny Hernandez, Josh Jacobson, Jackson Kernion, Shauna Kravec, Liane Lovitt, Kamal Ndousse, Catherine Olsson, Sam Ringer, Dario Amodei, Tom Brown, Jack Clark, Nicholas Joseph, Ben Mann, Sam McCandlish, Chris Olah, and Jared Kaplan. Language models (mostly) know what they know. CoRR , abs/2207.05221, 2022. doi: 10.48550/ARXIV.2207.05221. URL https://doi.org/10.48550/arXiv.2207.05221 .[21] Olivier Ledoit and Michael Wolf. A well-conditioned estimator for large-dimensional covariance matrices. Journal of Multivariate Analysis , 88(2):365–411, 2004. ISSN 0047-259X. doi: https://doi.org/10.1016/S0047-259X(03)00096-4. URL https://www.sciencedirect.com/ science/article/pii/S0047259X03000964 .[22] Junyi Li, Jie Chen, Ruiyang Ren, Xiaoxue Cheng, Xin Zhao, Jian-Yun Nie, and Ji-Rong Wen. The dawn after the dark: An empirical study on factuality hallucination in large language models. In Lun-Wei Ku, Andre Martins, and Vivek Srikumar, editors, Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 10879–10899, Bangkok, Thailand, August 2024. Association for Computational Linguistics. doi: 10.18653/v1/2024.acl-long.586. URL https://aclanthology.org/2024.acl-long. 586/ .[23] Kenneth Li, Oam Patel, Fernanda Viégas, Hanspeter Pfister, and Martin Wattenberg. Inference-time intervention: Eliciting truthful answers from a language model. In A. Oh, T. Nau-mann, A. Globerson, K. Saenko, M. Hardt, and S. Levine, editors, Advances in Neu-ral Information Processing Systems , volume 36, pages 41451–41530. Curran Associates, 11 Inc., 2023. URL https://proceedings.neurips.cc/paper_files/paper/2023/file/ 81b8390039b7302c909cb769f8b6cd93-Paper-Conference.pdf .[24] Stephanie Lin, Jacob Hilton, and Owain Evans. TruthfulQA: Measuring how models mimic human falsehoods. In Proceedings of the 60th Annual Meeting of the Association for Computa-tional Linguistics (Volume 1: Long Papers) , pages 3214–3252. Association for Computational Linguistics, 2022. URL https://aclanthology.org/2022.acl-long.229/ .[25] Potsawee Manakul, Adian Liusie, and Mark J. F. Gales. Selfcheckgpt: Zero-resource black-box hallucination detection for generative large language models. In Houda Bouamor, Juan Pino, and Kalika Bali, editors, Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing, EMNLP 2023, Singapore, December 6-10, 2023 , pages 9004–9017. Association for Computational Linguistics, 2023. doi: 10.18653/V1/2023.EMNLP-MAIN.557. URL https://doi.org/10.18653/v1/2023.emnlp-main.557 .[26] Samuel Marks and Max Tegmark. The geometry of truth: Emergent linear structure in large language model representations of true/false datasets. CoRR , abs/2310.06824, 2023. doi: 10.48550/ARXIV.2310.06824. URL https://doi.org/10.48550/arXiv.2310.06824 .[27] Amir Hameed Mir. The geometry of truth: Layer-wise semantic dynamics for hallucination detection in large language models. CoRR , abs/2510.04933, 2025. doi: 10.48550/ARXIV.2510. 04933. URL https://doi.org/10.48550/arXiv.2510.04933 .[28] nostalgebraist. Interpreting GPT: the logit lens. LessWrong, 2020. URL https://www. lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens .[29] Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll L Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human feedback. arXiv preprint arXiv:2203.02155 , 2022. [30] Ponhvoan Srey, Xiaobao Wu, and Anh Tuan Luu. Unsupervised hallucination detection by inspecting reasoning processes. In Christos Christodoulopoulos, Tanmoy Chakraborty, Carolyn Rose, and Violet Peng, editors, Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , pages 22117–22129, Suzhou, China, November 2025. Association for Computational Linguistics. ISBN 979-8-89176-332-6. doi: 10.18653/v1/ 2025.emnlp-main.1124. URL https://aclanthology.org/2025.emnlp-main.1124/ .[31] Weihang Su, Changyue Wang, Qingyao Ai, Yiran HU, Zhijing Wu, Yujia Zhou, and Yiqun Liu. Unsupervised real-time hallucination detection based on the internal states of large language models, 2024. URL https://arxiv.org/abs/2403.06448 .[32] Xinyue Zeng, Junhong Lin, Yujun Yan, Feng Guo, Liang Shi, Jun Wu, and Dawei Zhou. Halluguard: Demystifying data-driven and reasoning-driven hallucinations in LLMs. In The Fourteenth International Conference on Learning Representations , 2026. URL https:// openreview.net/forum?id=ZURs3YZclt .[33] Yue Zhang, Yafu Li, Leyang Cui, Deng Cai, Lemao Liu, Tingchen Fu, Xinting Huang, and Shuming Shi. Siren’s song in the ai ocean: A survey on hallucination in large language models. 
+
+arXiv preprint arXiv:2309.01219 , 2023. [34] Zhenliang Zhang, Xinyu Hu, Huixuan Zhang, Junzhe Zhang, and Xiaojun Wan. ICR probe: Tracking hidden state dynamics for reliable hallucination detection in LLMs. In Wanxiang Che, Joyce Nabende, Ekaterina Shutova, and Mohammad Taher Pilehvar, editors, Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 17986–18002, Vienna, Austria, July 2025. Association for Computational Linguistics. ISBN 979-8-89176-251-0. doi: 10.18653/v1/2025.acl-long.880. URL https: //aclanthology.org/2025.acl-long.880/ .[35] Andy Zou, Long Phan, Sarah Chen, James Campbell, Phillip Guo, Richard Ren, Alexander Pan, Xuwang Yin, Mantas Mazeika, Ann-Kathrin Dombrowski, Shashwat Goel, Nathaniel Li, Michael J. Byun, Zifan Wang, Alex Mallen, Steven Basart, Sanmi Koyejo, Dawn Song, Matt Fredrikson, J. Zico Kolter, and Dan Hendrycks. Representation engineering: A top-down approach to ai transparency, 2025. URL https://arxiv.org/abs/2310.01405 .12 A Implementation Details 
+
+This section provides the exact theoretical and engineering specifications for constructing the truth-fulness observable ϕl introduced in §3. 
+
+Feature Summary. The detector operates on a single scalar feature: the trajectory mean ¯L (§3.4). Four additional trajectory shape statistics (slope, zone shift, total variation, range) are retained exclusively as ablation controls to verify the SNR prediction of mean dominance. The source-level diagnostics (§3.5) yield a 13-dimensional vector for mechanistic verification. The full trajectory baseline retains the raw per-layer logit values, their first differences, and summary statistics ( 2m + 5 
+
+dimensions, model-dependent; exact construction in §E). 
+
+Capacity and Generalisation. Although the downstream classifier is a two-parameter affine map over ¯L, the full pipeline trains m layer-wise probes (each with dh + 1 parameters). The information bottleneck at the scalar trajectory mean substantially constrains effective model capacity, yet does not a priori exclude all forms of shortcut learning. We therefore complement the capacity argument with cross-domain evaluation across 18 topically disjoint sub-datasets (spanning five HaluEval2 domains, seven TrueFalse entity categories, and six HELM source models) and probe-free geometric verification (see also §J.2). 
+
+A.1 Probe Training and Head Selection 
+
+For an autoregressive Transformer comprising m layers and K attention heads, let hl,k ∈ Rdh denote the internal activation at the answer-onset position t⋆ (the final prompt token) for layer l and head k,where dh is the head dimension (typically dh = 128 ). 
+
+Supervised Projection. At each distinct spatial coordinate (l, k ), we optimise an ℓ1-regularised logistic regression hyperplane separating a balanced, held-out training corpus of factual and hallu-cinated latent states. Before optimisation, the empirical activations are strictly standardised with respect to the training partition statistics: 
+
+zl,k = diag( σl,k )−1 hl,k − μl,k 
+
+, (10) where μl,k and σl,k denote the sample mean and standard deviation vectors respectively. In the standardised coordinate zl,k , the classifier converges to an affine score 
+
+eϕl,k (z) = ew⊤
+
+> l,k
+
+z + ebl,k . (11) Substituting Eq. (10) into Eq. (11) first gives the raw-space affine score 
+
+bϕl,k (a) = bw⊤
+
+> l,k
+
+a + bbl,k , bwl,k = diag( σl,k )−1 ewl,k , bbl,k = ebl,k − bw⊤
+
+> l,k
+
+μl,k . (12) For consistency with the unit-norm convention in Definition 3.1, we then use the positively rescaled parametrisation 
+
+ϕl,k (a) = v⊤
+
+> l,k
+
+a + cl,k , vl,k = bwl,k /∥ bwl,k ∥2, cl,k = bbl,k /∥ bwl,k ∥2. (13) This positive rescaling preserves the head-selection AUROC while fixing the geometric scale of the observable. The layer-wise notation in Definition 3.1 is obtained only after selecting one head per layer: vl := vl,k ∗ 
+
+> l
+
+and bl := cl,k ∗ 
+
+> l
+
+, so that the selected observable ϕl ≡ ϕl,k ∗ 
+
+> l
+
+has the form 
+
+ϕl(a) = v⊤ 
+
+> l
+
+a + bl used in Definition 3.1. 
+
+Head Selection Protocol. Let DF and DH denote the training-fold activation populations for factual and hallucinated examples, respectively. Inspired by the selection criterion in Inference-Time Intervention [23], we evaluate each head (l, k ) via its training-set AUROC separating the DF and 
+
+DH populations. For each layer l, a single head is selected: 
+
+k∗ 
+
+> l
+
+= arg max  
+
+> k∈{ 1,...,K }
+
+AUROC( ϕl,k ), (14) yielding ϕl ≡ ϕl,k ∗ 
+
+> l
+
+. We emphasise that this selection is an engineering convenience , not a theoretical necessity: per-head AUROC is near-constant across all heads (CV < 0.08 ; §C.1), consistent with the signal sparsity hypothesis, and replacing head-level readouts with full residual-stream probes yields equivalent results (§C). 13 A.2 Baseline Implementation Details 
+
+All baselines share the same evaluation protocol as HalluTracer: stratified 5-fold cross-validation with group-disjoint splits, three random seeds, and per-fold Youden’s J thresholding on the training partition. For ITI-Probe [23], we train a logistic regression classifier ( liblinear , C = 1 .0) at every layer–head coordinate on the standardised activations (Eq. (10)) and select the single globally best head by training-set AUROC; an ensemble of three bootstrap probes reduces variance. Fact-Probe [16] trains an ℓ1-regularised logistic regression on the full hidden state at the answer-onset position; we search over layer groups (sliding windows of size 1 and 5) and regularisation strengths (C ∈ { 0.1, 0.5}), selecting the configuration that maximises inner-CV AUROC. IRIS [30] uses a four-layer MLP ( 256 → 128 → 64 → 2, ReLU) trained with Adam on the last-layer hidden state concatenated across all heads, with soft bootstrapping loss ( β = 0 .8) and early stopping (patience 5). 
+
+HalluGuard [32] first generates a response, then computes per-token gradients of the log-probability with respect to the last Transformer block’s parameters, forming a normalised Jacobian matrix 
+
+G ∈ RT ×P ; the NTK Gram matrix K = GG ⊤ yields a detection score det( K) + log σmax − 2 log κ,where σmax is a Lipschitz proxy from hidden-state displacement ratios and κ the condition number of K. Because HalluGuard requires full generation, comparisons are cross-regime. 
+
+## B Readout Position Ablation 
+
+The logit trajectory (4) is constructed from representations extracted at a single sequence position per layer. Our primary experiments use the answer-onset position t⋆, defined as the final prompt token immediately preceding generation (§3.2). A natural question is whether broader spatial aggregation over the prompt could recover additional discriminative signal. Table 4 compares the answer-onset readout (Last-1) against seven alternatives: mean pooling over the last k ∈ { 4, 8, 16 } prompt tokens, full-prompt mean and max pooling, and content-word-restricted variants (CW-Mean, CW-Max). Across two models and multiple detection pipelines, the answer-onset readout achieves the highest AUROC, with performance degrading monotonically as the pooling window widens ( ↓1–5 pp at full-prompt scale). This indicates that the most discriminative truthfulness signal is spatially concentrated at the terminal prompt position, consistent with the causal attention mechanism funnelling contextual information into the final token. Broader aggregation dilutes this signal with representations from earlier, less informative positions. 
+
+Table 4: Readout position ablation averaged across HaluEval2, TrueFalse, and HELM. last-k denotes mean pooling over the final k prompt tokens; mean/max aggregate all valid tokens; content restricts to content-word tokens. Drops ( ↓) are reported in percentage points ( ×10 −2) relative to Last-1. 
+
+Last-k Mean Global Pooling 
+
+Method Last-1 Last-4 Last-8 Last-16 Mean Max CW-Mean CW-Max 
+
+Llama-3.1-8B-Instruct 
+
+Source 89.86 ↓0.10 ↓1.59 ↓1.94 ↓1.74 ↓1.46 ↓2.50 ↓3.46 Shape 89.60 ↓0.07 ↓1.87 ↓2.45 ↓2.43 ↓2.06 ↓3.82 ↓5.15 
+
+Qwen2.5-7B-Instruct 
+
+ITI-Probe 87.82 ↓0.32 ↓2.00 ↓1.51 ↓0.97 ↓2.66 ↓3.11 ↓5.44 Traj-LR 89.20 ↓0.18 ↓0.85 ↓1.08 ↓0.82 ↓0.91 ↓2.25 ↓2.98 SDE 89.02 ↓0.15 ↓0.66 ↓0.96 ↓0.48 ↓0.93 ↓1.99 ↓2.75 
+
+## C Readout Mechanism Ablation 
+
+The theoretical framework defines the layer-specific extractor Al abstractly (Eq. 1). Our primary experiments instantiate Al as a per-head attention readout ( d = dh). To verify that the conclusions are readout-agnostic, we compare this against residual-stream probes that train a per-layer L2-regularised logistic regression directly on the full residual stream hidden state ( d = dmodel ), with no head selection. Table 5 reports 5-fold cross-validated AUROC across 5 models and 3 dataset families (15 conditions). Both readout mechanisms yield statistically equivalent Mean (1D) performance on HaluEval2 ( |∆| <
+
+14 0.005 ) and TrueFalse ( |∆| < 0.004 ). On HELM, residual-stream probes outperform head-based probes by ∼2 pp, suggesting that the full dmodel representation recovers slightly more signal when the per-layer probe has sufficient regularisation. These results confirm that the SNR dominance of ¯L
+
+is a property of the trajectory geometry, not the readout mechanism. 
+
+Table 5: Readout mechanism ablation (AUROC): per-head readout ( d=dh) vs. residual-stream (d=dmodel , no head selection), both evaluated via trajectory mean ¯L. ∆: residual-stream minus head-based. Mean (1D) detection is statistically equivalent ( |∆| < 0.005 ) on HaluEval2 and TrueFalse; residual-stream slightly outperforms on HELM.                                                  
+
+> Model Dataset Head Mean RS Mean ∆
+> Qwen2.5-32B HaluEval2 .852 .856 +.005
+> TrueFalse .985 .986 +.001
+> HELM .887 .907 +.020
+> Qwen2.5-14B HaluEval2 .847 .847 .000
+> TrueFalse .983 .984 +.001
+> HELM .884 .907 +.023
+> Qwen2.5-7B HaluEval2 .832 .829 −.003
+> TrueFalse .974 .975 +.001
+> HELM .877 .897 +.021
+> Llama-3.1-8B HaluEval2 .846 .848 +.002
+> TrueFalse .973 .976 +.003
+> HELM .888 .906 +.018
+> Llama-2-7B HaluEval2 .821 .822 +.001
+> TrueFalse .952 .956 +.004
+> HELM .877 .896 +.019
+
+C.1 Head Signal Uniformity 
+
+The readout ablation (§C) suggests that detection performance is largely invariant to the readout mechanism. To elucidate the underlying cause, we perform two complementary analyses: an exhaustive per-head probe evaluation and a Top-K head ensemble ablation. 
+
+Per-Head Discriminability. For each of the m × K (layer, head) combinations, we train an independent logistic regression probe and record its training AUROC. Table 6 reports the results across three model families. The per-head AUROC exhibits consistently low variation (CV < 0.08 ), and the identity of the layer-best head changes at nearly every layer (switch rate ≥ 96% ), with no head appearing as layer-best more than 3/m times (Table 6). Although the raw head-wise class-mean separation varies substantially (CV ≈ 0.7–1.0), this quantity is scale-sensitive and should not be interpreted as classification difficulty. In our probe pipeline, each head undergoes independent standardisation before fitting (Eq. 10). Under a Fisher/Mahalanobis view, this provides the correct geometric intuition: head-wise scaling largely cancels in the discriminative ratio, though finite-sample logistic regression AUROC is not exactly equal to the Fisher ratio. The near-constant per-head AUROC therefore suggests that truthfulness information is not concentrated in a small subset of specialised heads. This pattern is consistent with signal sparsity (Assumption 3.2) combined with the absence of a privileged head alignment: when no head block has a structurally preferred orientation relative to the truthfulness direction, different heads capture comparable fractions of both the class-conditional signal and the within-class noise. 
+
+Top-K Head Ensemble and Random-Head Baseline. If within-layer heads carry largely equiv-alent information, ensembling multiple heads should yield little additional detection power, and randomly selecting a head should perform comparably to the best head. Table 7 confirms both predictions: the trajectory mean ¯L computed from a single head per layer (Top-1) already matches a Top-5 ensemble across all conditions. More critically, a uniformly random head per layer (Random-1, averaged over 50 independent draws) achieves AUROC within half a percentage point of Top-1 in every condition, and even the worst-performing head per layer (Bottom-1) remains well above chance. 15 Table 6: Head signal distribution analysis on HaluEval2 (pooled). Per-head probes are trained exhaustively on all m × H heads. AUC CV : coefficient of variation of per-head AUROC within each layer (averaged over layers); Switches : fraction of adjacent layers where the layer-best head changes; 
+
+¯ρ: mean pairwise Pearson correlation of within-layer probe scores; Eff. Rank : mean effective rank (exp entropy of normalised eigenvalues of the within-layer correlation matrix). The high within-layer correlation ( ¯ρ ≥ 0.65 ) and low effective rank ( ≤ 18% of H) confirm that within-layer heads provide redundant—not complementary—readouts.                         
+
+> Model m×HAUC CV Switches ¯ρEff. Rank Rank/ H
+> Qwen2.5-7B 28 ×28 0.047 96% 0.75 3.5 12.4% Llama-2-7B 32 ×32 0.073 97% 0.65 5.7 17.8% Llama-3.1-8B 32 ×32 0.061 100% 0.74 3.7 11.5%
+
+The negligible Top-K gain and the narrow Random-1/Top-1 gap jointly reveal that within-layer heads are redundant rather than complementary . To quantify this redundancy, we compute the pairwise Pearson correlation of within-layer probe scores and the effective rank of the resulting correlation matrix (Table 6). Across three model families, the mean within-layer correlation is high and the effective rank is only a small fraction of H, confirming that the H probe scores are near-degenerate. Under the equi-correlated model zh = s + εh with Corr( εh, ε h′ ) = ρ, averaging K heads multiplies the noise variance by ρ + (1 −ρ)/K , reduces the noise standard deviation to [ρ + (1 −ρ)/K ]1/2 times its single-head value, and hence improves the SNR by a factor of [ρ + (1 −ρ)/K ]−1/2; at the observed correlation levels, going from K=1 to K=5 yields only marginal improvement, consistent with Table 7. This stands in contrast to depth averaging, where the quasi-independence of adjacent-layer probes (Property 3.3) provides genuine variance reduction, explaining the large performance gap between single-layer probes and the trajectory mean observed in the main results (Table 1). In summary, the detector is head-agnostic but not head-independent : any single head suffices because within-layer heads provide highly correlated readouts of the same low-dimensional truthfulness signal. The Random-1 baseline makes this claim explicit by showing that head identity has negligible impact on downstream detection performance. 
+
+Table 7: Head selection ablation (AUROC). Top-K: trajectory mean ¯L from the K highest-AUROC heads per layer. Bottom-1: worst-AUROC head per layer. Random-1: uniformly sampled head per layer (mean ± std over 50 draws). ∆: gap relative to Top-1. Random-1 and Top-1 are within 0.5 pp across all conditions, supporting the head-agnostic claim.                                                    
+
+> Model Dataset Top-1 Top-5 Bottom-1 Random-1 ∆(R – T1)
+> LLaMA-2-7B HaluEval2 80.8 80.9 78.7 80.4 ±.013 −.004
+> TrueFalse 95.4 95.4 91.7 94.7 ±.004 −.007
+> HELM 88.3 88.4 87.0 88.0 ±.016 −.003
+> LLaMA-3.1-8B HaluEval2 83.9 83.9 82.0 83.3 ±.012 −.005
+> TrueFalse 97.5 97.5 96.2 97.2 ±.004 −.003
+> HELM 89.2 89.3 88.1 88.9 ±.016 −.004
+> Qwen2.5-7B HaluEval2 82.2 82.2 81.1 81.9 ±.014 −.003
+> TrueFalse 97.4 97.4 96.2 97.1 ±.004 −.003
+> HELM 88.4 88.4 87.9 88.0 ±.015 −.004
+
+## D Theoretical Scope and Approximation Hierarchy 
+
+Remark D.1 (Theoretical Scope and Approximation Hierarchy) . We distinguish six levels of theoreti-cal exactness in this framework. 1. Exact algebraic identity. Proposition H.2 ( W /K decomposition) holds without approximation for all Euclidean observation spaces. 2. Exact algebraic identity (covariance-aware). Theorem 3.6 (Fisher gap decomposition) holds for arbitrary positive-definite within-class covariance Στ without structural assumptions. Its three diagnostics ( θ, χ, t) are directly estimable from the trajectory data (Remark F.2). The 16 independent-residual analysis is used only as intuition; empirical near-optimality is certified by the exact Fisher identity and the directly estimated diagnostics. 3. First-order stochastic models. Property 3.3 (probe isotropy) and Proposition 3.5 (SNR domi-nance over centred statistics) are motivated by representation geometry and supported empirically; they should not be read as algebraic identities of the residual stream. 4. Decorrelation, not literal independence. Near-orthogonality of probe frames is used to justify approximate decorrelation of the residual nuisance after removing the sample-level common mode αi, not literal statistical independence. The bridge requires that innovation terms in the quiet subspace do not systematically align with any specific probe direction, an assumption grounded in the perturbative model of Appendix H.6 and supported by the residual ACF analysis (Table 14). Under Gaussian innovations, decorrelation upgrades to approximate conditional independence; we invoke this only as a tractable first-order idealisation. 5. Isotropy verification protocol. The fixed-head protocol in Appendix H.7 places all probe directions in a common Euclidean subspace for geometric testing only; the main detector is not head-fixed, and the random-head baseline (Table 7) confirms that the conclusion transfers. 6. Mean-dominant criterion. The operative quantities for mean dominance are the Fisher gap ratio 
+
+RFisher and its components θ, χ (Theorem 3.6; Table 11), together with the plugin ratio Rplugin 
+
+for slope-vs-mean comparisons (Appendix F.3). The Fisher gap ratio RFisher ∈ [1 .02 , 1.04] 
+
+across the three models with full trajectory diagnostics directly supports near-optimality among all linear aggregations without requiring isotropic residual covariance. 
+
+## E Complete Feature Definitions 
+
+This section formally enumerates the feature definitions introduced in §3.4 and §3.5: the trajec-tory diagnostics (comprising the detector scalar ¯L and four ablation controls) and the source-level diagnostics derived from the W /K decomposition for mechanistic verification. 
+
+E.1 Trajectory Diagnostic Definitions 
+
+Given the discrete 1D trajectory τ = [ L0, . . . , L m−1]⊤, we use two pre-specified depth windows, the 
+
+recognition zone (RZ) and the output zone (OZ), only for trajectory-shape controls and source-level ablations; their exact index sets are specified in Eq. (15). The deployed detector itself uses the full-depth mean ¯L and does not depend on these zone definitions. The trajectory diagnostics are formulated as: 1. Trajectory Mean ( ¯L): The spatial expectation ¯L = 1
+
+> m
+
+Pm−1 
+
+> l=0
+
+Ll.2. Global Gradient (β): The linear trend coefficient from ordinary least squares (OLS) regression over the depth indices l.3. Zone Shift (∆zone ): Output zone mean minus recognition zone mean, ¯LOZ − ¯LRZ , capturing a coarse contrast between the two fixed windows. 4. Total Variation (TV): The absolute path length Pm−2 
+
+> l=0
+
+|∆Ll|, parameterising the oscillatory roughness of the logit path. 5. Range : The trajectory amplitude max l Ll − min l Ll.The mean-sufficiency ablation (Table 3(a)) confirms that ¯L alone matches the full 5D configuration (|∆| < 0.5 pp), while removing it collapses AUROC by >19 pp; the four shape controls therefore serve exclusively to verify that no additional discriminative information resides in the trajectory’s higher-order structure. 
+
+E.2 Source Feature Formalisation 
+
+Exploiting the cross-layer readout eL + 
+
+> l
+
+= v⊤ 
+
+> l
+
+al+1 + bl, we partition the intrinsic displacement 
+
+Wl = eL + 
+
+> l
+
+− Ll and the readout change Kl = Ll+1 − eL + 
+
+> l
+
+for l ∈ { 0, . . . , m − 2}. To keep the ablation features reproducible, we use fixed recognition-zone and output-zone windows only as feature-engineering index sets: 
+
+IL 
+
+> RZ
+
+:= { l ∈ { 0, . . . , m − 1} : ⌊m/ 3⌋ ≤ l < ⌊3m/ 4⌋ } , (15) 
+
+IL 
+
+> OZ
+
+:= { l ∈ { 0, . . . , m − 1} : ⌊3m/ 4⌋ ≤ l ≤ m − 1 }.
+
+17 For transition-level quantities, we use I∆ 
+
+> Z
+
+:= ILZ ∩ { 0, . . . , m − 2} for Z ∈ { RZ , OZ }. For 
+
+X ∈ { W, K }, we define the recognition-zone mean and energy as 
+
+¯XRZ := 1
+
+|I ∆RZ |
+
+X
+
+> l∈I ∆RZ
+
+Xl, EX := 1
+
+|I ∆RZ |
+
+X
+
+> l∈I ∆RZ
+
+X2 
+
+> l
+
+. (16) Thus the drift–diffusion energy ratio log( EW /E K ) compares the mean squared magnitudes of the intrinsic displacement and readout-change channels over the recognition zone. The 13 source-level diagnostics are organised into four physically interpretable groups: • State Anchors (3): Normalised probe score mean in the RZ ( ¯ρRZ ), logit trajectory mean in the RZ ( ¯LRZ ), and logit endpoint difference ( Lm−1 − L0), anchoring the algebraic decomposition to the observable trajectory. • Kinematic Decomposition (5): Mean drift ( ¯WRZ ) and its total variation (TV (WRZ )) quanti-fying the intrinsic factual signal strength and stability, mean diffusion ( ¯KRZ ) and its total variation (TV (KRZ )) parameterising the frame-induced diagnostic component, and the drift–diffusion energy ratio log( EW /E K ) measuring the relative contribution of the two diagnostic components. • Friction Coefficients (2): Mean friction ¯ζRZ (damping rate of the trajectory) and mean condition number ¯κRZ (numerical stability of the readout decomposition). • Output Zone State (3): Output zone probe state ( ¯ρOZ ), output zone diffusion ( ¯KOZ ), and final-layer probe state ( ρm−1), capturing the terminal decision geometry. These 13 parameters were selected via systematic group ablation (Table 3(b)), retaining near-identical performance to the full representation while preserving all four component categories for mechanistic interpretability. 
+
+E.3 Full Trajectory Baseline 
+
+The full trajectory representation used in the ablation comparison (Table 13) is a model-dependent, high-dimensional baseline that retains the raw per-layer information without compression. For a model with m Transformer blocks, it concatenates: 1. the raw logit trajectory [L0, . . . , L m−1] (m dimensions), 2. the first differences [∆ L0, . . . , ∆Lm−2] (m−1 dimensions), 3. six summary statistics: mean, standard deviation, minimum, maximum, final value, and total change ( Lm−1 − L0). This yields 2m + 5 dimensions (e.g. 69D for 32-layer models, 61D for 28-layer models). Its purpose is to serve as an empirical ceiling: if the trajectory diagnostics match or exceed this baseline, then the low-dimensional statistics recover most of the discriminative information. 
+
+## F SNR Dominance: Proof and Empirical Verification 
+
+F.1 Proof of Proposition 3.5 
+
+We derive the SNR ratio between the ordinary least-squares (OLS) slope ˆβ and the trajectory mean ¯L
+
+under the level–shape model Eq. (5): 
+
+L(i) 
+
+> l
+
+= αi + μ(ci) 
+
+> l
+
++ εi,l , (17) where αi ∼ (0 , σ 2
+
+> α
+
+) is a sample-level random intercept shared across all layers (capturing per-sample common-mode variation within each class) and εi,l 
+
+> iid
+
+∼ (0 , σ 2 
+
+> ε
+
+) are independent layer-specific residuals, with αi ⊥⊥ εi,l . Throughout, SNR( T ) := |E[T | F ] − E[T | H ]| / Std( T | c) denotes the class-separability ratio, where c ∈ {F , H} is a generic class label and Std( T | c) is the within-class standard deviation (assumed equal across classes under homoscedasticity) and T is any scalar statistic of the trajectory. 18 Table 8: Source-level diagnostic definitions (13D), organised by physical component. 
+
+Group Feature Physical Meaning Dim 
+
+State 
+
+¯ρRZ Normalised probe score (recognition zone) 3¯LRZ Logit trajectory mean (recognition zone) 
+
+∆Lend Logit endpoint difference ( Lm−1 − L0)Kinematic 
+
+¯WRZ Drift mean (deterministic signal) 5TV (WRZ ) Drift total variation (signal stability) 
+
+¯KRZ Diffusion mean (frame-induced readout) TV (KRZ ) Diffusion total variation (readout fluctuation) 
+
+log( EW /E K ) Drift–diffusion energy ratio (channel balance) Friction ¯ζRZ Friction coefficient (damping rate) 2
+
+¯κRZ Condition number (numerical stability) Output 
+
+¯ρOZ Output zone probe state 3¯KOZ Output zone diffusion 
+
+ρm−1 Final-layer probe state 
+
+Signal. Define δl := μ(F) 
+
+> l
+
+− μ(H) 
+
+> l
+
+and ¯δ := m−1 P 
+
+> l
+
+δl. The class-conditional mean of ¯L differs by ¯δ, so Signal( ¯L) = |¯δ|. For the OLS slope ˆβ = P 
+
+> l
+
+wlLl with centred weights wl ∝ (l − ¯l) and 
+
+P wl = 0 , the signal is Signal( ˆβ) = | P 
+
+> l
+
+wlδl| = |¯δ′|, the magnitude of the OLS slope of the class gap profile. 
+
+Noise. Since ¯L = 1
+
+> m
+
+P
+
+> l
+
+(αi + μ(ci) 
+
+> l
+
++ εi,l ) = αi + ¯ μ(ci) + 1
+
+> m
+
+P 
+
+> l
+
+εi,l , conditioning on class c
+
+makes ¯μ(ci) a constant, so: 
+
+Var( ¯L | c) = Var( αi | c) + Var   1
+
+> m
+
+P 
+
+> l
+
+εi,l c + 2 Cov  αi, 1
+
+> m
+
+P 
+
+> l
+
+εi,l c| {z }   
+
+> =0 (αi⊥⊥εi,l )
+
+= σ2 
+
+> α
+
++ 1
+
+m2
+
+X
+
+> l
+
+Var( εi,l | c) + X 
+
+> l̸=l′
+
+Cov( εi,l , ε i,l ′ | c)
+
+| {z } 
+
+> =0 (independence across layers)
+
+
+
+= σ2 
+
+> α
+
++ m σ 2
+
+> ε
+
+m2 = σ2 
+
+> α
+
++ σ2
+
+> ε
+
+m , (18) where σ2 
+
+> α
+
+:= Var( αi) is the population variance of the random intercept (shared across all layers and therefore not reduced by depth averaging). For the slope ˆβ = P 
+
+> l
+
+wlLl, we first observe that the αi
+
+term vanishes: since P 
+
+> l
+
+wl = 0 , we have P 
+
+> l
+
+wl(αi + μ(ci) 
+
+> l
+
++ εi,l ) = αi·0 + P 
+
+> l
+
+wlμ(ci) 
+
+> l
+
++ P 
+
+> l
+
+wlεi,l .The first term vanishes and the second is a class-specific constant, so only the residuals contribute to variance: 
+
+Var( ˆβ | c) = Var X
+
+> l
+
+wlεi,l c
+
+!
+
+= X
+
+> l
+
+w2 
+
+> l
+
+Var( εi,l | c) + X 
+
+> l̸=l′
+
+wl wl′ Cov( εi,l , ε i,l ′ | c)
+
+| {z } 
+
+> =0 (independence across layers)
+
+= σ2
+
+> ε
+
+X
+
+> l
+
+w2 
+
+> l
+
+. (19) 19 It remains to evaluate P 
+
+> l
+
+w2 
+
+> l
+
+. The OLS weights for regressing on equally spaced indices l ∈{0, . . . , m −1} are 
+
+wl = l − ¯l
+
+Pm−1 
+
+> j=0
+
+(j − ¯l)2 , ¯l = m − 12 , (20) so that P 
+
+> l
+
+w2 
+
+> l
+
+= P
+
+> l
+
+(l − ¯l)2P  
+
+> j
+
+(j − ¯l)22 = 1  P 
+
+> l
+
+(l − ¯l)2. We evaluate the denominator using the standard sum-of-squares formula Pnk=0 k2 = n(n+1)(2 n+1) /6 with n = m−1:
+
+> m−1
+
+X
+
+> l=0
+
+(l − ¯l)2 =
+
+> m−1
+
+X
+
+> l=0
+
+l2 − m ¯l 2 = (m − 1) m (2 m − 1) 6 − m · (m−1) 2
+
+4= m(m − 1) 12 
+
+2(2 m − 1) − 3( m − 1)  = m(m − 1)( m + 1) 12 = m(m2 − 1) 12 .
+
+(21) Substituting back yields: 
+
+Var( ˆβ | c) = σ2
+
+> ε
+
+P
+
+> l
+
+(l − ¯l)2 = 12 σ2
+
+> ε
+
+m(m2 − 1) . (22) 
+
+SNR ratio. Collecting the signal and noise results, the individual SNRs are: 
+
+SNR( ¯L) = Signal( ¯L)Std( ¯L | c) = |¯δ|
+
+pσ2 
+
+> α
+
++ σ2 
+
+> ε
+
+/m , (23) 
+
+SNR( ˆβ) = Signal( ˆβ)Std( ˆβ | c) = |¯δ′|
+
+σε
+
+p12 /(m(m2 − 1)) . (24) Taking their ratio: 
+
+SNR( ˆβ)SNR( ¯L) = |¯δ′||¯δ| ·
+
+pσ2 
+
+> α
+
++ σ2 
+
+> ε
+
+/m σε
+
+p12 /(m(m2 − 1)) = |¯δ′||¯δ| ·
+
+s
+
+(σ2 
+
+> α
+
++ σ2 
+
+> ε
+
+/m ) m(m2 − 1) 12 σ2
+
+> ε
+
+= |¯δ′||¯δ| · γ √m2 − 1
+
+√12 = ρ · γ
+
+√12 ·
+
+q
+
+1 − 1
+
+> m2
+
+| {z }
+
+> finite-depth factor
+
+, (25) where ρ := |¯δ′| · m/ |¯δ| is the divergence ratio and γ := p1 + m σ 2
+
+> α
+
+/σ 2 
+
+> ε
+
+is the origin penalty factor. The third equality uses (m2 − 1)( mσ 2 
+
+> α
+
++ σ2 
+
+> ε
+
+)/(12 σ2 
+
+> ε
+
+) = ( m2 − 1) γ2/12 , and the final step substitutes 
+
+|¯δ′|/|¯δ| = ρ/m . The finite-depth factor p1 − 1/m 2 is strictly less than unity, so the simplified formula ργ/ √12 is a slight overestimate of the exact ratio. For the model depths used in this work (m ≥ 28 ), this overestimation is negligible (Remark F.1). Proposition 3.5 states the exact finite-depth expression; the simplified form ργ/ √12 is used throughout for convenience. 
+
+Remark F.1 (Approximation Error Bound) . The simplified formula ργ/ √12 overestimates the exact SNR ratio (25) by the factor m/ √m2 − 1. Measured relative to the simplified formula, this fractional overestimation is bounded as follows. Using the algebraic identity 1 − √1 − x = x / (1 + √1 − x)
+
+with x = 1 /m 2, and observing that 1 < 1 + p1 − 1/m 2 < 2 for all m ≥ 2, we obtain the two-sided bound: 
+
+12m2 < 1 −
+
+r
+
+1 − 1
+
+m2 < 1
+
+m2 . (26) The upper bound 1/m 2 requires no calculus: it follows directly from 1 + p1 − 1/m 2 > 1. For the model depths evaluated in this work, the exact values are: 20 Model m p1 − 1/m 2 Relative overestimation Lower bd 1/(2 m2) Upper bd 1/m 2                    
+
+> Qwen2.5-7B 28 0.999362 0.064% 0.064% 0.128% LLaMA-2-7B 32 0.999512 0.049% 0.049% 0.098% LLaMA-3.1-8B 32 0.999512 0.049% 0.049% 0.098% Qwen2.5-14B 48 0.999783 0.022% 0.022% 0.043%
+
+In all cases the overestimation is below 0.13% (and empirically below 0.07% ), confirming that the simplified formula is indistinguishable from the exact expression at the precision of any down-stream AUROC measurement. Since the approximation overestimates the slope’s relative SNR, it is conservative with respect to the paper’s conclusion that the trajectory mean dominates. 
+
+Extension to general zero-sum linear filters. For any linear statistic T = P 
+
+> l
+
+wlLl with P wl = 0 
+
+(including zone contrast ∆zone ), the αi term cancels and the signal is | P 
+
+> l
+
+wlδl| = |w⊤r| (since 
+
+1⊤w = 0 and d = ¯δ 1 + r). Define the shape-to-level gap ratio 
+
+ρshape := ∥r∥|¯δ|√m . (27) Under independent residuals, the supremum over all unit-norm zero-sum filters satisfies: 
+
+sup   
+
+> w:1⊤w=0 ,∥w∥=1
+
+SNR( w⊤τ )SNR( ¯L) ≤ γ ρ shape . (28) When r̸ = 0, equality is achieved by w ∝ r (the worst-case zero-sum filter aligns with the gap shape residual). The slope and zone contrast are representative examples of centred filters; the bound above covers all possible zero-sum linear combinations. The trajectory mean, which is the canonical constant-weight linear statistic, therefore dominates in the level-dominant regime ( γ ρ shape ≪ 1). 
+
+F.2 Proof of Theorem 3.6 
+
+Theorem 3.6 decomposes both the class-gap vector d and the within-class trajectory covariance Στ
+
+into level and shape components, summarised by a level signal s, a shape coordinate z, and covariance blocks a, b, C. The main text states the resulting diagnostics and identity; we now provide the explicit orthogonal construction and the full proof. 
+
+Notation and setup. We prove the covariance-aware Fisher gap identity (8) for arbitrary positive-definite within-class trajectory covariance. Let τ i = ( L(i)0 , . . . , L (i)
+
+> m−1
+
+)⊤ denote the truth-logit trajectory for sample i, with class-conditional means μ(c) 
+
+> l
+
+= E[Ll | c] for c ∈ {F , H} . Write 
+
+d := [ δ0, . . . , δ m−1]⊤ ∈ Rm for the vector of class-conditional gaps, where δl := μ(F) 
+
+> l
+
+− μ(H) 
+
+> l
+
+.Define the pooled within-class trajectory covariance: 
+
+Στ := πF Cov( τ | F ) + πH Cov( τ | H ) ≻ 0, (29) where πc denotes the class prior. No structural assumption is imposed on Στ .
+
+Setup. The Fisher-optimal linear discriminant is w⋆ ∝ Σ−1 
+
+> τ
+
+d. Set u = m−1/2 1 and decompose 
+
+d = s u + r with r ⊥ u and s = u⊤d = √m ¯δ. Assume s̸ = 0 , so that the uniform-mean SNR is nonzero and the Fisher ratio is well-defined. Let Q ∈ Rm×(m−1) satisfy Q⊤Q = I and 
+
+Q⊤u = 0, set U = [ u, Q ], and define the shape coordinate vector z = Q⊤r ∈ Rm−1. Although 
+
+Q is not unique, the scalar diagnostics θ, χ, and t defined below are invariant under orthogonal changes of basis in u⊥. Indeed, if Q′ = QR for an orthogonal R, then z′ = R⊤z, b′ = R⊤b, and 
+
+C′ = R⊤CR . Hence C′− 1 = R⊤C−1R, so b′⊤ C′− 1z′ = b⊤C−1z, b′⊤ C′− 1b′ = b⊤C−1b, and 
+
+z′⊤ C′− 1z′ = z⊤C−1z, confirming that θ, χ2, and t are unchanged. In the U -basis: 
+
+U ⊤d =
+
+s
+
+z
+
+
+
+, U ⊤Στ U =
+
+a b⊤
+
+b C
+
+
+
+, (30) where a = u⊤Στ u > 0, b = Q⊤Στ u ∈ Rm−1, and C = Q⊤Στ Q ≻ 0. Since Στ ≻ 0, the Schur complement satisfies ˜a := a − b⊤C−1b > 0, hence 0 ≤ θ := b⊤C−1b/a < 1.21 Step 1: Fisher SNR via block inversion. Since U is orthogonal, d⊤Σ−1 
+
+> τ
+
+d = ( s, z)⊤M −1(s, z)
+
+where M = U ⊤Στ U . Using the standard 2 × 2 block-inverse formula with Schur complement 
+
+˜a = a − b⊤C−1b:
+
+M −1 =
+
+ ˜a−1 −˜a−1 b⊤C−1
+
+−C−1b ˜a−1 C−1 + C−1b ˜a−1 b⊤C−1
+
+
+
+. (31) Substituting (s, z):
+
+d⊤Σ−1 
+
+> τ
+
+d = s2
+
+˜a − 2s b⊤C−1z
+
+˜a + z⊤C−1z + (b⊤C−1z)2
+
+˜a
+
+= (s − b⊤C−1z)2
+
+˜a + z⊤C−1z. (32) 
+
+Step 2: Connecting to SNR. We first establish the SNR expressions for both statistics. 
+
+Fisher-optimal statistic. For the Fisher-optimal weight vector w⋆ ∝ Σ−1 
+
+> τ
+
+d, the squared SNR of the linear score w⊤ 
+
+> ⋆
+
+τ is: 
+
+SNR 2(w⊤ 
+
+> ⋆
+
+τ ) = (w⊤ 
+
+> ⋆
+
+d)2
+
+w⊤ 
+
+> ⋆
+
+Στ w⋆
+
+= (d⊤Σ−1 
+
+> τ
+
+d)2
+
+d⊤Σ−1 
+
+> τ
+
+Στ Σ−1 
+
+> τ
+
+d = d⊤Σ−1 
+
+> τ
+
+d , (33) where the second equality substitutes w⋆ = Σ −1 
+
+> τ
+
+d (the proportionality constant cancels in the ratio), and the third uses Σ−1 
+
+> τ
+
+Στ = I.
+
+Uniform-mean statistic. Since the SNR is invariant to rescaling the score, we compute the SNR using the equivalent uniform direction u rather than u/√m:
+
+SNR 2( ¯L) = (u⊤d)2
+
+u⊤Στ u = s2
+
+a , (34) where s = u⊤d and a = u⊤Στ u by definition. 
+
+Step 3: Forming the ratio. Combining the Step 1 result SNR 2(w⊤ 
+
+> ⋆
+
+τ ) = ( s − b⊤C−1z)2/˜a +
+
+z⊤C−1z with SNR 2( ¯L) = s2/a :
+
+SNR 2(w⊤ 
+
+> ⋆
+
+τ )SNR 2( ¯L) = as2
+
+ (s − b⊤C−1z)2
+
+˜a + z⊤C−1z
+
+
+
+= as2 · (s − b⊤C−1z)2
+
+a − b⊤C−1b + a z⊤C−1z
+
+s2 , (35) where we substituted ˜a = a − b⊤C−1b. Now factor s2 from the numerator and a from the denominator of the first term: 
+
+as2 · s2(1 − b⊤C−1z/s )2
+
+a(1 − b⊤C−1b/a ) = (1 − t)2
+
+1 − θ , (36) using t := b⊤C−1z/s and θ := b⊤C−1b/a . The second term is χ2 := a z⊤C−1z/s 2 by definition. Combining both terms yields the exact identity (8): 
+
+SNR 2(w⊤ 
+
+> ⋆
+
+τ )SNR 2( ¯L) = χ2 + (1 − t)2
+
+1 − θ . (37) This proves the exact identity. It remains to derive the stated Cauchy–Schwarz upper bound. 
+
+Step 4: Cauchy–Schwarz bound. By Cauchy–Schwarz in the C−1-inner product: (b⊤C−1z)2 ≤
+
+(b⊤C−1b)( z⊤C−1z), so t2 ≤ θ χ 2, yielding |t| ≤ √θ χ . Substituting the worst case t = −√θ χ 
+
+into Eq. (8) gives the upper bound: 
+
+SNR( w⊤ 
+
+> ⋆
+
+τ )SNR( ¯L) ≤
+
+s
+
+χ2 + (1 + √θ χ )2
+
+1 − θ . (38) 22 Interpretation. The exact identity decomposes the Fisher gain into two sources: 1. χ2: the covariance-aware shape energy. This measures whether the shape coordinate vector 
+
+z = Q⊤r falls on low-noise (discriminative) directions of C. Unlike the isotropic proxy γ2ρ2shape 
+
+(which assumes C ≈ σ2 
+
+> ε
+
+I), χ2 accounts for the full anisotropy of the residual covariance. 2. (1 − t)2/(1 − θ): the level-shape coupling gain. The quantity θ measures whether shape coordinates can serve as control variates for the level mean; when θ = 0 (no coupling), this term equals 1 and contributes no gain. When both θ ≪ 1 and χ ≪ 1, the ratio reduces to 1 + O(χ2 + θ), confirming Fisher near-optimality. 
+
+Relation to the independent-residual intuition. The Fisher identity also recovers the simpler intuition behind depth averaging in the idealised case where the shape covariance is isotropic and decoupled from the level coordinate. If C = σ2 
+
+> ε
+
+I and b = 0, then θ = 0 and t = 0 , so Eq. (8) reduces to 
+
+R2Fisher = 1 + χ2. (39) Thus, uniform averaging is near-optimal whenever the covariance-normalised shape energy χ2 is small. Our empirical certification does not rely on this isotropic approximation; it uses the directly estimated diagnostics θ, χ, t, and RFisher in Table 11. 
+
+Remark F.2 (Empirical Calibration) . All three diagnostics of Theorem 3.6 are directly estimable from the trajectory data. The shape energy χ is computed from the observed gap profile d and the sample residual covariance ˆC in the u⊥ subspace. The coupling θ is computed from the off-diagonal block ˆb of the sample covariance. The Fisher gap ratio RFisher = pχ2 + (1 − t)2/(1 − θ) provides a single-number diagnostic for near-optimality. Table 11 reports these quantities for the three models with full trajectory covariance estimation. 
+
+F.3 Empirical Verification 
+
+We verify the SNR prediction (Proposition 3.5) across 6 models spanning 7B–72B parameters and 3 dataset families. Table 9 reports a covariance-aware plug-in accounting of the slope-vs-mean SNR ratio. The independent-residual expression ργ/ √12 (Proposition 3.5) isolates the roles of the divergence ratio ρ and origin penalty γ, but real trajectories have non-i.i.d. residual covariance. We therefore also compute a plug-in ratio using the observed pooled trajectory covariance; the close agreement 
+
+|ηplugin − 1| < 0.01 across all 18 model ×dataset conditions verifies that the observed slope-vs-mean behaviour is explained by second-order trajectory geometry rather than nonlinear classifier effects. 
+
+Fisher Gap Verification. Table 11 reports the Fisher gap diagnostics of Theorem 3.6. The Fisher gap ratio RFisher ∈ [1 .021 , 1.039] across all three models shows that uniform averaging is Fisher-near-optimal: the best possible linear aggregation can improve over the trajectory mean by at most 
+
+2–4% in SNR. This certification uses the exact covariance-aware identity and does not require an isotropic-residual approximation. A notable feature of the results is that the individual diagnostics θ and χ are not small: both lie in 
+
+[0 .35 , 0.72] , reflecting substantial residual anisotropy and non-trivial shape energy. However, the cross term t nearly saturates its Cauchy–Schwarz upper bound √θχ (ratio t/ (√θχ ) ∈ [0 .91 , 0.96] ), producing systematic cancellation in the (1 − t)2/(1 − θ) term. Geometrically, this means that b
+
+and z are nearly collinear under the C−1-inner product, so the Fisher-optimal weight vector cannot simultaneously exploit shape information and reduce level-mean variance. This alignment appears consistently across all tested trajectories and is compatible with the random-intercept structure, but we do not require it as a theoretical assumption; near-optimality is verified directly via the measured 
+
+RFisher .
+
+F.4 Cost-Benefit Tradeoff of Fisher-Optimal Aggregation 
+
+Theorem 3.6 establishes that the population-optimal linear aggregation w⋆ ∝ Σ−1 
+
+> τ
+
+d improves over uniform averaging by at most 2 to 4% in SNR. We argue that this marginal oracle gain is outweighed by the associated computational, statistical, and operational costs. 23 Table 9: SNR theory verification across 6 models and 3 dataset families. ρ: divergence ratio; γ:origin penalty factor; Rplugin : covariance-aware predicted ratio SNR( ˆβ)/SNR( ¯L); Remp : empirically measured ratio; ηplugin := Remp /R plugin : calibration accuracy (perfect prediction = 1 .0). The plugin predictor achieves |ηplugin − 1| < 0.01 on all 18 conditions.                                                                                                 
+
+> Model Dataset ργRplugin Remp ηplugin
+> Qwen2.5-72B HaluEval2 1.086 9.97 0.774 0.776 1.002 TrueFalse 1.791 6.60 1.046 1.046 1.000 HELM 0.270 9.20 0.254 0.254 0.999 Qwen2.5-32B HaluEval2 0.945 8.67 0.700 0.706 1.008 TrueFalse 1.777 6.25 1.017 1.017 1.000 HELM 0.144 7.90 0.148 0.148 0.999 Qwen2.5-14B HaluEval2 0.902 8.23 0.669 0.672 1.005 TrueFalse 1.882 5.87 1.012 1.013 1.000 HELM 0.203 7.79 0.205 0.206 1.004 Qwen2.5-7B HaluEval2 0.730 6.70 0.568 0.572 1.006 TrueFalse 1.982 4.41 1.006 1.006 1.000 HELM 0.105 6.16 0.102 0.103 1.001 Llama-3.1-8B HaluEval2 0.525 6.86 0.487 0.486 0.997 TrueFalse 1.089 5.53 0.827 0.827 1.000 HELM 0.125 6.68 0.146 0.146 1.002 Llama-2-7B HaluEval2 0.499 7.02 0.507 0.509 1.003 TrueFalse 1.368 5.21 0.846 0.847 1.001 HELM 0.096 6.23 0.113 0.113 1.002
+
+Computational and statistical costs. Table 10 summarises the asymptotic resource requirements. The uniform mean ¯L = m−1 P 
+
+> l
+
+Ll is a parameter-free statistic that requires no calibration data, no covariance estimation, and admits a streaming O(m)-time, O(1) -space implementation. The Fisher-optimal score w⊤ 
+
+> ⋆
+
+τ additionally requires (i) N labelled calibration trajectories, (ii) estimation of the m × m within-class covariance ˆΣτ in O(N m 2) time and O(m2) space, and (iii) Cholesky factorisation in O(m3). With m = 32 , the covariance matrix contains m(m + 1) /2 = 528 free parameters. Classical shrinkage theory [21] establishes that ˆΣ−1 
+
+> τ
+
+amplifies estimation noise when 
+
+N/m is moderate, so the realised gain after finite-sample error may be negative. Moreover, these costs scale unfavourably with model depth: as m increases, the cubic inversion cost and quadratic memory footprint grow rapidly, whereas the uniform mean remains O(m) regardless of m.
+
+Table 10: Asymptotic resource requirements for uniform averaging and Fisher-optimal aggregation.                   
+
+> Calibration (offline) Inference (per sample) Method Time Space Time Space Uniform ¯L——O(m)O(1)
+> Fisher w⊤
+> ⋆τO(N m 2+m3)O(m2)O(m)O(m)
+
+Distribution dependence. The uniform weights w = m−11 are distribution-agnostic: they transfer across models, datasets, and deployment conditions without re-estimation. The Fisher-optimal weights are distribution-specific and must be recalibrated whenever the model architecture, prompt distribution, or evaluation domain changes. In deployment settings that require generalisation without per-domain calibration, the uniform mean is the only viable aggregation strategy. In summary, the Fisher identity serves as a diagnostic rather than a prescription: it certifies that uniform averaging sacrifices negligible discriminative power relative to the population oracle, thereby justifying the parameter-free detector without requiring the practitioner to implement the oracle. 24 Table 11: Covariance-aware Fisher gap diagnostics (Theorem 3.6). RFisher =SNR( w⊤ 
+
+> ⋆
+
+τ )/SNR( ¯L); Theorem 3.6 gives R2Fisher = χ2 + (1 − t)2/(1 − θ). θ: level-shape coupling; 
+
+χ: shape energy; t: cross term ( |t| ≤ √θχ by Cauchy–Schwarz); Despite moderate θ and χ, the vectors b and z are nearly collinear under the C−1-inner product ( t ≈ √θχ ), yielding RFisher ≤ 1.04 .All diagnostics computed on HaluEval2 with full trajectory covariance estimation.                 
+
+> Model RFisher θchi t
+> Llama-2-7B 1.021 0.482 0.711 0.473 Llama-3.1-8B 1.024 0.477 0.723 0.476 Qwen2.5-7B 1.039 0.346 0.686 0.369
+
+F.5 Location Estimator Ablation: Mean vs. Median 
+
+Theorem 3.6 provides a covariance-aware diagnostic for the possible gain of the Fisher-optimal linear aggregation over the uniform mean; the estimated diagnostics in Table 11 indicate that ¯L is near-optimal in our evaluated settings. A complementary question is whether a nonlinear location estimator, specifically the trajectory median, could outperform the mean by providing robustness to potential outlier layers. We address this question both theoretically and empirically. 
+
+Theoretical prediction. As a simple benchmark, suppose that after removing the deterministic class-specific layer profile, the residual trajectory satisfies Li,l − μ(ci) 
+
+> l
+
+= αi + εi,l , with εi,l 
+
+> approx
+
+∼ N (0 , σ 2 
+
+> ε
+
+)
+
+and weak cross-layer dependence. Conditional on the sample-level intercept αi, the sample mean and sample median are both consistent estimators of the residual location in the ideal iid Gaussian case, but their layer-noise variances differ: 
+
+Var( ¯L | αi) = σ2
+
+> ε
+
+m , Var( eL | αi) ≈ π
+
+2 · σ2
+
+> ε
+
+m , (40) where eL denotes the sample median; the common-mode variance σ2 
+
+> α
+
+is shared by both estimators and therefore cancels in this comparison. Thus the median has asymptotic relative efficiency ARE = 2/π ≈ 0.637 for the layer-noise component under Gaussian residuals, corresponding to a pπ/ 2 ≈
+
+1.25 factor increase in estimator standard deviation. With layer dependence, m should be interpreted as an effective number of independent layer readouts, so this calculation is best viewed as a directional prediction: if trajectory residuals are approximately symmetric and light-tailed, the median should not improve over the mean. Note also that the raw trajectory median targets αi + median l μ(ci) 
+
+> l
+
+rather than αi + ¯ μ(ci); the comparison should therefore be interpreted as a robustness ablation rather than an exact efficiency theorem. Because the layer-averaging noise is only one component of the total score variance, this constant-factor efficiency loss need not translate into a large AUROC change; we treat the calculation as a directional prediction and test it empirically. 
+
+Empirical results. Table 12 reports the ablation across three models and three benchmark datasets (nine conditions total). In addition to the standard mean and median, we evaluate a 10%-trimmed mean, which discards the most extreme layers prior to averaging. The results are consistent with the theoretical prediction and, more importantly, show no empirical advantage for robust nonlinear location estimators. The mean outperforms the median by 0.1 to 0.3 pp AUROC across all nine displayed conditions, consistent with the ARE = 2 /π efficiency ratio under Gaussian noise. The 10%-trimmed mean (removing the largest and smallest 10% of layer logits) matches the standard mean within rounding error in most cases and within 0.1 pp in the displayed table, suggesting that heavy-tailed outlier layers are not a major source of error in these settings. The Pearson correlation between mean and median scores exceeds 0.99 in eight of nine conditions (r = 0 .989 for the remaining case), confirming that both estimators induce a nearly identical sample ranking. These observations are compatible with the Gaussian/light-tailed residual approximation used in the level-shape analysis (Remark 3.4), although they do not by themselves prove Gaussianity. Table 13 further compares the three feature representations (trajectory diagnostics, source-level diagnostics, and the full raw trajectory baseline) across all models and datasets. The trajectory diagnostics match or slightly exceed the full trajectory representation on average, confirming that the 25 Table 12: Location estimator ablation (AUROC ×100 , displayed to one decimal place; unrounded gaps may differ slightly from displayed differences). The mean matches or exceeds the median in all nine model-dataset conditions, with Pearson correlation r > 0.99 between the two scores in eight of nine cases. The trimmed mean provides no additional benefit, suggesting the absence of heavy-tailed layer noise. 
+
+Model Dataset Mean Median Trim. Mean r
+
+Llama-2-7B HaluEval2 80.9 80.7 80.8 .996 TrueFalse 95.1 95.0 95.1 .994 HELM 87.7 87.4 87.6 .996 Llama-3.1-8B HaluEval2 83.5 83.4 83.5 .996 TrueFalse 97.2 97.1 97.2 .995 HELM 88.9 88.7 88.8 .996 Qwen2.5-7B HaluEval2 81.9 81.8 81.9 .995 TrueFalse 97.1 97.0 97.1 .989 HELM 87.7 87.5 87.6 .995 
+
+low-dimensional statistics recover most detection-relevant information, with residual gaps in some long-horizon settings. 
+
+Table 13: Feature Ablation: Trajectory Diagnostics (5D) vs. Source (13D) vs. Full Trajectory (2m+5 D)                                                                                                              
+
+> TruthfulQA HaluEval2 HELM TrueFalse Agentic Model Traj Source Full Traj Source Full Traj Source Full Traj Source Full Traj Source Full Qwen2.5-7B 68.71 69.11 68.46 82.42 82.29 82.42 87.84 87.60 87.68 97.58 97.56 97.22 94.91 92.36 98.15
+> Qwen2.5-14B 73.65 71.25 68.68 83.88 83.79 83.08 88.34 88.07 88.14 98.39 98.36 97.97 93.57 90.29 92.57 Qwen2.5-32B 80.42 68.53 68.70 84.53 84.29 83.83 88.59 88.49 88.65 98.54 98.59 98.25 96.05 89.57 89.68 LLaMA2-7B 71.54 70.24 71.50 80.68 80.41 80.22 87.65 87.59 87.88 95.34 95.38 95.35 81.09 82.91 78.16 LLaMA3.1-8B 69.01 68.53 69.21 83.85 83.33 83.79 88.73 88.35 88.89 97.44 97.48 97.44 94.91 96.30 97.92
+> AVG 72.67 69.53 69.31 83.07 82.89 82.63 88.17 88.01 88.25 97.88 97.87 97.56 92.11 90.29 91.30
+
+F.6 Depth Subsampling Ablation 
+
+The level–shape decomposition (Remark 3.4) predicts that depth averaging reduces the residual variance component from σ2 
+
+> ε
+
+to approximately σ2 
+
+> ε
+
+/m eff , where meff is the effective number of included layers. To test this prediction directly, we perform a controlled subsampling experiment in which the trajectory mean is computed from a subset of meff ∈ { 1, 2, 4, 8, 12 , 16 , 20 , 24 , 28 , m }
+
+layers rather than the full depth. 
+
+Subsampling Protocol. For each value of meff , we select layers by uniform spacing across the in-termediate depth range (excluding the first three and last two layers, where probe AUROC approaches chance). Specifically, for a model with m total layers and an eligible range [lmin , l max ], the selected layer indices are {lmin + ⌊j · (lmax − lmin )/(meff − 1) ⌋ : j = 0 , . . . , m eff − 1}. When meff = 1 , we use the single layer with the highest training-fold AUROC (equivalent to the ITI-Probe baseline). The trajectory mean ¯Lmeff = m−1eff 
+
+P 
+
+> l∈S
+
+Ll is then fed to the same logistic classifier as the full-depth detector, and AUROC is evaluated under the standard 5-fold cross-validation protocol. Results are averaged over 5 random seeds. 
+
+Key Observations. Figure 2 (§4.4) reports the results across three models (LLaMA-2-7B, LLaMA-3.1-8B, Qwen2.5-7B) and three datasets (HaluEval2, TrueFalse, HELM). Three patterns emerge consistently: 1. Monotonic improvement. AUROC increases strictly with meff in all nine model–dataset condi-tions, confirming that each additional layer contributes non-redundant discriminative information via variance reduction. 2. Diminishing returns. The marginal AUROC gain per additional layer decreases rapidly: the transition from meff = 1 to meff = 8 accounts for the majority of the total improvement ( >80% 26 of the gap between the single-layer baseline and the full-depth detector), while the transition from 
+
+meff = 8 to full depth contributes less than 1 pp in most conditions. 3. Early saturation. Performance saturates within ∼0.5 pp of the full-depth result by meff ≈ 12 –16 ,suggesting that the effective degrees of freedom in the residual process are substantially fewer than the total layer count. 
+
+Consistency with the Variance Reduction Prediction. The diminishing-returns pattern is quanti-tatively consistent with the 1/m eff variance reduction predicted by the independent-residual model: under this idealisation, the residual standard deviation decreases as σε/√meff , producing large gains at small meff and negligible gains once meff exceeds the effective decorrelation length of the residual process (empirically ∼8 layers; Table 14). The early saturation point meff ≈ 8 aligns with the residual ACF analysis, which shows that cross-layer correlations decay to near zero by lag 8, providing an independent estimate of the effective number of independent readouts. 
+
+## G Low-Dimensional Path-Statistics Approximation 
+
+In §3.4, the SNR analysis shows that the trajectory mean ¯L is a near-optimal detection statistic. Here, we provide an alternative justification under a tractable parametric baseline, showing that the detection-relevant information in the full trajectory reduces to a small number of macroscopic statistics. The derivation concerns the centred increment process ∆Ll − E[∆ Ll | ci] after the sample-level common mode has cancelled in first differences (Remark 3.4). The dominant level signal αi + ¯ μ(ci) is captured directly by the trajectory mean and does not require the increment likelihood model below. 
+
+Approximate Sufficient Statistics under a Gaussian Increment Model. Under the Neyman– Pearson framework, the optimal hallucination detector isolates the trajectory log-likelihood ratio between the factual and hallucinated generative domains: 
+
+Λ( τ ) = log p(τ | D H)
+
+p(τ | D F ) . (41) Since estimating p(τ ) over an m-dimensional unconstrained space requires exponentially many samples, Λ( τ ) is intractable in its raw form. 
+
+Derivation Under a Gaussian Increment Model. As a tractable baseline, define ∆τ := (∆ L0, . . . , ∆Lm−2)⊤ and model the logit increments as conditionally independent Gaussian draws: 
+
+∆Ll | c ∼ N (μc, σ 2 
+
+> c
+
+). This is the simplest parametric model consistent with the empirical obser-vation that increments exhibit a class-conditional mean shift and that centred residuals decorrelate rapidly beyond lag 8 (Table 14). Under this model, the increment likelihood factorises into an exponential family form: 
+
+p∆(∆ τ | c) ∝ exp − 12σ2
+
+> cm−2
+
+X
+
+> l=0
+
+ ∆Ll − μc
+
+2
+
+!
+
+. (42) Expanding the quadratic sum yields two natural sufficient statistics: the cumulative increment P 
+
+> l
+
+∆Ll = Lm−1 − L0 (endpoint drift) and the quadratic variation P 
+
+> l
+
+∆L2 
+
+> l
+
+(path roughness). The increment log-likelihood ratio therefore reduces exactly, under this Gaussian increment model, to an affine function of these trajectory integrals: 
+
+Λ∆(∆ τ ) = θ0 + θ1
+
+> m−2
+
+X
+
+> l=0
+
+∆Ll + θ2
+
+> m−2
+
+X
+
+> l=0
+
+∆L2 
+
+> l
+
+. (43) The level component is captured directly by the trajectory mean ¯L (§3.4), while the centred increment model motivates the remaining trend (endpoint drift) and volatility statistics. The Gaussian increment model is an idealisation: the empirical lag-1 autocorrelation ( ACF(1) ∈ [0 .19 , 0.29] ) indicates short-range dependence rather than strict independence. However, if the centred increment process satisfies standard α-mixing conditions, the sample mean and quadratic variation remain consistent estimators of the drift and diffusion parameters respectively [5], preserving the approximate sufficiency of the trajectory diagnostics. 27 Self-Consistency Diagnostic. Let htraj (τ ) ∈ R denote the scalar decision function of the 5D trajectory diagnostics classifier, and hsource (τ ) ∈ R the decision function of the 13D source-level diagnostics classifier. If both classifiers captured the same detection-relevant ordering, their AUROCs would be close. We therefore report the absolute AUROC discrepancy 
+
+Erec = AUROC  htraj 
+
+ − AUROC  hsource 
+
+ . (44) Table 13 shows that this discrepancy remains below 0.006 absolute AUROC on HaluEval2, HELM, and TrueFalse across the displayed models. However, larger gaps appear on TruthfulQA and Agentic, reaching 0.1189 and 0.0648 respectively. Thus, the decomposed source-level diagnostics should be interpreted as mechanistic summaries of the trajectory rather than an information-preserving reconstruction of the trajectory-level classifier. 
+
+## H Mechanistic Separation of Truthfulness 
+
+This section formalises the high-dimensional geometric foundations of the signal sparsity framework introduced in §3.3. 
+
+H.1 Exact Additive Decomposition of Trajectory Increments Definition H.1 (Cross-layer Readout) . The cross-layer readout applies the frozen layer-l observable projection to the layer-(l+1) answer-onset representation: eL + 
+
+> l
+
+= ϕl(a(k∗  
+
+> l)
+> l+1
+
+).
+
+Proposition H.2 (Exact Additive Decomposition of Increments) . For every intermediate Transformer block l, the observable increment satisfies the algebraic identity: 
+
+∆Ll = ϕl(a(k∗  
+
+> l)
+> l+1
+
+) − ϕl(a(k∗  
+
+> l)
+> l
+
+)
+
+| {z }  
+
+> Wl:intrinsic displacement
+
++ ϕl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+) − ϕl(a(k∗  
+
+> l)
+> l+1
+
+)
+
+| {z }  
+
+> Kl:readout change
+
+, (45) 
+
+where k⋆l denotes the head selected at layer l (Appendix A.1). The intrinsic displacement Wl evaluates the frozen layer-l probe on the same head at adjacent layers; the readout change Kl absorbs both the probe-frame rotation and the head-switch contribution. This decomposition holds exactly for all Euclidean observation spaces. Proof. Expand the increment ∆Ll = Ll+1 − Ll = ϕl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+) − ϕl(a(k∗  
+
+> l)
+> l
+
+) and add and subtract the cross-layer readout ϕl(a(k∗  
+
+> l)
+> l+1
+
+). The two resulting terms are Wl and Kl by definition. 
+
+H.2 Empirical Refutation of Covariance Asymmetry 
+
+A natural starting hypothesis posits that factual and hallucinated subpopulations differ in their covariance geometry, specifically, that the hallucinated distribution is approximately isotropic (Cov( DH) ≈ σ2I). We empirically falsify this and related structural assumptions on modern instruction-tuned transformers (LLaMA-3.1, Qwen-2.5): • The effective ranks of both classes are statistically indistinguishable: rk eff (Σ F )/d h ≈
+
+rk eff (Σ H)/d h ≈ 0.24 .• The total variance is nearly symmetric across classes: Tr(Σ F )/ Tr(Σ H) ≈ 1.05 .• The regularised probe vl is virtually orthogonal to the Fisher direction: cos 2(vl, f ) < 0.01 ,confirming that classical Fisher Discriminant Analysis fails in this high-dimensional regime. 
+
+H.3 Formal Derivation: Sparse Coordinate Distributions 
+
+The evidence above motivates a refined geometric model: factuality is encoded as a sparse, low-energy directional signal within a dominant orthogonal nuisance subspace. 
+
+Quantitative Calibration of Increment-Level Separation. For the intrinsic displacement Wl =
+
+v⊤ 
+
+> l
+
+∆al, the standardised class margin (Cohen’s d) along the learned probe direction is 
+
+d∆,l (vl) = |v⊤ 
+
+> l
+
+μ∆,l |
+
+q
+
+v⊤ 
+
+> l
+
+Σπ 
+
+> ∆,l
+
+vl
+
+> 0, (46) 28 Table 14: Variance decomposition of the logit trajectory L(i) 
+
+> l
+
+= αi + μ(ci) 
+
+> l
+
++ εi,l . ICC denotes the intraclass correlation coefficient (fraction of within-class variance from the sample-level common mode αi). Residual ACF reports the mean cross-layer correlation of ˆεi,l at the indicated lag (factual class). All models evaluated on HaluEval2 ( 5 domains, N = 3 ,793 ).                         
+
+> Model mICC ICC FICC HResid. ACF(1) Resid. ACF(8)
+> LLaMA-2-7B-Chat 32 0.62 0.63 0.60 0.19 −0.04
+> LLaMA-3.1-8B-Instruct 32 0.62 0.64 0.58 0.25 −0.04
+> Qwen2.5-7B-Instruct 28 0.64 0.65 0.63 0.29 0.01
+
+where μ∆,l := EDF [∆ al] − EDH [∆ al] and Σπ 
+
+> ∆,l
+
+is the pooled within-class covariance of ∆al.Assumption 3.2(ii) is supported empirically: the energy fraction v⊤ 
+
+> l
+
+¯Σlvl/Tr( ¯Σl) remains below 
+
+0.37% across all six models, well under the random baseline 1/d h ≈ 0.78% (Table 2). Empirically, the same sparsity structure is observed in the answer-onset increment ∆al := al+1 − al: the energy fraction v⊤ 
+
+> l
+
+Cov(∆ al) vl / Tr(Cov(∆ al)) remains comparable to 1/d h across all models (Table 2). Note that this does not follow from sparsity of al alone, since the increment covariance involves cross-layer terms; the increment sparsity is an additional empirical regularity. 
+
+Formal Specification of Property 3.3 (Probe Isotropy). Sequential attention blocks iteratively resample the latent representation, inducing near-orthogonal truthfulness readout frames across depth: 
+
+|⟨ vl, vl+1 ⟩| ≈ 0. (47) 
+
+Derivation of the Random Baseline p2/(π d h). We derive the expected absolute inner product between two independent random unit vectors on Sdh−1. Let p, q ∼ Unif( Sdh−1) be drawn independently. By rotational invariance of the uniform measure, we may fix q = e1 = (1 , 0, . . . , 0) ⊤
+
+without loss of generality. The absolute inner product then reduces to the first coordinate: |⟨ p, q⟩| =
+
+|p1|. By the Poincaré limit theorem, as dh → ∞ the marginal distribution of √dh p1 converges in distribution to a standard Gaussian: 
+
+pdh p1
+
+> d
+
+−−→ N (0 , 1) . (48) Taking the expectation of the absolute value and applying the folded normal identity: 
+
+E|⟨ p, q⟩|  = E|p1| ≈ 1
+
+√dh
+
+EX∼N (0 ,1) 
+
+|X| = 1
+
+√dh
+
+r 2
+
+π =
+
+r 2
+
+πd h
+
+. (49) Empirically, modern instruction-tuned transformers exhibit inter-layer alignment |⟨ vl, vl+1 ⟩| ∈ 
+
+[0 .05 , 0.09] , closely matching p2/(π d h) for dh = 128 (Table 16). This supports the view that adjacent probes behave as if drawn from independent random frames on Sdh−1, consistent with Property 3.3. 
+
+Variance Decomposition of the Logit Trajectory. Remark 3.4 decomposes the logit trajectory as 
+
+L(i) 
+
+> l
+
+= αi + μ(ci) 
+
+> l
+
++ εi,l , where αi is a sample-specific common mode shared across all layers. We estimate the variance components via a random-intercept decomposition on three models spanning two architectural families (Table 14). For each class c, we compute the per-layer class mean ˆμ(c) 
+
+> l
+
+,the per-sample intercept ˆαi = 1
+
+> m
+
+P
+
+> l
+
+(L(i) 
+
+> l
+
+− ˆμ(ci) 
+
+> l
+
+), and the residual ˆεi,l = L(i) 
+
+> l
+
+− ˆμ(ci) 
+
+> l
+
+− ˆαi. The intraclass correlation coefficient 
+
+ICC = dVar( αi)
+
+dVar( αi) + dVar( εi,l ) (50) is highly consistent across models ( ICC ∈ [0 .62 , 0.64] ), indicating that approximately 62 –64% of the within-class variance is attributable to the sample-level common mode in all architectures tested. The per-class breakdown is likewise stable: ICC F ∈ [0 .63 , 0.65] , ICC H ∈ [0 .58 , 0.63] . After removing 
+
+ˆαi, the residual cross-layer correlation decays rapidly to near zero by lag 8 across all models (Table 14, rightmost column), confirming the short-memory property assumed in Remark 3.4. 29 H.4 Analytical Properties of the Increment Components 
+
+We establish that the decomposition ∆Ll = Wl + Kl (Proposition H.2) partitions the trajectory increment into two algebraically distinct components with separate geometric origins. 
+
+Lemma H.3 (Heteroscedastic Directional Calibration of Wl). Under Assumption 3.2(i)–(ii), define the increment mean gap μ∆,l := EDF [∆ al] − EDH [∆ al], the increment covariance Σ(c)∆,l := Cov( al+1 − al | c), the class-conditional directional variance q(c)∆,l := v⊤ 
+
+> l
+
+Σ(c)∆,l vl, the within-class pooled directional variance qπ 
+
+> ∆,l
+
+:= πF q(F)∆,l + πHq(H)∆,l , and the directional variance ratio 
+
+κ∆,l := max c q(c)∆,l / min c q(c)∆,l ≥ 1. Then the worst-case class-conditional signal-to-noise ratio of the intrinsic displacement Wl = v⊤ 
+
+> l
+
+∆al satisfies 
+
+dπ
+
+> ∆,l
+
+(vl)
+
+√κ∆,l 
+
+≤ mwc  
+
+> l
+
+(vl) ≤ dπ
+
+> ∆,l
+
+(vl), (51) 
+
+where dπ
+
+> ∆,l
+
+(vl) := |v⊤ 
+
+> l
+
+μ∆,l | / pqπ 
+
+> ∆,l
+
+is the pooled directional effect size and mwc  
+
+> l
+
+(vl) := min c∈{F ,H} SNR c(Wl). When κ∆,l = 1 , both bounds collapse to the clean scalar equivalence 
+
+SNR( Wl) = d∆,l (vl).Proof. (i) Expected Separation. By linearity of expectation, the class separation of Wl equals the projection of the increment mean gap onto the frozen probe direction: 
+
+|EDF [Wl] − EDH [Wl]| = |v⊤ 
+
+> l
+
+μ∆,l |. (52) This is an increment-level observable, distinct from the original layer-l probe margin |v⊤ 
+
+> l
+
+(μF 
+
+> l
+
+− μH 
+
+> l
+
+)|.
+
+(ii) Class-Conditional Variance. Since Wl = v⊤ 
+
+> l
+
+(al+1 − al), the scalar projection variance un-der class c is Var( Wl | c) = v⊤ 
+
+> l
+
+Σ(c)∆,l vl = q(c)∆,l , yielding class-specific SNRs SNR c(Wl) = 
+
+|v⊤ 
+
+> l
+
+μ∆,l | /
+
+q
+
+q(c)∆,l .
+
+(iii) Sandwich Derivation. The worst-case SNR uses the largest denominator: mwc  
+
+> l
+
+=
+
+|v⊤ 
+
+> l
+
+μ∆,l | /
+
+q
+
+max c q(c)∆,l . Since min c q(c)∆,l ≤ qπ 
+
+> ∆,l
+
+≤ max c q(c)∆,l , dividing the numerator by pqπ
+
+> ∆,l
+
+yields: 
+
+|v⊤ 
+
+> l
+
+μ∆,l |
+
+q
+
+max c q(c)∆,l 
+
+≤ |v⊤ 
+
+> l
+
+μ∆,l |
+
+pqπ
+
+> ∆,l
+
+≤ |v⊤ 
+
+> l
+
+μ∆,l |
+
+q
+
+min c q(c)∆,l 
+
+. (53) Since max c q(c)∆,l = κ∆,l · min c q(c)∆,l , the left-hand side satisfies mwc  
+
+> l
+
+= dπ 
+
+> ∆,l
+
+·
+
+q
+
+qπ
+
+> ∆,l
+
+/ max c q(c)∆,l ≥
+
+dπ
+
+> ∆,l
+
+/√κ∆,l , and the right-hand side gives mwc  
+
+> l
+
+≤ dπ
+
+> ∆,l
+
+.
+
+Remark H.4 (Empirical Calibration of κ∆,l ). The sandwich (51) replaces the homoscedastic equiv-alence SNR = d∆,l with a directional calibration that accommodates arbitrary class-conditional increment covariances. The sole residual quantity is κ∆,l , which is directly measurable from held-out data. Table 15 reports the calibration diagnostics across three models spanning two architectural families. Across all models, the median κ∆,l remains below 1.5 and the 95 th-percentile below 3.9,indicating moderate but non-negligible tail heteroscedasticity. The observed aggregate degradation 
+
+1 − ˆmwc / ˆdπ remains below 10% in Table 15. Notably, the asymmetry is systematic: factual representations exhibit larger directional variance (q(F)∆,l > q (H)∆,l ) in ≥ 90% of midlayers for every model tested, consistent with the intuition that factual inputs span a more diverse range of truthfulness signatures while hallucinated inputs concentrate along a common “departure-from-truth” direction. This class-conditional dispersion asymmetry constitutes an unexploited second-order discriminative cue. Its incorporation is an interesting extension orthogonal to the present first-order framework. 
+
+Lemma H.5 (Orthogonal Basis Decomposition of Kl (Fixed-Head Case)) . Under Property 3.3 (⟨vl, vl+1 ⟩ ≈ 0) and the simplifying assumption k∗ 
+
+> l
+
+= k∗ 
+
+> l+1
+
+(i.e. a common attention head is used at both layers), the readout change Kl projects the answer-onset representation al+1 onto a 
+
+30 Table 15: Heteroscedastic increment-direction calibration ( κ∆,l ) diagnostics across three models on the HELM, HaluEval2, and TrueFalse benchmarks ( N > 13 ,000 ). All reported values are computed from the increment covariance Σ(c)∆,l = Cov( al+1 − al | c). Statistics are computed over the intermediate transformer layers (excluding early embedding and late unembedding boundaries). ¯κ:mean directional variance ratio, ˜κ: median, κp95 : 95 th percentile, ˆdπ : mean pooled effect size, ˆmwc :mean worst-case SNR, Degrad.: relative degradation 1 − ˆmwc / ˆdπ , qF > q H: fraction of midlayers where the factual directional variance exceeds the hallucinated.                                  
+
+> Model m¯κ˜κκp95 ˆdπˆmwc Degrad. qF> q H
+> LLaMA-2-7B-Chat 32 1.95 1.29 3.87 0.73 0.66 9.6% 90% LLaMA-3.1-8B-Instruct 32 1.61 1.42 2.51 1.15 1.05 8.7% 100% Qwen2.5-7B-Instruct 28 1.62 1.44 2.58 1.06 0.96 9.4% 100%
+
+measurement basis that is geometrically distinct from the layer-l probe direction. When the selected heads differ ( k∗
+
+> l
+
+̸ = k∗
+
+> l+1
+
+), Kl additionally absorbs a head-switch contribution; the general-case decomposition is given in Proposition H.2 and Lemma I.1. Proof. Under the fixed-head assumption, al+1 refers to the same head at both layers. By direct substitution of the observable definitions (Definition 3.1): 
+
+Kl =  vl+1 − vl
+
+⊤al+1 + ( bl+1 − bl) = v⊤
+
+> l+1
+
+al+1 − v⊤ 
+
+> l
+
+al+1 + ( bl+1 − bl). (54) Since vl+1 and vl span near-orthogonal subspaces (Property 3.3), the two directional terms on the right constitute projections of al+1 onto geometrically distinct coordinate frames. The scalar bias difference (bl+1 − bl) shifts the overall level but does not affect the geometric conclusion. 
+
+Remark H.6 . Although Wl and Kl project onto geometrically distinct directions, their scalar values are linked by the constraint Kl = ∆ Ll − Wl. When probe parameters evolve smoothly across layers (i.e. the selected standardised-coordinate coefficients ewl,k ∗ 
+
+> l
+
+satisfy ewl+1 ,k ∗ 
+
+> l+1
+
+≈ ewl,k ∗ 
+
+> l
+
+in parameter space despite near-orthogonality of the normalised directions), Kl becomes approximately proportional to Wl across samples, yielding high empirical correlation in trajectory-level statistics. This coupling does not invalidate the algebraic decomposition but limits the utility of treating W and 
+
+K as independent diagnostic channels. 
+
+H.5 Cross-Model Empirical Validation 
+
+We validate both structural assumptions across six models spanning two architectural families (LLaMA-2-7B, LLaMA-3.1-8B, Qwen2.5-7B, Qwen2.5-14B, Qwen2.5-32B, Qwen2.5-72B), report-ing layer-averaged diagnostics over the intermediate layers of transformer depth to exclude early embedding and late unembedding boundary effects (where probe AUROC approaches chance level). Table 2 (§4.3) consolidates all metrics. Here we provide the detailed derivations and per-metric analysis. 
+
+Validation of Signal Separation and Sparse Geometry. We verify three complementary aspects of the geometric picture underlying Assumption 3.2 and the W /K decomposition. (i) Increment Mean Separation. We quantify the standardised increment-level class margin via Cohen’s d (Eq. 46): 
+
+d∆,l (vl) = |v⊤ 
+
+> l
+
+μ∆,l |
+
+q
+
+v⊤ 
+
+> l
+
+Σπ 
+
+> ∆,l
+
+vl
+
+, (55) where μ∆,l := EDF [∆ al]−EDH [∆ al] and Σπ 
+
+> ∆,l
+
+is the pooled within-class increment covariance. All instruction-tuned models achieve d∆,l ∈ [0 .51 , 0.67] (Table 2, Cohen’s d column), confirming robust out-of-sample separability. (ii) Signal Fidelity of W . The signal ratio rw > 1.0 for all aligned models confirms that the intrinsic displacement Wl = v⊤ 
+
+> l
+
+∆al concentrates the factual signal more efficiently than the raw increment ∆Ll. The decoupling norms ∥dCov ∥ ∈ [0 .47 , 0.61] verify moderate statistical separation between W and K at the population level, though their sample-level trajectory statistics exhibit strong empirical coupling due to the smooth evolution of probe parameters across layers. 31 (iii) Nuisance Avoidance. The probe–mean alignment exceeds 0.13 (well above the random floor of ∼ 0.07 ), the v2Top90 values remain below 0.22 for five of six models (Qwen2.5-72B reaches 
+
+0.29 , discussed below), and the energy fractions stay within 0.26% –0.36% of the total trace. These three diagnostics jointly suggest that the regularised probe tends to occupy the variance-minimising complement of the covariance spectrum. 
+
+Validation of Property 3.3 (Probe Isotropy). Property 3.3 predicts that adjacent probes exhibit pseudo-orthogonality: |⟨ vl, vl+1 ⟩| ≈ p2/(π d h). The measured cosines across all models fall in 
+
+[0 .05 , 0.09] (Table 2, | cos | column), closely tracking the theoretical noise floor p2/(π d h) derived above. This confirms that each layer independently constructs a new decision boundary, yielding the near-orthogonal observation frames underlying Remark 3.4. 
+
+Probe-Free Direct Measurements. A potential concern is that all preceding diagnostics depend on the trained probe vl, raising the question of whether the observed geometry is an artefact of the probe itself. We therefore introduce three entirely probe-free metrics that operate directly on the raw activation vectors and require no learned parameters whatsoever. 
+
+(i) Raw Mean-Shift Norm. The Euclidean norm of the layer-space mean difference ∥ˆδμ,l ∥2 =
+
+∥¯aF 
+
+> l
+
+− ¯aH 
+
+> l
+
+∥2 provides a direct, model-agnostic measure of class separation in the ambient activation space. Across models, the intermediate-layer-averaged values range from 0.07 to 0.32 (Table 2), confirming that a non-trivial mean shift exists in the raw space. 
+
+(ii) Bias-Corrected Energy Ratio. In high dimensions ( dh ≥ 128 ), the naïve estimator ∥ˆδμ,l ∥2
+
+is biased upward by Tr(Σ)( n−1 
+
+> F
+
++ n−1 
+
+> H
+
+) due to finite-sample noise accumulating across all dh
+
+coordinates. We therefore report the bias-corrected energy ratio TCQ /Tr(Σ l), where TCQ denotes the Chen–Qin U-statistic, an unbiased estimator of the true squared mean separation ∥μF,l − μH,l ∥2
+
+[8]. The corrected ratios fall in [3 .5% , 8.7%] across all six models, confirming that the truthfulness signal, while statistically significant, accounts for a small fraction of the total representation energy, consistent with Assumption 3.2. 
+
+(iii) High-Dimensional Mean Test. To formally test H0 : μF = μH without probe dependence, we apply the Chen and Qin [8] two-sample test, which remains valid when n < d (where the classical Hotelling T 2 degenerates). On a pooled evaluation set of n > 13 ,000 samples, virtually all intermediate layers reject H0 at α = 0 .05 for every model tested (Table 2, CQ sig. column), with the sole exceptions of a single layer in Qwen2.5-32B (39/40) and two layers in Qwen2.5-72B (46/48). This provides probe-independent confirmation that the factual and hallucinated populations occupy statistically distinct regions of the activation manifold. 
+
+H.6 Quantitative Bound on Probe Quasi-Independence Model: Subspace Perturbation. Because the truthfulness signal accounts for roughly 0.3% of the variance, with all values below 0.37% (Assumption 3.2), the regularised probe vl navigates the “quiet” sub-dominant singular modes of the anisotropic covariance Σl to achieve separation (empirically confirmed by its near-orthogonality to the Fisher direction, cos 2(vl, f ) < 0.01 ). When transitioning to layer l + 1 , the multi-head attention and feedforward blocks inject a large-scale perturbation into the residual stream, primarily updating class-symmetric linguistic features. This reshapes the covariance geometry, randomly rotating the optimal quiet subspace. We model the generation of the adjacent probe conceptually as: 
+
+vl+1 = vl + Γ l ˆηl
+
+∥vl + Γ l ˆηl∥ , (56) where Γl ≫ 1 reflects the large magnitude of the structural perturbation relative to the persistent truthfulness feature. (We use Γl rather than γ to avoid confusion with the common-mode penalty γ in Theorem 3.6.) The update vector ˆηl represents the direction of the new quiet subspace. Because the perturbation arises from diverse, class-agnostic attention patterns, we model ˆηl as an isotropically oriented unit vector within the effective geometric subspace of dimension deff , distributed uniformly on Sdeff −1, independent of vl.The effective geometric dimension deff is determined by the subspace in which the probe directions 
+
+vl are free to rotate. A naïve choice would set deff equal to the stable rank reff := Tr(Σ l)2/Tr(Σ 2 
+
+> l
+
+),32 assuming probes are confined to the dominant eigenspace. However, the isotropy verification experiments (Table 16 in §H.7) reveal that the observed inner products scale as O(d−1/2 
+
+> h
+
+) rather than 
+
+O(r−1/2eff ), indicating deff ≈ dh. Within the subspace perturbation model, this ambient-dimension scaling is explained by signal sparsity (Assumption 3.2): the probe direction captures only ∼ 0.6% of the total variance (comparable to the 1/d h ≈ 0.8% captured by a random direction), so the probes are effectively unconstrained by the covariance spectrum and explore the full ambient space Rdh . To maintain generality, we state the proposition below in terms of the abstract parameter deff , noting that the empirically validated regime is deff ≈ dh.
+
+Proposition H.7 (Probe Quasi-Independence) . Under the subspace perturbation model (56) , let the perturbation scale satisfy Γl ≥ 1 and the effective geometric dimension deff ≥ 2. Defining the signal-to-dimension ratio α := √deff /Γl, the expected absolute inner product satisfies: 
+
+E|⟨ vl, vl+1 ⟩|  = Ψ( α)
+
+q
+
+1 + Γ −2
+
+> l
+
+r 2
+
+πd eff 
+
+·  1 + O(Γ −2 
+
+> l
+
++ d−1eff ), (57) 
+
+where the amplification factor Ψ( α) := e−α2/2 + αpπ/ 2 (1 − 2Φ( −α)) ≥ 1 accounts for the finite perturbation scale, and Φ( ·) denotes the standard normal cumulative distribution function. In the strong-resampling limit Γl/√deff → ∞ (equivalently α → 0), Ψ( α) → 1 and the expectation reduces to p2/(π d eff ). In the empirically validated regime where deff ≈ dh (Table 16), the bound tightens to p2/(πd h).Proof. Let ε := Γ −1 
+
+> l
+
+and define the subspace projection z := ⟨vl, ˆηl⟩. From the update model (56), factoring the normalisation yields: 
+
+⟨vl, vl+1 ⟩ = Γ−1 
+
+> l
+
++ z
+
+q
+
+Γ−2 
+
+> l
+
++ 2Γ −1 
+
+> l
+
+z + 1 = ε + z
+
+√1 + ε2 · 1
+
+q
+
+1 + 2εz 
+
+> 1+ ε2
+
+. (58) 
+
+Step 1: Denominator isolation. Instead of expanding in ε (which diverges since empirically ε2deff ̸ ≪
+
+1), we isolate the zero-mean fluctuating term δ := 2 εz/ (1 + ε2). Since z = OP (d−1/2eff ), we have 
+
+|δ| = OP (ε d −1/2eff ) ≪ 1 with overwhelming probability. Expanding (1 + δ)−1/2 = 1 − δ/ 2 + O(δ2)
+
+for |δ| ≤ 1/2, the inner product is decoupled as: 
+
+⟨vl, vl+1 ⟩ = ε + z
+
+√1 + ε2
+
+| {z } 
+
+> =: X
+
+· 1 + R(z), where |R(z)| ≤ Cε |z|
+
+1 + ε2 , (59) and C > 0 is a universal constant depending only on the bound |δ| ≤ 1/2.
+
+Step 2: Subspace projection limit. Because ˆηl ∼ Unif( Sdeff −1), the generalised Poincaré limit theorem dictates that √deff z d
+
+−→ N (0 , 1) . Thus, z ∼ N (0 , 1/d eff ) up to an error that decays rapidly in deff . The pre-factor random variable is therefore Gaussian: 
+
+X := ε + z
+
+√1 + ε2 ∼ N 
+
+ ε
+
+√1 + ε2 , 1(1 + ε2)deff 
+
+
+
+. (60) 
+
+Step 3: Folded normal expectation. We apply the exact identity for the folded normal distribution 
+
+E[|X|] = σp2/πe −μ2/(2 σ2) + μ(1 − 2Φ( −μ/σ )) . Substituting our parameters, the ratio μ/σ 
+
+evaluates exactly to ε√deff = α, giving: 
+
+E[|X|] = 1
+
+p(1 + ε2)deff 
+
+r 2
+
+π e−α2/2 + ε
+
+√1 + ε2
+
+ 1 − 2Φ( −α)
+
+= 1
+
+√1 + ε2
+
+r 2
+
+πd eff 
+
+
+
+e−α2/2 + α
+
+r π
+
+2
+
+ 1 − 2Φ( −α)
+
+= Ψ( α)
+
+√1 + ε2
+
+r 2
+
+πd eff 
+
+. (61) 33 Step 4: Remainder bounding. The remainder R(z) distorts the expectation by at most 
+
+E[|X(1+ R)|]−E[|X|] ≤ E[|X|·| R|] ≤ Cε E[|X|·| z|] ≤ Cε 
+
+(1+ ε2)3/2
+
+
+
+ε
+
+q 2 
+
+> πd eff
+
++ 1
+
+> deff
+
+
+
+, (62) where the last step uses |X| ≤ (ε+|z|)/√1 + ε2. Dividing by E[|X|] ≥ Ψ( α)p2/(πd eff )/√1 + ε2
+
+(since Ψ ≥ 1), the relative error is bounded by C′(ε2 + ε/ √deff ). Applying AM–GM to the cross term ( ε/ √deff ≤ 12 (ε2 + d−1eff )) and absorbing the Poincaré finite-dimensional correction ( O(d−1eff ))yields the aggregate relative error O(Γ −2 
+
+> l
+
++ d−1eff ).
+
+Remark H.8 (Asymptotic Regimes) . Proposition H.7 smoothly interpolates between two limiting regimes: 1. Strong Perturbation (Γl → ∞ , α → 0): Ψ(0) = 1 , recovering the purely isotropic independence bound p2/(πd eff ).2. Intermediate Weak Resampling (1 ≪ Γl ≪ √deff , α → ∞ ): Ψ( α) ∼ αpπ/ 2, yielding 
+
+1/pΓ2 
+
+> l
+
++ 1 ≈ Γ−1 
+
+> l
+
+for Γl ≫ 1. In the genuinely small-perturbation regime Γl ≪ 1, the expectation saturates near 1.
+
+Remark H.9 (Empirical Validation of the Model) . The isotropy verification experiments (§H.7) provide direct empirical calibration of the effective geometric dimension deff . Two complementary evaluations provide evidence that deff is closer to dh than to reff , with the strength of evidence varying across architectures: 
+
+(i) Direct comparison of E[| cos |]. For Qwen2.5-7B ( dh = 128 , reff ≈ 30 ), the observed 
+
+E[|⟨ vl, vl+1 ⟩| ] = 0 .066 closely matches the ambient-dimension prediction p2/(πd h) = 0 .071 ,while the stable-rank prediction p2/(πr eff ) = 0 .140 overestimates by a factor of 2. For LLaMA-3.1-8B ( reff ≈ 22 ), the observed value 0.093 falls between both baselines, consistent with an intermediate 
+
+deff ≈ 73 (Table 16). 
+
+(ii) Permutation test. The two-sample KS test against 10 ,000 random-vector permutations confirms: Qwen probes are statistically indistinguishable from uniform vectors on Sdh−1 (p = 0 .55 ) but distinguishable from those on Sreff −1 (p = 0 .036 ). LLaMA probes are consistent with both reference spheres ( p > 0.05 ), with a best-match dimension intermediate between reff and dh.
+
+(iii) Physical interpretation. Within the perturbative quiet-subspace model, this ambient-dimension matching is consistent with Assumption 3.2: because the energy fraction captured by the probe is only 
+
+∼ 0.6% (Table 16), comparable to the 1/d h ≈ 0.8% expected from a random direction, the probe’s orientation is effectively unconstrained by the covariance spectrum. Therefore, the strong-perturbation regime ( α → 0, Ψ → 1) applies, and the expected cosine simplifies to p2/(πd h) = 0 .071 , matching observations within sampling noise. 
+
+Remark H.10 (Calibration Independence) . We note that deff in Remark H.9 is calibrated from the same inner-product distribution it is used to explain, which introduces a degree of circularity. The permutation test (Test 3 in §H.7) partially mitigates this concern by providing a distribution-level comparison against two competing reference spheres, rather than a point estimate. A fully independent estimate of deff (e.g. via the stable rank of the quiet-subspace complement of the pooled covariance) would strengthen the argument but is beyond the scope of this work. 
+
+Remark H.11 (Relationship to Remark 3.4) . Proposition H.7 formalizes the quasi-independence property underlying Remark 3.4. The empirical chain proceeds as: Assumption 3.2 (signal spar-sity motivates large Γl under the perturbative model) + empirical deff calibration (Table 16) ⇒
+
+Proposition H.7 (quasi-independence with E[| cos |] ≈ p2/(πd h)) ⇒ Remark 3.4 (level–shape decomposition with effective depth averaging of the residual). Since dh > r eff , this is consistent with a stronger independence guarantee than the conservative reff -based bound, particularly for architectures where ambient-dimension matching is confirmed (Remark H.13). 
+
+H.7 Statistical Verification of Probe Isotropy 
+
+The preceding theoretical analysis (Proposition H.7) relies on the modelling assumption that the per-turbation direction ˆηl is isotropically distributed within some effective geometric subspace. We now present a dedicated experimental verification of this assumption, consisting of three complementary statistical tests applied to four models spanning two architectural families: Qwen2.5-7B-Instruct 34 (m = 28 ), Qwen2.5-14B-Instruct ( m = 48 ), LLaMA-2-7B-chat ( m = 32 ), and LLaMA-3.1-8B-Instruct ( m = 32 ), all with dh = 128 .
+
+Methodology: Fixed-Head Probes. To ensure all direction vectors {vl}m−1 
+
+> l=0
+
+reside in the same 
+
+Rdh subspace and that their inner products are geometrically meaningful, we train probes under a fixed-head constraint. We first select a single attention head via the protocol in Appendix A.1; as shown in §C.1, the choice of head has negligible impact. All subsequent per-layer probes operate exclusively within this head’s activation subspace. At each layer l, the ℓ1-regularised logistic regression coefficient vector ewl is mapped back to the raw activation space via bwl = ewl ⊘ σl and normalised to yield the unit direction vl = bwl/∥ bwl∥2. All experiments restrict attention to the intermediate layers (excluding both the embedding and unembedding boundary effects), yielding 
+
+n ∈ [18 , 30] adjacent pairs depending on model depth. 
+
+Test 1: Inner Product Distribution (Normality Test). Under the isotropy hypothesis, the inner product ⟨vl, vl+1 ⟩ between adjacent probes should be approximately zero-mean Gaussian. We apply both the Kolmogorov–Smirnov (KS) test (comparing the empirical distribution of √reff · ⟨ vl, vl+1 ⟩
+
+against N (0 , 1) ) and the Shapiro–Wilk test for normality. The KS test uses √reff as the reference scaling; however, it primarily verifies distributional shape (Gaussianity) rather than resolving the effective dimension, given the limited sample size ( n ∈ [18 , 30] adjacent pairs). The Shapiro–Wilk test assesses normality independently of any scale parameter. Test 3 below, which uses 10 ,000 
+
+permutations, has substantially greater statistical power to discriminate between the two scaling hypotheses deff ≈ reff and deff ≈ dh. All four models pass both tests at α = 0 .05 (Table 16). 
+
+Test 2: Gap Independence. If adjacent layers independently resample the optimal quiet subspace, then the expected absolute inner product E[|⟨ vl, vl+k⟩| ] should remain constant across all gap sizes 
+
+k ≥ 1. We compute per-gap statistics for k = 1 , . . . , 9 and test for (i) zero linear trend via OLS regression and (ii) equal-means across gaps via one-way ANOVA. No model shows a significant trend ( ptrend ≥ 0.086 ) or group mean differences ( pANOVA ≥ 0.304 ), confirming the absence of memory effects between probes across all four architectures (Table 16). 
+
+Test 3: Permutation Test. We generate 10 ,000 sets of random unit vectors on two reference spheres: the ambient sphere Sdh−1 and the effective-rank sphere Sreff −1. For each set, we compute the adjacent inner products and compare them to the real probe inner products via the two-sample KS test. This test reveals an important finding: the real probe inner products are statistically indistinguishable 
+
+from random vectors on Sdh−1 (the ambient dimension) across all four models ( p ≥ 0.059 ). While some models (Qwen2.5, LLaMA-2, LLaMA-3.1) also fail to reject the smaller Sreff −1 baseline, Qwen2.5-7B strictly rejects it ( p = 0 .036 ), thereby uniquely matching only the ambient dimension. In all cases, the hypothesis that probes are unconditionally uniform in the ambient space Rdh cannot be rejected. 
+
+Remark H.12 (Ambient-Dimension Matching and Signal Sparsity) . A notable finding is the degree to which the probes match the ambient dimension dh rather than the stable rank reff . Within the perturbative quiet-subspace model (§H.6), this ambient-dimension matching is explained by the pronounced signal sparsity quantified in Assumption 3.2: across all four models, the truthfulness signal accounts for only 0.54 –0.66% of the total variance (Table 16, energy fraction row). The 
+
+0.37% upper bound reported in the main text (Table 2) refers to the selected-head probe-energy diagnostic; the 0.54 –0.66% values arise from the fixed-head protocol used solely for isotropy testing. Both are below the random-direction baseline 1/d h ≈ 0.78% . A random direction in Rdh would capture 1/d h ≈ 0.78% of the total variance in expectation. The probe directions capture comparable or even less energy, indicating that they are essentially indistinguishable from random directions with respect to the covariance structure. Therefore, while the covariance spectrum concentrates energy in a reff -dimensional effective subspace, the probe directions vl are not confined to this subspace. Instead, they explore the full ambient space Rdh to locate the sparse truthfulness signal in the variance-minimising complement, yielding inner products that scale as O(d−1/2 
+
+> h
+
+) rather than 
+
+O(r−1/2eff ).
+
+Remark H.13 (Implications for the Depth Aggregation Argument) . Where the observed inter-layer correlations scale as O(d−1/2 
+
+> h
+
+) (as confirmed for Qwen2.5-7B and supported by the remaining models), the quasi-independence of readout frames is stronger than the conservative reff -based 35 Table 16: Isotropy verification results across four models. The ambient-sphere null ( Sdh−1) is not rejected at α = 0 .05 for any model; the stable-rank null is rejected for Qwen2.5-7B ( p = 0 .036 )but not for the others. The permutation test confirms that real probe inner products are statistically indistinguishable from those of random vectors on the ambient sphere for all evaluated models, supporting the isotropy property required by Proposition H.7. 
+
+Statistic Qwen-7B Qwen-14B LLaMA-2-7B LLaMA-3.1-8B 
+
+Layers m / dh 28 / 128 48 / 128 32 / 128 32 / 128 Mid-layer AUC .721 ±.053 .731 ±.048 .685 ±.029 .734 ±.051 
+
+Mid-layer reff 30 .0±15 .1 28 .6±17 .0 33 .0±19 .9 21 .8±12 .9
+
+Energy frac. 0.64% 0.66% 0.63% 0.54% 
+
+Test 1: Inner Product Distribution 
+
+E[| cos |] (obs.) 0.066 0.083 0.082 0.093 p2/(πd h) 0.071 p2/(πr eff ) 0.140 0.143 0.134 0.160 KS ( reff ), p 0.073 0.179 0.177 0.299 Shapiro–Wilk, p 0.594 0.998 0.601 0.721 
+
+Test 2: Gap Independence 
+
+Trend slope −0.0007 −0.0002 −0.0019 −0.0018 
+
+ptrend 0.646 0.762 0.086 0.252 
+
+pANOVA 0.617 0.734 0.757 0.304 
+
+Test 3: Permutation Test ( nperm = 10 ,000 )
+
+KS vs Sdh−1, p 0.550 0.652 0.059 0.079 KS vs Sreff −1, p 0.036 0.186 0.260 0.390 
+
+Table 17: Discriminative content of Kl-components (out-of-fold). Each Kl is decomposed into probe drift ( Kprobe ), metric drift ( Kmetric ), head change ( Khead ), and bias drift ( Kbias ; constant per layer, omitted). |signal | = max(AUC , 1−AUC) . ∆(gap) reports the chance-corrected gap 
+
+(|signal | − μnull ) as a percentage of K’s gap; μnull ≈ 0.512 is the permutation-null mean ( n=200 ). All values are averaged over the fixed recognition-zone transition window defined in Eq. (15). 
+
+|signal | AUROC ∆(gap) (%) Model Dataset K Kprobe Kmetric Khead K Kprobe Kmetric Khead 
+
+> LLaMA-2-7B
+
+HaluEval2 .634 .640 .528 .525 100 104.8 13.4 10.2 TrueFalse .787 .755 .567 .591 100 88.4 20.3 28.7 HELM .688 .663 .529 .543 100 85.8 9.7 17.6 
+
+> LLaMA-3.1-8B
+
+HaluEval2 .658 .647 .541 .549 100 92.2 19.4 24.9 TrueFalse .790 .756 .582 .593 100 88.1 25.4 29.2 HELM .669 .662 .539 .529 100 95.5 17.2 11.3 
+
+> Qwen2.5-7B
+
+HaluEval2 .653 .654 .523 .537 100 100.7 7.7 17.7 TrueFalse .751 .734 .568 .592 100 92.9 23.5 33.4 HELM .691 .676 .539 .553 100 91.8 15.1 22.8 
+
+Average .702 .688 .546 .557 100 93.4 16.9 21.8 
+
+prediction. For Qwen2.5-7B, the ratio reff /d h ≈ 0.23 implies a factor-of-√4.3 improvement in pairwise independence relative to the reff -based prediction. Even for models where the evidence is compatible with an intermediate deff between reff and dh (e.g. LLaMA-3.1), the reff -based prediction provides a conservative upper bound on adjacent-probe correlation, while the ambient-dimension prediction serves as a tighter (lower-correlation) model supported most clearly by Qwen2.5-7B. This matching strengthens the geometric basis for the level–shape decomposition in Remark 3.4: the near-orthogonality of readout frames ensures that the common-mode signal αi is robustly captured across depth while the layer-specific residual εi,l benefits from effective averaging. 36 Table 18: Marginal variance and mean per-layer covariance of K-components. Each cell reports 
+
+El[Cov( Kil , K jl )] averaged over the fixed recognition-zone transition window defined in Eq. (15). The strong negative covariance between Kmetric and Khead explains why P 
+
+> i
+
+Var( Ki) ≫ Var( K):metric drift and head-switch effects partially cancel, leaving the comparatively small Var( K) residual. 
+
+Model Dataset σ2 
+
+> probe
+
+σ2 
+
+> metric
+
+σ2 
+
+> head
+
+Cov(m,h) σ2
+
+> K
+
+LLaMA-2-7B HaluEval2 28.5 951.7 1076.6 −988.8 37.5 TrueFalse 95.1 430.3 600.2 −458.1 71.9 HELM 32.4 192.4 294.7 −222.4 28.6 LLaMA-3.1-8B HaluEval2 36.7 145.6 176.3 −136.1 28.5 TrueFalse 81.2 326.3 237.9 −201.3 170.3 HELM 33.2 427.5 430.9 −401.8 38.3 Qwen2.5-7B HaluEval2 20.0 43.3 47.2 −32.8 20.2 TrueFalse 73.6 188.2 268.6 −163.8 121.2 HELM 30.5 69.7 98.4 −68.3 20.5 
+
+## I Exact Parametrisation of Readout Mismatches 
+
+The readout change Kl arises from evaluating the layer-(l+1) answer-onset representation under two adjacent but distinct probe geometries. Because each layer selects its own attention head ( k∗ 
+
+> l
+
+vs. k∗
+
+> l+1
+
+;§A.1), Kl also absorbs the head-switch contribution: 
+
+Kl = ϕl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+) − ϕl(a(k∗  
+
+> l)
+> l+1
+
+). (63) 
+
+Lemma I.1 (Four-Way Decomposition of Kl). Let k∗ 
+
+> l
+
+denote the selected attention head at layer l.Let zl(·) denote the standardisation map attached to the selected layer-l probe, and let wl ∈ Rdh
+
+and ebl ∈ R denote the selected affine readout expressed in that standardised coordinate system, after the same positive rescaling used in Eq. (13) :
+
+ϕl(a) = w⊤ 
+
+> l
+
+zl(a) + ebl,
+
+wl := ewl,k ∗
+
+> l
+
+∥ bwl,k ∗ 
+
+> l
+
+∥2
+
+, ebl := 
+
+ebl,k ∗
+
+> l
+
+∥ bwl,k ∗ 
+
+> l
+
+∥2
+
+. (64) 
+
+Then 
+
+Kl = (wl+1 − wl)⊤zl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+)
+
+| {z }
+
+> Kprobe
+> l
+
++ w⊤
+
+> l
+
+zl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+) − zl(a(k∗ 
+
+> l+1 )
+> l+1
+
+)| {z }
+
+> Kmetric
+> l
+
++ w⊤
+
+> l
+
+zl(a(k∗ 
+
+> l+1 )
+> l+1
+
+) − zl(a(k∗  
+
+> l)
+> l+1
+
+)| {z }
+
+> Khead
+> l
+
++ ( ebl+1 − ebl)
+
+| {z }
+
+> Kbias
+> l
+
+,
+
+(65) 
+
+where a(k) 
+
+> l+1
+
+denotes the activation at layer l+1 from head k.Proof. Add and subtract w⊤ 
+
+> l
+
+zl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+) and w⊤ 
+
+> l
+
+zl(a(k∗ 
+
+> l+1 )
+> l+1
+
+) to the definition Kl = ϕl+1 (a(k∗ 
+
+> l+1 )
+> l+1
+
+)−
+
+ϕl(a(k∗  
+
+> l)
+> l+1
+
+). The identity is exact and holds for every sample and every layer transition. The four terms isolate algebraically distinct mechanisms: Kprobe  
+
+> l
+
+captures the change in probe direction (basis rotation), Kmetric  
+
+> l
+
+captures the standardisation-induced rescaling of the decision boundary, Khead  
+
+> l
+
+captures the effect of switching the selected attention head, and Kbias  
+
+> l
+
+captures the shift in decision threshold. 
+
+Empirical validation. To assess the discriminative contribution of each component, we evaluate Eq. (65) out-of-fold across three models and three benchmarks (Table 17). The reconstruction identity is verified to machine precision ( < 2 × 10 −13 ) in all conditions. The probe-drift component 37 Kprobe  
+
+> l
+
+recovers the large majority of the full Kl’s discriminative content, accounting for 93% 
+
+of its chance-corrected AUC gap on average (range: 86 –105% across conditions). By contrast, 
+
+Kmetric  
+
+> l
+
+and Khead  
+
+> l
+
+exhibit substantially weaker standalone label alignment ( 17% and 22% of the gap, respectively), despite contributing larger marginal variances (Table 18). This disparity arises because the metric-drift and head-change terms are strongly anti-correlated ( Cov( Kmetric  
+
+> l
+
+, K head  
+
+> l
+
+) < 0 across all conditions), producing large mutual cancellation that inflates individual variances while leaving their net class-discriminative contribution weak. These results indicate that the perturbative geometric model of Appendix H.6 correctly identifies the signal-carrying subspace of Kl: the class-relevant variation resides in probe-frame drift, whereas standardisation and head-switch effects contribute predominantly label-weak nuisance variance. In practice, the W /K separation therefore enables the framework to distinguish layers that ac-tively construct factual commitments (strong Wl) from layers where the readout frame undergoes implementation-level reconfiguration (large but weakly discriminative Kl). 
+
+## J Discussion: Scope, Limitations, and Theoretical Grounding 
+
+J.1 Scope of Pre-Decoding Detection 
+
+The present framework operates in the pre-decoding detection regime, wherein all internal-state readouts are extracted before the model emits any answer token. This paradigm is shared by several established white-box detectors, notably ITI-Probe [23], Fact-Probe [16], and IRIS [30]: in each case the readout position t⋆ is determined entirely by the prompt and no generated text is observed. By construction, this regime restricts the detection scope to a specific and practically important class of errors that we term propensity hallucinations : instances in which the model’s internal state at the answer-onset position already encodes a commitment to a factual or hallucinated response trajectory. 
+
+Distinction from Generative Hallucinations. Not all hallucinations originate at the recall stage. Auto-regressive error accumulation (the “snowball effect”), attention drift during long-form genera-tion, and multi-step reasoning failures can all produce hallucinated content even when the model’s initial factual commitment is correct. Our method does not claim to detect these generative hallucina-tions , which by definition require observing the generated token sequence. 
+
+Single-Response Granularity. A related scope constraint is the unit of analysis: each probe evaluation corresponds to a single query–response pair, where the readout is extracted at the answer-onset position of one atomic prompt. This per-response setting is consistent with the evaluation paradigm adopted by prior representation-based detectors, including ITI [23], FACT-Probe [16], and IRIS [30], all of which assess factuality propensity on individual statements rather than across multi-turn dialogues or extended reasoning chains. Consequently, hallucinations arising from cross-turn context degradation or iterative error propagation in agentic pipelines fall outside the current detection scope. 
+
+Coverage Argument. Despite this scope restriction, pre-decoding detection covers a large and practically critical class of errors: 1. Entity-level factual errors , the dominant failure mode in question answering, summarisation, and retrieval-augmented generation, originate from incorrect knowledge retrieval and are fully captured by the answer-onset representation. 2. Confident confabulation , where the model lacks sufficient confidence yet generates a response regardless, manifests as a characteristic trajectory signature (low mean, high volatility) detectable before emission. 3. Multi-step tasks : even the Agentic benchmark, which involves complex sequential reasoning, yields 97 .86% AUROC, suggesting that the answer-onset state captures substantial hallucination propensity even for compositional tasks. 
+
+Practical Advantages. Pre-decoding detection enables real-time intervention before any halluci-nated content reaches the user, requires no additional decoding or sampling beyond the forward pass used to obtain internal states, and is compatible with speculative decoding and early-exit architectures. Comparisons to post-generation detectors (e.g. HalluGuard) should be interpreted as cross-regime evaluations under different information budgets rather than direct method-to-method contests. 38 J.2 Probe Generalisation 
+
+A potential concern with supervised probing is that the learned direction vl may exploit entity-specific or topic-specific shortcuts rather than isolate a genuine truthfulness signal. We argue that the pipeline architecture, evaluation protocol, and independent statistical verification jointly mitigate this failure mode. 
+
+Capacity Constraints. Each layer-wise probe is a rank-1 linear projection ( Rdh → R), and the terminal classifier is an L2-regularised logistic regression over the trajectory mean ¯L (2 free parameters). Although the full pipeline includes m independently trained probes (each with dh + 1 
+
+parameters), the information bottleneck at the scalar trajectory mean substantially limits the effective capacity presented to the classifier. This bottleneck renders memorisation of high-dimensional entity-specific associations unlikely, yet does not a priori exclude all forms of shortcut learning; the cross-domain and probe-free evaluations below address this residual concern. 
+
+Cross-Domain Invariance. The evaluation spans 18 topically disjoint sub-datasets: five HaluEval2 knowledge domains, seven TrueFalse entity categories, and six HELM source-model distributions. Stable discriminative performance across these non-overlapping semantic domains contraindicates topic-specific overfitting, as locally fitted decision boundaries would fail to transfer across distribu-tional shifts of this magnitude. 
+
+Probe-Free Verification. The geometric validation of signal sparsity (Table 2, right block) relies on strictly parameter-free statistics: the Chen and Qin [8] high-dimensional two-sample test and bias-corrected energy estimators operate on the raw activation distributions al without any trained probe. The concordance between these non-parametric diagnostics and the probe-derived measurements confirms that the observed class separation is an intrinsic property of the representation geometry rather than a probe-induced artefact. 
+
+J.3 Societal Impacts Positive Impacts. We identify two channels through which this work may benefit the broader community. 1. Improved reliability in safety-critical deployments. Pre-decoding hallucination detection enables real-time intervention before unfaithful content reaches the user, directly reducing the risk of factual errors propagating through downstream applications in healthcare, legal, and financial domains. By operating at the answer-onset position without requiring additional sampling or decoding, the framework is compatible with latency-sensitive pipelines where post-generation verification would be impractical. 2. State-of-the-art detection quality. Consistent improvements over the strongest white-box baselines across six models and five benchmarks—with gains of up to fourteen AUROC points on challenging sequential-reasoning tasks—establish a new performance standard for pre-decoding hallucination detection. Reliable detection quality is a prerequisite for real-world trust: a detector that merely matches existing baselines would offer limited incentive for adoption, whereas the demonstrated performance gains make deployment practically worthwhile and lower the barrier for organisations to integrate hallucination safeguards into production systems. 
+
+Potential Risks. Two residual concerns merit attention in deployment contexts. 1. Scope misunderstanding. As discussed in §J.1, the framework targets hallucinations encoded at the answer-onset position; generative hallucinations arising from auto-regressive error ac-cumulation or multi-step reasoning failures fall outside its detection scope. Deployers should communicate these coverage boundaries to end users to prevent a false sense of security. 2. Adversarial evasion. Publication of the geometric characterisation could inform adversarial prompts designed to suppress trajectory-level signatures, though such attacks would require white-box access and are constrained by the high-dimensional representation geometry. Overall, we believe the net societal impact of this work is positive: it provides a lightweight, theoreti-cally grounded, and high-performing tool for hallucination mitigation that addresses a pressing safety concern in large language model deployment, while simultaneously contributing reusable analytical instruments for advancing the community’s mechanistic understanding of model truthfulness. 39

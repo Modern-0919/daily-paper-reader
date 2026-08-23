@@ -1,0 +1,1113 @@
+Title: Mixture-of-Expert Blocks Contain Strong Hallucination Detection Signals
+
+URL Source: https://arxiv.org/pdf/2608.17687v1
+
+Published Time: Wed, 19 Aug 2026 00:53:42 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+# Mixture-of-Expert Blocks Contain Strong Hallucination Detection Signals 
+
+# Joao Fonseca 1, Rodrigo Rodrigues 1, 2 , Paolo Romano 1, 2 ∗
+
+> 1
+
+INESC-ID, Rua Alves Redol, 9, Lisbon, 1000-029 Portugal 
+
+> 2
+
+Instituto Superior Técnico {joaofonseca, rodrigo.rodrigues, romano}@inesc-id.pt 
+
+Abstract 
+
+Despite their widespread use, Large Language Models (LLMs) remain limited by a fundamental problem: the gen-eration of plausible but false content, known as hallucina-tions . Most existing detection methods operate at the answer or sentence level, yet per-token detection is essential for lo-calizing hallucinated spans and enabling fine-grained inter-ventions. In this paper, we explore the use of the Mixture-of-Experts (MoE) paradigm to address this gap. In MoE ar-chitectures, a single forward pass activates a sparse subset of experts ( i.e., distinct feedforward networks per layer) via a routing mechanism, producing internal signals ( e.g., router entropy, expert disagreement, and expert usage patterns) that are unavailable in dense architectures and have not been pre-viously exploited for hallucination detection. To this end, we introduce InnerExpert , the first method to leverage these MoE-specific signals for per-token hallucination detection. 
+
+InnerExpert combines routing-level and standard trans-former signals into compact per-token feature vectors, clas-sified by a lightweight detector trained on labels produced by an LLM-as-a-judge pipeline, which enables continuous model updates without manual annotation. Our results show that InnerExpert outperforms existing methods across five datasets and two MoE architectures, achieving up to 0.91 answer-level and 0.76 token-level AUROC, while requiring only a single forward pass. 
+
+Code — https://github.com/joaopfonseca/InnerExpert-Hallucination-Detection 
+
+# 1 Introduction 
+
+The reliability of Large Language Models (LLMs) is often questioned due to the risk of generating plausible but false content, commonly referred to as hallucination (Alansari and Luqman 2026). Hallucinations are particularly preva-lent when LLMs are prompted for information that is outside their training distribution ( e.g., post-training events or highly specialized knowledge) (Vu et al. 2024). Despite the impor-tance of this problem, detecting hallucinations reliably and efficiently remains an open challenge. The Mixture-of-Experts (MoE) paradigm has become prevalent in frontier open-weight LLMs, as it allows for larger parameter counts and greater model performance at a feasible inference cost (Cai et al. 2025). A distinctive prop-erty of MoE models (as opposed to dense models) is that a 
+
+> ∗
+
+Corresponding author. Copyright © 2027, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. A hundred chefs gathered in London to bake the longest-ever version of which dessert?                              
+
+> Self-Attention
+> Add +Normalize
+> Mixture-of-Experts Layer
+> Router
+> FFN 1FFN 2FFN 3FFN 4FFN 5
+> Add +Normalize
+> InnerExpert
+> Attention Score
+> Router Entropy
+> Expert usage frequency
+> Gini Impurity Classifier
+> Inv. Herfindahl index
+> Expert Score
+> Expert Sim.
+> Hidden Score
+> Output Entropy
+> 0.1
+> The longest-ever version of a**croquembouche**.
+
+0.99 0.2  0.3  0.4  0.99  
+
+> Per-token evaluation
+> 0.92
+> Answer
+> score
+
+Figure 1: Overview of InnerExpert . A single forward pass through the MoE model exposes internal signals ( i.e., 
+
+router distributions, per-expert hidden states, and expert us-age patterns) which are combined into per-token hallucina-tion scores. forward pass selects, via a routing function, a sparse subset of 
+
+experts (i.e., feedforward networks) per layer (Fedus, Zoph, and Shazeer 2022). This process produces a large amount of signals, most of which are unavailable in dense architectures, such as router entropy, disagreement between experts’ hidden states, and the distribution of expert usage over a sequence. Figure 1 illustrates this approach at a high level. Although this approach may allow the development of cheap and efficient hallucination detection methods, to the best of our knowledge, no prior work leverages MoE-specific arXiv:2608.17687v1 [cs.AI] 18 Aug 2026 internal signals to detect hallucinations in LLMs. These sig-nals have been shown to relate to epistemic uncertainty (Pavl-itska et al. 2025), providing a theoretical motivation for their use in hallucination detection; we develop this connection in Appendix A. Moreover, because MoE routing decisions are made at each token, these signals are naturally aligned with per-token granularity, enabling fine-grained localization of hallucinated spans. However, most existing methods oper-ate at the answer or sentence level and do not provide such capability. Existing hallucination detection methods can be grouped into three paradigms. Sampling-based approaches, such as SelfCheckGPT (Manakul, Liusie, and Gales 2023) and Se-mantic Uncertainty (Kuhn, Gal, and Farquhar 2023), probe consistency across samples (obtained via multiple forward-passes), which is expensive at inference time. INSIDE (Chen et al. 2024) is a sampling-based method that also utilizes hid-den states over multiple responses. Internal-signal methods, such as LLM-Check (Sriramanan et al. 2024), and MIND (Su et al. 2024), operate on hidden states and attention in a single pass, but generally employ a limited subset of these sig-nals and ignore the MoE-specific routing structure. Train-able detectors, such as HaluNet (Tong et al. 2025) and Fa-cLens (Wang et al. 2025), learn classifiers using dense trans-former signals over entire answers, but none of these oper-ate at the token level. A complementary line of work on uncertainty estimation decomposes predictive uncertainty into aleatoric and epistemic components (Hüllermeier and Waegeman 2021; Yadkori et al. 2024), providing theoret-ical motivation for internal-signal approaches, while Pavl-itska et al. (2025) show that MoE-specific signals capture epistemic uncertainty in the vision domain. Additional de-tails on the above approaches are provided in Appendix B. 
+
+InnerExpert addresses these gaps by systematically ex-tracting and combining routing-level signals with standard transformer signals into a unified hallucination detection framework. 
+
+InnerExpert combines the internal-signal and trainable-detector paradigms. It preserves the single-pass efficiency of internal-signal methods while adopting the trainable-classifier approach of detectors, leveraging the fact that MoE models expose additional routing-level signals, such as router entropy, expert disagreement, and expert us-age patterns. To the best of our knowledge, no prior method explores these signals for hallucination detection in text generation. Furthermore, most existing methods operate at the answer or sentence level; per-token hallucination detec-tion, which enables fine-grained localization of hallucinated spans, remains largely underexplored. InnerExpert com-bines MoE-specific signals at per-token granularity, ad-dressing both gaps simultaneously. Importantly, we show that InnerExpert achieves state-of-the-art performance in hallucination detection using simple classifiers, i.e., with-out employing complex architectures such as in HaluNet or FacLens, which we leave to future work. In summary, our contributions are as follows: 
+
+1 We propose InnerExpert , a single-pass, per-token hallucination detector that observes the model’s internal states and leverages MoE-specific internal signals, requiring no modifications to the host LLM or additional sampling. 
+
+2 We formalize an unsupervised training approach for per-token hallucination detection, designed to train 
+
+InnerExpert , based on LLM-based labeling of generated answers against reference evidence. 
+
+3 We demonstrate that InnerExpert achieves an average competitive performance of up to 0.91 AUROC at the answer-level and 0.76 AUROC at the token-level. in the hallucination detection task across five datasets and two different open-weight MoE architectures, against baselines spanning the sampling-based, internal-signal, and trainable paradigms. 
+
+4 We formalize an inventory of six MoE-specific signals alongside the standard hidden state and attention scores used in prior work, enabling a systematic study of which routing signals carry hallucination-discriminative information. 
+
+# 2 Background 
+
+Hallucination in LLMs. We consider an autoregressive LLM with parameters θ that, given a prompt ( i.e., se-quence of input tokens) x = (x1, . . . , x U ), generates a sequence y = ( y1, . . . , y T ) by sampling each token from 
+
+pθ (yt | x, y <t ). A hallucination corresponds to a subset of fluent and internally coherent tokens yh ⊆ y that are factu-ally incorrect or unsupported (Alansari and Luqman 2026). 1
+
+Mixture-of-Experts and Its Internal Signals. A MoE re-places each feedforward sublayer of a standard transformer architecture with a sparse mixture of N expert networks 
+
+{E1, . . . , E N } and a gating (router) network, parameterized by Wgl , that selects a subset of k experts per layer, per to-ken (Fedus, Zoph, and Shazeer 2022). Let ht,l ∈ Rd de-note the hidden state at token position t entering layer l.Within layer l, the self-attention sublayer and subsequent post-attention layernorm produce an intermediate represen-tation h′ 
+
+> t,l
+
+∈ Rd that serves as input to the MoE sublayer. The router produces a probability distribution over experts from this representation, 
+
+gl(h′
+
+> t,l
+
+) = softmax  Wgl h′
+
+> t,l
+
+ ∈ RN , (1) a subset St,l ⊆ { 1, . . . , N } of k experts is then selected (typically by top-k), and the MoE sublayer contribution is the weighted combination of expert outputs, added to the residual stream to form the hidden state entering the next layer: 
+
+ht,l +1 = ht,l + MoE l(h′
+
+> t,l
+
+),
+
+MoE l(h′
+
+> t,l
+
+) = X
+
+> i∈S t,l
+
+gl,i (h′
+
+> t,l
+
+) Ei(h′
+
+> t,l
+
+). (2) A single forward pass of an MoE model therefore exposes internal signals that are unavailable in dense architectures.   
+
+> 1Some incorrect outputs reflect the faithful propagation of er-roneous content already present in the training data or in retrieved context, rather than a generation failure per se; both sampling-based and internal-signal detectors treat such cases as low-uncertainty by design. The temporal-out-of-distribution evaluation we employ (Section 4) mitigates this conflation, since incorrect answers to post-training questions are predominantly fabrications.
+
+Hallucination detection. InnerExpert aims to pro-duce a score s(yt) ∈ [0 , 1] for each generated token yt and, by aggregation, an answer-level score S(y) = agg( {s(yt)}Tt=1 )
+
+that indicates the likelihood that yt (or y) is hallucinated. We compute s(yt) from the internal signals I(yt) that the model exposes during a single forward pass: aggregate and per-expert hidden states, attention weights, output logits, cu-mulative routing distributions and expert activations. A token is flagged as hallucinated when s(yt) exceeds a threshold τ ,which can be tuned to trade off precision for recall using standard methods; the answer-level prediction is obtained by aggregating per-token scores ( e.g., by mean or max) and thresholding. The specific signals and scoring function used in InnerExpert are defined in Section 3. 
+
+# 3 InnerExpert 
+
+InnerExpert combines MoE-specific internal signals and combines them via a meta-expert ( i.e., a trained classi-fier) into per-token hallucination scores (as summarized in Figure 1). Since the host model’s signals are very high-dimensional, the Expert is intentionally fed a compact set of scores derived from the internal signals, rather than the raw hidden states, attention matrices and router logits. Al-though it is not required to modify the host model and no additional generations are needed beyond the forward passes that produce the answer under evaluation, some practical im-plementation challenges must be considered to achieve the full observability of the host model, which we detail in Ap-pendix D. 
+
+3.1 Architecture 
+
+During generation, InnerExpert intercepts the model’s forward pass at each decoding step and collects a compre-hensive set of internal signals at every layer. We distinguish between standard signals , available in any transformer-based architecture, and MoE-specific signals , which arise from the routing structure and are absent in dense architectures. All signals are computed cumulatively over the generated prefix 
+
+y≤t, yielding a per-token value at each generation step t.
+
+Standard signals. We adapt two complementary signals from LLM-Check (Sriramanan et al. 2024), which proposes single-pass internal signals that correlate with hallucination in prior work. The hidden state score captures representa-tional redundancy across the generated sequence, while the attention score captures the model’s focus patterns; both are computed cumulatively over the prefix, aligning naturally with per-token granularity: 
+
+Hidden state score. For each layer l, let Ht,l ∈ Rt×d
+
+denote the matrix of hidden states {h1,l , . . . , ht,l } collected up to position t. Following Sriramanan et al. (2024), we compute the centered covariance Σt,l = H⊤
+
+> t,l
+
+J H t,l + αI,where J = I − 1 
+
+> d
+
+11 ⊤ centering over the hidden dimension and α > 0 is a regularization constant (we use α = 0 .001 ). The hidden state score is the mean log-singular-value of Σt,l :
+
+ϕhid  
+
+> t,l
+
+= 1
+
+t
+
+> t
+
+X
+
+> j=1
+
+log σj (Σt,l ) , (3) where σj (·) denotes the j-th singular value. Low values indi-cate low-rank (redundant) hidden representations, associated with confident generation (Sriramanan et al. 2024). 
+
+Attention score. Let At,l,h ∈ Rt×t be the attention matrix of head h at layer l up to position t. The attention score is the log-cumulative sum of the diagonal entries of the attention kernel: 
+
+ϕatt  
+
+> t,l,h
+
+=
+
+> t
+
+X
+
+> j=1
+
+log( At,l,h [j, j ] + ϵ) , (4) where ϵ is a small constant for numerical stability. The di-agonal of the attention kernel equals its eigenvalues, so this quantity approximates the log-determinant of the attention similarity matrix (Sriramanan et al. 2024). 
+
+MoE-specific signals. The routing structure of MoE mod-els exposes additional signals unavailable in dense archi-tectures. We define six signals covering three complemen-tary aspects of routing behavior: routing uncertainty (router entropy), expert-level representation quality (expert hidden score, expert similarity), and routing distribution dynamics (expert usage distribution, Gini impurity, inverse Herfind-ahl). This selection is grounded in the connection between MoE routing and epistemic uncertainty (Pavlitska et al. 2025), detailed in Appendix A: 
+
+Router entropy. The entropy of the gating distribution at each layer, 
+
+ϕrout  
+
+> t,l
+
+= H gl(h′
+
+> t,l
+
+) = −
+
+> N
+
+X
+
+> i=1
+
+gl,i (h′
+
+> t,l
+
+) log gl,i (h′
+
+> t,l
+
+), (5) is high when the router is uncertain about which expert should handle the token, suggesting the input falls in a region where the model’s knowledge may be insufficient. 
+
+Expert hidden score. Each selected expert i ∈ S t,l pro-duces an output et,l,i = Ei(h′
+
+> t,l
+
+). We compute the hidden state score (Eq. 3) independently for each expert’s output sequence and aggregate via the routing weights: 
+
+ϕexp -hid  
+
+> t,l
+
+= X
+
+> i∈S t,l
+
+gl,i (h′
+
+> t,l
+
+) ϕhid 
+
+> t,l,i
+
+, (6) where ϕhid  
+
+> t,l,i
+
+is the hidden state score computed from the per-expert output sequence {e1,l,i , . . . , et,l,i }. This measures whether the activated experts individually produce confident representations. 
+
+Expert similarity. Low pairwise similarity among the acti-vated experts’ outputs indicates disagreement, analogous to ensemble disagreement, which has been shown to capture epistemic uncertainty (Pavlitska et al. 2025). We compute the routing-weighted average of pairwise cosine similarities: 
+
+ϕsim  
+
+> t,l
+
+= X
+
+> i∈S t,l
+
+X
+
+> j∈S t,l
+
+gl,i (h′
+
+> t,l
+
+) gl,j (h′
+
+> t,l
+
+) cos( et,l,i , et,l,j ) .
+
+(7) with low values indicating that the activated experts produce inconsistent representations for the current token. 
+
+Expert usage distribution. We maintain a cumulative count of expert selections up to position t, weighted by routing probabilities and normalized into a distribution: 
+
+ut,l =
+
+Ptt′=1 ct′,l 
+
+Ptt′=1 ct′,l 1
+
+∈ ∆N −1, (8) where 
+
+ct′,l,i =
+
+gl,i (h′
+
+> t′,l
+
+) if i ∈ S t′,l 
+
+0 otherwise (9) retains the routing probability for each selected expert and zeros out the rest. This distribution captures how routing has evolved over the generated sequence. 
+
+Gini impurity. The Gini impurity of the expert usage dis-tribution, 
+
+ϕgini  
+
+> t,l
+
+= 1 −
+
+> N
+
+X
+
+> i=1
+
+u2
+
+> t,l,i
+
+, (10) is high when many experts are selected equally often (scat-tered routing) and low when few experts dominate. 
+
+Inverse Herfindahl index. The inverse Herfindahl index, or effective number of experts, 
+
+ϕherf  
+
+> t,l
+
+=
+
+> N
+
+X
+
+> i=1
+
+u2
+
+> t,l,i
+
+!−1
+
+, (11) captures how many experts are effectively contributing to the generation. A value close to 1 indicates a single expert dominates; a value close to N indicates uniform usage. These signals expose the model’s routing behavior and the consistency of the experts’ hidden states at the token level. A summary of the metrics computed and their dimensionalities (for a single forward pass) is available in Appendix C. To the best of our knowledge, no prior work leverages these signals for hallucination detection. 
+
+Feature Assembly. In order for the signals to be used as input to the hallucination expert, for each generated token yt,the per-layer signals are flattened into a single feature vector in a fixed order, 
+
+Φt = {ϕhid  
+
+> t,l
+
+, ϕ att 
+
+> t,l, 1
+
+, . . . , ϕ att 
+
+> t,l,h
+
+, ϕ rout  
+
+> t,l
+
+,ϕexp -hid  
+
+> t,l
+
+, ϕ sim  
+
+> t,l
+
+, ϕ gini  
+
+> t,l
+
+, ϕ herf  
+
+> t,l
+
+, ut,l }. (12) Signals are collected only for generated tokens (not the prompt prefix). During classifier training, all features except the expert usage distribution (which is already bounded in 
+
+[0 , 1] ) are standardized via z-score normalization; the expert usage ratios are passed through unscaled. 
+
+Per-token hallucination scoring. As stated in Section 2, our goal is to produce a scoring function s(yt, Φt) ∈ [0 , 1] 
+
+that predicts the probability that a generated token yt is hal-lucinated. In InnerExpert , s is a lightweight classifier trained on labeled data (Section 3.2). Any standard ML clas-sifier can be used; we evaluate five families (Logistic Re-gression, Random Forest, XGBoost, a multilayer perceptron, and a Transformer encoder). Full hyperparameter grids are provided in Appendix D. 
+
+Answer-level aggregation. Finally, the answer-level score is obtained by aggregating per-token scores: 
+
+S(y) = agg  {s(Φ t)}Tt=1 
+
+ , (13) where agg is the mean or max operator. In our implementa-tion we use the max operator, i.e., we consider an answer to be hallucinated if any of its tokens is predicted to be halluci-nated. Therefore, an answer is flagged as hallucinated when 
+
+S(y) exceeds a threshold τ . We discuss potential uses of τ
+
+in future work for domain certification and controlled text generation in Appendix G. 
+
+3.2 Training Supervision 
+
+We aim to set up a training regime for InnerExpert that does not require manual annotation of hallucinations and al-lows for continuous model updates without manual effort. To do this, we leverage the RealTime QA platform (Kasai et al. 2023) to obtain a stream of question-answer pairs (x, y) with reference evidence e, where y is generated by the host model. In our experiments, we use questions posed between January 1st 2024 and December 31st 2025 for training. Afterwards, we form per-token hallucination labels with LLM-as-a-judge evaluation (Zheng et al. 2023). In our experiments, we use GLM-5.1 as the judge. For each question, the host model generates two answers: one with access to the reference ev-idence, to emulate retrieval-augmented generation, and one without, which is more likely to contain hallucinations. 
+
+Answer-level labels. For each generated answer, an LLM judge compares the answer against reference evidence and produces (i) a binary hallucination label and (ii) a list of hallucinated span strings (exact substrings from the answer). The judge is prompted to return structured JSON with a label field ( 1 = hallucinated, 0 = grounded) and a field listing the hallucinated substrings. 
+
+Token-level labels. The hallucinated spans are mapped to per-token binary labels: a token yt is labeled as hallucinated (ℓt = 1 ) if its character span overlaps with any hallucinated span, and as grounded ( ℓt = 0 ) otherwise. This produces a token-level supervision signal aligned with the feature vector 
+
+Φt.
+
+Train/validation split. The labeled data is split into train-ing and validation sets stratified by hallucination rate, grouped by question identifier to prevent leakage between an-swers to the same question. The validation set is used to com-pute model performance while performing hyperparameter grid search on the classifier. The best-found hyperparameter set per model is used to train a final model on the combined training and validation sets. The final model is evaluated on a held-out test set, and the threshold τ is selected to maximize F1-Score over all the labeled data. Out-of-distribution evalu-ation is performed on data from a temporally disjoint period (see Section 4). We validate the quality of the LLM-as-judge labels against human annotations in Appendix F.2. 
+
+# 4 Experiments 
+
+Our experimental procedure is organized around four re-search questions (RQs): RQ1: Can InnerExpert serve as a reliable indicator of per-token hallucination? RQ2: 
+
+How does InnerExpert compare to existing halluci-nation detection baselines spanning the sampling-based, internal-signal, and trainable-detector paradigms? RQ3: 
+
+Which signals contribute most to hallucination detection per-formance? RQ4: How reliably does the LLM-as-a-judge la-beling pipeline produce ground-truth hallucination labels? The LLM-as-a-judge evaluation is detailed in Appendix F.2. 
+
+Baselines. We compare InnerExpert against baselines spanning the three paradigms identified in Section 1. These baselines are also briefly described in Appendix B. For sampling-based methods, we generate K=5 stochastic sam-ples per question with temperature 0.7 and top-p=0 .9.
+
+• Sampling-based. We evaluate two variants of SelfCheck-GPT (Manakul, Liusie, and Gales 2023): the NLI-based vari-ant and a prompt-based variant. We also evaluate Semantic Uncertainty (Kuhn, Gal, and Farquhar 2023) and Semantic Energy (Ma et al. 2025). 
+
+• Internal-signal. We evaluate two scoring variants from LLM-Check (Sriramanan et al. 2024), attention score and hidden score, evaluated independently with per-token scores aggregated to answer level via mean and max. As standard floor baselines, we include the logit entropy ( i.e., per-token Shannon entropy of the model’s output distribution) and per-plexity. 
+
+• Trainable. We evaluate HaluNet (Tong et al. 2025), a multi-branch neural detector that fuses token-level log-likelihoods, entropy scores, and hidden-state embeddings. HaluNet is trained with binary cross-entropy loss. As no open-source implementation of HaluNet is available, we provide a re-implementation based on the architecture described in the paper; full hyperparameters are provided in Appendix D. 
+
+Datasets. We train InnerExpert and all baselines ex-clusively on RealtimeQA (Kasai et al. 2023) data from Jan-uary 2024 to December 2025, labeled via the unsupervised LLM-as-judge pipeline described in Section 3.2. We evaluate on two categories of test data: 1. A temporally out-of-distribution subset of RealtimeQA from January to June 2026 (365 questions), which tests whether the detector generalizes to post-training events. 2. Four additional QA datasets: SQuAD (Rajpurkar et al. 2016), TruthfulQA (Lin, Hilton, and Evans 2022), NQ-Open (Kwiatkowski et al. 2019; Lee, Chang, and Toutanova 2019), and FreshQA (Vu et al. 2024), sampled at 200 questions each, which test cross-dataset general-ization to different question distributions. All datasets contain English-language questions and answers. RealtimeQA and SQuAD additionally provide reference ev-idence; TruthfulQA, NQ-Open, and FreshQA do not. We leave multilingual hallucination detection to future work. Full dataset descriptions and summary statistics are provided in Appendix E. 
+
+Host models. We use two open-weight MoE models as host architectures: OLMoE-1B-7B-0924-Instruct (Muennighoff et al. 2025) (64 experts, 8 active per token) and Gemma-4-26B-A4B-it (Team et al. 2026) (128 experts plus 1 shared, 8 active per token). Although Gemma 4 is a multimodal model, we use it only for text-to-text generation. 
+
+Generation settings. For each question, the host model generates answers using greedy decoding with a maximum of 65 new tokens. For datasets that provide reference evidence (RealtimeQA and SQuAD), we generate two answers per question: one without evidence (base) and one with retrieved evidence (RAG simulation). For datasets without evidence (TruthfulQA, NQ-Open, and FreshQA), we generate only the base answer. This procedure is applied identically during both training and evaluation. For sampling-based baselines, we generate stochastic samples using the settings described in “Baselines”. 
+
+Hyperparameters. The InnerExpert classifier is se-lected via grid search over five different classifiers: Logistic Regression, Random Forest, XGBoost, and a multilayer per-ceptron (MLP). Hyperparameters are scored by F1 on a single validation fold (10% of training data, grouped by question identifier), and the best-performing hyperparameter sets per classifier is refit on the combined training and validation data. The decision threshold τ is then F1-optimized on this com-bined set via a precision-recall curve sweep. The complete hyperparameter grids are provided in Appendix F. 
+
+Performance metrics. We evaluate all methods at both an-swer level and token level. For threshold-independent com-parison, we report AUROC. For threshold-dependent com-parison, in Appendices F.3, F.4 and F.5 we report F1-Scores. All metrics are computed using the labels produced by the LLM-as-judge pipeline described in Section 3.2. 
+
+Hardware and software. All experiments were conducted on a machine with an AMD EPYC 9555P 64-core pro-cessor (128 threads), 258 GiB RAM, and two NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition GPUs (96 GiB VRAM each), using Ubuntu 26.04 LTS. The 
+
+InnerExpert classifier and baselines were trained using scikit-learn 1.8 and PyTorch 2.10. Hallucination labels were generated using GLM-5.1 accessed via the DeepInfra API. 
+
+4.1 Per-token hallucination detection (RQ1) 
+
+Table 1 reports token-level AUROC for InnerExpert and all baselines that produce per-token scores, across five eval-uation datasets and both host models. 2
+
+Predictive performance. All five InnerExpert clas-sifier variants exceed the best single-signal baseline in av-erage token-level AUROC on both host models, with the strongest variant reaching 0.762 on OLMoE (LR) and 0.753 on Gemma (XGBoost), improvements of 0.12 and 0.20 over the best baseline. Classifier is not stable across host models: XGBoost and MLP lead on Gemma, while LR and MLP perform best on OLMoE. Among single-signal baselines, logit entropy and the LLM-Check hidden state score are the strongest; the LLM-Check attention score yields AUROC 
+
+> 2Sampling-based methods (SelfCheckGPT, Semantic Uncer-tainty, Semantic Energy) and HaluNet operate at answer level by construction and are therefore excluded from the token-level com-parison.
+
+Table 1: Token-level results (AUROC) across datasets and host models.                                                                                                                       
+
+> FQA NQO RTQA SQuAD TQA Rank Avg Gemma-4-26B IE (LR) 0.705 0.635 0.759 0.785 0.740 3.0 0.725 IE (MLP) 0.710 0.662 0.756 0.806 0.715 2.6 0.730 IE (RF) 0.638 0.651 0.749 0.788 0.724 3.6 0.710 IE (Transf.) 0.656 0.619 0.716 0.760 0.722 4.6 0.694 IE (XGB) 0.711 0.678 0.805 0.802 0.767 1.2 0.753
+> LC (att.) 0.310 0.331 0.370 0.332 0.223 8.0 0.313 LC (hid.) 0.525 0.544 0.512 0.614 0.562 6.2 0.551 Entropy 0.523 0.540 0.514 0.571 0.559 6.8 0.541 OLMoE-1B-7B IE (LR) 0.732 0.737 0.830 0.787 0.726 2.0 0.762
+> IE (MLP) 0.740 0.741 0.840 0.742 0.704 2.0 0.754 IE (RF) 0.618 0.531 0.633 0.483 0.707 5.6 0.594 IE (Transf.) 0.610 0.568 0.718 0.420 0.777 5.0 0.619 IE (XGB) 0.739 0.728 0.810 0.682 0.719 2.8 0.736 LC (att.) 0.258 0.287 0.267 0.481 0.224 7.8 0.303 LC (hid.) 0.590 0.569 0.590 0.670 0.609 6.0 0.605 Entropy 0.636 0.621 0.653 0.650 0.634 4.8 0.639
+
+below 0.5 on both models, as the original LLM-Check for-mulation produces a single cumulative score per answer and our per-token adaptation did not yield a reliable per-token in-dicator. On the temporally out-of-distribution RealTimeQA test set, InnerExpert achieves its highest per-dataset AU-ROC, suggesting the learned mapping does not overfit to the training period. 
+
+Cross-dataset generalization. InnerExpert maintains a consistent advantage over single-signal baselines across all five evaluation datasets, including the three out-of-distribution QA datasets (FreshQA, NQ-Open, TruthfulQA) that differ substantially from the RealTimeQA training dis-tribution (SQuAD provides evidence in a similar way Re-alTimeQA does). Threshold-dependent results (F1) are re-ported in Appendix F.3. 
+
+4.2 Comparison to baselines (RQ2) 
+
+Table 2 reports answer-level AUROC for InnerExpert 
+
+against all baselines. 
+
+Baselines. InnerExpert (XGB) achieves the best aver-age AUROC on both host models, surpassing HaluNet, the strongest trainable baseline, despite using structurally dif-ferent input features and a complex classifier architecture. Sampling-based methods exhibit the largest cross-model variance: Semantic Energy is competitive on OLMoE (0.866) but near-random on Gemma (0.475), and Semantic Uncer-tainty shows a similar instability; SelfCheckGPT (NLI) is the most stable sampling-based baseline. Among internal-signal baselines, the LLM-Check hidden state score achieves competitive results. Threshold-dependent results (F1) are re-ported in Appendix F.4. 
+
+Inference cost. Figure 2 shows, InnerExpert (XGB) reaches the Pareto frontier, exceeding the AUROC of the Table 2: Answer-level results (AUROC) across datasets and host models.                                                                                                                                                                             
+
+> FQA NQO RTQA SQuAD TQA Rank Avg Gemma-4-26B HaluNet 0.836 0.835 0.937 0.945 0.952 3.2 0.901 IE (LR) 0.847 0.790 0.927 0.933 0.963 3.8 0.892 IE (MLP) 0.866 0.780 0.939 0.943 0.952 3.0 0.896 IE (RF) 0.752 0.832 0.870 0.919 0.937 5.8 0.862 IE (Transf.) 0.813 0.854 0.902 0.883 0.947 5.0 0.880 IE (XGB) 0.843 0.865 0.938 0.940 0.974 2.2 0.912
+> LC (att.) 0.650 0.711 0.616 0.887 0.724 8.0 0.718 LC (hid.) 0.680 0.834 0.445 0.949 0.704 7.0 0.722 Entropy 0.436 0.472 0.701 0.716 0.695 11.0 0.604 Perplexity 0.600 0.612 0.562 0.595 0.669 10.8 0.608 SCGPT (NLI) 0.646 0.630 0.713 0.760 0.788 8.2 0.707 SCGPT (P) 0.570 0.557 0.551 0.551 0.473 12.2 0.540 SemEnergy 0.437 0.429 0.553 0.506 0.452 13.4 0.475 SemUncert 0.526 0.512 0.614 0.670 0.597 11.4 0.584 OLMoE-1B-7B HaluNet 0.804 0.842 0.953 0.881 0.778 4.6 0.851 IE (LR) 0.920 0.784 0.924 0.802 0.898 4.2 0.865 IE (MLP) 0.973 0.923 0.953 0.692 0.826 4.2 0.874 IE (RF) 0.790 0.821 0.565 0.714 0.776 8.6 0.733 IE (Transf.) 0.721 0.510 0.649 0.329 0.839 10.0 0.610 IE (XGB) 0.943 0.926 0.928 0.786 0.825 4.0 0.882
+> LC (att.) 0.631 0.737 0.614 0.805 0.385 9.2 0.634 LC (hid.) 0.856 0.854 0.721 0.813 0.838 5.0 0.817 Entropy 0.245 0.170 0.530 0.768 0.191 11.8 0.381 Perplexity 0.146 0.051 0.182 0.367 0.113 13.8 0.172 SCGPT (NLI) 0.851 0.685 0.812 0.706 0.869 7.0 0.784 SCGPT (P) 0.622 0.550 0.644 0.564 0.531 11.2 0.582 SemEnergy 0.866 0.805 0.910 0.840 0.907 3.6 0.866 SemUncert 0.768 0.713 0.803 0.688 0.877 7.8 0.770
+
+strongest baselines while remaining single-pass, whereas sampling-based methods cluster in the high-cost region with-out a proportionate predictive performance gain. We provide a complete table with the inference times and peak memory usage in Appendix F.4, Table 14. Vanilla generation costs 1.15 s per 100 tokens on OLMoE and 3.83 s on Gemma. Standard internal-signal baselines add negligible overhead (< 10% ). Extracting the full set of MoE signals raises the cost to ∼ 2.5× vanilla, and the InnerExpert classifier adds only ∼ 0.7 s on top ( ∼ 3× vanilla overall), with negligi-ble difference across classifier variants and only ∼ 3% peak GPU memory overhead. HaluNet is substantially cheaper but underperforms InnerExpert in AUROC. Sampling-based methods are the most expensive category due to K=5 
+
+generation passes, with SelfCheckGPT (Prompt) requiring a second model instance that roughly doubles GPU memory. 
+
+4.3 Signal contribution analysis (RQ3) 
+
+Table 3 isolates the contribution of individual MoE-specific signals by reporting answer- and token-level AUROC for each signal independently, alongside the standard signals and the full InnerExpert classifier. 2 4 6Time (s) OLMoE-1B-7B 0.20.40.60.8AUROC 5 10 15 20 Time (s) Gemma-4-26B 0.40.60.8Method Expert Hidden Expert Similarity HaluNet InnerExpert (XGBoost) Inv. Herfindahl LLM-Check (att.) LLM-Check (hid.) Logit Entropy Perplexity Router Entropy SelfCheckGPT (NLI) SelfCheckGPT (Prompt) Semantic Energy Semantic Uncertainty Usage Entropy Usage Gini Markers MoE-Specific (Ours) Others Figure 2: Inference time (per 100 tokens) vs. answer-level AUROC (averaged across five evaluation datasets) for each detection method, measured on 50 RealTimeQA questions per host model. The gray, dashed line represents the pareto frontier. Table 3: Average AUROC for individual MoE signals, base-lines, InnerExpert (XGB). Each value is averaged across all five evaluation datasets per host model. Answer-level scores use the best aggregation per method. Methods without a token-level counterpart are marked “—”. 
+
+OLMoE-1B-7B Gemma-4-26B Method Answer Token Answer Token Inv. Herfindahl 0.685 0.675 0.784 0.602 Exp. Entropy 0.613 0.574 0.884 0.591 Exp. Gini 0.599 0.561 0.824 0.626 
+
+Expert Hidden 0.693 0.640 0.722 0.466 Expert Similarity 0.397 0.442 0.717 0.437 Router Entropy 0.565 0.574 0.327 0.446 Hid. Score 0.817 0.605 0.722 0.551 
+
+Att. Score 0.748 0.303 0.799 0.313 Logit Entropy 0.381 0.639 0.604 0.541 Perplexity 0.172 — 0.608 —IE (XGB) 0.882 0.736 0.912 0.753 
+
+IE (MLP) 0.874 0.754 0.896 0.730 HaluNet 0.851 — 0.901 —SCGPT (NLI) 0.784 — 0.707 —SCGPT (Prompt) 0.582 — 0.540 —SemUncert 0.770 — 0.584 —SemEnergy 0.866 — 0.475 —
+
+Individual MoE signals. No single MoE signal is uni-formly strong across both host models. Expert entropy and usage Gini are the strongest individual MoE signals on Gemma, approaching HaluNet, but are considerably weaker on OLMoE. Conversely, expert hidden score is the strongest individual MoE signal on OLMoE but is mid-ranking on Gemma. Expert similarity is near-random on OLMoE yet moderately informative on Gemma, and router entropy is anti-correlated on Gemma. 
+
+Combination benefit. Combining all signals via the 
+
+InnerExpert classifier yields consistent gains over the best individual signal, but the magnitude depends on the host model. On OLMoE, where individual MoE signals are weak, the combination provides a significant improvement: IE (XGBoost) reaches 0.882 answer-level AUROC, a gain of 0.197 over the best individual MoE signal. On Gemma, where expert entropy alone already achieves 0.884, the com-bination adds a consistent margin (IE XGBoost: 0.912). At the token level, the signal combination yields a larger relative gain. These results indicate that the InnerExpert classi-fier extracts complementary information from the signal set that is not available to any individual signal. 
+
+Standard signals. Among the standard signals, the LLM-Check hidden score is strong on OLMoE (0.817 answer) but drops on Gemma (0.722), while the attention score shows the opposite pattern (0.748 vs. 0.799) but degrades to near-random at the token level. Logit entropy is anti-correlated at answer level on OLMoE but moderately informative at the token level (0.639). Threshold-dependent results (F1) are reported in Appendix F.5. 
+
+# 5 Conclusion 
+
+We presented InnerExpert , a single-pass, per-token hal-lucination detector that leverages MoE-specific internal sig-nals, alongside standard transformer signals. Extensive ex-periments show that InnerExpert achieves up to 0.91 answer-level and 0.76 token-level AUROC, outperforming baselines spanning the sampling-based, internal-signal, and trainable-detector paradigms, while requiring only a single forward pass and modest computational overhead. Our signal contribution analysis reveals that no individual MoE signal is reliably strong across architectures, but combining them yields consistent gains, demonstrating that the combination of these signals yields information unavailable to any indi-vidual signal. 
+
+Limitations. Our human validation study (Appendix F.2) was evaluated on a small scale; we aim to expand it in fu-ture work with a larger sample size and annotator diversity. Additionally, our current evaluation is limited to the English language; future work will explore the generalizability of our approach over a more diverse set of languages. Finally, this paper demonstrates that MoE-specific signals can be lever-aged for hallucination detection. Hence, the classifiers used in InnerExpert are naturally lightweight. See appendix G for details. 
+
+# Acknowledgments 
+
+Work supported by national funds through Fundação para a Ciência e a Tecnologia, I.P. (FCT) un-der projects: UID/50021/2025 ( https://doi.org/10.54499/UID/ 50021/2025 ), UID/PRR/50021/2025 ( https://doi.org/10.54499/ UID/PRR/50021/2025 ), and CCloud (ref. 2023.16986.ICDT, 
+
+> https://doi.org/10.54499/2023.16986.ICDT
+
+). This work was also supported by the European Union’s Horizon Europe re-search and innovation program under Grant Agreement GAP-101189689. 
+
+# References 
+
+Alansari, A.; and Luqman, H. 2026. Large language models hallucination: A comprehensive survey. Computer Science Review , 61: 100970. Azaria, A.; and Mitchell, T. 2023. The internal state of an LLM knows when it’s lying. In Findings of the Association for Computational Linguistics: EMNLP 2023 , 967–976. Cai, W.; Jiang, J.; Wang, F.; Tang, J.; Kim, S.; and Huang, J. 2025. A survey on mixture of experts in large language models. IEEE Transactions on Knowledge and Data Engi-neering .Chen, C.; Liu, K.; Chen, Z.; Gu, Y.; Wu, Y.; Tao, M.; Fu, Z.; and Ye, J. 2024. INSIDE: LLMs’ Internal States Re-tain the Power of Hallucination Detection. In The Twelfth International Conference on Learning Representations .Chuang, Y.-S.; Xie, Y.; Luo, H.; Kim, Y.; Glass, J. R.; and He, P. 2024. DoLa: Decoding by Contrasting Layers Improves Factuality in Large Language Models. In Kim, B.; Yue, Y.; Chaudhuri, S.; Fragkiadaki, K.; Khan, M.; and Sun, Y., eds., International Conference on Learning Representations ,volume 2024, 54158–54183. Emde, C.; Paren, A.; Arvind, P.; Kayser, M.; Rainforth, T.; Lukasiewicz, T.; Torr, P.; and Bibi, A. 2025. Shh, don’t say that! Domain Certification in LLMs. In International Con-ference on Learning Representations , volume 2025, 15394– 15430. Farquhar, S.; Kossen, J.; Kuhn, L.; and Gal, Y. 2024. Detect-ing hallucinations in large language models using semantic entropy. Nature , 630(8017): 625–630. Fedus, W.; Zoph, B.; and Shazeer, N. 2022. Switch trans-formers: Scaling to trillion parameter models with simple and efficient sparsity. Journal of Machine Learning Research ,23(120): 1–39. Fonseca, J.; Bell, A.; and Stoyanovich, J. 2025. SAFENUDGE: Safeguarding Large Language Models in Real-time with Tunable Safety-Performance Trade-offs. In 
+
+Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , 19966–19980. Gal, Y. 2017. Uncertainty in deep learning . Ph.D. thesis, University of Cambridge. Han, J.; Kossen, J.; Razzak, M.; Schut, L.; Malik, S. A.; and Gal, Y. 2024. Semantic entropy probes: Robust and cheap hallucination detection in llms. In ICML 2024 Workshop on Foundation Models in the Wild .Hüllermeier, E.; and Waegeman, W. 2021. Aleatoric and epistemic uncertainty in machine learning: An introduction to concepts and methods. Machine learning , 110(3): 457– 506. Ji, Z.; Lee, N.; Frieske, R.; Yu, T.; Su, D.; Xu, Y.; Ishii, E.; Bang, Y. J.; Madotto, A.; and Fung, P. 2023. Survey of Hal-lucination in Natural Language Generation. ACM Comput. Surv. , 55(12). Kasai, J.; Sakaguchi, K.; Le Bras, R.; Asai, A.; Yu, X.; Radev, D.; Smith, N. A.; Choi, Y.; Inui, K.; et al. 2023. Realtime qa: What’s the answer right now? Advances in neural informa-tion processing systems , 36: 49025–49043. Kuhn, L.; Gal, Y.; and Farquhar, S. 2023. Semantic Uncer-tainty: Linguistic Invariances for Uncertainty Estimation in Natural Language Generation. In The Eleventh International Conference on Learning Representations .Kwiatkowski, T.; Palomaki, J.; Redfield, O.; Collins, M.; Parikh, A.; Alberti, C.; Epstein, D.; Polosukhin, I.; Devlin, J.; Lee, K.; et al. 2019. Natural questions: a benchmark for question answering research. Transactions of the Association for Computational Linguistics , 7: 453–466. Lahlou, S.; Jain, M.; Nekoei, H.; Butoi, V. I.; Bertin, P.; Rector-Brooks, J.; Korablyov, M.; and Bengio, Y. 2023. DEUP: Direct Epistemic Uncertainty Prediction. Transac-tions on Machine Learning Research .Lee, K.; Chang, M.-W.; and Toutanova, K. 2019. Latent retrieval for weakly supervised open domain question an-swering. In Proceedings of the 57th annual meeting of the association for computational linguistics , 6086–6096. Li, K.; Patel, O.; Viégas, F.; Pfister, H.; and Wattenberg, M. 2023. Inference-time intervention: Eliciting truthful answers from a language model. Advances in Neural Information Processing Systems , 36: 41451–41530. Liang, T.; Du, Y.; Huang, J.; Kong, M.; Chen, L.; Li, Y.; Chen, S.; and Zhu, Q. 2025. MoLE:Decoding by Mixture of Layer Experts Alleviates Hallucination in Large Vision-Language Models. Proceedings of the AAAI Conference on Artificial Intelligence , 39(18): 18684–18692. Lin, S.; Hilton, J.; and Evans, O. 2022. Truthfulqa: Measur-ing how models mimic human falsehoods. In Proceedings of the 60th annual meeting of the association for computational linguistics (volume 1: long papers) , 3214–3252. Ma, H.; Pan, J.; Liu, J.; Chen, Y.; Zhou, J. T.; Wang, G.; Hu, Q.; Wu, H.; Zhang, C.; and Wang, H. 2025. Seman-tic Energy: Detecting LLM Hallucination Beyond Entropy. arXiv:2508.14496. Manakul, P.; Liusie, A.; and Gales, M. 2023. Selfcheckgpt: Zero-resource black-box hallucination detection for gener-ative large language models. In Proceedings of the 2023 conference on empirical methods in natural language pro-cessing , 9004–9017. Muennighoff, N.; Soldaini, L.; Groeneveld, D.; Lo, K.; Mor-rison, J.; Min, S.; Shi, W.; Walsh, P.; Tafjord, O.; Lambert, N.; Gu, Y.; Arora, S.; Bhagia, A.; Schwenk, D.; Wadden, D.; Wettig, A.; Hui, B.; Dettmers, T.; Kiela, D.; Farhadi, A.; Smith, N.; Koh, P. W.; Singh, A.; and Hajishirzi, H. 2025. OLMoE: Open Mixture-of-Experts Language Models. In Yue, Y.; Garg, A.; Peng, N.; Sha, F.; and Yu, R., eds., Inter-national Conference on Learning Representations , volume 2025, 62061–62121. Pavlitska, S.; Keskin, B.; Faßbender, A.; Hubschneider, C.; and Zöllner, J. M. 2025. Extracting uncertainty estimates from mixtures of experts for semantic segmentation. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision , 311–320. Rajpurkar, P.; Zhang, J.; Lopyrev, K.; and Liang, P. 2016. Squad: 100,000+ questions for machine comprehension of text. In Proceedings of the 2016 conference on empirical methods in natural language processing , 2383–2392. Smith, F. B.; Kossen, J.; Trollope, E.; van der Wilk, M.; Foster, A.; and Rainforth, T. 2025. Rethinking Aleatoric and Epistemic Uncertainty. In Forty-second International Conference on Machine Learning .Sriramanan, G.; Bharti, S.; Sadasivan, V. S.; Saha, S.; Kat-takinda, P.; and Feizi, S. 2024. Llm-check: Investigat-ing detection of hallucinations in large language models. 
+
+Advances in Neural Information Processing Systems , 37: 34188–34216. Su, W.; Wang, C.; Ai, Q.; Hu, Y.; Wu, Z.; Zhou, Y.; and Liu, Y. 2024. Unsupervised real-time hallucination detection based on the internal states of large language models. In Findings of the Association for Computational Linguistics: ACL 2024 ,14379–14391. Team, G.; Abd, S. E.; Aggarwal, V.; Algayres, R.; Andreev, A.; Bachem, O.; Ballantyne, I.; Brick, C.; Cărbune, V.; Cas-bon, M.; et al. 2026. Gemma 4 technical report. arXiv preprint arXiv:2607.02770 .Tong, C.; Zhang, Q.; Gao, J.; Jiang, L.; Liu, Y.; and Sun, N. 2025. HaluNet: Multi-Granular Uncertainty Modeling for Efficient Hallucination Detection in LLM Question Answer-ing. arXiv preprint arXiv:2512.24562 .Vu, T.; Iyyer, M.; Wang, X.; Constant, N.; Wei, J.; Wei, J.; Tar, C.; Sung, Y.-H.; Zhou, D.; Le, Q.; et al. 2024. Freshllms: Refreshing large language models with search engine aug-mentation. In Findings of the Association for Computational Linguistics: ACL 2024 , 13697–13720. Wang, C.; Su, W.; Ai, Q.; and Liu, Y. 2026. Joint evaluation of answer and reasoning consistency for hallucination detection in large reasoning models. In Proceedings of the AAAI Con-ference on Artificial Intelligence , volume 40, 33377–33385. Wang, Y.; Li, H.; Zou, H.; Zhang, J.; He, X.; Li, Q.; and Xu, K. 2025. FacLens: Transferable Probe for Foresee-ing Non-Factuality in Fact-Seeking Question Answering of Large Language Models. In Proceedings of the 2025 Confer-ence on Empirical Methods in Natural Language Processing ,18574–18593. Xia, Z.; Xu, J.; Zhang, Y.; and Liu, H. 2025. A survey of uncertainty estimation methods on large language models. In 
+
+Findings of the Association for Computational Linguistics: ACL 2025 , 21381–21396. Yadkori, Y. A.; Kuzborskij, I.; György, A.; and Szepesvari, C. 2024. To believe or not to believe your llm: Iterative prompting for estimating epistemic uncertainty. Advances in Neural Information Processing Systems , 37: 58077–58117. Zhang, S.; Yu, T.; and Feng, Y. 2024. Truthx: Alleviating hallucinations by editing large language models in truthful space. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 8908–8949. Zheng, L.; Chiang, W.-L.; Sheng, Y.; Zhuang, S.; Wu, Z.; Zhuang, Y.; Lin, Z.; Li, Z.; Li, D.; Xing, E. P.; et al. 2023. Judging LLM-as-a-judge with MT-bench and Chatbot Arena. In Proceedings of the 37th International Conference on Neu-ral Information Processing Systems , 46595–46623. A Hallucination Detection via Epistemic Uncertainty 
+
+Uncertainty in next-token prediction can be decomposed into aleatoric and epistemic uncertainty (Hüllermeier and Waegeman 2021). Aleatoric uncertainty reflects irreducible ambiguity in the data generating process ( e.g., multiple valid continuations of a prefix such as “The weather is . . . ”), and is directly reflected in the entropy of the model’s output distribution. Epistemic uncertainty arises from the model’s lack of knowledge about the input region and is reducible with additional evidence. Existing hallucination detectors tend to operate on signals that primarily reflect aleatoric or aggregate uncertainty ( e.g., via multiple stochastic genera-tions or logit-based predictions), leaving epistemic uncer-tainty largely under-explored as a detection signal. The connection between epistemic uncertainty and hal-lucination provides a theoretical hook for detection: when epistemic uncertainty is high but the model emits a confident-looking answer (regardless of its aleatoric uncertainty), the output is likely to be unreliable and therefore hallu-cinated (Yadkori et al. 2024). This suggests that practical proxies for epistemic uncertainty can serve as useful hal-lucination detectors. The contributions in this paper allow defining useful epistemic uncertainty proxies for hallucina-tion detection that are cheap to compute and available within a single forward pass, without requiring multiple stochas-tic generations or an external verifier. In the vision domain, MoE-specific signals have been shown to capture epistemic uncertainty, with expert disagreement acting as an analogue of ensemble disagreement (Pavlitska et al. 2025). 
+
+Uncertainty Decomposition. Following the Bayesian treatment of predictive uncertainty (Hüllermeier and Waege-man 2021), suppose the model parameters lie in a posterior 
+
+p(θ). The marginal predictive distribution averages over this posterior, 
+
+p(yt | x, y <t ) = Ep(θ)[ p(yt | x, y <t , θ ) ] . (14) The total predictive uncertainty, measured as the Shannon entropy of the marginal predictive, decomposes as 
+
+H[ p(yt | x, y <t )] 
+
+| {z }
+
+> total
+
+= Ep(θ)[H[ p(yt | x, y <t , θ )]] 
+
+| {z }
+
+> aleatoric
+
++ I( yt; θ | x, y <t )
+
+| {z }
+
+> epistemic
+
+, (15) where I( ·; · | · ) is the conditional mutual information between 
+
+yt and θ (Smith et al. 2025; Gal 2017). The aleatoric com-ponent captures irreducible ambiguity in the data-generating process ( e.g., multiple valid continuations of a prefix such as “The weather is . . . ”) and is reflected in the entropy of a sin-gle conditional distribution p(yt | x, y <t , θ ). The epistemic 
+
+component captures uncertainty about the parameters them-selves and is reducible with additional evidence. Since p(θ) is not available in LLMs, neither term of (15) can be computed exactly; in practice, estimating uncertainty involves multiple model evaluations or stochastic generations, which are ex-pensive at inference time. This is the case for methods like Semantic Uncertainty (Kuhn, Gal, and Farquhar 2023) and SelfCheckGPT (Manakul, Liusie, and Gales 2023), which es-timate an aggregate uncertainty measure that mixes aleatoric and epistemic. 
+
+Epistemic Uncertainty and Hallucination. In LLMs, the decomposition in (15) links epistemic uncertainty and hal-lucination (Yadkori et al. 2024): when epistemic uncertainty is high relative to aleatoric uncertainty, the model’s output is likely to be hallucinated. The mutual information can be ex-pressed as an expected divergence among posterior samples, 
+
+I( yt; θ | x,y <t ) = Ep(θ)
+
+h
+
+KL  pθ (yt | x, y <t ) p(yt | x, y <t ) i
+
+,
+
+(16) where KL( ·∥· ) is the Kullback-Leibler divergence. A token 
+
+yt is therefore likely to be hallucinated when this expected divergence is high relative to the aleatoric term, i.e., when the model’s parameters, were they resampled, would diverge substantially yet the model nonetheless emits a confident-looking prediction. In the well-specified Bayesian limit this within-model disagreement tracks divergence from the data-generating distribution pdata , but this link is broken for mis-specified models such as LLMs, whose parameters do not admit a posterior p(θ). We therefore treat MoE routing sig-nals as empirical proxies of within-model disagreement, fol-lowing the empirical results of Pavlitska et al. (2025) that expert disagreement captures epistemic uncertainty in vision models as the bridge. The challenge addressed in this paper is to define such proxies that are available within a single for-ward pass and do not require multiple stochastic generations or an external verifier. 
+
+# B Related Work 
+
+We review prior work along the three paradigms introduced in Section 1: sampling-based detection, internal-signal de-tection, and trainable detectors. We then discuss uncertainty estimation methods, which provide the theoretical motiva-tion for InnerExpert , and conclude with the emerging literature on MoE-specific signals, which constitutes the gap our work addresses. 
+
+Sampling-based approaches probe the consistency of a model’s outputs across multiple stochastic generations. Man-akul, Liusie, and Gales (2023) introduce SelfCheckGPT, which detects hallucinations by measuring agreement among several sampled responses to the same prompt, either via an LLM-based checker or through token-level n-gram consis-tency. In this work, we use the two best-performing Self-CheckGPT variants for comparison: an NLI-based variant that detects contradictions between the original response and sampled responses using a DeBERTa model fine-tuned on MNLI, and a prompt-based variant that uses an LLM to assess whether each response sentence is supported by the sampled responses. Kuhn, Gal, and Farquhar (2023) propose Semantic Uncertainty, which clusters semantically equiva-lent samples and computes entropy over the resulting clus-ters, providing a more robust uncertainty estimate than raw token-level entropy. Farquhar et al. (2024) scale this approach and demonstrate that semantic entropy is effective for hal-lucination detection across long-form generation tasks. Ma et al. (2025) extend this line of work with Semantic En-ergy, which replaces the probability-space entropy of Se-mantic Uncertainty with a Boltzmann-inspired energy func-tion over semantic clusters, capturing model confidence even when sampled responses are semantically identical. Chen et al. (2024) introduce INSIDE, which measures the seman-tic consistency of multiple sampled responses in the model’s internal embedding space. Their EigenScore computes the log-determinant of the covariance matrix of sentence em-beddings across K sampled responses, capturing seman-tic divergence in the dense representation space. While this approach retains more semantic information than text-level consistency metrics, it still requires multiple stochastic gen-erations per prompt. Han et al. (2024) introduce Semantic Entropy Probes, lightweight probes trained to approximate semantic entropy from internal states, bridging sampling-based and internal-signal approaches. While these meth-ods are effective, they require multiple forward passes per prompt, making them prohibitively expensive at inference time. InnerExpert , by contrast, operates on signals ex-tracted from a single forward pass and requires no additional generations. 
+
+Internal signal-based methods leverage internal model states ( e.g., hidden representations, attention patterns, or out-put distributions) collected during a single forward pass. Azaria and Mitchell (2023) show that a classifier trained on hidden states can distinguish factual from non-factual statements, demonstrating that hallucination-relevant infor-mation is encoded in internal representations. Sriramanan et al. (2024) propose LLM-Check, which compute halluci-nation scores from hidden states, attention kernels, and per-plexity. These methods share InnerExpert ’s single-pass efficiency, but they operate exclusively on individual signals available in any transformer architecture (hidden states, at-tention matrices, and output logits) and do not exploit the routing structure unique to MoE models. InnerExpert 
+
+extends this paradigm by introducing MoE-specific signals (e.g., router entropy, expert disagreement, expert usage dis-tributions) that are absent in dense architectures while com-bining them into a single hallucination score. A related but distinct line of work modifies internal repre-sentations at inference time to mitigate hallucinations rather than detect them. Decoding by Contrasting Layers (Chuang et al. 2024) contrasts logits across layers to amplify factual knowledge localized in specific transformer layers. Inference-Time Intervention (Li et al. 2023) shifts activations along truth-correlated directions identified in a sparse set of atten-tion heads. TruthX (Zhang, Yu, and Feng 2024) edits hidden representations in a learned truthful space to improve out-put factuality. MoLE (Liang et al. 2025) extends the layer-contrasting idea to vision-language models, dynamically se-lecting transformer layers as “experts” (Final, Second Opin-ion, and Prompt Retention) via a heuristic gating mechanism. We note that MoLE’s use of “expert” refers to transformer layers, not the routed feedforward networks of MoE archi-tectures. These methods are complementary to hallucination detection but fall outside the scope of this paper, which fo-cuses on detection rather than mitigation. 
+
+Trainable detectors over internal signals typically use lightweight classifiers over internal signals to produce hallu-cination scores. Tong et al. (2025) introduce HaluNet, which models hallucination risk using a multi-branch architecture that fuses token-level log-likelihoods, entropy scores, and hidden-state embeddings. Wang et al. (2026) propose a joint evaluation framework that assesses both answer and reason-ing consistency for hallucination detection in reasoning mod-els. Wang et al. (2025) present FacLens, a transferable probe for non-factuality prediction that analyzes how factual knowl-edge is embedded in hidden representations of fact-seeking questions, with the goal of cross-model transferability. Su et al. (2024) present MIND, a framework that trains an MLP on hidden states collected during generation, using an au-tomated Wikipedia-based labeling scheme to avoid manual annotation. InnerExpert follows this trainable-detector paradigm but differs in two key respects: (i) it enriches the feature set with MoE-specific routing signals unavailable to prior methods, and (ii) it employs an unsupervised labeling pipeline based on LLM-as-judge evaluation against reference evidence, requiring no human annotations. 
+
+Uncertainty estimation in LLMs. Uncertainty estimation provides the theoretical motivation for InnerExpert , de-veloped in Appendix A. Generally, for Machine Learning, Hüllermeier and Waegeman (2021) provide a formalization of aleatoric uncertainty (irreducible ambiguity in the data-generating process) and epistemic uncertainty (uncertainty arising from the model’s lack of knowledge), which is re-ducible with additional evidence. Lahlou et al. (2023) pro-pose DEUP, a framework for directly predicting epistemic uncertainty by learning to estimate excess risk and subtract-ing an estimate of aleatoric uncertainty. Smith et al. (2025) revisit the aleatoric/epistemic decomposition and highlight practical challenges in disentangling the two components in deep learning models. Specifically for LLMs, Yadkori et al. (2024) introduce an iterative prompting approach for esti-mating epistemic uncertainty in LLMs via iterative prompt-ing based on previous responses. Xia et al. (2025) provide a comprehensive survey of uncertainty estimation methods for LLMs, covering both sampling-based and internal-signal approaches. 
+
+Signals from Mixture-of-Experts The MoE architec-ture (Fedus, Zoph, and Shazeer 2022) introduces a routing mechanism that selects a sparse subset of expert networks per token, producing signals (router distributions, per-expert hid-den states and expert usage patterns) that are not observable in dense models. Despite the growing prominence of MoE models in the LLM landscape, the information encoded in these signals remains largely unexplored for hallucination de-tection. Pavlitska et al. (2025) demonstrate that uncertainty estimates can be extracted from MoE models in the vision domain, showing that expert disagreement serves as an ana-logue of ensemble disagreement and captures epistemic un-certainty in semantic segmentation tasks. To the best of our knowledge, no prior work leverages MoE-specific internal signals for hallucination detection in LLMs. C Additional Method Details 
+
+This appendix provides a complete reference for the signals used by InnerExpert (Table 4), the inference procedure (Algorithm 1), and the training pipeline (Algorithm 2). 
+
+C.1 Signal Summary 
+
+Table 4 lists all signals extracted by InnerExpert , their notation, category, and per-token dimensionality. Signals are grouped into standard signals (available in any transformer) and MoE-specific signals (derived from the MoE block). All per-layer signals are computed cumulatively over the gener-ated prefix y≤t, yielding a per-token value at each generation step t. The ratio between the total per-token dimensionality and the original dimensionality of the signals used from the host model underscores the compactness of the representa-tion, i.e., detecting hallucinations does not require the full internal state of the host model. For the two host models used in this paper, the aggregate feature dimensionalities are presented in Table 5. Table 5: Feature dimensionality for each host model. L: num-ber of layers, H: number of attention heads, N : number of experts, |Φt|: per-token feature dimensionality, Params: to-tal model parameters, Act.: number of active parameters per token.                   
+
+> Model LHN|Φt|Params Act. OLMoE-1B-7B-0924-Instruct 16 16 64 1 360 ∼7B ∼1B Gemma-4-26B-A4B-it 30 16 129 4 470 ∼26B ∼4B
+
+For Gemma, N =129 comprises 128 routed experts plus 1 shared expert that is always active. 
+
+C.2 Inference Procedure 
+
+Algorithm 1 outlines the InnerExpert inference pipeline. Given a question x (and optional evidence e), the host model generates an answer y = ( y1, . . . , y T ) via greedy decoding. During generation, internal signals are collected at each token position and assembled into the feature vector Φt (Eq. 12). The trained classifier s(·) produces a per-token hallucination score s(Φ t) ∈ [0 , 1] . The answer-level score S(y) is ob-tained by aggregating per-token scores via the max operator (Eq. 13). 
+
+C.3 Training Procedure 
+
+Algorithm 2 outlines the InnerExpert training pipeline. Training data is sourced from RealtimeQA (January 2024– December 2025), with answers generated under two con-ditions (base and RAG) per question. The LLM-as-a-judge produces answer-level hallucination labels and hallucinated span strings, which are mapped to token-level binary labels. Feature vectors are extracted for all generated tokens and assembled into a training matrix. A stratified train/valida-tion split, grouped by question identifier, prevents leakage between answers to the same question. Grid search over five classifier families (Logistic Regression, Random Forest, XG-Boost, MLP, and a Transformer encoder) is scored by F1 on Algorithm 1: InnerExpert Inference 
+
+Require: Question x, evidence e (optional), trained classi-fier s, host model θ
+
+Ensure: Answer y, per-token scores {s(Φ t)}Tt=1 , answer-level score S(y) 
+
+> 1:
+
+Generate answer y = ( y1, . . . , y T ) via greedy decoding on θ, collecting internal states at each step  
+
+> 2:
+
+for t = 1 to T do  
+
+> 3:
+
+for l = 1 to L do  
+
+> 4:
+
+Collect hidden states Ht,l = {h1,l , . . . , ht,l } 
+
+> 5:
+
+Compute ϕhid  
+
+> t,l
+
+▷ Eq. 3  
+
+> 6:
+
+for h = 1 to H do  
+
+> 7:
+
+Compute ϕatt  
+
+> t,l,h
+
+▷ Eq. 4  
+
+> 8:
+
+end for  
+
+> 9:
+
+Compute ϕrout  
+
+> t,l
+
+▷ Eq. 5  
+
+> 10:
+
+Compute ϕexp -hid  
+
+> t,l
+
+▷ Eq. 6  
+
+> 11:
+
+Compute ϕsim  
+
+> t,l
+
+▷ Eq. 7  
+
+> 12:
+
+Update ut,l ▷ Eq. 8  
+
+> 13:
+
+Compute ϕgini  
+
+> t,l
+
+, ϕherf  
+
+> t,l
+
+▷ Eqs. 10, 11  
+
+> 14:
+
+end for  
+
+> 15:
+
+Assemble Φt ▷ Eq. 12  
+
+> 16:
+
+Compute s(Φ t) ∈ [0 , 1]  
+
+> 17:
+
+end for  
+
+> 18:
+
+Aggregate S(y) = max Tt=1 s(Φ t) ▷ Eq. 13  
+
+> 19:
+
+return y, {s(Φ t)}Tt=1 , S(y)
+
+the validation fold. The best model per family is refit on the combined train+validation data, and the decision threshold 
+
+τ is F1-optimized on this combined set via a precision-recall curve sweep. 
+
+# D Implementation Details 
+
+Expert hidden state extraction. Standard MoE implementations such as HuggingFace’s 
+
+OlmoeSparseMoeBlock and Gemma4TextExperts 
+
+do not expose per-expert hidden states—they return only the routing-weighted combination of selected expert outputs. To collect the per-expert signals required by InnerExpert 
+
+(e.g., expert hidden score, expert similarity), we replace (via monkey-patching) the forward method of each MoE block in the host model with a modified version that saves the pre-routing per-expert outputs to a last_experts_hidden 
+
+attribute before the routing weights are applied. For Gemma, the host decoder layer flattens hidden states from 
+
+(B, S, H ) to (B×S, H ) before calling the MoE block; we handle this by registering a pre-forward hook on the parent layer that captures the original batch and sequence dimensions, enabling the patched forward to recover the correct 4D output shape. The design is architecture-agnostic: adding a new MoE model requires only implementing a 
+
+forward_<model> function. 
+
+Memory usage. The instrumentation adds moderate GPU memory overhead. Benchmarking on 50 Real-timeQA questions, peak GPU memory for OLMoE in-creases from 12.7 GB (vanilla generation) to 13.1 GB Table 4: Summary of signals extracted by InnerExpert . Each signal is computed cumulatively over the generated prefix up to position t, yielding a per-token value. The total per-token feature dimensionality is the sum of all signal dimensions. L =number of MoE layers, H = number of attention heads, N = number of experts.                                      
+
+> Signal Notation Category Description Per-token dim. Hidden state score ϕhid
+> t,l Standard Mean log-singular-value of hidden state covariance L
+> Attention score ϕatt
+> t,l,h Standard Log-cumulative sum of attention kernel diagonal LH
+> Router entropy ϕrout
+> t,l MoE Shannon entropy of gating distribution L
+> Expert hidden score ϕexp -hid
+> t,l MoE Routing-weighted hidden score of selected experts L
+> Expert similarity ϕsim
+> t,l MoE Routing-weighted pairwise cosine similarity of experts L
+> Expert usage ut,l MoE Cumulative routing-weighted usage distribution LN
+> Gini impurity ϕgini
+> t,l MoE Gini impurity of usage distribution L
+> Inverse Herfindahl ϕherf
+> t,l MoE Effective number of experts from usage distribution L
+> Total per-token dimensionality 5L+LH +LN
+
+with full InnerExpert instrumentation, an overhead of approximately 3%. For Gemma, the increase is from 46.8 GB to 48.1 GB (2.8%). The dominant memory cost of 
+
+InnerExpert is the per-expert hidden state tensor, which has shape (B, S, k, d ) per MoE layer per generation step. On resource-constrained environments with limited VRAM, these tensors must be moved to CPU between generation steps to free memory for subsequent inference calls. On our hardware (2 × 96 GB VRAM), tensors can be accumu-lated on GPU and transferred in a single batch after gener-ation completes. During baseline fitting, unused keys (e.g., 
+
+expert_usage at 28 GB padded for Gemma) are filtered during data loading, substantially reducing peak RAM, at the cost of additional CPU time for filtering. 
+
+Storage requirements. Total disk usage for the project is approximately 1.7 TB, largely due to raw batch files saved during generation. Pretrained models (host LLMs and base-line models combined) account for 119 GB, while trained 
+
+InnerExpert detectors take up 311 MB. The training data (RealtimeQA 2024–2025) requires 0.9 TB of raw files, the temporal OOD test set (RealtimeQA 2026) adds 0.17 TB, and the OOS datasets contribute 0.48 TB. 
+
+HaluNet re-implementation As no open-source imple-mentation of HaluNet (Tong et al. 2025) is available, we re-implement it from the architecture described in the paper. The model has three branches: a log-likelihood branch and an entropy branch, each consisting of mean pooling followed by a 2-layer MLP, and a hidden-state embedding branch with two 1D convolutional layers (kernel size 3, padding 1) with ReLU activations and adaptive average pooling. Branch out-puts are fused via attention and projected to a single logit. The hidden dimension is 128, the maximum sequence length is 50 (zero-padded and truncated), and dropout is 0.5. The model is trained with Adam (learning rate 10 −3), binary cross-entropy loss, for 20 epochs with a batch size of 32. Train-ing uses the same LLM-as-judge binary hallucination labels as InnerExpert . The decision threshold is F1-optimized on the validation set. The embedding dimension is model-dependent and determined from the data at training time. All other hyperparameters follow the defaults specified in the original paper. 
+
+# E Datasets Description 
+
+This section provides detailed descriptions of the five datasets used in our experiments. RealtimeQA serves as both training data and temporal out-of-distribution test set, while SQuAD, TruthfulQA, NQ-Open, and FreshQA are used for cross-dataset generalization evaluation. Summary statistics, in-cluding sample counts, hallucination rates, and average an-swer lengths per host model, are reported in Table 6. 
+
+RealtimeQA (Kasai et al. 2023) is a dynamic question-answering platform that releases questions about current real-world events on a regular basis. Each question is accompa-nied by reference evidence in the form of retrieved passages. We use questions from January 2024 to December 2025 as training data and questions from January to June 2026 (365 questions) as the temporally out-of-distribution test set, evaluating whether the detector generalizes to post-training events. 
+
+SQuAD (Rajpurkar et al. 2016) is a reading comprehen-sion dataset comprising over 100,000 questions posed by crowdworkers on Wikipedia articles. Each question is paired with a context passage (reference evidence) from which the answer span is drawn. We use the validation split and ran-domly sample 200 questions. 
+
+TruthfulQA (Lin, Hilton, and Evans 2022) is a benchmark of 817 questions across 38 categories designed to test whether language models avoid mimicking human falsehoods and common misconceptions. The dataset does not provide ref-erence evidence, relying on the model’s internal knowledge. We use the train split to randomly sample 200 questions and use the provided answer as evidence. 
+
+NQ-Open (Kwiatkowski et al. 2019; Lee, Chang, and Toutanova 2019) is an open-domain question-answering benchmark derived from Google’s Natural Questions by dis-carding the accompanying evidence documents and retaining only questions with short answers. The dataset does not pro-vide reference evidence, as the open-domain setting requires Algorithm 2: InnerExpert Training 
+
+Require: RealtimeQA questions {xi} with evidence {ei},host model θ, LLM judge J
+
+Ensure: Trained classifier s, threshold τ 
+
+> 1:
+
+Phase 1: Answer Generation & Labeling  
+
+> 2:
+
+for each question xi do  
+
+> 3:
+
+Generate base answer ybase  
+
+> i
+
+(no evidence) via greedy decoding on θ 
+
+> 4:
+
+if evidence ei available then  
+
+> 5:
+
+Generate RAG answer yrag  
+
+> i
+
+(with evidence) via greedy decoding on θ 
+
+> 6:
+
+end if  
+
+> 7:
+
+end for  
+
+> 8:
+
+for each generated answer yi do  
+
+> 9:
+
+LLM judge J produces binary label ℓi and halluci-nated spans  
+
+> 10:
+
+Map spans to token-level labels {ℓt}Ti 
+
+> t=1
+> 11:
+
+end for  
+
+> 12:
+
+Phase 2: Feature Extraction  
+
+> 13:
+
+for each generated answer yi do  
+
+> 14:
+
+for t = 1 to Ti do  
+
+> 15:
+
+Extract Φt following Algorithm 1, steps 2–11  
+
+> 16:
+
+end for  
+
+> 17:
+
+end for  
+
+> 18:
+
+Phase 3: Model Selection  
+
+> 19:
+
+Split data into train/validation sets, grouped by question identifier  
+
+> 20:
+
+Grid search over classifier families {LR, RF, XGBoost, MLP, Transformer }, F1-scored on validation fold  
+
+> 21:
+
+Select best hyperparameters per family; refit on com-bined train+validation  
+
+> 22:
+
+Optimize threshold τ for F1 on combined set via PR curve sweep  
+
+> 23:
+
+return s, τ
+
+systems to retrieve evidence independently. We use the val-idation split to randomly sample 200 questions and use the provided answer as evidence. 
+
+FreshQA (Vu et al. 2024) is a dynamic benchmark with questions requiring fast-changing world knowledge, includ-ing questions with false premises that need to be debunked. We use a snapshot from November 2025 to randomly sample 200 questions. 
+
+# F Additional Experiment Details 
+
+Table 7 reports the hyperparameter grids used for each clas-sifier family. 
+
+F.1 Training Dataset Analysis 
+
+The block below contains the prompt template used to gener-ate answers from the host models. The prompts are designed to elicit responses from the host model with and without access to reference evidence. Table 6: Dataset statistics for all evaluation datasets and host models. Labels are from the LLM-as-a-judge approach (GLM-5.1). “Ans.” is the average number of words in the generated answer.                                                                       
+
+> Dataset NBase Eviden. Halluc. Grounded Halluc. % Ans. Gemma-4-26B SQuAD 400 200 200 172 228 43.0 17.1 TQA 399 199 200 194 205 48.6 19.2 NQO 400 200 200 233 167 58.2 16.0 FQA 400 200 200 226 174 56.5 13.3 RTQA 730 365 365 397 333 54.4 15.3 OLMoE-1B-7B SQuAD 400 200 200 309 91 77.2 43.4 TQA 400 200 200 381 19 95.2 46.9 NQO 400 200 200 381 19 95.2 43.3 FQA 400 200 200 378 22 94.5 37.8 RTQA 730 365 365 635 95 87.0 43.8
+
+Table 7: Hyperparameter grids for each classifier family. Hy-perparameters used for OLMoE are boldfaced, the ones used for Gemma are underlined.                                                
+
+> Classifier Hyperparameter Grid Logistic Regression C{0.01 ,0.1,1.0,
+> 10.0 }
+> Random Forest n_estimators {300 ,500 ,1000 }
+> max_depth {3,6,10 }
+> min_samples_leaf {1,5}
+> XGBoost n_estimators {300 ,500 ,1000 }
+> max_depth {3,6,10 }
+> learning_rate {0.001 ,0.01 ,0.1 }
+> MLP hidden_layer_sizes {(128,) ,(256 ,),
+> (512 ,),(1024 ,)}
+> α{10 −4,10 −3,
+> 10 −2,10 −1}
+> learning_rate_init {10 −3,10 −4}
+> early_stopping {True ,False }
+> Transformer d_model {256 ,512 }
+> n_heads {4}
+> n_transformer_layers {1,2,3}
+> dropout {0.1 ,0.3}
+> optimizer_lr {10 −3,10 −4}
+> max_epochs {500 }
+
+Generation Prompt 
+
+System message: 
+
+You are a helpful assistant who provides accurate and very concise answers to questions about recent events. Today is {DATE}. 
+
+User message (base, no evidence): 
+
+{QUESTION} 
+
+User message (with evidence): 
+
+Evidence: {EVIDENCE} Question: {QUESTION} 
+
+The block below contains the prompt template used to la-bel the training dataset using the LLM-as-a-judge approach. The prompt is designed to elicit a binary classification of the model’s answer as either hallucinated or grounded, along with the specific spans of text that are hallucinated. 
+
+Judge Prompt 
+
+System message: 
+
+Return concise, valid JSON only. 
+
+User message template: 
+
+Given a question, evidence, and model answer, decide whether the answer contains unsupported or hallucinated content. Return valid JSON only with this exact schema: {"label": 1 or 0, "hallucinated_spans": ["exact substring from answer", ... ]}Rules: - label = 1 means hallucinated/ unsupported, label = 0 means grounded/correct. - hallucinated_spans must be exact substrings from the answer. - if label = 0, hallucinated_spans must be an empty list. Question: {QUESTION} Evidence: {EVIDENCE} Answer: {ANSWER} 
+
+The following blocks contain training data examples of hallucinations and non-hallucinations, wherein the halluci-nated spans (as assessed by the judge LLM) are highlighted in red. 
+
+Example 1 (2024/01/05) 
+
+Question: Who was named Director of the Year at this week’s Palm Springs International Film Festival Awards? 
+
+Evidence: The "Barbie" director was presented with the Director of the Year award by her film’s stars Margot Rob-bie and America Ferrera at the awards ceremony in Palm Springs, California. Other winners included actors Cillian Murphy, Emma Stone and Carey Mulligan. 
+
+OLMoE (no evidence) hallucinated 
+
+At this week’s Palm Springs International Film Festival Awards, the Director of the Year award was presented to Alfonso Cuarón, arenowned Mexican film director, producer, and screenwriter. Cuarón is known for his work on films such as "Y Tu Mamá También," " Children of Men," 
+
+OLMoE (with evidence) hallucinated 
+
+The Director of the Year award was presented to the "Barbie" film’s director, Liesl Tommy, at the Palm Springs International Film Festival Awards in California. Other winners included actors Cillian Murphy, Emma Stone, and Carey Mulligan. 
+
+Gemma 4 (no evidence) hallucinated 
+
+No awards were presented at this week’s Palm Springs International Film Festival, as the festival is currently ongoing (January 4-14, 2024 ). The awards ceremony is scheduled for January 14, 2024. 
+
+Gemma 4 (with evidence) hallucinated 
+
+Greta Gerwig. Example 2 (2024/05/31) 
+
+Question: What is the name of the new restaurant that opened in Rehoboth Beach, Delaware? 
+
+Evidence: ∅
+
+OLMoE (no evidence) hallucinated 
+
+As of May 31, 2024, there isn’t any widely reported new restaurant opening in Rehoboth Beach, Delaware, at least not under the name you provided. Rehoboth Beach is apopular beach destination in Delaware, and many restaurants come and go. If you have more information about the restaurant you’re 
+
+OLMoE (with evidence) hallucinated 
+
+As of May 31, 2024, there is no new restaurant that has officially opened in Rehoboth Beach, Delaware, according to available information. However, there are several restaurants in the area that have been operating for years, such as The Salty Dog, The Beachcomber, and The Reh 
+
+Gemma 4 (no evidence) grounded 
+
+I do not have information on aspecific new restaurant opening in Rehoboth Beach, Delaware, as your request does not specify aparticular name or recent opening date. Please provide more details if you are looking for a specific establishment. 
+
+Gemma 4 (with evidence) grounded 
+
+Please provide the evidence mentioned in your prompt, as it was not included. Without the text, Icannot identify the specific restaurant you are referring to. 
+
+Example 3 (2024/01/05) 
+
+Question: What percentage of US adults have received the latest Covid-19 vaccine? 
+
+Evidence: Just 19% of adults and 8% of children have gotten the latest Covid-19 vaccine, CDC data shows. This comes as respiratory virus activity is high and rising across the US. 
+
+OLMoE (no evidence) hallucinated 
+
+As of January 05, 2024, a significant percentage of US adults have received the latest COVID-19 vaccine. According to data from the Centers for Disease Control and Prevention (CDC), as of January 2, 2024, approximately 70.8% of adults in the United States have received at least one dose of a COVID 
+
+OLMoE (with evidence) grounded 
+
+19% of US adults have received the latest Covid-19 vaccine, according to CDC data. 
+
+Gemma 4 (no evidence) hallucinated 
+
+As of January 2024, there is no single official percentage for the "latest" COVID-19 vaccine across all US adults , as uptake varies by age group and specific booster type. However, CDC data indicates that roughly **22%** of all US adults have received an updated 202 
+
+Gemma 4 (with evidence) grounded 
+
+19% Example 4 (2024/01/05) 
+
+Question: Who beat 16-year-old darts prodigy Luke Littler to become the PDC world champion? 
+
+Evidence: British teen Littler, nicknamed "The Nuke", defeated former world No.1s Cross and van Gerwen to become the youngest-ever world championship finalist, before losing to Humphries. The 28-year-old new world champ took five consecutive sets to win 7-4 at London’s Alexandra Palace on Wednesday. 
+
+OLMoE (no evidence) hallucinated 
+
+As of January 05, 2024, 16-year-old darts prodigy Luke Littler did not yet win the PDC (Professional Darts Corporation) world championship. The PDC world champion for the 2023 season was Peter Wright, who defeated Mark Webster in the final. Peter Wright is a 38-
+
+OLMoE (with evidence) hallucinated 
+
+Luke Littler, also known as "The Nuke," was defeated by another player in the PDC world championship. Chris "Welly" Humphries, a32-year-old player, won the match 7-4 at London’s Alexandra Palace on Wednesday. 
+
+Gemma 4 (no evidence) hallucinated 
+
+No one has beaten Luke Littler for the PDC World Championship yet; the 2024 tournament is currently ongoing. Luke Littler is a finalist/competitor in the event, but the champion has not been crowned. 
+
+Gemma 4 (with evidence) grounded 
+
+Luke Humphries. 
+
+Example 5 (2025/04/04) 
+
+Question: More than 240 people fell ill recently due to a norovirus outbreak on which luxury cruise ship? 
+
+Evidence: The outbreak aboard the Queen Mary 2 comes on the heels of the worst year for cruise ship-based gas-trointestinal outbreaks in over a decade. 
+
+OLMoE (no evidence) hallucinated 
+
+As of April 03, 2025, there has been no reported norovirus outbreak on a luxury cruise ship involving more than 240 people falling ill. The norovirus is a highly contagious virus that can cause gastroenteritis, which includes symptoms such as nausea, vomiting, diarrhea, and stomach cramps. It is common on 
+
+OLMoE (with evidence) hallucinated 
+
+The luxury cruise ship involved in the norovirus outbreak that affected more than 240 people was the Queen Mary 2. This incident occurred in early 2023, as mentioned in your evidence. 
+
+Gemma 4 (no evidence) hallucinated 
+
+The norovirus outbreak occurred on the **Celebrity Eclipse**. 
+
+Gemma 4 (with evidence) grounded 
+
+Queen Mary 2
+
+F.2 LLM-as-a-Judge Label Validation (RQ4) 
+
+The training supervision pipeline described in Section 3.2 relies on LLM-as-a-judge labels as ground truth. In this sec-tion, we validate the quality of these labels against human annotations and compare them with a simpler weak labeling heuristic based on lexical and semantic overlap metrics. 
+
+Weak labeling heuristic. Lexical and semantic overlap metrics ( e.g., BLEU, ROUGE, and BERTScore) are com-monly used to evaluate hallucination in LLM outputs (Ji et al. 2023; Alansari and Luqman 2026). However, both these statistical metrics often fail to assess the factuality and faith-fulness of generated text and lack robustness in aligning with human judgments of hallucination (Ji et al. 2023; Alansari and Luqman 2026). We observed this limitation empirically; the separability between hallucinated and grounded answers remained low across all three metrics. We nonetheless con-struct a weak labeling heuristic by computing F1-optimal thresholds for each metric (estimated from base vs. RAG separability on the training data) and averaging the resulting binary labels into a weak hallucination label. The inadequacy of this heuristic motivates the LLM-as-a-judge approach de-scribed in Section 3.2, which we validate below. 
+
+Human validation study. To assess label quality, we drew a stratified sample of 200 answers from the RealtimeQA training data (January 2024–December 2025). The sam-pling design consists of a 2×2 contingency stratification: for each host model (OLMoE and Gemma), we sample Table 8: Confusion matrix between human annotations and LLM-as-a-judge labels/Weak labeling on the 200-sample validation set (pooled across both host models, 25 per 2×2
+
+contingency cell per model). LLM-as-a-judge Grounded Hallucinated Total Human Grounded 93 20 113 Hallucinated 7 80 87 Total 100 100 200 Weak heuristic Grounded Hallucinated Total Human Grounded 66 47 113 Hallucinated 34 53 87 Total 100 100 200 25 answers from each cell of the weak-label × LLM-label contingency table (both agree-grounded, both agree-hallucinated, weak-hallucinated/LLM-grounded, and weak-grounded/LLM-hallucinated), yielding 25 × 4 × 2 = 200 
+
+samples. A single human annotator evaluated each sample, labeling it as hallucinated ( 1) or grounded ( 0) based on the question, the reference evidence, and the generated answer. The annotator had no access to the labels produced by ei-ther the weak heuristic or the LLM judge, ensuring that the validation is not biased by either labeling approach. 
+
+Results. Table 8 reports the confusion matrices between human annotations and both labeling approaches, pooled across both host models. The LLM judge achieves substan-tially higher agreement with human annotations, with 27 misclassifications out of 200 (86.5 % accuracy), compared to 81 misclassifications for the weak heuristic (59.5 % ac-curacy). The LLM judge’s errors are also more balanced: 20 false hallucinated labels (grounded by human, but hal-lucinated by the LLM judge) and 7 false grounded labels, whereas the weak heuristic exhibits 47 false hallucinated and 34 false grounded labels. This confirms that the LLM-as-a-judge approach produces more reliable training labels than the metric-based heuristic. 
+
+Confidence distributions. Tables 9 and 10 report the dis-tribution of LLM-judge labels across the weak heuristic’s confidence scores (the calibrated hallucination probability) for hallucinated and grounded labels, respectively. For hallu-cinated labels, the judge’s labels are heavily concentrated in the [0 .8, 1.0] bin (74.4 % for OLMoE, 82.0 % for Gemma), indicating a good level of agreement flagging hallucina-tions. For grounded labels, confidence is concentrated in the 
+
+[0 .0, 0.2[ bin (24.9 % for OLMoE, 75.2 % for Gemma) and the [0 .2, 0.4[ bin (67.5 % for OLMoE, 12.8 % for Gemma), indicating high confidence (low hallucination probability) for grounded answers. The clear separation between the two distributions suggests the LLM judge is well calibrated and that ambiguous cases (confidence near 0.5) are relatively rare. However, high disagreement between the weak heuris-tic and the LLM judge is observed in some cases, which highlights the cases where the weak heuristic fails to label hallucinations while asserting high confidence. Table 9: Confidence distribution, based on the weak labeling approach, for hallucinated labels (label=1) Confidence OLMoE (%) Gemma (%) [0.0, 0.2[ 36 (0.9 %) 220 (9.6 %) [0.2, 0.4[ 598 (15.5 %) 88 (3.8 %) [0.4, 0.6[ 230 (6.0 %) 33 (1.4 %) [0.6, 0.8[ 121 (3.1 %) 71 (3.1 %) [0.8, 1.0] 2862 (74.4 %) 1877 (82.0 %) 
+
+Total 3847 (100 %) 2289 (100 %) 
+
+Table 10: Confidence distribution, based on the weak labeling approach, for grounded labels (label=0) Confidence OLMoE (%) Gemma (%) [0.0, 0.2[ 196 (24.9 %) 1764 (75.2 %) [0.2, 0.4[ 531 (67.5 %) 301 (12.8 %) [0.4, 0.6[ 44 (5.6 %) 50 (2.1 %) [0.6, 0.8[ 6 (0.8 %) 42 (1.8 %) [0.8, 1.0] 10 (1.3 %) 189 (8.1 %) 
+
+Total 787 (100 %) 2346 (100 %) Label distribution. Table 11 reports the label distribution by host model and evidence condition. OLMoE exhibits a strong class imbalance, with 83.0 % of answers labeled as hallucinated overall (99.7 % for base answers without evi-dence, 66.2 % for answers generated with evidence). Gemma is more balanced, with 49.4 % hallucinated overall (85.4 % base, 13.3 % with evidence). The contrast between base and evidence conditions creates a natural label diversity that benefits classifier training, though the class imbalance for OLMoE should be considered when interpreting threshold-dependent metrics such as F1 (cf. Section 4). Table 11: Label distribution by model and evidence condition Condition N Halluc. Grounded Halluc. % OLMoE-1B-7B Base 2318 2312 6 99.7 % Evidence 2318 1535 783 66.2 % 
+
+Overall 4636 3847 789 83.0 % 
+
+Gemma-4-26B Base 2318 1980 338 85.4 % Evidence 2318 309 2009 13.3 % 
+
+Overall 4636 2289 2347 49.4 % F.3 Per-token hallucination detection (RQ1 -Cont.) 
+
+Table 12 reports token-level F1. The threshold-dependent results reveal greater variability across classifier families than the AUROC analysis (Section 4.1). IE (MLP) and IE (LR) remain the most consistent performers, with IE (MLP) achieving the highest average F1 on OLMoE and IE (LR) on Gemma. In contrast, IE (XGBoost), the strongest variant under AUROC, suffers a sharp F1 degradation on Gemma, indicating that its F1-optimized threshold does not generalize across datasets. LC (att.) produces zero F1 on RealTimeQA for both models, reflecting threshold instability rather than a lack of discriminative signal. Table 12: Token-level results (F1) across datasets and host models.                                                                                                                       
+
+> FQA NQO RTQA SQuAD TQA Rank Avg Gemma-4-26B IE (LR) 0.648 0.629 0.751 0.705 0.730 2.6 0.693
+> IE (MLP) 0.646 0.625 0.681 0.718 0.706 4.0 0.675 IE (RF) 0.571 0.575 0.756 0.706 0.774 3.2 0.676 IE (Transf.) 0.586 0.544 0.726 0.653 0.671 5.2 0.636 IE (XGB) 0.175 0.116 0.782 0.139 0.168 6.6 0.276 LC (att.) 0.649 0.645 0.000 0.602 0.720 4.2 0.523 LC (hid.) 0.652 0.627 0.738 0.643 0.727 3.2 0.678 Entropy 0.332 0.381 0.307 0.426 0.462 7.0 0.382 OLMoE-1B-7B IE (LR) 0.733 0.781 0.784 0.714 0.760 2.6 0.754 IE (MLP) 0.783 0.779 0.794 0.688 0.825 1.6 0.774
+> IE (RF) 0.732 0.604 0.631 0.508 0.826 5.0 0.660 IE (Transf.) 0.741 0.595 0.657 0.542 0.819 4.8 0.671 IE (XGB) 0.629 0.565 0.753 0.555 0.564 6.6 0.613 LC (att.) 0.763 0.773 0.000 0.616 0.815 4.2 0.594 LC (hid.) 0.684 0.658 0.144 0.628 0.756 5.4 0.574 Entropy 0.645 0.672 0.603 0.595 0.721 5.8 0.647
+
+F.4 Comparison to baselines (RQ2 - Cont.) 
+
+Table 13 reports answer-level F1. IE (MLP) achieves the highest average F1 on both host models, consistent with its strong AUROC performance. IE (XGBoost) again degrades sharply on Gemma, confirming the threshold sensitivity ob-served at the token level. On OLMoE, F1 values are inflated across most methods (many exceeding 0.94), likely due to the extreme label imbalance on this model (Table 11); con-sequently, the F1 ranking is less informative than AUROC. Sampling-based methods exhibit low F1 on Gemma, with SelfCheckGPT (Prompt) reaching only 0.129, but recover on OLMoE. The full inference benchmark table is provided in Table 14; see Section 4.2 for discussion. 
+
+F.5 Signal contribution analysis (RQ3 - Cont.) 
+
+Table 15 reports F1 for individual signals and Machine Learning classifiers. The combination benefit observed un-der AUROC is preserved for IE (MLP), which achieves the highest F1 on both models at both levels. However, IE (XG-Boost) underperforms several individual signals at F1 on both Table 13: Answer-level results (F1) across datasets and host models.                                                                                                                                                                            
+
+> FQA NQO RTQA SQuAD TQA Rank Avg Gemma-4-26B HaluNet 0.778 0.769 0.849 0.825 0.897 3.2 0.824 IE (LR) 0.790 0.763 0.849 0.873 0.904 2.4 0.836 IE (MLP) 0.828 0.780 0.876 0.890 0.868 2.0 0.849
+> IE (RF) 0.689 0.679 0.809 0.837 0.912 4.6 0.785 IE (Transf.) 0.751 0.787 0.840 0.760 0.884 3.6 0.804 IE (XGB) 0.444 0.410 0.804 0.472 0.636 9.6 0.553 LC (att.) 0.722 0.736 0.705 0.601 0.654 7.0 0.684 LC (hid.) 0.722 0.736 0.705 0.710 0.654 6.6 0.705 Entropy 0.585 0.658 0.722 0.689 0.735 7.8 0.678 Perplexity 0.317 0.395 0.332 0.424 0.561 12.4 0.405 SCGPT (NLI) 0.354 0.383 0.401 0.306 0.183 12.6 0.325 SCGPT (Prompt) 0.221 0.174 0.133 0.077 0.037 14.0 0.129 SemEnergy 0.643 0.675 0.633 0.588 0.587 9.2 0.625 SemUncert 0.594 0.590 0.604 0.597 0.581 10.0 0.593 OLMoE-1B-7B HaluNet 0.963 0.975 0.947 0.884 0.966 5.2 0.947 IE (LR) 0.955 0.973 0.931 0.830 0.963 9.0 0.930 IE (MLP) 0.973 0.981 0.950 0.875 0.978 1.8 0.951
+> IE (RF) 0.969 0.952 0.847 0.864 0.977 8.1 0.922 IE (Transf.) 0.972 0.972 0.905 0.871 0.976 6.6 0.939 IE (XGB) 0.952 0.957 0.877 0.857 0.919 11.0 0.913 LC (att.) 0.972 0.976 0.930 0.872 0.976 4.7 0.945 LC (hid.) 0.973 0.687 0.929 0.780 0.976 7.7 0.869 Entropy 0.969 0.972 0.935 0.876 0.976 5.2 0.946 Perplexity 0.968 0.972 0.934 0.874 0.974 6.9 0.944 SCGPT (NLI) 0.738 0.674 0.716 0.449 0.318 13.0 0.579 SCGPT (Prompt) 0.366 0.290 0.326 0.154 0.066 14.0 0.241 SemEnergy 0.961 0.974 0.939 0.896 0.975 5.2 0.949 SemUncert 0.970 0.974 0.930 0.870 0.974 6.6 0.944
+
+models, the opposite of the AUROC finding, again reflect-ing threshold sensitivity rather than reduced discriminative power. 
+
+# G Future Work 
+
+This work opens several avenues for future research. First, taking inspiration from methods such as Emde et al. (2025), one could certify the τ -lucidity of a model ( i.e., the guar-antee that the model will not hallucinate with probability 
+
+1 − τ within a given domain), building on the threshold dis-cussion in Section 3.1. Second, adapting approaches such as Fonseca, Bell, and Stoyanovich (2025) for hallucination detection, or extending InnerExpert as a Controlled Text Generation method, is a promising direction. Third, while the unsupervised ground truth annotation approach is effec-tive, it remains prone to noisy labels; more robust labeling methods could be explored. Fourth, while our results support the use of lightweight classifiers, the threshold sensitivity of XGBoost (Section F.3) suggests that ad-hoc classifier archi-tectures or threshold calibration techniques could improve robustness. Fifth, the unsupervised training pipeline natu-rally extends to online model monitoring, enabling detec-tion of hallucination rate drift over time. Finally, transferring Table 14: Inference time (per 100 tokens) and peak GPU memory for each detection method, measured on 50 Real-TimeQA questions per host model. InnerExpert times include MoE feature extraction (SVD-based hidden scores, attention scores, expert routing signals) as well as classifier inference. 
+
+OLMoE-1B-7B Gemma-4-26B Method Time per 100 tok (s) Peak GPU (GB) Time per 100 tok (s) Peak GPU (GB) Vanilla 1.146 12.660 3.825 46.810 Logit Entropy 1.152 12.670 3.830 46.880 Perplexity 1.152 12.670 3.830 47.010 LC (att.) 1.198 12.680 3.965 46.880 LC (hid.) 1.246 12.670 4.133 46.830 HaluNet 1.257 12.680 4.128 47.050 Router Entropy 2.829 12.820 7.677 47.470 Exp. Hidden 2.829 12.820 7.677 47.470 Exp. Similarity 2.829 12.820 7.677 47.470 Exp. Entropy 2.829 12.820 7.677 47.470 Usage Gini 2.829 12.820 7.677 47.470 Inv. Herfindahl 2.829 12.820 7.677 47.470 IE (LR) 3.493 13.080 9.376 48.110 IE (MLP) 3.492 13.080 9.377 48.110 IE (RF) 3.537 13.080 9.409 48.110 IE (XGBoost) 3.498 13.080 9.384 48.110 IE (Transf.) 3.495 13.110 9.384 48.180 SemUncert 6.722 14.230 21.860 48.360 SemEnergy 7.101 14.230 23.883 48.360 SCGPT (NLI) 5.966 14.200 19.331 48.340 SCGPT (Prompt) 6.108 26.850 19.562 59.340 
+
+InnerExpert across domains, tasks, languages, and MoE architectures without retraining is an important direction for scalability. Table 15: Average F1 for individual MoE signals, baselines, 
+
+InnerExpert (XGB). Each value is averaged across all five evaluation datasets per host model. Answer-level scores use the best aggregation per method. Methods without a token-level counterpart are marked “—”. 
+
+OLMoE-1B-7B Gemma-4-26B Method Answer Token Answer Token Inv. Herfindahl 0.940 0.731 0.697 0.619 Exp. Entropy 0.881 0.639 0.748 0.671 
+
+Exp. Gini 0.869 0.597 0.745 0.671 
+
+Expert Hidden 0.945 0.698 0.707 0.667 Expert Similarity 0.945 0.634 0.740 0.523 Router Entropy 0.857 0.731 0.571 0.667 Hid. Score 0.869 0.574 0.705 0.678 
+
+Att. Score 0.945 0.594 0.684 0.523 Logit Entropy 0.946 0.647 0.680 0.382 Perplexity 0.944 — 0.405 —IE (XGB) 0.913 0.613 0.553 0.276 IE (MLP) 0.951 0.774 0.849 0.675 
+
+HaluNet 0.947 — 0.824 —SCGPT (NLI) 0.579 — 0.325 —SCGPT (Prompt) 0.241 — 0.129 —SemUncertainty 0.944 — 0.593 —SemEnergy 0.949 — 0.625 —

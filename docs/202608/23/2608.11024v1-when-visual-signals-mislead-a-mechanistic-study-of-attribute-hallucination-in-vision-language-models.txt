@@ -1,0 +1,243 @@
+Title: When Visual Signals Mislead: A Mechanistic Study of Attribute Hallucination in Vision-Language Models
+
+URL Source: https://arxiv.org/pdf/2608.11024v1
+
+Published Time: Wed, 12 Aug 2026 01:16:12 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+> 1
+
+# When Visual Signals Mislead: A Mechanistic Study of Attribute Hallucination in Vision-Language Models 
+
+Yufei Zhang 1, Chenlu Zhan 1, and Hongwei Wang* 11Zhejiang University 
+
+Abstract —Attribute hallucination—where vision-language models (VLMs) correctly identify an object but mischaracterize its properties—is prevalent yet mechanistically poorly understood. The dominant explanation, language-prior dominance, has motivated prior-suppression methods, but this explanation has not been directly tested at the attribute level. We present VISOR (Visual-Operational Remediation), a unified framework that couples null-image-based diagnosis with routed remediation. Its VSNR diagnostic decomposes each prediction into a visual logit signal and a language-prior signal. Across 10,791 negative-ground-truth samples from three VLM families and three attribute types, the visual signal strongly predicts false positives, whereas the language-prior signal is near chance. VISOR uses this diagnosis to separate two failure modes: low-margin but directionally correct visual signals in color/state attributes, and low-SNR or misaligned visual signals in material attributes. The same diagnosis routes each query to the appropriate operator: calibration for threshold-placement errors, abstention for training-free low-SNR handling, or targeted visual adaptation for material failures that prior suppression cannot correct. Across Qwen, InternVL, and LLaVA, VISOR reduces attribute false positives without relying on the prior-dominance assumption. 
+
+I. I NTRODUCTION 
+
+Vision-language models (VLMs) (Alayrac et al., 2022; Li et al., 2023a; Liu et al., 2023; Dai et al., 2023; Zhu et al., 2023) have achieved strong performance on object-level benchmarks (Liu et al., 2024d), yet they remain prone to 
+
+attribute hallucination : correctly identifying an object while mischaracterizing its properties. A model may recognize a jacket yet assert it is leather rather than denim , or describe a surface as paper when it is cardboard . Unlike object-existence errors, attribute errors can pass standard object-level checks while corrupting decisions that depend on fine-grained visual properties. The dominant explanation for VLM hallucination is lan-guage prior dominance : statistical co-occurrences from pre-training allow language-layer biases to override visual ev-idence (Leng et al., 2024). This hypothesis has motivated contrastive decoding (VCD; Leng et al., 2024), instruction-based correction (ICD; Wang et al., 2024), and preference optimization (Zhao et al., 2023)—all targeting the same causal pathway: suppress the language prior, reduce hallucination. Yet whether this pathway actually drives attribute hallucination has never been directly tested. This leaves a basic causal question unresolved: when an attribute false positive occurs, is the error driven by the language prior, by the visual representation, or by the decision boundary between them? We address this gap with VISOR , a unified diagnosis-and-remediation framework for controlled yes/no attribute probing. VISOR first decomposes each prediction into a visual logit difference , δvis = logit (yes |image ) − logit (no |image ), and a 
+
+prior logit difference , δprior = logit (yes |null ) − logit (no |null ),where the null image is a uniform blank that carries no seman-tic content. Across 10,791 negative-ground-truth samples on VAW (Pham et al., 2021), the visual signal is a much stronger predictor of false positives than the language-prior signal. This finding shifts the explanation from uniform prior dominance toward visual-signal quality, while providing a coordinate for layer-wise diagnosis and intervention. The same diagnostic coordinate also determines how VI-SOR intervenes. When the visual signal has the correct di-rection but an insufficient margin, VISOR shifts the decision boundary by a calibrated prior term. When the signal is low-SNR or misaligned in the final Yes/No logit space, VISOR either abstains without training or repairs the visual projection with a targeted adapter. Thus the method is organized around one question throughout the paper: which signal actually causes the attribute false positive, and what intervention matches that signal? Our contributions are: 1) VISOR framework : We introduce a unified framework that couples VSNR diagnosis with routed remediation, using the same visual-signal coordinate for hypothesis testing, layer-wise analysis, and operator selection. 2) Mechanistic taxonomy : We identify two visual-signal failure modes: threshold-correctable low-margin errors in color/state and directional visual-signal failures in ma-terial, supported by layer-wise and word-level evidence. 3) Mechanism-specific remediation : We evaluate VISOR as a routed system whose Calib, Abstain, and Adapt operators are selected by the diagnosed failure mode, showing that mechanism-aligned remediation outper-forms prior-suppression baselines. II. R ELATED WORK 
+
+Hallucination evaluation. Object-level hallucination is commonly evaluated with POPE (Li et al., 2023b), CHAIR (Rohrbach et al., 2018), and related benchmarks arXiv:2608.11024v1 [cs.CV] 11 Aug 2026 2Input VSNR Decomposition Real Image Query Null Image Query δvis   
+
+> δprior
+> Visual Incertitude Visual representation inversion Reduced attribution false positives Mechanism Diagnosis Remediation
+> Is the jacket leather? VLM
+> Path A: Threshold calibration for low margin Path B: SNR-aware abstention + per-word visual adapter for material errors
+> AB
+
+Fig. 1: Framework overview. VISOR first uses VSNR to decompose each attribute query into visual and null-image prior signals. The same diagnostic signal supports mechanism analysis, layer-wise back-tracing, and routing to a mechanism-specific operator: Calib for low-margin visual signals, and Abstain or Adapt for low-SNR material signals. summarized in recent surveys (Yin et al., 2023; Zhang et al., 2024; Bai et al., 2024; Liu et al., 2024c). HallusionBench (Liu et al., 2024a), MME (Fu et al., 2023), and GQA (Hudson and Manning, 2019) include attribute-related questions, but they usually report aggregate accuracy rather than per-attribute false positives. VAW (Pham et al., 2021) provides dense attribute annotations; we repurpose it as a mechanistic yes/no diagnostic by separating false positives and false negatives for each attribute word. 
+
+Attribute recognition vs. attribute hallucination. 
+
+ABO (Collins et al., 2022), OVAD (Bravo et al., 2023), and VASR (Bitton et al., 2023) evaluate attribute recognition with region proposals or task-specific models. Our setting instead asks why a full VLM asserts absent attributes during zero-shot inference, and connects per-word representation quality to false positive rates without privileged region annotations. 
+
+Prior-suppression interventions. VCD (Leng et al., 2024), ICD (Wang et al., 2024), DAMRO (Gong et al., 2024), DeCo (Yao et al., 2024), and related contrastive decoding methods suppress outputs attributed to language or degraded-visual priors. Preference methods such as V-DPO (Xie et al., 2024), HA-DPO (Zhao et al., 2023), and RLHF-V (Yu et al., 2024) align responses toward visually faithful answers. These methods are well matched to failures where a correct visual signal is overridden; our analysis identifies material attribute cases where the visual signal itself is low-SNR or directionally misaligned, requiring different interventions. III. VISOR: D IAGNOSIS AND MECHANISM -S PECIFIC 
+
+REMEDIATION 
+
+VISOR couples a diagnostic module with mechanism-specific remediation. The diagnostic module, VSNR, decom-poses each attribute prediction into two scalar quantities ex-tracted by paired real-image and null-image forward passes. These quantities define the decision variable, the prior es-timate, and the coordinate used for layer-wise back-tracing. VISOR then routes a query to one of three operators according to the diagnosed failure mode: Calib for low-margin visual sig-nals, Abstain for training-free low-SNR handling, and Adapt for targeted visual repair. The operators are therefore not separate methods; they are different actions taken by one diagnosis-driven framework. 
+
+Formulation. Let M be a VLM, I an image, and qw ayes/no attribute query “Is the [object] [attribute w]?”. We define the visual logit difference :
+
+δvis (M, I, w ) = logit M (yes | I, q w) − logit M (no | I, q w) (1) For a negative sample (ground truth: No), hallucination occurs when δvis ≥ 0.We additionally define the prior logit difference under a blank image I∅ (uniform gray): 
+
+δprior (M, w ) = logit M (yes | I∅, q w) − logit M (no | I∅, q w)
+
+(2) 
+
+δprior measures the model’s language-only bias for word w
+
+independent of visual input. We collect both quantities for every sample via two forward passes per (image, query) pair. We use uniform gray ( 128 × 128 × 3, all channels = 128 )as the null image; supplementary validation summarizes the remaining scope limits of this choice. 
+
+Decision and layer-wise coordinates. Under deterministic yes/no decoding, the first answer token fixes the label, so 
+
+δvis = 0 is the decision boundary for negative samples. Empirically, sign (δvis ) matches the hallucination label across all 10,791 negative-ground-truth samples. Because the same final norm and LM head can be applied to intermediate hidden states, we also define: 
+
+δ(l) 
+
+> vis
+
+= zl(yes ) − zl(no ),zl(t) = LMHead (Norm (h[last ] 
+
+> l
+
+)) t. (3) This gives a per-layer signal-to-noise ratio, SNR (w, l ) =
+
+|μ[δ(l) 
+
+> vis
+
+]|/σ [δ(l) 
+
+> vis
+
+], allowing us to trace when the decision-relevant visual signal becomes low-margin or misaligned. 
+
+Bayesian decomposition and the CD-method failure mode. At the final token position, the model’s log-odds can be written as: 
+
+log P (yes | I, q w)
+
+P (no | I, q w) = log P (I | yes , q w)
+
+P (I | no , q w)
+
+| {z }
+
+> visual likelihood ratio
+
++ log P (yes | qw)
+
+P (no | qw)
+
+| {z }
+
+> language prior
+
+(4) In the limit where I = I∅ carries no semantic content, the expression reduces to δprior , and δvis − δprior approximates the visual likelihood contribution. This decomposition clarifies when prior-suppression methods are misaligned: subtracting a prior estimate helps only if the visual signal is direction-ally correct but underweighted. For material B2 words, the measured prior estimate is non-positive while δvis > 0 on hallucinating samples, so output-level prior subtraction cannot flip the decision. For an output-level contrastive correction δ′ 
+
+> vis
+
+= δvis −
+
+αˆδprior , correcting a hallucinating sample with δvis > 03
+
+requires ˆδprior > δ vis /α > 0. The tested B2 material words instead have ˆδprior ≤ 0 across models; therefore output-level prior subtraction cannot flip the decision sign. The formal statement and proof are given in the supplementary material. 
+
+Unified routing. VISOR uses the same diagnostic coor-dinate for both analysis and intervention. For words whose visual signal is directionally correct but low-margin, VISOR applies a calibrated decision rule 1[δvis − γδ prior > 0] . For low-SNR material words, the routed operator depends on deployment constraints: VISOR-Abstain returns uncertainty without training, whereas VISOR-Adapt loads a per-word visual LoRA adapter when definitive answers are required. This routing view is important: Calib, Abstain, and Adapt are not stitched together post hoc, but are the three actions exposed by the same VSNR diagnosis. IV. E XPERIMENTS 
+
+A. Experimental setup. 
+
+We use the VAW (Visual Attributes in the Wild) dataset (Pham et al., 2021), which provides per-instance attribute annotations from Visual Genome across 620 at-tribute words. For each attribute type we construct a yes/no probing benchmark by issuing queries of the form “Is the [object] [attribute]? Answer yes or no.” Negative sam-ples are drawn from instances where the attribute ap-pears in negative_attributes ; positive samples from 
+
+positive_attributes . We measure False Positive Rate (FPR) —the fraction of negative-ground-truth samples where the model answers “yes”—as the primary hallucination met-ric. Dataset statistics (Qwen2.5-VL-3B): color 2,992 samples (1,302 pos / 1,690 neg, 61 words); material 2,417 samples (969 pos / 1,448 neg, 45 words); state 803 samples (344 pos / 459 neg, 11 words). We evaluate Qwen2.5-VL-3B-Instruct (Bai et al., 2025), InternVL3.5-4B-Flash (Chen et al., 2024), and LLaVA-1.5-7B (Liu et al., 2024b). These three families span different visual encoder designs (Qwen-VL ViT, InternViT-300M, CLIP ViT-L/14 (Radford et al., 2021; Dosovitskiy et al., 2021)) and training recipes, providing architectural diversity for cross-model validation. 
+
+Logit extraction. Each (image, query) pair receives two forward passes: one with the real image to obtain δvis , one with a blank gray image ( 128 × 128 × 3, all channels = 128 )to obtain δprior . We record logit(yes) and logit(no) as the maximum log-probability among surface forms {“Yes”, “yes”, “ Yes”, “ yes” } and {“No”, “no”, “ No”, “ no” } respectively from the final token position. 
+
+Metrics. Our yes/no probing benchmark follows the POPE (Li et al., 2023b) format: balanced positive/negative queries over a closed vocabulary. FPR is the primary metric because it isolates the hallucination direction; Yes-Ratio, F1, and Accuracy provide complementary POPE-style evaluation. 
+
+Reproducibility. All inference experiments use greedy de-coding with temperature = 0 and fixed random seed 42. LoRA fine-tuning uses seed 42 across all three model families. Experiments were conducted on a single NVIDIA A100 80GB GPU. 
+
+Language prior does not drive attribute hallucination. 
+
+We assess whether the language prior ( δprior ) or visual sig-nal ( δvis ) explains attribute hallucination. We present a pri-mary correlational analysis followed by an additional image-sensitivity analysis. 
+
+Correlational analysis. For 10,791 negative-ground-truth samples, we compute Spearman rank correlation between each logit quantity and the binary hallucination outcome (1 = model predicted “yes”): This result should be read as a scoped claim. It does not deny language bias in general: prior work documents attestation and frequency biases in language models (McKenna et al., 2023), and VLMs can retain substantial benchmark accuracy without images (Asadi et al., 2025). It also does not claim that δvis is independent of language pre-training, since visual encoders and language heads are jointly trained. The narrower finding is that, at inference time in negative-ground-truth attribute probing, the visual logit margin explains sample-level false positives better than the null-image prior. 
+
+Image-sensitivity analysis (additional evidence). We next test whether the real image can override a positive null-image prior. We identify 278 prior-positive conflict cases where 
+
+δprior > 0 but δvis < 0:
+
+Language prior predicts color FPR but not material FPR. At the word level, δprior provides asymmetric diagnostic information. For color attributes, the per-word mean δprior cor-relates with FPR at ρ = +0 .420 (p = 0 .003 , n = 49 words). For material attributes, ρ(δprior , FPR ) = +0 .034 (p = 0 .83 )— no relationship. This asymmetry explains why VISOR-Calib succeeds for color/state but achieves zero improvement on material: for material, word-level FPR variance is explained entirely by δvis distribution properties ( ρ = +0 .752 , p <
+
+0.0001 ). V. T WO MECHANISMS OF ATTRIBUTE HALLUCINATION 
+
+Mechanism A: Visual Incertitude. For color and state 
+
+attributes, δvis points in the correct direction on average but with insufficient margin. VISOR-Calib reduces color FPR by 11–17 pp across all three models and reduces state FPR by 6– 7 pp on Qwen and InternVL, while VCD/ICD achieve 0.0 pp improvement on color. This pattern supports a threshold-misplacement account rather than a prior-dominance account. Compound-color diagnostics are provided in the supplemen-tary material. 
+
+Mechanism B: Visual Representation Inversion. For 
+
+material attributes, high FPR persists even for words with near-zero language prior. We separate annotation granularity noise from true representation failure. Steel is mostly B1 label granularity: 18/20 hallucinating negatives are visually metallic, so its true FPR drops from 45.5% to 4.5% after removing annotation-noise cases. Rubber, paper, and leather are B2 failures: observed and true FPR are identical after the same filtering. 
+
+SNR predicts material severity. We define SNR (w) = 
+
+|¯δvis (w)|/σ δvis (w). Across 46 material words, SNR is the strongest predictor of FPR. 
+
+Late-stage SNR collapse. Layer-wise probing localizes Mechanism B to the final decoder layers rather than to 4
+
+TABLE I: Method comparison on the VAW probing benchmark (F1 / Accuracy / Yes-Ratio / FPR). Best FPR per column is in bold . VISOR denotes the routed framework: Calib is selected for color/state and Adapt for material. VCD/ICD Yes-Ratio increases reveal worsening yes-bias masked by stable F1/Accuracy. 
+
+> (a) Color attribute
+
+Qwen2.5-VL-3B InternVL3.5-4B LLaVA-1.5-7B Method F1 Acc YR FPR F1 Acc YR FPR F1 Acc YR FPR Baseline 73.7 73.9 55.6 33.8 74.7 75.2 54.4 31.6 67.8 65.8 62.6 47.2 VCD 73.7 72.9 59.4 38.0 74.9 74.7 57.2 35.6 68.1 65.4 64.8 51.3 ICD 73.9 73.4 58.2 36.5 74.7 74.5 57.6 35.6 67.9 64.9 66.1 51.3 
+
+VISOR (ours) 71.4 75.1 43.7 22.2 71.7 76.9 37.8 15.4 65.2 68.9 46.1 29.8 
+
+> (b) Material attribute
+
+Qwen2.5-VL-3B InternVL3.5-4B LLaVA-1.5-7B Method F1 Acc YR FPR F1 Acc YR FPR F1 Acc YR FPR Baseline 73.0 79.0 37.9 15.7 74.2 78.8 42.3 19.5 70.5 74.7 45.7 25.8 VCD 73.7 78.1 43.4 15.7 74.8 78.7 44.2 19.5 71.3 74.6 48.5 25.8 ICD 74.4 78.0 46.0 15.7 75.0 78.0 47.7 19.5 70.7 75.7 42.9 25.8 
+
+VISOR (ours) 73.9 79.9 37.0 14.2 75.9 80.3 41.7 17.8 72.3 76.2 45.7 24.5 
+
+> (c) State attribute
+
+Qwen2.5-VL-3B InternVL3.5-4B LLaVA-1.5-7B Method F1 Acc YR FPR F1 Acc YR FPR F1 Acc YR FPR Baseline 71.0 74.1 46.6 25.9 66.7 71.2 43.5 25.7 67.8 70.1 50.1 32.5 VCD 71.0 73.8 46.0 25.7 64.8 67.7 42.7 28.1 63.5 62.4 47.5 37.0 ICD 71.0 73.8 46.0 25.7 64.8 67.7 42.7 28.1 63.5 62.4 47.5 37.0 
+
+VISOR (ours) 70.4 75.5 40.0 19.0 65.8 72.5 37.7 19.6 67.8 70.1 50.1 32.5 
+
+TABLE II: Spearman rank correlation between logit signals and binary hallucination outcome. δvis strongly predicts hal-lucination across all three models; δprior is near chance. A classifier using δprior alone achieves 58.5–59.0% accuracy— barely above the majority-class baseline (57.9%).               
+
+> Model ρ(δvis ,halluc. )ρ(δprior ,halluc. )Prior-only acc. Qwen2.5-VL-3B 0.755 0.177 58.5% InternVL3.5-4B 0.760 0.066 58.6% LLaVA-1.5-7B 0.835 0.066 59.0%
+
+TABLE III: Prior-positive conflict cases ( δprior > 0, δvis < 0). In all 278 cases where blank-image prediction favors “yes” but real image flips the prediction to “no”, no hallucination occurs, confirming that real image content actively modifies model behavior. 
+
+Model Prior-pos. conflicts Halluc. rate Qwen2.5-VL-3B 147 / 1,690 0.0% 
+
+InternVL3.5-4B 74 / 1,690 0.0% 
+
+LLaVA-1.5-7B 57 / 1,690 0.0% 
+
+a complete absence of mid-layer visual evidence. For B2 words, SNR drops from about 35 near L17 to below 0.9 by L36, whereas high-SNR words maintain SNR around 2–4. TABLE IV: Observed vs. true FPR after annotation-noise removal. B1 words show lower true FPR; B2 words remain unchanged, confirming genuine visual representation failure. 
+
+Word Observed FPR True FPR Type steel 45.5% 4.5% B1 rubber 44.4% 44.4% B2 paper 41.9% 41.9% B2 ceramic 32.5% 27.5% mixed leather 26.0% 26.0% B2 
+
+TABLE V: Predictors of material FPR across 46 material words. SNR achieves ρ = −0.916 , outperforming either component alone. 
+
+Predictor Spearman ρ with FPR p-value 
+
+¯δvis (w) −0.765 < 0.0001 
+
+σδvis (w) +0 .633 < 0.0001 
+
+SNR (w) −0.916 < 0.0001 
+
+This narrows the failure to late-stage visual-to-logit projection dynamics; cross-model trajectories, signed-signal plots, and 5
+
+Fig. 2: SNR vs. FPR and δvis distributions for material words. B2 words have broad δvis distributions straddling zero, while high-SNR words concentrate below zero. case studies are in the supplementary material. 
+
+Fig. 3: Per-layer SNR for low-SNR material words vs. high-SNR words across 36 decoder layers of Qwen2.5-VL-3B. The divergence occurs in L28–L36, localizing the degradation to late decoder layers. VI. VISOR R ESULTS AND MECHANISTIC VALIDATION 
+
+We next verify that VISOR’s routed operators match the diagnosed mechanisms. These experiments should be read as branch-level validation of one framework, not as a collection of unrelated fixes. For Mechanism A, where δvis is direc-tionally correct but low-margin, the Calib operator shifts the decision boundary using the null-image prior and reduces color FPR by 11–17 pp across Qwen, InternVL, and LLaVA. For material attributes, the same operator gives 0 pp on Qwen and InternVL, matching the diagnosis that Mechanism B is not threshold correctable. For Mechanism B, output-level prior subtraction and language-layer tuning are insufficient because the discrimi-native material signal is weak or poorly projected. The VI-SOR Abstain operator, a training-free routed action, reduces Qwen material FPR from 15.7% to 10.2% at τ = 0 .6 with 14.2% abstention. More direct repair uses the Adapt operator: a shared hard-negative LoRA suffers cross-contamination, whereas Adapt trains one visual LoRA adapter per high-FPR target word. On the six target material words, VISOR-Adapt reduces mean FPR from 38.1% to 23.9% on Qwen, 44.7% to 32.8% on InternVL, and 34.2% to 26.8% on LLaVA, with MME regression within ±1.25 pp. Full probe results, per-word tables, statistical tests, and free-form transfer results are in the supplementary material. TABLE VI: VISOR Calib operator vs. VCD/ICD on color, state, and material across three models. Calib consistently helps color/state when δvis is directionally correct but low-margin; its zero-gain material results on Qwen/InternVL con-firm that Mechanism B is not corrected by threshold move-ment. For LLaVA material, Calib reduces FPR by shifting the threshold but increases FNR by 7.1 pp.                                                         
+
+> Model Attribute Baseline VISOR-Calib VCD ICD Qwen2.5-VL-3B color 33.8% 22.2% (−11.6 pp) 33.8% (0 pp) 33.8% (0 pp) InternVL3.5-4B color 31.6% 15.4% (−16.2 pp) 31.6% (0 pp) 31.6% (0 pp) LLaVA-1.5-7B color 47.2% 29.8% (−17.4 pp) 47.2% (0 pp) 47.2% (0 pp) Qwen2.5-VL-3B state 25.9% 18.9% (−7.0 pp) 25.7% (0 pp) 25.7% (0 pp) InternVL3.5-4B state 25.7% 19.6% (−6.1 pp) 28.1% ( +2.4 pp) 28.1% ( +2.4 pp) LLaVA-1.5-7B state 32.5% 32.5% ( 0.0 pp )37.0% ( +4.6 pp) 37.0% ( +4.6 pp) Qwen2.5-VL-3B material 15.7% 15.7% ( 0.0 pp )15.7% (0 pp) 15.7% (0 pp) InternVL3.5-4B material 19.5% 19.5% ( 0.0 pp )19.5% (0 pp) 19.5% (0 pp) LLaVA-1.5-7B material 25.8% 18.6% (−7.2 pp) 25.8% (0 pp) 25.8% (0 pp)
+
+Fig. 4: The VISOR Calib operator reduces color FPR across Qwen, InternVL, and LLaVA, whereas VCD and ICD do not improve color FPR. This supports the Mechanism A diagnosis: the relevant error is boundary placement under a weak but correct visual signal, not a dominant language prior that can be subtracted away. 
+
+VISOR-Adapt repairs material-specific visual projec-tions. VISOR-Adapt trains one visual LoRA adapter per high-FPR material word, avoiding the cross-contamination observed with a shared hard-negative LoRA. On Qwen2.5-VL-3B, the six-word mean FPR drops from 38.1% to 23.9%; the leather target illustrates the difference most clearly, where shared LoRA worsens FPR by 8 pp but VISOR-Adapt reduces it by 12 pp. The late-stage overwriting account predicts that VISOR-Adapt should improve final-layer material SNR rather than merely suppressing “yes” answers. Re-running the layer-wise probe after VISOR-Adapt training confirms this prediction: final-layer SNR increases for rubber (+0.307), steel (+0.407), metal (+0.177), ceramic (+0.246), and paper (+0.256), with the gains concentrated in L28–L36. 
+
+Scope and limitations. VISOR’s VSNR diagnostic is de-signed for structured attribute queries over known words. Null-image estimates are stable across gray, black, white, and random-noise images ( r > 0.90 ), but the binary yes/no decomposition may not capture all free-form hallucination phenomena. B2 errors may partly reflect joint language-visual 6
+
+TABLE VII: VISOR-Abstain on Qwen2.5-VL-3B material queries. The τ = 0 .6 operating point lowers FPR by 5.5 pp with 14.2% abstention, showing a training-free option for low-SNR material words; τ = 1 .0 is more conservative but abstains on nearly half of the samples. 
+
+τ FPR ∆ FPR Abstain rate 0 (baseline) 15.7% 0.0 pp 0.0% 0.3 14.1% −1.6 pp 6.2% 0.6 10.2% −5.5 pp 14.2% 1.0 4.8% −10.9 pp 45.5% 
+
+Fig. 5: VISOR-Abstain traces the FPR–coverage trade-off as the SNR threshold increases. Abstention concentrates on the highest-risk material words, making the intervention appro-priate for safety-sensitive settings where unsupported material assertions are costlier than uncertainty. co-training frequency rather than purely visual encoder failure: the L28 GT probe suggests that some material information re-mains recoverable before final projection, but our experiments do not separate pre-training coverage from decoder projection. VISOR-Adapt currently targets six high-FPR material words (16.1% of material test samples), so it supports targeted repair rather than open-vocabulary material coverage. VII. D ISCUSSION 
+
+The main empirical implication is not that language statis-tics are irrelevant to VLM behavior, but that attribute false positives should not be treated as a single prior-dominance failure. VISOR separates the decision margin observed under the real image from the null-image prior and uses this sepa-ration to pick the intervention. This matters because methods that look similar at the output layer can have different effects depending on the diagnosed failure mode: Calib is useful when the visual signal has the right sign but an overly permissive threshold, whereas prior subtraction and language-layer tuning have little room to help when the final visual logit direction is already wrong. TABLE VIII: Per-word material FPR for Qwen2.5-VL-3B un-der baseline, shared hard-negative LoRA, and VISOR-Adapt per-word LoRA. VISOR-Adapt improves all six targets and avoids the leather cross-contamination failure of the shared adapter.                                   
+
+> Word Baseline HN (shared) VISOR-Adapt 95% CI steel 45.5% 27.3% 22.7% [10.3%, 35.1%] rubber 44.4% 33.3% 27.8% [14.2%, 41.4%] paper 41.9% 38.7% 19.4% [9.5%, 29.3%] metal 38.0% 26.0% 32.0% [19.2%, 44.8%] leather 26.0% 34.0% ↑14.0% ↓[5.1%, 22.9%] ceramic 32.5% 27.5% 27.5% [15.8%, 39.2%]
+> Mean (6) 38.1% 31.1% 23.9% —
+
+Fig. 6: VISOR-Adapt raises final-layer SNR for five B2 mate-rial words on Qwen2.5-VL-3B. The improvement is concen-trated in L28–L36, matching the late-stage projection failure identified by the VSNR diagnostic and supporting VISOR-Adapt as a mechanism-aligned visual adaptation rather than a generic response suppressor. Table IX summarizes the negative controls behind the rout-ing decision. Their value is diagnostic rather than competitive: language-layer DPO leaves the visual-encoder gradient at zero in our frozen visual-backbone setup, shared visual LoRA collapses to a blanket “No” policy, and simple hidden-state edits are unstable. The only partial recovery comes from a supervised L28 probe, indicating that some material evidence is present before the final projection but is not aligned with the model’s Yes/No head. This is why VISOR-Adapt targets visual projections per word instead of applying a shared output-level correction. The same mechanism-aligned design transfers across archi-tectures. On InternVL3.5-4B-Flash, VISOR-Adapt reduces the six-word mean FPR from 44.7% to 32.8% and improves 5 of 6 target words; on LLaVA-1.5-7B, it reduces the mean from 34.2% to 26.8% and improves all 6 words. These gains are statistically supported by the stratified CMH tests reported in the supplementary material, which remain significant across the three models. The adapters also do not trade off general capability. When each per-word LoRA is loaded individually on Qwen2.5-VL-3B and evaluated on the MME hallucination subset, Accu-racy stays within ±1.25 pp of the baseline (90.8% overall, 89.6%–91.7% range). A one-sample two-sided t-test across the six adapter-level Accuracy differences yields p = 0.62; VISOR-Adapt repairs the targeted material words without measurably degrading unrelated visual understanding. The diagnostic itself is also stable. The gray null image remains highly consistent with black, white, and random-noise baselines ( r > 0.90 in all three models), and the text-only prior aligns with gray for Qwen and InternVL. This robustness matters because the routed intervention depends on the relative 7
+
+TABLE IX: Boundary tests for Mechanism B on Qwen2.5-VL-3B material queries. Language-layer tuning and undifferenti-ated visual updates fail to repair the failure mode; a supervised L28 probe recovers part of the material signal, supporting the need for targeted visual adaptation.                               
+
+> Test FPR change FNR change Diagnosis Language-layer DPO +2 .0to +2 .1pp –No update reaches the visual encoder Shared visual LoRA large drop +100 pp Degenerates to always predicting “No” Inference-time edits −1.7to +60 pp unstable Do not isolate the GT material direction GT probe at L28 −10 .8pp +5 .6pp Recoverable signal is poorly projected by lm head
+
+ordering between the real-image margin and the null-image prior, not on a single handcrafted background choice. We also observe the same decision rule on the GQA color subset: the δvis ≥ 0 criterion yields zero false-positive violations on all three models, indicating that the visual-signal diagnosis generalizes beyond the VAW probing format. Because the six adapted words account for 16.1% of the material negative samples, the targeted repair also translates into a measurable end-to-end gain: the estimated full-material FPR on Qwen2.5-VL-3B falls from 15.7% to 13.5%. The remaining gap reflects the fact that the method is intentionally focused on the highest-FPR words rather than the full open vocabulary. This routing view also clarifies deployment choices. VISOR-Calib is the least intrusive branch: after offline calibra-tion of γ, inference uses the same model and changes only the decision rule. It is therefore appropriate when the target vo-cabulary is known and false positives can be reduced without changing model parameters. VISOR-Abstain is training-free and is useful when unsupported material assertions are costlier than uncertainty, but its benefit comes with lower coverage. VISOR-Adapt provides definitive answers for the highest-risk material words by updating visual-encoder projections, but the current experiments cover a targeted vocabulary rather than all possible attributes. Scaling it to open-vocabulary deployment would require a target-word selection policy and adapter management, such as grouping low-SNR words or dynamically loading adapters; these engineering strategies are not evaluated in this paper. The pre-training source of Mechanism B remains an open question. The L28 GT probe indicates that some material information is recoverable before the final projection, while the late-layer SNR drop shows that this information is not preserved in the final Yes/No logit coordinate. This is con-sistent with a visual-to-language projection bottleneck and with insufficient fine-grained material supervision during joint pre-training, but our experiments do not disentangle these causes. We therefore treat VISOR as a diagnostic and repair framework for observed attribute failures, not as a complete account of how the failures arise during pre-training. VIII. C ONCLUSION 
+
+We present VISOR, a unified framework that couples null-image-based VSNR diagnosis with routed remediation for attribute hallucination. Across controlled yes/no probing, false positives are better predicted by the visual logit signal than by the null-image prior, motivating a visual-signal account with two failure modes: low-margin color/state errors and low-SNR or misaligned material errors. The intervention results close the loop: Calib corrects threshold placement when the visual direction is reliable, while Abstain and Adapt handle material cases where prior suppression is insufficient. These results suggest that hallucination mitigation should start from mechanism diagnosis rather than uniformly suppressing apresumed language prior. REFERENCES 
+
+Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Men-sch, Katherine Millican, Malcolm Reynolds, Roman Ring, Eliza Rutherford, Serkan Cabi, Tengda Han, Zhitao Gong, Sina Samangooei, Marianne Monteiro, Jacob Menick, Se-bastian Borgeaud, Andy Brock, Aida Nematzadeh, Sa-hand Sharifzadeh, Mikolaj Binkowski, Ricardo Barreira, Oriol Vinyals, Andrew Zisserman, and Karen Simonyan. Flamingo: a visual language model for few-shot learning. In Advances in Neural Information Processing Systems (NeurIPS) , pages 23716–23736, 2022. Mohammad Asadi, Jack W. O’Sullivan, Fang Cao, Tahoura Nedaee, Kamyar Rajabalifardi, Fei-Fei Li, Ehsan Adeli, and Euan Ashley. Mirage: The illusion of visual understanding. 
+
+arXiv preprint arXiv:2501.09905 , 2025. Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, Humen Zhong, Yuanzhi Zhu, Mingkun Yang, Zhao-hai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Jun-yang Lin. Qwen2.5-VL technical report. arXiv preprint arXiv:2502.13923 , 2025. Zechen Bai, Pichao Wang, Tianjun Xiao, Tong He, Zongbo Han, Zheng Zhang, and Mike Zheng Shou. Hallucination of multimodal large language models: A survey. arXiv preprint arXiv:2404.18930 , 2024. Yonatan Bitton, Nitzan Bitton Guetta, Ron Yosef, Yu-val Elovici, Mohit Bansal, Gabriel Stanovsky, and Roy Schwartz. VASR: Visual analogies of situation and rela-tion. In Proceedings of the AAAI Conference on Artificial Intelligence , pages 2745–2753, 2023. Mar´ ıa A. Bravo, Sudhanshu Mittal, Thomas Brox, and Bj¨ orn Ommer. Open-vocabulary attribute detection. In Proceed-ings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 7041–7051, 2023. Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing, Zhong Ji, Jiangning Song, Muyi Sun, Xiying Tan, Lewei Yao, Haodong Duan, Wenbo Li, Yu Qiao, Jifeng Dai, and Conghui He. InternVL2.5: An open-source multimodal LLM for competitive performance with GPT-4o. arXiv preprint arXiv:2412.05271 , 2024. Jasmine Collins, Shubham Goel, Kenan Deng, Achleshwar Luthra, Leon Xu, Erhan Gundogdu, Xi Zhang, Tomas 8
+
+F. Yago Vicente, Thomas Dideriksen, Himanshu Arora, Matthieu Guillaumin, and Jitendra Malik. ABO: Dataset and benchmarks for real-world 3D object understanding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 21094– 21104, 2022. Wenliang Dai, Junnan Li, Dongxu Li, Anthony Meng Huat Tiong, Junqi Zhao, Weisheng Wang, Boyang Li, Pascale Fung, and Steven Hoi. InstructBLIP: Towards general-purpose vision-language models with instruction tuning. In Advances in Neural Information Processing Systems (NeurIPS) , pages 54846–54867, 2023. Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In International Conference on Learning Represen-tations (ICLR) , 2021. Chaoyou Fu, Peixian Chen, Yunhang Shen, Yulei Qin, Meng-dan Zhang, Xu Lin, Jinrui Yang, Xiawu Zheng, Ke Li, Xing Sun, Yunsheng Wu, and Rongrong Ji. MME: A comprehensive evaluation benchmark for multimodal large language models. arXiv preprint arXiv:2306.13394 , 2023. Xuan Gong, Tianshi Ming, Xinpeng Wang, and Zhihua Wei. DAMRO: Dive into the attention mechanism of LVLM to reduce object hallucination. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing (EMNLP) , 2024. Drew A. Hudson and Christopher D. Manning. GQA: A new dataset for real-world visual reasoning and compositional question answering. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 6700–6709, 2019. Sicong Leng, Hang Zhang, Guanzheng Chen, Xin Li, Shijian Lu, Chunyan Miao, and Lidong Bing. Mitigating object hallucinations in large vision-language models through vi-sual contrastive decoding. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 13872–13882, 2024. Junnan Li, Dongxu Li, Silvio Savarese, and Steven Hoi. BLIP-2: Bootstrapping language-image pre-training with frozen image encoders and large language models. In Proceedings of the 40th International Conference on Machine Learning (ICML) , pages 19730–19742, 2023a. Yifan Li, Yifan Du, Kun Zhou, Jinpeng Wang, Wayne Xin Zhao, and Ji-Rong Wen. Evaluating object hallucination in large vision-language models. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP) , pages 292–305, 2023b. Fuxiao Liu, Tianrui Guan, Zongxia Li, Lichang Chen, Yaser Yacoob, Dinesh Manocha, and Tianyi Zhou. Hallusion-Bench: An advanced diagnostic suite for entangled language hallucination and visual illusion in large vision-language models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024a. Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. Visual instruction tuning. In Advances in Neural Information Processing Systems (NeurIPS) , pages 34892– 34916, 2023. Haotian Liu, Chunyuan Li, Yuheng Li, and Yong Jae Lee. Improved baselines with visual instruction tuning. In Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024b. Hanchao Liu, Wenyuan Xue, Yifei Chen, Dapeng Chen, Xiu-tian Zhao, Ke Wang, Liping Hou, Rongjun Li, and Wei Peng. A survey on hallucination in large vision-language models. arXiv preprint arXiv:2402.00253 , 2024c. Yuan Liu, Haodong Duan, Yuanhan Zhang, Bo Li, Songyang Zhang, Wangbo Zhao, Yike Yuan, Jiaqi Wang, Conghui He, Ziwei Liu, Kai Chen, and Dahua Lin. MMBench: Is your multi-modal model an all-around player? In Proceedings of the European Conference on Computer Vision (ECCV) ,2024d. Nick McKenna, Tianyi Li, Liang Cheng, Mohammad Javad Hosseini, Mark Johnson, and Mark Steedman. Sources of hallucination by large language models on inference tasks. In Findings of the Association for Computational Linguistics: EMNLP 2023 , pages 2758–2774, 2023. Khoi Pham, Kushal Kafle, Zhe Lin, Zhihong Ding, Scott Cohen, Quan Tran, and Abhinav Shrivastava. Learning to predict visual attributes in the wild. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 11741–11750, 2021. Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision. In Proceedings of the 38th International Conference on Machine Learning (ICML) ,pages 8748–8763, 2021. Anna Rohrbach, Lisa Anne Hendricks, Kaylee Burns, Trevor Darrell, and Kate Saenko. Object hallucination in image captioning. In Proceedings of the 2018 Conference on Em-pirical Methods in Natural Language Processing (EMNLP) ,pages 4534–4545, 2018. Xintong Wang, Jingheng Pan, Liang Ding, and Chris Biemann. Mitigating hallucinations in large vision-language models with instruction contrastive decoding. In Findings of the As-sociation for Computational Linguistics: ACL 2024 , 2024. Yuxi Xie, Guanzhen Li, Xiao Xu, and Min-Yen Kan. V-DPO: Mitigating hallucination in large vision language models via vision-guided direct preference optimization. In Findings of the Association for Computational Linguistics: EMNLP 2024 , 2024. Linli Yao, Lei Li, Shuhuai Ren, Lean Wang, Yuanxin Liu, Xu Sun, and Lu Hou. DeCo: Decoupling token compression from semantic abstraction in multimodal large language models. arXiv preprint arXiv:2405.20985 , 2024. Shukang Yin, Chaoyou Fu, Sirui Zhao, Ke Li, Xing Sun, Tong Xu, and Enhong Chen. A survey on multimodal large language models. arXiv preprint arXiv:2306.13549 , 2023. Tianyu Yu, Yuan Yao, Haoye Zhang, Taiwen He, Yifeng Han, Ganqu Cui, Jinyi Hu, Zhiyuan Liu, Hai-Tao Zheng, Maosong Sun, and Tat-Seng Chua. RLHF-V: Towards trustworthy MLLMs via behavior alignment from fine-9
+
+grained correctional human feedback. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024. Jingyi Zhang, Jiaxing Huang, Sheng Jin, and Shijian Lu. Vision-language models for vision tasks: A survey. IEEE Transactions on Pattern Analysis and Machine Intelligence ,46(8):5625–5644, 2024. Zhiyuan Zhao, Bin Wang, Linke Ouyang, Xiaoyi Dong, Jiaqi Wang, and Conghui He. Beyond hallucinations: Enhanc-ing LVLMs through hallucination-aware direct preference optimization. arXiv preprint arXiv:2311.16839 , 2023. Deyao Zhu, Jun Chen, Xiaoqian Shen, Xiang Li, and Mo-hamed Elhoseiny. MiniGPT-4: Enhancing vision-language understanding with advanced large language models. arXiv preprint arXiv:2304.10592 , 2023.
