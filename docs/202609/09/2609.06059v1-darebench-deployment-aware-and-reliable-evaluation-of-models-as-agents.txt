@@ -1,0 +1,973 @@
+Title: DAREBench: Deployment-Aware and Reliable Evaluation of Models as Agents
+
+URL Source: https://arxiv.org/pdf/2609.06059v1
+
+Published Time: Wed, 09 Sep 2026 00:53:06 GMT
+
+Number of Pages: 23
+
+Markdown Content:
+# DAREBench: Deployment-Aware and Reliable Evaluation of Models as Agents 
+
+## Yu Liu 1,2,3 ∗† , Zhilin Liu 3∗, Zhiwei Yang 1,2,3 ∗, Shaojie Zhang 3∗, Zheyuan Deng 4,Tingwei Huang 3, Zhenbo Luo 3, Lei Jiang 1,2 , Yanbing Liu 2, Pei Fu 3†
+
+> 1
+
+Institute of Information Engineering, Chinese Academy of Sciences 
+
+> 2
+
+School of Cyber Security, University of Chinese Academy of Sciences 
+
+> 3
+
+MiLM Plus, Xiaomi Inc. 
+
+> 4
+
+Department of Computer Science, Brown University 
+
+Abstract 
+
+As large language models evolve from question-answering systems into general-purpose agents, evaluation must move beyond static answer correctness to assess multimodal per-ception, multi-step execution, tool use, and artifact delivery. However, existing benchmarks are often tied to specific task types, execution environments, or scoring protocols, limit-ing their comparability, interpretability, and reliability for de-ployment decisions. We introduce DAREBench (Deployment-Aware and Reliable Evaluation of Models as Agents), a bench-mark designed to capture workload variation and support re-liable agent evaluation. Built on a shared OpenClaw execu-tion environment, DAREBench organizes 233 tasks selected and adapted from 22 source benchmarks into a 2 × 3 work-load matrix defined by input modality and execution form, and evaluates them under a unified contract-based protocol with evidence-based score auditing. We evaluate 23 commer-cial API models and 12 locally deployed open-weight mod-els over 7,587 model–task runs, reporting accuracy and to-ken consumption alongside reference costs for API models. Results show that no single model dominates all workload groups, text and multimodal tasks exhibit distinct accuracy– cost trade-offs, and local open-weight models are competitive in several groups but still trail frontier commercial models overall. These findings suggest that agent deployment and model selection should consider workload profiles, deploy-ment mode, and accuracy–cost trade-offs rather than rely on a single aggregate score. The benchmark details can be found at https://github.com/SeerRay-Lab/DAREBench. 
+
+## 1 Introduction 
+
+Frontier large language models (LLMs) are evolving from standalone question-answering systems into core decision-making components of general-purpose agent systems. These agents must perceive, reason, plan, use tools, and deliver arti-facts in dynamic workspaces, rather than merely generate an answer string (Wei et al. 2022; Schick et al. 2023). Accord-ingly, model evaluation is shifting from static input–output performance to end-to-end execution under constraints on tools, context, time, and cost. However, existing evaluation frameworks do not ade-quately support this transition. Traditional knowledge, rea-soning, and long-context benchmarks primarily assess an-swer correctness under static inputs (Hendrycks et al. 2021; 
+
+> ∗
+
+These authors contributed equally. 
+
+> †
+
+Corresponding author. 
+
+Rein et al. 2024; Bai et al. 2025c). Multimodal benchmarks incorporate visual inputs but still largely follow a static input– output paradigm (Yue et al. 2024; Wang et al. 2024). Tool-use and end-to-end agent benchmarks, by contrast, are often confined to specific command-line, web, or desktop envi-ronments (Merrill et al. 2026; Xie et al. 2024; Mialon et al. 2024; Liu et al. 2024; Zhou et al. 2024; Yao et al. 2025). Moreover, these benchmarks employ different runtimes, tool interfaces, task protocols, and scoring criteria, making their results difficult to compare directly. Recent studies have im-proved evaluation observability through execution trajecto-ries, environment snapshots, and audit logs (Ye et al. 2026; Li et al. 2026a). Nevertheless, these studies still primarily re-port overall success rates within specific environments. They therefore provide limited insight into model behavior across modalities, execution processes, and degrees of tool depen-dence. As a result, they offer limited support for comparable, interpretable, and reliable model selection in practice. We argue that agent evaluation can inform deployment decisions only by addressing three interrelated questions, rather than by simply increasing benchmark scale. First, are the results interpretable? Agent tasks differ substantially in input modality, execution process, and tool dependence. A single aggregate score can obscure model strengths and weaknesses across workloads. Second, are comparisons at-tributable? When tasks rely on different agent frameworks, tool interfaces, and execution protocols, observed differences conflate model capability with runtime compatibility. Third, 
+
+are the scores trustworthy? Open-ended agent tasks often involve multi-step operations and artifact delivery. Matching only the final text cannot verify whether a task was actually completed. Moreover, an LLM judge may incorrectly award positive credit when tools were not executed, the task timed out, or required artifacts were missing. Together, these is-sues call for a deployment-oriented benchmark that unifies 
+
+workload organization, execution environment control, and outcome verification .To address these requirements, we propose DAREBench (Deployment-Aware and Reliable Evaluation of Models as Agents), a benchmark for deployment-aware and reliable agent evaluation. To improve workload-level interpretability, we select and adapt 233 tasks from 22 existing benchmarks through a three-stage curation process based on measura-arXiv:2609.06059v1 [cs.AI] 5 Sep 2026 10 2 10 1   
+
+> Cost per Task ($, log scale)
+> 60.0 62.5 65.0 67.5 70.0 72.5 75.0 77.5
+> Average Accuracy (%)
+> (a) Text Modality: Performance vs. Cost
+> Claude-Opus-4.8 [154k] GPT-5.5 [125k] Claude-Opus-4.6 [270k] Gemini-3.1-Pro [241k] GPT-5.4 [184k] MiMo-V2.5 [291k] Claude-Sonnet-4.6 [286k] Qwen3.6-Plus [301k] Qwen3.5-Plus [228k] Doubao-Seed2.0-Pro [199k] Gemini-3.5-Flash [456k] GPT-5.4-mini [76k] Claude-Haiku-4.5 [173k] Kimi-K2.5 [295k] Doubao-Seed2.0-Mini [205k] MiMo-V2.5-Pro [230k] DeepSeek-V4-Pro [207k] MiniMax-M2.7 [175k] GLM-5 [225k] DeepSeek-V3.2 [263k] GLM-4.7 [131k]
+> 10 210 1
+> Cost per Task ($, log scale)
+> 40 45 50 55 60 65 70 75
+> Average Accuracy (%)
+> (b) Multi-Modal: Performance vs. Cost
+> Claude-Opus-4.8 [109k] GPT-5.5 [148k] Claude-Opus-4.6 [143k] Gemini-3.1-Pro [99k] GPT-5.4 [142k] MiMo-V2.5 [241k] Claude-Sonnet-4.6 [177k] Qwen3.6-Plus [278k] Qwen3.5-Plus [140k] Doubao-Seed2.0-Pro [211k] Gemini-3.5-Flash [490k] GPT-5.4-mini [59k] Claude-Haiku-4.5 [113k] Kimi-K2.5 [189k] Doubao-Seed2.0-Mini [279k]
+
+Figure 1: Accuracy–cost trade-offs for models on (a) text and (b) multimodal tasks. Labels show average tokens per task; cost uses a logarithmic scale. Dashed lines mark the Pareto frontiers: MiMo-V2.5, MiMo-V2.5-Pro, and GPT-5.5 in (a), and MiMo-V2.5, GPT-5.4, Gemini-3.1-Pro, and Claude-Opus-4.8 in (b). bility, difficulty, and representativeness. We organize these tasks into a 2 × 3 workload matrix defined by input modal-ity and execution form, covering text and multimodal inputs as well as single-step, multi-step, and tool-mediated multi-step tasks. To improve the attribution of cross-benchmark comparisons, we build a shared execution environment on OpenClaw (Steinberger and OpenClaw Contributors 2026). All models operate under a common agent loop, tool inter-face, workspace abstraction, and logging protocol, thereby reducing the influence of heterogeneous agent scaffolds. For open-ended tasks, we define a task contract specifying the initial workspace, available tools, target artifacts, scorer, and time budget. Task outcomes are evaluated through automated checks, LLM-as-a-Judge, or hybrid scoring. We further intro-duce an evidence-based auditing mechanism that combines deterministic post-hoc rules with a meta-judge to review sus-picious positive scores unsupported by execution trajectories or final artifacts. Using this framework, we evaluate 23 com-mercial API models and 12 locally deployed open-weight models over 7,587 applicable model–task runs. We report accuracy and token consumption, and use public pricing to estimate reference costs for API models and analyze their accuracy–cost trade-offs. Results show that model strengths are workload-dependent and that text and multimodal API workloads exhibit distinct accuracy–cost frontiers. Recent locally deployed open-weight models are competitive in sev-eral task groups, although they still trail frontier commercial models overall. The audit further identifies and removes 143 positive scores unsupported by execution evidence. Our main contributions are as follows: 
+
+• We introduce DAREBench, comprising 233 tasks adapted from 22 source benchmarks and organized under a unified runtime into a 2 × 3 workload matrix defined by modality and execution form. 
+
+• We evaluate 35 commercial API and locally deployed open-weight models over 7,587 model–task runs, reveal-ing workload-dependent rankings, distinct accuracy–cost trade-offs across text and multimodal workloads, and the strengths and limitations of local models. 
+
+• We characterize unsupported positive scores in agent evaluation and introduce an evidence-based audit that verifies suspicious scores against execution trajectories and final artifacts. 
+
+## 2 Related Work 
+
+2.1 Agent Benchmarks and Capability Sources 
+
+Agent evaluation is shifting from static question answer-ing to execution in operational environments. Terminal-Bench (Merrill et al. 2026), OSWorld (Xie et al. 2024), and MMSearch (Jiang et al. 2025) respectively assess command-line workflows, GUI interaction, and multimodal search, but remain tied to specific domains or environments. Open-Claw has further motivated general-agent benchmarks. Claw-Eval (Ye et al. 2026) emphasizes trace-based trustworthy evaluation; ClawBench (Zhang et al. 2026) targets real-time web interaction; ClawArena (Ji et al. 2026) studies conflict reasoning; WildClawBench (Ding et al. 2026) and ZClaw-Bench (Z.AI 2026) introduce in-the-wild tool-use tasks; and ClawsBench (Li et al. 2026b) jointly evaluates capability and safety. However, differing runtimes, task taxonomies, and scoring protocols hinder systematic comparison under a unified framework. 
+
+2.2 LLM-as-a-Judge in Agent Evaluation 
+
+Following its validation on MT-Bench and Chatbot Arena (Zheng et al. 2023), LLM-as-a-Judge has been ap-plied to code (Jimenez et al. 2024; Jiang et al. 2026), mul-timodal (Chen et al. 2024), dialogue (Dubois, Liang, and Hashimoto 2024), and security evaluation (Shao et al. 2026). Agent tasks are harder to judge because they involve long-horizon tool use, dynamic interactions, and artifact verifi-cation (Li et al. 2025). Prior work shows that judges may infer success from plausible outputs without verifying execu-tion evidence, causing “hallucinated correctness” (You et al. 2026; Gurram 2026). Claw-Eval (Ye et al. 2026) likewise reports substantial misses without audit logs. Yet systematic characterization and mitigation of such hallucinations remain limited. 1.Decision making 
+
+2  
+
+> Workload Matrix
+> single-step multi-step multi-step+tools text multi.
+
+1 Task Construction and Classification              
+
+> Tools
+> Unified Agent Execution Environment
+> 4.Observation and feedback 2.Reply / Call Tool
+> 3.Tool execution
+> success timeout error
+> web search shell/ code file edit browser GUI
+> Task Tuple
+> instruction initial workspace tool subset artifact contract scorer time budget
+> Initial Workspace Update Workspace Termination conditions
+> Metrics
+> Terminal-Bench GPQA
+> LexEval FinQA
+> CharXiv MedXpertQA
+> ...
+> 22 Benchmarks
+> code
+> 0 min 40 min
+> web search summary
+> ... ...
+> answer
+> 233 tasks ...
+> Increasing execution complexity
+> Measurability Representative
+> Three-stage screening
+> Difficulty control
+
+3 Evaluation 
+
+4     
+
+> Cost per Task
+> Overall accuracy Task-group accuracy Tokens Cost Accuracy-Cost Analysis Pareto Frontier
+> Average Accuracy
+> Rating mode
+> Automated -check judge hybrid
+> logs & answer
+> Final score
+> LLM-judge Meta-Judge
+> post-hoc checks
+> Pseudo-tool call
+> Output instability Scoring error
+> ...
+> if rule else
+> case
+
+Figure 2: Overview of DAREBench. The benchmark comprises four stages: (1) constructing 233 tasks from 22 source benchmarks and organizing them by modality and execution form; (2) executing all models in a shared agent environment; (3) applying automated, LLM-based, or hybrid scoring with evidence-based auditing; and (4) reporting overall and workload-level accuracy, token usage, reference cost, and accuracy–cost frontiers. 
+
+## 3 DAREBench 
+
+As illustrated in Figure 2, DAREBench consists of four com-ponents: workload construction, shared agent execution, re-liable scoring, and deployment-oriented metrics. It organizes 233 tasks from 22 source benchmarks into a 2 × 3 workload matrix and evaluates all models under a unified execution protocol. Performance is assessed using automated, LLM-based, or hybrid scoring with evidence-based auditing, and reported alongside token usage and reference cost. 
+
+3.1 Problem Definition 
+
+Unlike conventional benchmarks that evaluate only final re-sponses, agentic tasks require models to interact with an execution environment and produce verifiable outputs. We formalize each task as 
+
+τi =  pi, W0 
+
+> i
+
+, Ti, Ci, G i, t max 
+
+> i
+
+, (1) where pi is the task instruction, W0 
+
+> i
+
+the initial workspace, 
+
+Ti the available tool set, Ci the artifact contract, Gi the task-specific scorer, and tmax  
+
+> i
+
+the execution-time budget. The ar-tifact contract specifies the required output paths and their validity predicates: 
+
+Ci = (ai,j , ϕ i,j ) |C i|
+
+> j=1
+
+, ϕi,j : file bytes → { 0, 1}. (2) Let W∗[a] denote the content at path a in the final workspace. Complete contract satisfaction is defined as 
+
+Sat( W∗, Ci) = 
+
+> |C i|
+
+Y
+
+> j=1
+
+1[∃ W ∗[ai,j ]] ϕi,j (W∗[ai,j ]) . (3) Under this formulation, a model operates within a shared ex-ecution environment to produce the required artifacts, which are evaluated by Gi. Task construction and scoring are de-scribed in §3.2 and §3.3, respectively. 
+
+3.2 Task Construction 
+
+Query Selection. To construct a diverse and deployment-relevant evaluation suite, we draw candidate tasks from 22 publicly available benchmarks spanning reasoning, long-context understanding, question answering, instruction fol-lowing, domain-specific analysis, code and shell workflows, desktop control, and multimodal understanding and search. We apply a three-stage curation procedure. First, the fea-sibility filter removes tasks for which an explicit artifact con-tract Ci or a reliable scorer Gi cannot be defined. Second, the difficulty filter excludes overly simple tasks. For single-step tasks, we run Qwen3.5-27B three times and remove tasks solved correctly in all three trials. Where source difficulty an-notations are available, we retain only tasks labeled medium 
+
+or hard . Finally, the representativeness filter manually se-lects tasks according to the category structure of each source benchmark, preserving broad coverage while avoiding over-representation of any single category. This procedure yields 233 tasks from the 22 source benchmarks. 
+
+Workload Taxonomy. Rather than organizing results by source benchmark, we group tasks along two workload di-mensions: input modality and execution form. The modality dimension M distinguishes text-only and multimodal inputs, while the execution-form dimension K distinguishes single-step, multi-step, and multi-step-plus-tools tasks. Their Carte-sian product defines six workload groups: 
+
+G = M × K , (4) 
+
+M = {text , multimodal }, (5) 
+
+K = {single-step , multi-step , multi-step+tools }. (6) Operationally, we define a deterministic mapping φ : B → G that assigns each source benchmark to a single workload group according to its dominant modality and required exe-cution form. A task i originating from benchmark b(i) ∈ B 
+
+inherits the corresponding group label: 
+
+gi = φ b(i) = ( mi, k i) ∈ G , (7) where mi denotes the input modality and ki the required execution form. Let Tg = {i : gi = g} denote the set of tasks assigned to group g. These sets partition the benchmark, satisfying X
+
+> g∈G
+
+|Tg | = N, (8) where N = 233 . The benchmark-to-group assignments and task counts are shown in the Supplementary Material. This taxonomy stratifies evaluation results along workload dimensions that are obscured by aggregate leaderboards. For example, a model may perform well on single-step text tasks while struggling with multi-step tool-mediated execution. Reporting performance across G therefore reveals workload-specific variation that would otherwise be hidden by a single aggregate score. 
+
+3.3 Evaluation Protocol 
+
+Task Scoring. Because DAREBench contains heteroge-neous task types, each task τi is assigned one of three scoring modes during benchmark construction: 
+
+ηi ∈ { auto , judge , hybrid },
+
+corresponding to automated, LLM-based, and hybrid scor-ing. 
+
+• Automated Scoring. Automated scoring is used for tasks with deterministic answers or artifacts that can be veri-fied through rule-based procedures. For single-step tasks, we check both the presence of required artifacts and the con-sistency of their contents with the ground truth. For multi-step tasks, we define task-specific scoring criteria over in-dependently verifiable intermediate states and final outputs, weighted by their operational importance. This produces an automated score sauto  
+
+> m,i
+
+for model m on task i.
+
+• LLM-Based Scoring. For tasks involving open-ended outputs or multiple semantic constraints that cannot be reli-ably evaluated using deterministic rules, we employ an LLM-as-a-Judge. A fixed judge model receives the task prompt pi,a summary of the execution trajectory, the final artifacts in 
+
+W∗ 
+
+> i
+
+, and a manually specified task-level rubric. It returns criterion-level scores in a constrained format, which are ag-gregated using predefined rubric weights to obtain sjudge  
+
+> m,i
+
+.
+
+• Hybrid Scoring. Tasks containing both rule-verifiable and semantically judged criteria combine the two scoring modes. The weights wauto  
+
+> i
+
+, w judge  
+
+> i
+
+∈ [0 , 1] are fixed dur-ing task construction and satisfy wauto  
+
+> i
+
++ wjudge  
+
+> i
+
+= 1 . The resulting task score is 
+
+sm,i =
+
+
+
+sauto  
+
+> m,i
+
+, ηi = auto ,sjudge  
+
+> m,i
+
+, ηi = judge ,wauto  
+
+> i
+
+sauto  
+
+> m,i
+
++ wjudge  
+
+> i
+
+sjudge  
+
+> m,i
+
+, ηi = hybrid .
+
+(9) All task scores are normalized to [0 , 1] .
+
+Evidence-Based Audit. Our pilot experiments revealed cases in which the primary judge awarded positive credit that was not supported by the execution trajectory or final ar-tifacts. We refer to these cases as unsupported positive judg-ments . Typical examples include nonzero scores assigned to empty outputs, executions without substantive operations, or runs missing required artifacts. To identify and correct such cases, we apply determinis-tic post-hoc rules to all scores involving the primary judge. Cases satisfying one or more trigger conditions are routed to a separate meta-judge from a different model family. The meta-judge receives the complete task prompt, execution tra-jectory, final artifacts, scoring rubric, and the primary judge’s score and rationale. It then determines whether the awarded positive score is supported by the available execution evi-dence. If the meta-judge determines that the score is unsupported as a whole, the task score is set to zero; otherwise, the original score is retained. The audited score is defined as 
+
+saudit  
+
+> m,i
+
+= (1 − hm,i )sm,i , (10) where hm,i ∈ { 0, 1} indicates whether the primary score is confirmed to be unsupported. Unflagged cases and flagged cases upheld by the meta-judge are assigned hm,i = 0 . De-tailed trigger rules, meta-judge prompts, case studies, and human–meta-judge agreement results are provided in the ap-pendix. 
+
+Metrics and Efficiency Accounting. Let Im denote the set of tasks applicable to model m, and let Im,g = Im ∩ Tg
+
+denote its applicable tasks in workload group g. We report overall and group-level audited accuracy as 
+
+Acc( m) = 1
+
+|I m|
+
+X
+
+> i∈I m
+
+saudit  
+
+> m,i
+
+, (11) 
+
+Acc g (m) = 1
+
+|I m,g |
+
+X
+
+> i∈I m,g
+
+saudit  
+
+> m,i
+
+. (12) We additionally report average token usage and estimated dollar cost per task, averaged over Im. Writing ukm,i for the token count of kind k ∈ { in , out , cr , cw } (uncached input, output, cache-read, and cache-write), the two efficiency met-rics are 
+
+Token( m) = 1
+
+|I m|
+
+X
+
+> i∈I m
+
+X
+
+> k
+
+ukm,i , (13) 
+
+Cost( m) = 1
+
+|I m|
+
+X
+
+> i∈I m
+
+110 6
+
+X
+
+> k
+
+αkmukm,i , (14) where αkm is the per-million-token price of kind k, taken from model-specific OpenRouter reference rates. When a provider exposes no separate cache-read or cache-write rate, those tokens are billed at the input price ( αcr  
+
+> m
+
+or αcw  
+
+> m
+
+= αin 
+
+> m
+
+). For locally deployed models, any hosted-inference price is only a third-party reference rather than the measured cost of local vLLM serving; accuracy–cost frontier analyses are therefore based on API reference costs. Full per-model rates are listed in the supplementary material. Text Multi-Modal Model Single Multi Multi+Tools Avg Single Multi Multi+Tools Avg 
+
+API Deployment 
+
+Claude-Opus-4.8 (Anthropic 2026b) 98.8 78.1 65.3 76.3 85.0 69.2 61.8 71.1 
+
+GPT-5.5 (OpenAI 2026c) 94.1 83.6 59.8 76.8 90.0 75.0 42.4 67.7 
+
+Claude-Opus-4.6 (Anthropic 2026a) 91.5 83.4 58.3 75.9 75.0 76.2 48.1 65.9 
+
+Gemini-3.1-Pro (Google DeepMind 2026a) 96.4 80.7 56.1 74.3 85.0 88.5 32.7 67.9 
+
+GPT-5.4 (OpenAI 2026a) 92.1 82.4 59.6 75.8 82.5 71.2 40.3 63.5 
+
+MiMo-V2.5 (Xiaomi MiMo Team 2026c) 94.7 82.5 57.5 75.5 80.0 66.7 43.0 62.1 
+
+Claude-Sonnet-4.6 (Anthropic 2026c) 89.2 76.8 59.9 72.6 75.0 59.6 42.3 57.9 
+
+Qwen3.6-Plus (Qwen Team 2026d) 95.5 77.7 54.8 72.1 75.0 61.5 41.2 58.2 
+
+Qwen3.5-Plus (Qwen Team 2026a) 89.5 77.3 53.9 70.9 70.0 69.2 39.1 58.8 
+
+Doubao-Seed2.0-Pro (Bytedance Seed 2026) 95.9 77.4 51.1 70.8 75.0 61.5 42.6 58.7 
+
+Gemini-3.5-Flash (Google DeepMind 2026b) 94.9 80.9 51.7 72.7 85.0 50.0 26.7 51.7 
+
+GPT-5.4-mini (OpenAI 2026b) 77.8 79.1 50.3 69.2 70.0 46.2 35.9 49.3 
+
+Claude-Haiku-4.5 (Anthropic 2025) 89.1 76.7 50.1 69.2 50.5 46.2 31.6 42.3 
+
+MiMo-V2-Omni (Xiaomi MiMo Team 2026a) 70.4 75.4 51.5 66.7 75.0 34.6 34.7 46.0 
+
+Kimi-K2.5 (Kimi Team 2026) 89.2 70.0 45.6 64.1 65.0 54.4 38.7 51.9 
+
+Doubao-Seed2.0-Mini (Bytedance Seed 2026) 75.7 78.9 42.5 66.1 55.0 51.9 34.3 46.6 
+
+MiMo-V2.5-Pro (Xiaomi MiMo Team 2026d) 91.6 81.7 61.2 76.0 — — — —
+
+DeepSeek-V4-Pro (DeepSeek-AI 2026) 91.6 80.9 54.3 73.2 — — — —
+
+MiMo-V2-Pro (Xiaomi MiMo Team 2026b) 91.7 75.4 58.4 71.6 — — — —
+
+MiniMax-M2.7 (MiniMax 2026) 80.9 77.8 53.0 69.8 — — — —
+
+GLM-5 (GLM-5-Team et al. 2026) 84.9 75.0 53.3 68.9 — — — —
+
+DeepSeek-V3.2 (DeepSeek-AI 2025) 80.0 71.1 46.8 63.9 — — — —
+
+GLM-4.7 (Z.AI 2025) 73.1 76.2 33.6 61.3 — — — —
+
+Local Deployment 
+
+Qwen3.6-27B (Qwen Team 2026b) 84.9 72.1 37.2 61.8 75.0 55.8 38.5 55.1 
+
+Qwen3.6-35B-A3B (Qwen Team 2026c) 79.3 70.2 33.9 59.0 65.0 57.7 32.7 51.0 
+
+Qwen3.5-27B (Qwen Team 2026a) 85.8 59.9 27.0 51.9 55.0 53.8 24.5 43.9 
+
+Qwen3.5-35B-A3B (Qwen Team 2026a) 66.2 57.9 34.0 50.8 60.0 38.5 22.9 39.0 
+
+Qwen3-VL-8B-Instruct (Bai et al. 2025a) 35.7 58.2 28.9 45.5 40.0 25.0 22.3 28.3 
+
+Qwen2.5-VL-32B-Instruct (Bai et al. 2025b) 53.3 61.8 20.1 46.6 15.0 34.6 13.0 21.5 
+
+Qwen3-VL-32B-Instruct (Bai et al. 2025a) 48.3 48.7 25.2 40.6 55.0 34.6 17.4 34.3 
+
+Gemma-4-26B-A4B-it (Gemma Team 2026) 83.0 40.6 19.3 38.6 14.0 55.8 20.7 31.6 
+
+Qwen3.5-9B (Qwen Team 2026a) 56.4 32.9 27.1 33.8 62.5 28.8 16.2 33.9 
+
+Qwen2.5-VL-7B-Instruct (Bai et al. 2025b) 28.0 35.2 19.7 29.0 10.0 7.7 4.0 7.0 
+
+Gemma-3-27B-it (Gemma Team et al. 2025) 42.4 29.5 14.5 26.0 25.0 13.5 0.0 12.0 
+
+Qwen3-Coder-30B-A3B-Instruct (Yang et al. 2025) 73.9 56.3 37.7 52.1 — — — —
+
+Table 1: Per-model accuracy (%) across the six DAREBench task groups. Averages are task-count-weighted (Text: 20/87/55; Multi-Modal: 20/26/25). Bold , underlined, and italicized values denote first, second, and third place within each deployment mode (competition ranking); “—” marks text-only models not evaluated on multimodal tasks. 
+
+## 4 Experiments 
+
+4.1 Experimental Setup 
+
+Models Evaluated. We evaluate 35 models: 23 commer-cial API models from 10 families accessed through Open-Router and 12 open-weight models served locally with vLLM on a single NVIDIA RTX PRO 6000 GPU (96 GB VRAM). To represent practical on-premise deployment, local mod-els use a common FP16, 32K-context configuration—the largest stable setting shared by all models on one GPU— without quantization or multi-GPU serving. API–local com-parisons therefore reflect end-to-end performance under their respective deployment profiles rather than context-matched intrinsic capability. All runs use the same OpenClaw run-time and default inference settings, with isolated sessions, workspaces, artifacts, and logs for each task. 
+
+Infrastructure. All models use the default OpenClaw tool suite, supplemented with web_search , web_fetch , and nine Clawhub skills covering reasoning, automation, and general utilities. The complete skill list is provided in the sup-plementary material. Tool and skill visibility, permissions, and interfaces are kept identical across models. 
+
+Evaluation Metrics. We use accuracy as the primary ca-pability metric, reporting both overall accuracy and accuracy for six workload groups: Text-SS, Text-MS, Text-MT, MM-SS, MM-MS, and MM-MT. Efficiency is measured by aver-age token usage and estimated USD cost per task, computed from measured input/output tokens using OpenRouter refer-ence rates; pricing details are provided in the supplementary material. For LLM-based scoring, we use Qwen3.5-VL-Plus as the primary judge and Claude-Opus-4.6 as the meta-judge. 
+
+4.2 Main Results 
+
+Table 1 reports Accuracy across the six DAREBench task groups. Models are grouped by deployment mode (API and Local Deployment). For text-only models, we report their performance on text-only tasks exclusively. We also report token consumption and USD cost for all API models in Ta-Tokens/task Cost$/task (OpenRouter rates) Text MM Text MM                                                                                                                                                                                                                                                                                                                                                                                                 
+
+> Model SS MS MT Avg SS MS MT Avg SS MS MT Avg SS MS MT Avg
+> Claude-Opus-4.8 52k 85k 301k 154k 77k 98k 147k 109k 0.075 0.184 0.417 0.250 0.060 0.132 0.164 0.123
+> GPT-5.5 41k 104k 190k 125k 41k 69k 317k 148k 0.051 0.139 0.217 0.155 0.045 0.103 0.365 0.179
+> Claude-Opus-4.6 35k 112k 605k 270k 49k 110k 251k 143k 0.175 0.245 0.784 0.419 0.062 0.362 0.406 0.293
+> Gemini-3.1-Pro 33k 123k 505k 241k 43k 115k 128k 99k 0.083 0.107 0.283 0.164 0.055 0.138 0.136 0.114
+> GPT-5.4 50k 81k 396k 184k 50k 69k 291k 142k 0.056 0.058 0.244 0.121 0.036 0.074 0.170 0.097
+> MiMo-V2.5 75k 143k 603k 291k 79k 95k 523k 241k 0.003 0.003 0.011 0.006 0.001 0.004 0.007 0.005
+> Claude-Sonnet-4.6 49k 157k 575k 286k 52k 125k 330k 177k 0.154 0.205 0.902 0.436 0.063 0.290 0.337 0.243
+> Qwen3.6-Plus 57k 163k 607k 301k 50k 181k 561k 278k 0.039 0.086 0.321 0.160 0.027 0.108 0.292 0.150
+> Qwen3.5-Plus 40k 80k 529k 228k 40k 111k 248k 140k 0.021 0.035 0.218 0.095 0.018 0.050 0.105 0.060
+> Doubao-Seed2.0-Pro 46k 75k 452k 199k 164k 173k 289k 211k 0.019 0.023 0.105 0.051 0.031 0.056 0.079 0.057
+> Gemini-3.5-Flash 101k 338k 773k 456k 191k 590k 625k 490k 0.111 0.193 0.401 0.253 0.155 0.305 0.346 0.277
+> GPT-5.4-mini 31k 52k 131k 76k 38k 40k 95k 59k 0.008 0.010 0.033 0.017 0.007 0.012 0.022 0.014
+> Claude-Haiku-4.5 46k 75k 375k 173k 54k 108k 164k 113k 0.022 0.035 0.143 0.070 0.018 0.042 0.052 0.039
+> MiMo-V2-Omni 49k 90k 618k 264k 51k 54k 284k 134k 0.003 0.003 0.017 0.008 <0.001 0.003 0.005 0.003
+> Kimi-K2.5 73k 184k 550k 295k 41k 226k 268k 189k 0.042 0.072 0.221 0.119 0.025 0.088 0.122 0.082
+> Doubao-Seed2.0-Mini 55k 79k 460k 205k 318k 148k 384k 279k 0.008 0.009 0.049 0.023 0.034 0.018 0.041 0.031
+> MiMo-V2.5-Pro 72k 134k 441k 230k ————0.010 0.008 0.020 0.012 ————
+> DeepSeek-V4-Pro 61k 126k 390k 207k ————0.013 0.015 0.040 0.023 ————
+> MiMo-V2-Pro 42k 98k 520k 234k ————0.005 0.009 0.026 0.014 ————
+> MiniMax-M2.7 50k 75k 377k 175k ————0.013 0.010 0.056 0.026 ————
+> GLM-5 48k 125k 449k 225k ————0.037 0.057 0.185 0.098 ————
+> DeepSeek-V3.2 122k 176k 454k 263k ————0.016 0.019 0.046 0.028 ————
+> GLM-4.7 35k 92k 229k 131k ————0.016 0.026 0.052 0.034 ————
+
+Table 2: Per-model token consumption and dollar cost per task on DAREBench. Averages are task-count-weighted. SS, MS, and MT denote Single-Step, Multi-Step, and Multi-Step+Tools, respectively. ble 2 (corresponding details for local models are provided in the Supplementary), and visualize the API accuracy–cost trade-off in Figure 1.We summarize the main findings below: 
+
+• Top performers diverge across workload types, and model selection should be workload-aware. Overall, al-though stronger models tend to exhibit higher aggregate performance, relative differences persist across workloads: On Text-SS (98.8), Text-MT (65.3), and MM-MT (61.8), Claude-Opus-4.8 is the strongest model; GPT-5.5 has the best performance on Text-MS (83.6) and MM-SS (90.0); while on MM-MS (88.5), the SOTA model is Gemini-3.1-Pro. This indicates that top performers diverge across workload types, and model selection should be guided by target workload characteristics to achieve the best performance. 
+
+• Recent open-weight models offer competitive on-premise performance, but a notable gap to frontier models remains. For workloads requiring local deploy-ment, Qwen3.6-27B emerges as the strongest default (Over-all 59.8), with aggregate performance approaching that of some earlier commercial models. However, it still has a sub-stantial gap of approximately 15 percentage points relative to frontier commercial models. Qwen3.6-35B-A3B follows closely (Overall 56.6), serving as a viable MoE alternative when lower activated-parameter cost or latency is desired. Although smaller 8B/9B local models are easy to deploy, they exhibit marked instability within the full agent loop. 
+
+• Token consumption and USD cost form two decoupled extremal chains. Table 2 shows token consumption and USD cost for all API models. On the token-consumption axis, models differ substantially in the tokens required to complete tasks: GPT-5.4-mini is the lowest across the board; 
+
+Pattern Local API Total 
+
+Deadlock loop 86 0 86 Rubric leakage 12 14 26 Pseudo-tool-call credulity 20 0 20 Output instability 5 2 7Timeout-with-credit 1 3 4
+
+Total 124 19 143 
+
+Table 3: Audit type of LLM Judge Hallucination Patterns conversely, Gemini-3.5-Flash highest on both axes (Text Avg 456k, MM Avg 490k), consuming roughly six and eight times as many tokens as GPT-5.4-mini, respectively. Yet when converted to USD cost, the ordering shifts dramatically: MiMo-V2.5 is the cheapest model on text tasks ($0.006), while MiMo-V2-Omni is the cheapest on multimodal tasks ($0.003); at the other extreme, Claude-Sonnet-4.6 tops the text column at $0.436 and Claude-Opus-4.6 tops the multi-modal column at $0.293. Notably, the extremes of the token-consumption and cost rankings do not coincide: MiMo-V2.5 incurs high token usage (Overall 276k) yet yields a low Over-all cost of $0.005, whereas Claude-Opus-4.6 consumes fewer tokens overall (231k) at roughly 71 × that cost ($0.381). 
+
+• Cost-efficiency-aware model selection. Figure 1 presents Pareto fronts separately for text and multimodal panels. In the text panel, MiMo-V2.5 ($0.006, 75.5), MiMo-V2.5-Pro ($0.012, 76.0), and GPT-5.5 ($0.155, 76.8) form an optimal sequence ordered by increasing cost. The step from MiMo-V2.5 to MiMo-V2.5-Pro raises cost by approximately 2 ×
+
+while accuracy improves by 0.5 percentage points, and the subsequent step to GPT-5.5 raises cost by a further 13 ×for only 0.8 percentage points, indicating that the sub-$0.02 range is already near the accuracy–cost saturation point for text tasks. In the multimodal panel, the frontier slope is markedly steeper: after MiMo-V2-Omni ($0.003, 46.0) and MiMo-V2.5 ($0.005, 62.1), GPT-5.4 ($0.097, 63.5), Gemini-3.1-Pro ($0.114, 67.9) and Claude-Opus-4.8 ($0.123, 71.1) successively raise the bar, and compared with the text panel, the cost-to-performance gains are notably more pronounced. 
+
+4.3 LLM Judge Reliability 
+
+Table 3 reports the hallucination patterns identified by the meta-judge and the corresponding audit results. These in-clude rubric leakage (the judge mistakes answer information embedded in the grading rubrics for the agent’s execution output), deadlock loop (the agent repeatedly cycles through materially equivalent reasoning or actions without making workspace progress, eventually exhausting the 32K context window and leaving the task incomplete, while the judge still awards positive credit), pseudo-tool-call (the model out-puts tool-like text rather than an actually executable tool call), timeout-with-credit (timed-out trajectories still receiv-ing positive scores), and output instability (incomplete or malformed output). The meta-judge audit removes 143 un-supported positive scores and reveals the dominant halluci-nation patterns. We also observe a pronounced divergence in hallucination patterns by deployment mode. Locally de-ployed models predominantly exhibit deadlock loops and pseudo-tool-call credulity (86 and 20 cases, respectively), while these two patterns never appear in API-based models. The same 32K local deployment profile is applied to all local models, yet only a subset repeatedly enters non-progressing loops before reaching the limit. We therefore treat these cases as model-dependent agent failures exposed by the deploy-ment environment, rather than as context exhaustion caused by task length alone. Conversely, timeout-with-credit is more common in API invocation scenarios. We attribute this dis-parity to differences in error modes: stronger trajectory con-trol helps a model avoid non-progressing loops, whereas API execution remains more exposed to network and serv-ing latency. These results characterize reliability under the specified single-GPU deployment profile and do not assume that the same failure rate would hold under a larger-context serving configuration. 
+
+4.4 Case Study 
+
+Figure 3 illustrates a representative multimodal agent failure. The task requires filtering foods by two visual constraints before retrieving their glycemic-index values. Qwen3.5-9B misreads the chart and retains Avocado despite the CO 2
+
+threshold; this early error changes the candidate set and leads to the wrong answer. It also relies on unverified sources. In contrast, Claude Opus 4.8 applies both constraints and checks retrieved values against authoritative sources. With identical tools and runtime, the contrast highlights differ-ences in visual grounding, constraint tracking, and evidence verification, as well as how early errors propagate through multi-step trajectories. Additional examples are provided in the Supplementary Material. Claude Opus 4.8 (Correct, 1.0)      
+
+> T1: read("image.png") → correctly excludes Avocado
+> T2-3: web_search("glycemic index raw → broccoli onion grape orange corn → authoritative") → Broccoli: effectively no GI; Onion: GI 10; Carrot: GI 16-39
+> Keyword ’authoritative’ anchors the search on expert-curated sources
+> T4-5: web_fetch("glycemic-index.net/..."); → web_search("corn on the cob GI raw→ ")
+> → Corn: 52; Orange: 40; Grape: 53
+> Filter step + authoritative GI table
+> T6: write("answer.txt", "Broccoli ...")
+> Qwen3.5-9B (Incorrect, 0.1)
+> T1-2: read("image.png") → chart read successfully
+> Wrongly includes Avocado (CO2 < 0.15)
+> T3: web_search("raw onion carrot broccoli → glycemic index GI lowest") → Onion: 10; Carrot: 16-35; Broccoli: 15 (from snippet)
+> Non-official data source; data reliability risk
+> T4: web_search("raw orange avocado grape → lowest glycemic index GI") → Avocado: 10; Orange: 40; Grape: 53
+> No cross-verification against any GI database
+> T5: write("answer.txt", "Avocado")
+> 10 <15-> picks Avocado; but Avocado should have been filtered out
+
+Figure 3: Multi-Step Visual Search on a Nutrition Scatter Chart. Example Task: Among all Fruits and Vegetables with CO 2 > 0.15 kg per 100 calories and price tier of either High-est or Medium, which single food has the lowest Glycemic Index (GI)? 
+
+## 5 Conclusion 
+
+We introduce DAREBench, a workload- and deployment-aware benchmark for evaluating models as agents. Built on a shared OpenClaw environment, it organizes 233 tasks into six workload groups and evaluates 35 API and lo-cally deployed open-weight models using accuracy, token usage, and reference cost. Results show that model rank-ings vary across workloads, text and multimodal tasks ex-hibit distinct accuracy–cost trade-offs, and local models re-main competitive in several groups but trail frontier mod-els overall. We further identify 143 positive scores unsup-ported by execution evidence, highlighting the need to audit LLM-based judgments against trajectories and final artifacts. It also exposes deployment-specific failures that aggregate leaderboards often obscure. Overall, DAREBench supports workload-specific model comparison and more reliable de-ployment decisions. References 
+
+Anthropic. 2025. Claude Haiku 4.5 Sys-tem Card. https://www-cdn.anthropic.com/ 7aad69bf12627d42234e01ee7c36305dc2f6a970.pdf. Anthropic. 2026a. Claude Opus 4.6 System Card. https: //www.anthropic.com/claude-opus-4-6-system-card. Anthropic. 2026b. Claude Opus 4.8 System Card. https: //www.anthropic.com/claude-opus-4-8-system-card. Anthropic. 2026c. Claude Sonnet 4.6 System Card. https: //www.anthropic.com/claude-sonnet-4-6-system-card. Bai, S.; Cai, Y.; Chen, R.; Chen, K.; Chen, X.; Cheng, Z.; Deng, L.; Ding, W.; Gao, C.; Ge, C.; et al. 2025a. Qwen3-VL Technical Report. arXiv preprint arXiv:2511.21631 .Bai, S.; Chen, K.; Liu, X.; Wang, J.; Ge, W.; Song, S.; Dang, K.; Wang, P.; Wang, S.; Tang, J.; et al. 2025b. Qwen2.5-VL Technical Report. arXiv preprint arXiv:2502.13923 .Bai, Y.; Tu, S.; Zhang, J.; Peng, H.; Wang, X.; Lv, X.; Cao, S.; Xu, J.; Hou, L.; Dong, Y.; et al. 2025c. Longbench v2: Towards deeper understanding and reasoning on realistic long-context multitasks. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics .Bytedance Seed. 2026. Seed2.0 Model Card: Towards Intel-ligence Frontier for Real-World Complexity. arXiv preprint arXiv:2607.00248 .Center for AI Safety; Scale AI; and HLE Contributors Con-sortium. 2026. A benchmark of expert-level academic ques-tions to assess AI capabilities. Nature .Chen, D.; Chen, R.; Zhang, S.; Wang, Y.; Liu, Y.; Zhou, H.; Zhang, Q.; Wan, Y.; Zhou, P.; and Sun, L. 2024. MLLM-as-a-Judge: Assessing Multimodal LLM-as-a-Judge with Vision-Language Benchmark. In Proceedings of the 41st Interna-tional Conference on Machine Learning .Chen, Z.; Chen, W.; Smiley, C.; Shah, S.; Borova, I.; Lang-don, D.; Moussa, R.; Beane, M.; Huang, T.-H.; Routledge, B.; and Wang, W. Y. 2021. FinQA: A Dataset of Numer-ical Reasoning over Financial Data. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing .DeepSeek-AI. 2025. DeepSeek-V3.2: Pushing the Fron-tier of Open Large Language Models. arXiv preprint arXiv:2512.02556 .DeepSeek-AI. 2026. DeepSeek-V4: Towards Highly Effi-cient Million-Token Context Intelligence. arXiv preprint arXiv:2606.19348 .Ding, S.; Dai, X.; Xing, L.; Ding, S.; Liu, Z.; Yang, J.; Yang, P.; Zhang, Z.; Wei, X.; Fang, X.; Ma, Y.; Duan, H.; Shao, J.; Wang, J.; Lin, D.; Chen, K.; and Zang, Y. 2026. WildClawBench. Software and dataset: https://github.com/ InternLM/WildClawBench. Dubois, Y.; Liang, P.; and Hashimoto, T. B. 2024. Length-Controlled AlpacaEval: A Simple Way to Debias Automatic Evaluators. In First Conference on Language Modeling .Gemma Team. 2026. Gemma 4 Technical Report. arXiv preprint arXiv:2607.02770 .Gemma Team; Kamath, A.; Ferret, J.; Pathak, S.; Vieillard, N.; Merhej, R.; et al. 2025. Gemma 3 Technical Report. 
+
+arXiv preprint arXiv:2503.19786 .GLM-5-Team; et al. 2026. GLM-5: from Vibe Coding to Agentic Engineering. arXiv preprint arXiv:2602.15763 .Google DeepMind. 2026a. Gemini 3.1 Pro Model Card. https://deepmind.google/models/model-cards/gemini-3-1-pro/. Google DeepMind. 2026b. Gemini 3.5 Flash Model Card. https://deepmind.google/models/model-cards/gemini-3-5-flash/. Gupta, N.; Chatterjee, R.; Haas, L.; Tao, C.; Wang, A.; Liu, C.; Oiwa, H.; Gribovskaya, E.; Ackermann, J.; Blitzer, J.; et al. 2026. DeepSearchQA: Bridging the Comprehen-siveness Gap for Deep Research Agents. arXiv preprint arXiv:2601.20975 .Gurram, B. 2026. Evaluating Tool-Using Language Agents: Judge Reliability, Propagation Cascades, and Run-time Mitigation in AgentProp-Bench. arXiv preprint arXiv:2604.16706 .He, Y.; Li, W.; Zhang, H.; Li, S.; Mandyam, K.; Khosla, S.; Xiong, Y.; Wang, N.; Peng, X.; Li, B.; et al. 2025. Advancedif: Rubric-based benchmarking and reinforcement learning for advancing llm instruction following. arXiv preprint arXiv:2511.10507 .Hendrycks, D.; Burns, C.; Basart, S.; Zou, A.; Mazeika, M.; Song, D.; and Steinhardt, J. 2021. Measuring Massive Mul-titask Language Understanding. In International Conference on Learning Representations .Ji, H.; Xiong, K.; Han, S.; Xia, P.; Qiu, S.; Zhou, Y.; Liu, J.; Li, J.; Li, B.; Zheng, Z.; Xie, C.; and Yao, H. 2026. ClawArena: Benchmarking AI Agents in Evolving Informa-tion Environments. arXiv preprint arXiv:2604.04202 .Jiang, D.; Zhang, R.; Guo, Z.; Wu, Y.; Lei, J.; Qiu, P.; Lu, P.; Chen, Z.; Song, G.; Gao, P.; Liu, Y.; Li, C.; and Li, H. 2025. MMSearch: Unveiling the Potential of Large Models as Multi-modal Search Engines. In The Thirteenth International Conference on Learning Representations .Jiang, H.; Chen, Y.; Cao, Y.; Lee, H.-y.; and Tan, R. T. 2026. CodeJudgeBench: Benchmarking LLM-as-a-Judge for Coding Tasks. In Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) .Jimenez, C. E.; Yang, J.; Wettig, A.; Yao, S.; Pei, K.; Press, O.; and Narasimhan, K. 2024. SWE-bench: Can Language Models Resolve Real-World GitHub Issues? In The Twelfth International Conference on Learning Representations .Kimi Team. 2026. Kimi K2.5: Visual Agentic Intelligence. 
+
+arXiv preprint arXiv:2602.02276 .Kwon, W.; Li, Z.; Zhuang, S.; Sheng, Y.; Zheng, L.; Yu, C. H.; Gonzalez, J. E.; Zhang, H.; and Stoica, I. 2023. Efficient Memory Management for Large Language Model Serving with PagedAttention. In Proceedings of the ACM SIGOPS 29th Symposium on Operating Systems Principles .Li, C.; Tang, Z.; Huang, M.; Lin, Y.; Huang, S.; Liu, S.; Ye, B.; Li, R.; Li, L.; Wang, B.; and Yuan, Y. 2026a. Claw-Eval-Live: A Live Agent Benchmark for Evolving Real-World Workflows. arXiv preprint arXiv:2604.28139 .Li, D.; Jiang, B.; Huang, L.; Beigi, A.; Zhao, C.; Tan, Z.; Bhattacharjee, A.; Jiang, Y.; Chen, C.; Wu, T.; et al. 2025. From Generation to Judgment: Opportunities and Challenges of LLM-as-a-Judge. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing .Li, H.; Chen, Y.; Ai, Q.; Wu, Y.; Zhang, R.; and Liu, Y. 2024. Lexeval: A comprehensive chinese legal benchmark for evaluating large language models. Advances in Neural Information Processing Systems .Li, X.; Choe, K. W.; Liu, Y.; Chen, X.; Tao, C.; You, B.; Chen, W.; Di, Z.; Sun, J.; Zheng, S.; et al. 2026b. ClawsBench: Eval-uating Capability and Safety of LLM Productivity Agents in Simulated Workspaces. arXiv preprint arXiv:2604.05172 .Liu, J.; Cui, L.; Liu, H.; Huang, D.; Wang, Y.; and Zhang, Y. 2020. LogiQA: A Challenge Dataset for Machine Reading Comprehension with Logical Reasoning. In Proceedings of the Twenty-Ninth International Joint Conference on Artificial Intelligence, IJCAI-20 .Liu, X.; Yu, H.; Zhang, H.; Xu, Y.; Lei, X.; Lai, H.; Gu, Y.; Ding, H.; Men, K.; Yang, K.; et al. 2024. AgentBench: Evaluating LLMs as Agents. In The Twelfth International Conference on Learning Representations .Merrill, M. A.; Shaw, A. G.; Carlini, N.; Li, B.; Raj, H.; Bercovich, I.; Shi, L.; Shin, J. Y.; Walshe, T.; Buchanan, E. K.; et al. 2026. Terminal-bench: Benchmarking agents on hard, realistic tasks in command line interfaces. arXiv preprint arXiv:2601.11868 .Mialon, G.; Fourrier, C.; Swift, C.; Wolf, T.; LeCun, Y.; and Scialom, T. 2024. GAIA: A Benchmark for General AI Assistants. In The Twelfth International Conference on Learning Representations .MiniMax. 2026. The MiniMax-M2 Series: Mini Activations Unleashing Max Real-World Intelligence. arXiv preprint arXiv:2605.26494 .OpenAI. 2026a. GPT-5.4 Thinking System Card. https: //deploymentsafety.openai.com/gpt-5-4-thinking. OpenAI. 2026b. GPT-5.4 Thinking System Card: Appendix—GPT-5.4 mini. https://deploymentsafety.openai. com/gpt-5-4-thinking/appendix-gpt-5.4-mini. OpenAI. 2026c. GPT-5.5 System Card. https://openai.com/ index/gpt-5-5-system-card/. Pham, T.; Nguyen, N.; Zunjare, P.; Chen, W.; Tseng, Y.-M.; and Vu, T. 2026. SealQA: Raising the Bar for Reasoning in Search-Augmented Language Models. In The Fourteenth International Conference on Learning Representations .Press, O.; Zhang, M.; Min, S.; Schmidt, L.; Smith, N. A.; and Lewis, M. 2023. Measuring and narrowing the composition-ality gap in language models. In Findings of the Association for Computational Linguistics: EMNLP 2023 .Qwen Team. 2026a. Qwen3.5: Towards Native Multimodal Agents. https://qwen.ai/blog?id=qwen3.5. Qwen Team. 2026b. Qwen3.6-27B: Flagship-Level Coding in a 27B Dense Model. https://qwen.ai/blog?id=qwen3.6-27b. Qwen Team. 2026c. Qwen3.6-35B-A3B: Agentic Coding Power, Now Open to All. https://qwen.ai/blog?id=qwen3.6-35b-a3b. Qwen Team. 2026d. Qwen3.6-Plus: Towards Real World Agents. https://qwen.ai/blog?id=qwen3.6. Rein, D.; Hou, B. L.; Stickland, A. C.; Petty, J.; Pang, R. Y.; Dirani, J.; Michael, J.; and Bowman, S. R. 2024. GPQA: A Graduate-Level Google-Proof Q&A Benchmark. In First Conference on Language Modeling .Schick, T.; Dwivedi-Yu, J.; Dessi, R.; Raileanu, R.; Lomeli, M.; Hambro, E.; Zettlemoyer, L.; Cancedda, N.; and Scialom, T. 2023. Toolformer: Language Models Can Teach Them-selves to Use Tools. In Advances in Neural Information Processing Systems .Shao, M.; Rani, N.; Milner, K.; Xi, H.; Udeshi, M.; Aggar-wal, S.; Putrevu, V. S. C.; Shukla, S. K.; Krishnamurthy, P.; Khorrami, F.; Karri, R.; and Shafique, M. 2026. Towards Effective Offensive Security LLM Agents: Hyperparameter Tuning, LLM as a Judge, and a Lightweight CTF Bench-mark. Proceedings of the AAAI Conference on Artificial Intelligence .SpaceXAI. 2026. Introducing Grok 4.5. https://x.ai/news/ grok-4-5. Steinberger, P.; and OpenClaw Contributors. 2026. OpenClaw—Personal AI Assistant. https://github.com/ openclaw/openclaw. Su, Z.; Gao, J.; Guo, H.; Liu, Z.; Zhang, L.; Geng, X.; Huang, S.; Xia, P.; Jiang, G.; Wang, C.; et al. 2026. Agentvista: Evaluating multimodal agents in ultra-challenging realistic visual scenarios. arXiv preprint arXiv:2602.23166 .Tao, X.; Teng, Y.; Su, X.; Fu, X.; Wu, J.; Tao, C.; Liu, Z.; Bai, H.; Liu, R.; and Kong, L. 2026. MMSearch-Plus: Bench-marking Provenance-Aware Search for Multimodal Brows-ing Agents. In The Fourteenth International Conference on Learning Representations .Vijayvargiya, S.; Soni, A. B.; Zhou, X.; Wang, Z. Z.; Dziri, N.; Neubig, G.; and Sap, M. 2026. OpenAgentSafety: A Comprehensive Framework for Evaluating Real-World AI Agent Safety. In The Fourteenth International Conference on Learning Representations .Wang, Y.; Zhao, Y.; Chen, X.; Guo, S.; Liu, L.; Li, H.; Xiao, Y.; Zhang, J.; Li, Q.; and Xu, K. 2025. VisualSim-pleQA: A Benchmark for Decoupled Evaluation of Large Vision-Language Models in Fact-Seeking Question Answer-ing. arXiv preprint arXiv:2503.06492 .Wang, Z.; Xia, M.; He, L.; Chen, H.; Liu, Y.; Zhu, R.; Liang, K.; Wu, X.; Liu, H.; Malladi, S.; et al. 2024. CharXiv: Chart-ing Gaps in Realistic Chart Understanding in Multimodal LLMs. arXiv preprint arXiv:2406.18521 .Wei, J.; Nguyen, K.; Chung, H. W.; Jiao, Y. J.; Papay, S.; Glaese, A.; Schulman, J.; and Fedus, W. 2024. Measuring Short-Form Factuality in Large Language Models. arXiv preprint arXiv:2411.04368 .Wei, J.; Wang, X.; Schuurmans, D.; Bosma, M.; Ichter, B.; Xia, F.; Chi, E. H.; Le, Q. V.; and Zhou, D. 2022. Chain-of-Thought Prompting Elicits Reasoning in Large Language Models. In Advances in Neural Information Processing Sys-tems .Wong, R.; Wang, J.; Zhao, J.; Chen, L.; Gao, Y.; Zhang, L.; Zhou, X.; Wang, Z.; Xiang, K.; Zhang, G.; et al. 2025. Widesearch: Benchmarking agentic broad info-seeking. arXiv preprint arXiv:2508.07999 .Wu, X.; Yang, J.; Chai, L.; Zhang, G.; Liu, J.; Du, X.; Liang, D.; Shu, D.; Cheng, X.; Sun, T.; Li, T.; Li, Z.; and Niu, G. 2025. TableBench: A Comprehensive and Complex Bench-mark for Table Question Answering. Proceedings of the AAAI Conference on Artificial Intelligence .Xiaomi MiMo Team. 2026a. Xiaomi MiMo-V2-Omni: Omni-Modal Agentic Foundation Model that Sees, Under-stands and Acts. https://mimo.mi.com/docs/en-US/news/ previous-news/v2-omni-release. Xiaomi MiMo Team. 2026b. Xiaomi MiMo-V2-Pro. https: //mimo.xiaomi.com/mimo-v2-pro. Xiaomi MiMo Team. 2026c. Xiaomi MiMo-V2.5. https: //mimo.xiaomi.com/mimo-v2-5/. Xiaomi MiMo Team. 2026d. Xiaomi MiMo-V2.5-Pro. https: //mimo.xiaomi.com/mimo-v2-5-pro/. Xie, T.; Zhang, D.; Chen, J.; Li, X.; Zhao, S.; Cao, R.; Hua, T. J.; Cheng, Z.; Shin, D.; Lei, F.; Liu, Y.; Xu, Y.; Zhou, S.; Savarese, S.; Xiong, C.; Zhong, V.; and Yu, T. 2024. OS-World: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments. In Advances in Neu-ral Information Processing Systems .Yang, A.; Li, A.; Yang, B.; Zhang, B.; Hui, B.; Zheng, B.; Yu, B.; Gao, C.; Huang, C.; Lv, C.; Zheng, C.; Liu, D.; Zhou, F.; Huang, F.; Hu, F.; Ge, H.; Wei, H.; Lin, H.; Tang, J.; Yang, J.; Tu, J.; Zhang, J.; Yang, J.; Yang, J.; Zhou, J.; Zhou, J.; Lin, J.; Dang, K.; Bao, K.; Yang, K.; Yu, L.; Deng, L.; Li, M.; Xue, M.; Li, M.; Zhang, P.; Wang, P.; Zhu, Q.; Men, R.; Gao, R.; Liu, S.; Luo, S.; Li, T.; Tang, T.; Yin, W.; Ren, X.; Wang, X.; Zhang, X.; Ren, X.; Fan, Y.; Su, Y.; Zhang, Y.; Zhang, Y.; Wan, Y.; Liu, Y.; Wang, Z.; Cui, Z.; Zhang, Z.; Zhou, Z.; and Qiu, Z. 2025. Qwen3 Technical Report. arXiv preprint arXiv:2505.09388 .Yao, S.; Shinn, N.; Razavi, P.; and Narasimhan, K. 2025. 
+
+τ -bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains. In The Thirteenth International Con-ference on Learning Representations .Ye, B.; Li, R.; Yang, Q.; Liu, Y.; Yao, L.; Lv, H.; Xie, Z.; An, C.; Li, L.; Kong, L.; et al. 2026. Claw-Eval: Toward Trust-worthy Evaluation of Autonomous Agents. arXiv preprint arXiv:2604.06132 .You, R.; Cai, H.; Zhang, C.; Xu, Q.; Liu, M.; Yu, T.; Li, Y.; and Li, W. 2026. Agent-as-a-Judge. arXiv preprint arXiv:2601.05111 .Yue, X.; Ni, Y.; Zhang, K.; Zheng, T.; Liu, R.; Zhang, G.; Stevens, S.; Jiang, D.; Ren, W.; Sun, Y.; et al. 2024. Mmmu: A massive multi-discipline multimodal understanding and reasoning benchmark for expert agi. In Proceedings of the IEEE/CVF conference on computer vision and pattern recog-nition .Z.AI. 2025. GLM-4.7: Advancing the Coding Capability. https://z.ai/blog/glm-4.7. Z.AI. 2026. ZClawBench: A Benchmark for the Open-Claw Agent Scenario. https://docs.z.ai/guides/llm/glm-5-turbo\#zclawbench-a-benchmark-for-the-openclaw-agent-scenario. Zhang, Y.; Wang, Y.; Zhu, Y.; Du, P.; Miao, J.; Lu, X.; Li, Z.; Qu, X.; Guo, Z.; Shen, Y.; Song, D.; Zhou, H.; Zheng, T.; Wu, X.; Yu, H.; Cai, S.; Lu, Y.; Hao, Y.; Lei, M.; Chen, L.; Zou, K.; Yin, H.; Xu, W.; Jiang, D.; Nie, P.; Liu, J.; Chen, W.; and Allen, K. R. 2026. ClawBench: Can AI Agents Complete Everyday Online Tasks? arXiv preprint arXiv:2604.08523 .Zheng, L.; Chiang, W.-L.; Sheng, Y.; Zhuang, S.; Wu, Z.; Zhuang, Y.; Lin, Z.; Li, Z.; Li, D.; Xing, E. P.; Zhang, H.; Gonzalez, J. E.; and Stoica, I. 2023. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. In Advances in Neural Information Processing Systems .Zhou, S.; Xu, F. F.; Zhu, H.; Zhou, X.; Lo, R.; Sridhar, A.; Cheng, X.; Ou, T.; Bisk, Y.; Fried, D.; Alon, U.; and Neu-big, G. 2024. WebArena: A Realistic Web Environment for Building Autonomous Agents. In The Twelfth International Conference on Learning Representations .Zuo, Y.; Qu, S.; Li, Y.; Chen, Z.-R.; Zhu, X.; Hua, E.; Zhang, K.; Ding, N.; and Zhou, B. 2025. MedXpertQA: Benchmark-ing Expert-Level Medical Reasoning and Understanding. In 
+
+Proceedings of the 42nd International Conference on Ma-chine Learning .A Details of Experimental Setup 
+
+This section complements the experimental setup summa-rized in the main paper with the details required for repro-duction. We focus on inference configuration and the tool & skill suite; in addition, the models used and their per-token prices are listed in Table 7 (§E) and the judge/meta-judge prompts are reproduced verbatim in Figure 8 and Figure 9. 
+
+A.1 Inference Configuration 
+
+All models are evaluated under the OpenClaw (Steinberger and OpenClaw Contributors 2026) defaults to avoid per-model tuning bias. The random seed is fixed to 42 across all decode calls. Local models are served with vLLM (Kwon et al. 2023) on the NVIDIA RTX PRO 6000 worksta-tion (96 GB VRAM) described in the main paper; no quan-tization or tensor parallelism is applied. Prefix caching is enabled to amortize the recurring system prompt. The soft-ware environment is Ubuntu 24.04.4 LTS, vLLM 0.19.0, OpenClaw 2026.3.20, and CUDA 13.1. 
+
+A.2 Tool and Skill Suite 
+
+Beyond the default OpenClaw tool suite (file I/O, shell ex-ecution, and agent-loop control primitives), every model is given web_search (powered by Brave Search) and 
+
+web_fetch (URL-to-markdown rendering); both tools en-force a uniform network policy across models. We addition-ally integrate 9 Clawhub skills, grouped by function: 
+
+• Self-evolution and logical reasoning: ontology (cross-skill state sharing via a shared key-value store), 
+
+self-improving-agent (injects a short reflective prompt after a failed turn to encourage plan revision), and 
+
+skill-vetter (validates outgoing tool calls against the skill’s input schema before dispatch). 
+
+• Automation capabilities: Agent Browser (head-less browser automation via Playwright), 
+
+desktop-control-1.0.0 (GUI-level keyboard, mouse, and window control for desktop-automation tasks), and github (repository inspection and file re-trieval through the GitHub REST API, with session-scoped credentials never exposed to the model). 
+
+• General utilities: summarize (bounded-length mul-timodal summarization to keep long-horizon trajecto-ries within the context limit), proactive-agent (de-ferred sub-task dispatch within the agent loop), and 
+
+humanizer (draft-to-prose post-processing, applied only when the artifact contract expects a human-readable re-port). All tools and skills are loaded under identical visibility and permission boundaries across models: every model sees the same tool list, schema, and permission grants, prevent-ing infrastructure-side bias from confounding the capability comparison. 
+
+## B Additional Experiments 
+
+B.1 Model Evolution 
+
+Figure 4 plots the accuracy trajectories of the Qwen and Gemma series among locally deployed open-weight mod-els across the six DAREBench task groups, in order to examine performance changes under generational evolu-tion. Overall, both Qwen and Gemma follow two rela-tively clear evolutionary patterns: (1) Under the same ar-chitecture, larger parameter scale usually performs better; for example, the Overall accuracy of Qwen3.5-27B exceeds that of Qwen3.5-9B by 15.7 (49.5 − 33.8), while mixture-of-experts (MoE) models, despite often having more total parameters than same-generation dense models, typically achieve slightly lower Overall scores because fewer parame-ters are activated. Comparisons between the 27B dense and 35B-A3B MoE variants in both Qwen3.5 and Qwen3.6 con-firm this pattern (Qwen3.5: 49.5 vs. 47.2; Qwen3.6: 59.8 vs. 56.6). (2) Generational iteration brings steady gains over-all; for example, the Overall performance of the Qwen3-VL 8B model (Overall 40.3) already surpasses that of the Qwen2.5-VL 32B model (Overall 39.0), and Gemma-3-27B to Gemma-4-26B-A4B likewise rises from 21.7 to 36.5. Fur-ther decomposing by workload shows that generational gains on multimodal tasks are typically larger than those on text-only tasks (e.g., for Qwen3.5-27B →Qwen3.6-27B the av-erage text-only gain is +9.9 while the multimodal gain is +11.2); along the execution-complexity axis, the improve-ment on Multi-Step+Tools is consistently the smallest, while the gains on Single-Step and Multi-Step are relatively close. This ordering is consistent with the difficulty ranking implied by our workload taxonomy: harder tasks exhibit slower gen-erational progress. This observation also provides indirect support for partitioning workloads by modality and execu-tion complexity. 
+
+B.2 Error Pattern Analysis 
+
+To further investigate the causes of task failure, we randomly sampled 30 tasks stratified by task composition, collected all models’ failed execution trajectories on these tasks, and conducted a fine-grained analysis of each model’s failure patterns. Through manual review, we found that the primary failure modes can be categorized into the six patterns shown in Table 4. We first prompted Grok 4.5 (SpaceXAI 2026) to read each task description together with the corresponding model execution traces, classify each failure into one of the six error modes (assigning cases outside these categories to Other), and provide a rationale. To ensure accuracy, we further manually audited the classifications; the final results are reported in Table 5. Among identifiable failures, PPPA accounts for the largest share (88/308, 28.6%), and is substantially more frequent for local models than for API models (62 vs. 26; 38.5% vs. 17.7% of their respective failure pools). This gap indicates that long-horizon planning and contract adherence—finishing within the time limit and writing the required artifact—remain the primary bottleneck, especially for weaker open-weight agents whose tool-calling or file-writing protocols are also more prone to interruption. SRU and VEB are the next most com-mon failure modes, with SRU manifesting as constraint vio-lations or missed aggregations, and VEB as visual evidence bypass. On VEB errors, the API and local counts are nearly identical (18 vs. 17), suggesting that models preferentially rely on web retrieval or prior guesses rather than reading and retrieving information from local images. Qwen2.5-VL 7B Qwen3.5 9B Qwen2.5-VL 32B Qwen3-VL 8B Qwen3-VL 32B Qwen3.5 35B-A3B Qwen3.5 27B Qwen3.6 35B-A3B Qwen3.6 27B           
+
+> 020 40 60 80 100
+> Accuracy (%)
+> Qwen series
+> 22.3 33.8 38.9 40.2 38.7 47.2 49.5 56.6 59.8
+> Gemma-3 27B Gemma-4 26B-A4B
+> Gemma series
+> 21.7 36.5
+> Text · Single Step Text · Multi Step Text · Multi + Tools Multi-Modal · Single Step Multi-Modal · Multi Step Multi-Modal · Multi + Tools Overall
+
+Figure 4: Accuracy trajectories of locally deployed open-weight Qwen and Gemma series across the six task groups. Thin lines denote per-group accuracies; the bold red line and shading denote Overall. 
+
+ID Definition 
+
+SRU Semantic Reasoning & Understanding: violates constraints, misses aggregation, or answers off-question. TUIE Tool Use & Information Extraction: insufficient web search/fetch retrieval capability. PPPA Path Planning & Protocol Adherence: fails to fin-ish within the time limit or to write the required contract artifact (e.g., answer.txt ). FCR Fine-grained Chart Reading: inspects the figure but misreads legends, curve names, markers, or numeric values. VEB Visual Evidence Bypass: the task depends on an image, yet the model barely looks at it and guesses via web search or priors. VCS Visual Common Sense & Entity Recognition: misidentifies the target object, attribute, or per-son in the image. OTH Other: residual error types that cause task failure. 
+
+Table 4: Capability-oriented failure taxonomy. 
+
+B.3 Local Model Token Usage and Cost 
+
+Table 6 reports per-task token consumption and estimated USD cost for the 12 locally deployed open-weight mod-els, where Cost$/task is computed from each model’s Open-Router hosted-reference rate. For local models, token usage more directly reflects compute and inference-time cost, while the estimated dollar figures serve as a complementary eco-nomic reference for API-style hosting of open-weight mod-els. Relative to the API pool in the main paper, locally served models complete tasks with substantially fewer tokens, es-pecially on Multi-Step+Tools buckets: the strongest local model, Qwen3.6-27B, averages about 62k (Text) and 81k (MM) tokens/task, whereas many commercial API models exceed 200k under the same aggregation. Importantly, this does not imply higher reasoning efficiency: as reported in Section B.2, the apparent “low spend” often reflects PPPA-style aborted or truncated trajectories rather than Pareto-efficient agent performance. 
+
+## C Details of Evidence-Based Audit 
+
+This section supplements the Evidence-Based Audit de-scribed in the main paper (§Evaluation Protocol). LLM-as-a-judge provides the semantic evaluation capac-ity necessary for open-ended tasks; however, even with man-ually designed task-specific rubrics, our pilot experiments revealed systematic risks of judging hallucination in LLM judges, which has also been reported in related work (You et al. 2026; Gurram 2026). Through careful sampling-based verification, we systematically identify five major recurring hallucination patterns in DAREBench: 1. rubric leakage: the judge mistakes answer information embedded in the grading rubrics for the agent’s execution output. 2. deadlock loop: the agent repeatedly cycles through ma-terially equivalent reasoning or actions without making workspace progress, eventually exhausting the 32K con-text window and leaving the task incomplete, while the judge still awards positive credit. 3. pseudo-tool-call credulity: the model outputs tool-like text rather than an actually executable tool call. 4. output instability: incomplete or malformed output. 5. timeout-with-credit: timed-out trajectories still receiving positive scores. Figures 5 and 6 further visualize two real cases that expose these hallucination patterns. To address these patterns, we de-signed a set of deterministic post-hoc rules that perform high-recall pre-filtering of potential hallucination cases, followed by a second-line adjudication by an independent meta-judge, thereby enabling cost-controllable evaluation and screening. The complete meta-judge pipeline is given in Algorithm 1. Among the 7,587 task–model evaluations, 3,340 are judge/hybrid calls, from which the pre-filter set R recalled Model Sampled SRU TUIE PPPA FCR VEB VCS OTH                                                                                                                                                                                                                                                                                         
+
+> API Deployment
+> Gemini-3.1-Pro 21000001Claude-Opus-4.8 31000101GPT-5.5 41010002Claude-Opus-4.6 30000102GPT-5.4 51010102MiMo-V2.5 41010101Claude-Sonnet-4.6 74010011Qwen3.6-Plus 61001103Qwen3.5-Plus 42010100Doubao-Seed2.0-Pro 83001103Gemini-3.5-Flash 52000003GPT-5.4-mini 61010112MiMo-V2.5-Pro 72111110DeepSeek-V4-Pro 91022103Claude-Haiku-4.5 62011110Doubao-Seed2.0-Mini 90030114MiMo-V2-Omni 91130121Kimi-K2.5 51011011MiMo-V2-Pro 83111200MiniMax-M2.7 10 2032111GLM-5 82012111DeepSeek-V3.2 10 2022013GLM-4.7 92021103
+> Local Deployment
+> Qwen3.6-27B 91051002Qwen3.6-35B-A3B 91051110Qwen3.5-27B 13 2041123Qwen3.5-35B-A3B 11 3030221Qwen3-Coder-30B-A3B 14 5060003Qwen3-VL-32B 11 1072001Qwen3-VL-8B 11 2132120Gemma-4-26B-A4B 15 1051008Qwen2.5-VL-32B 13 1340203Qwen3.5-9B 16 3050125Gemma-3-27B 19 0091225Qwen2.5-VL-7B 20 1360721
+
+Table 5: Fine-grained failure distribution over zero-score trajectories from 35 models on 30 stratified tasks. Models are ordered by overall accuracy on the full benchmark (descending). 182 potential hallucination cases. As reported in the main paper (§LLM Judge Reliability), after a second-line review by Claude-Opus-4.6, 143 were finally confirmed as judging hallucinations. To ensure the reliability of the meta-judge method and its experimental results, we further invited human experts to validate the meta-judge outcomes. We stratified-sampled 100 execution trajectories from the 3,340 judge/hybrid calls along original score, task group, and deployment mode, and had human experts score them independently. We report the mean absolute score error (MAE): 
+
+MAE = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+sjudge  
+
+> i
+
+− sexpert  
+
+> i
+
+, n = 100 . (15) Here sjudge  
+
+> i
+
+denotes the score assigned by either the primary judge or the meta-judge to the i-th trajectory, and sexpert  
+
+> i
+
+de-notes the experts’ score. The results show that the MAE be-tween the meta-judge-corrected scores and the human scores is 0.049, approximately half that of the primary judge (0.098), indicating that the meta-judge correction is not only more accurate in its verdicts but also closer to the experts in the assigned scores. 
+
+## D Case Study 
+
+As additional examples supplementing the main paper’s case study, this section further illustrates how workload-level gaps manifest in concrete agent trajectories. Cases 1 and 2 com-pare a successful API trajectory against a failed local trajec-tory, revealing the primary performance differences between strong and weak models, and illustrating cross-step state loss in a tool-mediated text task and visual-symbolic grounding failure in a compact multimodal task. Cases 3–5 focus on hard multimodal tasks that expose common verification fail-ures: chart alignment, chemistry formula bookkeeping, and plate-map option grounding. Tokens/task Cost$/task (OpenRouter rates) Text MM Text MM 
+
+Model SS MS MT Avg SS MS MT Avg SS MS MT Avg SS MS MT Avg Ctx 
+
+Local Deployment 
+
+Qwen3.6-27B 47k 52k 83k 62k 58k 54k 128k 81k 0.037 0.034 0.056 0.041 0.037 0.041 0.084 0.055 256K Qwen3.6-35B-A3B 53k 57k 86k 66k 57k 68k 114k 81k 0.010 0.009 0.014 0.011 0.009 0.012 0.018 0.013 256K Qwen3.5-27B 39k 64k 85k 68k 49k 53k 126k 78k 0.016 0.021 0.028 0.023 0.016 0.020 0.041 0.026 256K Qwen3.5-35B-A3B 35k 45k 78k 55k 61k 62k 105k 77k 0.011 0.012 0.021 0.015 0.016 0.017 0.027 0.021 262K Qwen3-VL-8B 43k 42k 152k 79k 48k 42k 78k 57k 0.009 0.008 0.028 0.015 0.009 0.008 0.014 0.010 256K Qwen2.5-VL-32B 24k 31k 45k 35k 32k 25k 8k 21k 0.005 0.006 0.009 0.007 0.007 0.005 0.002 0.004 128K Qwen3-VL-32B 114k 98k 184k 129k 61k 188k 104k 123k 0.018 0.016 0.030 0.021 0.010 0.030 0.017 0.020 256K Gemma-4-26B-A4B 111k 53k 54k 60k 46k 105k 202k 123k 0.008 0.004 0.004 0.004 0.004 0.008 0.015 0.009 128K Qwen3.5-9B 50k 60k 110k 75k 61k 59k 109k 77k 0.005 0.006 0.011 0.008 0.006 0.006 0.011 0.008 256K Qwen2.5-VL-7B 29k 31k 125k 62k 35k 164k 108k 108k 0.006 0.006 0.025 0.012 0.007 0.033 0.022 0.022 128K Gemma-3-27B 43k 36k 50k 42k 59k 34k 9k 32k 0.003 0.003 0.004 0.003 0.005 0.003 <0.001 0.003 128K Qwen3-Coder-30B-A3B 65k 138k 182k 144k — — — — 0.006 0.007 0.011 0.008 — — — — 160K 
+
+Table 6: Per-model token consumption and dollar cost per task for locally deployed open-weight models on DAREBench. Notation and ranking follow the main paper. 
+
+Figure 5: Judge hallucination example A ( pseudo-tool-call credulity ). Task: What disease did the author of the book in the image die from? Write your answer to ‘answer.txt‘ in the workspace. The model embeds a factually correct an-swer inside a tool-like write(...) string but never exe-cutes a real file write; the LLM judge overlooks the missing workspace artifact and still awards full credit. 
+
+Figure 6: Judge hallucination example B ( rubric leakage ). 
+
+Task: Read the table. Can you identify any locations within the table whose area or population values sig-nificantly deviate from the patterns observed in other locations? The model fails and answers “No anomalies are detected,” yet the LLM judge mistakes the reference answer embedded in the grading rubric for the agent’s response and incorrectly scores the trajectory as correct. Algorithm 1: Evidence-Based Audit 
+
+Input: Primary scores {sm,i } (sm,i > 0); trajectories 
+
+{traj i}; prompts {pi}; artifacts {W ∗ 
+
+> i
+
+};rubrics {rubric i}; rules R
+
+Output: Audited scores {saudit  
+
+> m,i
+
+}
+
+foreach judge/hybrid call i do 
+
+ϕi ← { 
+
+AsstChars (traj i),
+
+HasWrite (traj i),
+
+HasTool (traj i),
+
+TokTotal (traj i)
+
+};
+
+/* flag positive scores with weak execution evidence */ 
+
+if PreFilter (ϕi, s m,i , R) = True then 
+
+vi ←
+
+MetaJudge (pi, traj i, W∗ 
+
+> i
+
+, rubric i, s m,i );
+
+if vi = hallucination then 
+
+saudit  
+
+> m,i
+
+← 0;
+
+else 
+
+saudit  
+
+> m,i
+
+← sm,i ;
+
+else 
+
+saudit  
+
+> m,i
+
+← sm,i ;
+
+return {saudit  
+
+> m,i
+
+};
+
+D.1 Case 1 — A Multi-Hop Academic Author Retrieval Workflow 
+
+Case 1: Multi-Hop Author Retrieval (Text Multi+Tools) Task. Of the authors in the first article of the 65th edition of the Journal of Artificial Intelligence Research, who was the most cited on Google Scholar in 2019? 
+
+Gemini 3.1 Pro (Correct, 1.0) 
+
+T1: web_search("Journal of Artificial 
+
+,→ Intelligence Research Volume 65") -> JAIR Vol 65 = 2019 (from jair.org result) -> dblp link spotted (from result #4) 
+
+T2: web_fetch("https://dblp.org/db/ 
+
+,→ journals/jair/jair65.html") -> Full TOC scraped; 1st article: "On Overfitting..." (pp. 1-30) -> Authors: V. Francois-Lavet, G. Rabusseau, J. Pineau, D. Ernst, R. Fonteneau Confirmed correct article and extracted 5target authors successfully 
+
+T3: web_fetch("https://doi.org/10.1613/ 
+
+,→ jair.1.11478") -> Failed (406 Not Acceptable) fallback unnecessary, TOC sufficient 
+
+T4: web_search("Vincent Francois-Lavet ... 
+
+,→ citations") -> Confirmed 5 authors on arXiv/JAIR/ResearchGate 
+
+T5-T14: web_search x10 (per author +
+
+,→ reconfirmations) -> J. Pineau: 41,695 [highest] clear winner identified -> D. Ernst: 25,039; R. Fonteneau: 1,859; G. Rabusseau: 1,439 -> V. Francois-Lavet: no Scholar profile 
+
+T15: write_output("Joelle Pineau") 
+
+T16: read_output() -> Verified: ’Joelle Pineau’ Self-check passed 
+
+Qwen3-VL-32B (Incorrect, 0.0) 
+
+T1-3: web_search x3 (JAIR 65th edition 
+
+,→ first article authors) -> JAIR homepage, Wikipedia, generic publishers -> "Optstream..." (pp. 423-456) spotted; Authors: F. Fioretto, P. Van Hentenryck Mistakenly identified the last article as the first 
+
+T4: web_fetch("https://www.jair.org/index. 
+
+,→ php/jair/issue/view/1153") -> Full TOC scraped; 1st article: "On Overfitting..." (pp. 1-30) -> Authors: V. Francois-Lavet, G. Rabusseau, J. Pineau, D. Ernst, R. Fonteneau Correct first-article info retrieved, but prior error not overwritten 
+
+T5: web_search("F. Fioretto P. Van 
+
+,→ Hentenryck Google Scholar citations 
+
+,→ 2019") -> P. Van Hentenryck: 31,983 citations; F. Fioretto: 3,548 citations Misled by early erroneous search: queried authors of the WRONG article (T1-3) instead of target article authors (T4) 
+
+T6: write_output("Pascal Van Hentenryck") 
+
+D.2 Case 2 — Academic Diagram Understanding 
+
+Case 2: Academic Diagram Understanding (Multi-Modal Single Step) Task. What is the name of the line that is the furthest away from its fi value from the W-H axis? 
+
+Gemini 3.1 Pro (Correct, 1.0) 
+
+Reasoning: Examining Graph Data: zeroing ,→ in on the specific line furthest 
+
+,→ from the W-H axis. The legend provides lambda 
+
+,→ values: 0.13, 0.20, 0.30. Visually assess which (green dashed, red dotted, blue dash-dot) is most distant 
+
+Reasoning: Pinpointing The Answer: 
+
+,→ calculating distances for each line 
+
+,→ using the ’fi’ points as reference along the W-H 
+
+,→ axis. -> green line (λL = 0 .13 ) appears most distant from its ’fi’ value 
+
+Answer: $\lambda_L = 0.13$ 
+
+Qwen3-VL-32B (Incorrect, 0.0) 
+
+Reasoning: The name of the line that is 
+
+,→ the furthest away from its fi value from the W-H axis is "fi". -> data points marked ’x’ (representing "fi") at W-H values of approx. -0.2 and 0.12 Confuses an axis/marker label with the requested curve identity 
+
+Answer: fi 
+
+D.3 Case 3 — Shared Chart-Grounding Failure 
+
+Case 3: A Chart Item That All Models Miss Task. “Which model shows a greater decline in accuracy from Session 1 to Session 9 in the 5-way full-shot scenario?” The chart shows continual-learning curves for Ft-CNN, iCaRL, EEIL, NCM, Ours-AL, Ours-AL-MML, and Joint-CNN. Reference an-swer: Joint-CNN .
+
+Gemini 3.1 Pro (Incorrect, 0.0) 
+
+T1: read_image("chart.png") -> Image loaded, 7 curves visible Reasoning: scanning for the steepest visible decline. 
+
+T2: write_output("Ft-CNN") Selected a plausible visual drop, but did not match the reference curve comparison from Session 1 to Session 9. 
+
+Qwen3-VL-32B (Incorrect, 0.0) 
+
+T1: read_image("chart.png") -> Image loaded; legend and curves visible Reasoning: compares apparent drops among the curve labels. 
+
+T2: write_output("Ft-CNN") Converges to the same wrong legend entry as several frontier APIs. 
+
+D.4 Case 4 — Image-Grounded Chemistry Formula Inference 
+
+Case 4: A Chemistry Item Where Formula Bookkeeping Fails Task. A Humanity’s Last Exam organic-chemistry item asks for the molecular formula of compound B. The prompt describes re-actions of tris(2,6-dimethoxyphenyl)methylium ion with either 
+
+n-propanol or methyl-3-aminopropionate, and the diagram spec-ifies the product structure. Reference answer: C23H22NO4+ .
+
+MiMo-V2.5 (Incorrect, 0.0) 
+
+T1: read_image("hle_07_image.jpg") -> image parsed; identifies acridinium core and substituents Reasoning: derives product B from the right-hand pathway. 
+
+T2: write_output("C29H32NO7+") Formula does not match the reference C23H22NO4+. 
+
+Qwen3-VL-32B (Incorrect, 0.0) 
+
+T1: read_image("hle_07_image.jpg") -> describes the reaction diagram and attempts atom accounting Reasoning: counts atoms after substituent transfer. 
+
+T2: write_output("C31H34NO8") Wrong atom count and missing charge; reference is C23H22NO4+. 
+
+D.5 Case 5 — Spatial Plate-Boundary Reasoning 
+
+Case 5: A Plate-Map Item Where Option Grounding Fails Task. An HLE structural-geology item shows a hypothetical tectonic map and asks: “Along which plate boundary might we expect the longest range of the tallest mountains on the planet shown above? Assume similar tectonic plate geology to Earth.” The model must choose from nine named plate-boundary options. Reference answer: D. South Kesh Plate and Eurybian Plate .Claude Opus 4.6 (Incorrect, 0.0)                                                       
+
+> T1: read_image("hle_02_image.jpg") -> reads the map and applies the mountain-building criterion Reasoning: tallest ranges should form along strong convergent/collision boundaries.
+> T2: write_output("G. Artemian Plate and
+> ,→Eurybian Plate") Geologic rule is plausible, but the selected option is not the reference boundary D.
+> Qwen3.6-35B-A3B (Incorrect, 0.0)
+> T1: read_image("hle_02_image.jpg") -> identifies candidate boundaries and compares plate interactions Reasoning: searches for the most mountain-building boundary.
+> T2: write_output("H") Chooses adifferent boundary option; reference is D, South Kesh Plate and Eurybian Plate.
+
+## E OpenRouter Pricing 
+
+Table 7 lists the per-million-token rates used for the USD cost columns in the main paper and Table 6. Per-task cost fol-lows the four-term formula cost = 110 6 (uin αin + uout αout +
+
+ucr αcr + ucw αcw ), where uin , u out , u cr , u cw are the input, output, cache-read, and cache-write token counts and α· the matching unit prices in Table 7; when a model exposes no separate cache-read or cache-write rate (“—”), the corre-sponding tokens are billed at the input price. All models use OpenRouter listing prices, except for Doubao-Seed2.0-Pro, MiMo-V2-Omni, and MiMo-V2-Pro (marked †), which are not listed on OpenRouter and are priced using their official provider rates. 
+
+## F Details of DAREBench 
+
+F.1 Benchmark Composition 
+
+Figure 7 summarizes the composition of DAREBench. The suite comprises 233 tasks curated from 22 publicly avail-able source benchmarks through the three-stage (feasibility, difficulty, representativeness) curation procedure described in the main paper. Tasks are partitioned into six workload groups along the input-modality axis (Text vs. Multi-Modal) and the execution-form axis (Single-Step, Multi-Step, Multi-Step+Tools), yielding group sizes of 20, 87, 55, 20, 26, and 25 for Text-SS, Text-MS, Text-MT, MM-SS, MM-MS, and MM-MT, respectively. The per-benchmark task counts, group as-signments, and brief descriptions of each source benchmark are provided in §F.3. 
+
+F.2 Benchmark Scoring 
+
+Scoring-mode assignment. Each task is assigned exactly one of three scoring modes during benchmark construction, according to the verifiability of its artifact contract: tasks with deterministic answers or artifacts checkable by rule-based procedures use automated scoring; tasks with open-ended outputs or semantic constraints that cannot be reliably veri-fied by deterministic rules use LLM-based (judge) scoring; and tasks whose contracts contain both rule-verifiable and semantically judged criteria use hybrid scoring with fixed per-task weights. 
+
+Scoring-mode distribution. Table 8 reports the result-ing distribution. Overall, 125 tasks (53.6%) are scored au-tomatically, 73 tasks (31.3%) by the LLM judge, and 35 tasks (15.0%) in hybrid mode. The assignment is workload-dependent: multimodal single-step tasks (MM-SS) are exclu-sively judge-scored because their answers require semantic equivalence assessment against the reference, multimodal tool-use tasks (MM-MT) are exclusively hybrid, and text multi-step tasks (Text-MS, Text-MT) are predominantly au-tomated. All scores produced with judge involvement (judge and hybrid modes) additionally pass through the evidence-based audit described in the main paper and detailed in §C. 
+
+F.3 Source Benchmarks 
+
+DAREBench curates 233 tasks from 22 widely used open-source benchmarks spanning reasoning, long-context under-standing, multi-hop and search-grounded QA, instruction following, tabular and numerical reasoning, vertical domains (finance, law, medicine), code and shell workflows, desktop control, visual question answering, and multimodal search. Table 9 summarizes each source benchmark, its task count, and the workload group to which it is mapped under our modality ×execution-complexity taxonomy (defined in the main paper’s Methodology section). Brief descriptions of each source benchmark follow. 
+
+• LogiQA (Liu et al. 2020) is a reading-comprehension benchmark for logical reasoning, where each instance provides a short passage and a multiple-choice question whose correct answer requires identifying the logical struc-ture (premise, conclusion, assumption) of the argument. 
+
+• GPQA (Graduate-Level Google-Proof Q&A) (Rein et al. 2024) contains Ph.D.-level science questions in biology, chemistry, and physics that are resistant to web search; an-swering them correctly requires expert-level domain knowl-edge and multi-step reasoning rather than retrieval. 
+
+• AdvancedIF (He et al. 2025) targets complex instruction following with dozens of verifiable constraints per instruc-tion (e.g., length, keyword, formatting, and structural require-ments), testing a model’s ability to satisfy all constraints simultaneously in a single response. 
+
+• Bamboogle (Press et al. 2023) is a multi-hop question-answering dataset in which each question requires chaining two or more Wikipedia facts; the answer is not directly re-trievable and demands cross-document reasoning. 
+
+• SimpleQA (Wei et al. 2024) is a short-form fact-seeking benchmark where each question has a single, unambiguous answer; it emphasizes precision and resistance to confabula-tion on entities, dates, and numerical facts. 
+
+• LongBench (Bai et al. 2025c) is a long-context bench-mark covering summarization, retrieval, and reasoning over documents of up to tens of thousands of tokens; it evalu-ates a model’s ability to locate and synthesize information dispersed across long inputs. Model Provider Pool Input Output Cache Read Cache Write 
+
+API Deployment 
+
+Claude-Opus-4.8 Anthropic API 5.00 25.00 0.50 6.25 Claude-Opus-4.6 Anthropic API 5.00 25.00 0.50 6.25 Claude-Sonnet-4.6 Anthropic API 3.00 15.00 0.30 3.75 Claude-Haiku-4.5 Anthropic API 1.00 5.00 0.10 1.25 GPT-5.5 OpenAI API 5.00 30.00 0.50 —GPT-5.4 OpenAI API 2.50 15.00 0.25 —GPT-5.4-mini OpenAI API 0.75 4.50 0.075 —Gemini-3.1-Pro Google AI Studio API 2.00 12.00 0.20 0.375 Gemini-3.5-Flash Google AI Studio API 1.50 9.00 0.15 0.083 Qwen3.6-Plus Alibaba Cloud Int API 0.50 3.00 0.05 —Qwen3.5-Plus Alibaba Cloud Int API 0.40 2.40 0.04 —Doubao-Seed2.0-Pro † Volcengine API 0.444 2.222 0.089 —Doubao-Seed2.0-Mini Seed API 0.10 0.40 — —GLM-5 Z.ai API 1.00 3.20 0.20 —GLM-4.7 Z.ai API 0.60 2.20 0.11 —Kimi-K2.5 Moonshot AI API 0.60 3.00 0.10 —MiniMax-M2.7 MiniMax API 0.30 1.20 0.06 —DeepSeek-V4-Pro DeepSeek API 0.435 0.87 0.0036 —DeepSeek-V3.2 Alibaba Cloud Int API 0.3705 1.112 0.0741 —MiMo-V2.5 Xiaomi API 0.14 0.28 0.0028 —MiMo-V2.5-Pro Xiaomi API 0.435 0.87 0.0036 —MiMo-V2-Omni † Xiaomi API 0.14 0.28 0.0028 —MiMo-V2-Pro † Xiaomi API 0.435 0.87 0.0036 —
+
+Local Deployment (hosted-reference rates) 
+
+Qwen3.6-27B Alibaba Cloud Int Local 0.60 3.60 — —Qwen3.6-35B-A3B AkashML Local 0.14 1.00 — —Qwen3.5-27B Alibaba Cloud Int Local 0.30 2.40 — —Qwen3.5-35B-A3B Alibaba Cloud Int Local 0.25 2.00 — —Qwen3.5-9B SiliconFlow Local 0.10 0.15 — —Qwen3-Coder-30B-A3B Alibaba Cloud Int Local 0.045 2.25 — —Qwen3-VL-32B Alibaba Cloud Int Local 0.16 0.64 — —Qwen3-VL-8B Alibaba Cloud Int Local 0.18 0.70 — —Gemma-4-26B-A4B DeepInfra Local 0.07 0.34 — —Gemma-3-27B DeepInfra Local 0.08 0.16 — —Qwen2.5-VL-32B Alibaba Cloud Int Local 0.20 0.60 — —Qwen2.5-VL-7B Alibaba Cloud Int Local 0.20 0.20 — —
+
+Table 7: Per-million-token prices (USD/1M tokens) for all 35 evaluated models. Provider indicates the inference backend from which the rate is sourced. “—” denotes that the provider does not expose a separate cache-read or cache-write rate. Entries marked † use the official provider rate (model not listed on OpenRouter). Text Single Step 20 Text Multi Step 87 Text Multi + Tools 55 MM Multi + Tools 25 MM Multi Step 26 MM Single Step 20 
+
+> LogiQA (10) GPQA (10) AdvancedIF (10) LongBench (10) Bamboogle (10) SimpleQA (10) LexEval (20) TableBench (17) FinQA (10) DeepSearchQA (10) SealQA (10) WideSearch (10) Terminal-Bench (10) OpenAgentSafety (6) OSWorld (9) AgentVista (10) MMSearch (10) MMSearch-Plus (5) HLE (10) MedXpertQA (16) CharXiv (10) SimpleVQA (10)
+
+DAREBench 
+
+233 tasks Figure 7: Task composition of DAREBench. The inner ring partitions the 233 tasks along the 2 × 3 modality ×execution-complexity taxonomy; the outer ring shows the 22 contributing source benchmarks. Segment sizes are proportional to task counts. 
+
+Group #Tasks Auto Judge Hybrid 
+
+Text-SS 20 10 0 10 Text-MS 87 64 23 0Text-MT 55 35 20 0MM-SS 20 0 20 0MM-MS 26 16 10 0MM-MT 25 0 0 25 
+
+Total 233 125 73 35 
+
+Table 8: Distribution of the three scoring modes across the six DAREBench workload groups. Text/MM = Text/Multi-Modal; SS/MS/MT = Single-Step / Multi-Step / Multi-Step+Tools. Auto = automated (rule-based) scoring; Judge = LLM-based scoring; Hybrid = weighted combination of the two. 
+
+• LexEval (Li et al. 2024) is a comprehensive legal-domain evaluation suite covering legal knowledge, statute compre-hension, and legal reasoning; it tests domain-specific termi-nology and normative reasoning ability. 
+
+• TableBench (Wu et al. 2025) is a table-understanding benchmark with diverse table structures and question types (lookup, aggregation, comparison, trend analysis), re-quiring both precise cell localization and multi-step numeri-cal reasoning. 
+
+• FinQA (Chen et al. 2021) is a financial question-answering dataset over earnings reports and financial tables; answer-ing requires programmatic reasoning (e.g., computing ra-tios, growth rates) over tabular data accompanied by natural-language context. 
+
+• DeepSearchQA (Gupta et al. 2026) is a deep search bench-mark featuring hand-crafted, multi-step information-seeking tasks across 17 fields; unlike single-answer retrieval, it eval-uates comprehensiveness and the ability to synthesize evi-dence from multiple retrieved sources. 
+
+• WideSearch (Wong et al. 2025) probes broad-scope infor-mation aggregation: each task requires gathering and recon-ciling information from many independent sources, testing the breadth and coverage of a search-augmented agent. 
+
+• Seal0 (Pham et al. 2026) is drawn from the SealQA bench-mark for search-augmented language models; its core sub-set (Seal-0) contains questions specifically curated to be chal-lenging for frontier models, often involving ambiguity, con-flicting evidence, or noisy search results. 
+
+• TerminalBench2 (Merrill et al. 2026) is a command-line interface benchmark in which the agent must accomplish re-alistic system-administration, data-processing, and develop-ment tasks in a Linux terminal, requiring correct sequencing of shell commands and file operations. 
+
+• OpenAgentSafety (Vijayvargiya et al. 2026) evaluates open-world agent safety through scenarios in which an un-Benchmark Domain / Capability #Tasks Group Scoring 
+
+Text Single-Step (Text-SS) 
+
+LogiQA Reading comprehension with logical reasoning 10 Text-SS Auto GPQA Graduate-level science multiple-choice 10 Text-SS Hybrid 
+
+Text Multi-Step (Text-MS) 
+
+AdvancedIF Complex multi-constraint instruction following 10 Text-MS Judge Bamboogle Multi-hop question answering 10 Text-MS Auto SimpleQA Short-form fact-seeking QA 10 Text-MS Auto LongBench Long-context understanding and retrieval 10 Text-MS Judge LexEval Legal-domain evaluation 20 Text-MS Auto TableBench Table understanding and numerical reasoning 17 Text-MS Auto (14) / Judge (3) FinQA Financial question answering over tables 10 Text-MS Auto 
+
+Text Multi-Step+Tools (Text-MT) 
+
+DeepSearchQA Deep multi-step search-grounded QA 10 Text-MT Judge WideSearch Broad-scope information aggregation search 10 Text-MT Auto Seal0 Search-augmented reasoning on ambiguous queries 10 Text-MT Judge TerminalBench2 Realistic CLI / shell task execution 10 Text-MT Auto OpenAgentSafety Open-world agent safety scenarios 6 Text-MT Auto OSWorld Desktop automation and control 9 Text-MT Auto 
+
+Multi-Modal Single-Step (MM-SS) 
+
+SimpleVQA Short-form visual fact-seeking QA 10 MM-SS Judge HLE Humanity’s Last Exam (cross-discipline) 10 MM-SS Judge 
+
+Multi-Modal Multi-Step (MM-MS) 
+
+CharXiv Academic figure and chart understanding 10 MM-MS Judge MedXpertQA Medical expert-level multimodal QA 16 MM-MS Auto 
+
+Multi-Modal Multi-Step+Tools (MM-MT) 
+
+AgentVista Ultra-challenging multimodal agent tasks 10 MM-MT Hybrid MMSearch End-to-end multimodal search 10 MM-MT Hybrid MMSearchPlus Provenance-aware multimodal search 5 MM-MT Hybrid 
+
+Total 233 
+
+Table 9: Source benchmarks underlying DAREBench. #Tasks: number of tasks retained after the three-stage curation. Group: the workload group each benchmark is mapped to under the modality ×execution-complexity taxonomy (Text/MM = Text/Multi-Modal; SS/MS/MT = Single-Step / Multi-Step / Multi-Step+Tools). Scoring: the scoring mode(s) used by the benchmark’s tasks (Auto = automated, Judge = LLM-based, Hybrid = weighted combination; see §F.2). constrained agent may take harmful, reckless, or policy-violating actions; tasks test whether the agent completes the goal while respecting safety constraints. 
+
+• OSWorld (Xie et al. 2024) is a desktop-environment benchmark where the agent controls a virtual operating sys-tem (files, applications) to accomplish real-world computer tasks; it demands pixel-level perception, cross-application planning, and long-horizon tool use. 
+
+• SimpleVQA (Wang et al. 2025) is a short-form visual fact-seeking benchmark in which each question is grounded in a single image and has one correct answer; it isolates visual entity recognition and fine-grained perception from multi-hop reasoning. 
+
+• HLE (Humanity’s Last Exam) (Center for AI Safety, Scale AI, and HLE Contributors Consortium 2026) is a cross-discipline expert-level benchmark spanning mathemat-ics, humanities, science, and professional domains; questions are designed to be resistant to web search and require deep reasoning, often grounded in images, diagrams, or special-ized notation. 
+
+• CharXiv (Wang et al. 2024) is a chart-understanding bench-mark built from real arXiv figures; it asks questions that re-quire reading legends, curves, axes, and annotations, testing fine-grained visual reasoning beyond simple OCR or caption matching. 
+
+• MedXpertQA (Zuo et al. 2025) is a medical expert-level multimodal QA benchmark covering clinical cases, pathol-ogy images, and diagnostic reasoning; it evaluates whether a model can reach expert-level conclusions from multimodal medical evidence. 
+
+• AgentVista (Su et al. 2026) is a benchmark for gener-alist multimodal agents on realistic, ultra-challenging tasks spanning 25 sub-domains; each task requires long-horizon, interleaved tool use grounded in rich visual evidence, testing perception, planning, and tool-use integration jointly. 
+
+• MMSearch (Jiang et al. 2025) is an end-to-end multimodal search benchmark in which the agent must query, retrieve, and synthesize information that is distributed across both text and images, requiring multimodal query formulation and cross-modal evidence aggregation. 
+
+• MMSearchPlus (Tao et al. 2026) extends multimodal search with a provenance-aware evaluation: each task de-mands fine-grained multimodal reasoning while preventing shortcut answers, and correctness is judged by whether the agent cites and correctly interprets the originating evidence. 
+
+## G Prompts 
+
+This section documents the two prompt templates used in DAREBench’s grading pipeline: the LLM-as-a-Judge grad-ing prompt (Figure 8) and the meta-judge auditing prompt (Figure 9). Since all our experiments are conducted under the unified OpenClaw runtime, the system prompt used in the experiments is the default OpenClaw system prompt and is therefore not reported here. LLM-as-a-Judge Prompt Template 
+
+You are a grading function. Your ONLY job is to output a single JSON object. CRITICAL RULES: - Do NOT use any tools (no Read, Write, exec, or any other tool calls) - Do NOT create files or run commands - Do NOT write any prose, explanation, or commentary outside the JSON - Respond with ONLY a JSON object -- nothing else Be a strict evaluator. Reserve 1.0 for genuinely excellent performance. An average acceptable completion should score around 0.6-0.7. Deduct points for unnecessary steps, verbose output, and inefficient tool usage. ## Task {task_prompt} ## Expected Behavior {expected_behavior} ## Agent Transcript (summarized) {transcript_summary} ## Grading Rubric {rubric} Score each criterion from 0.0 to 1.0. Respond with ONLY this JSON structure (no markdown, no code fences, no extra text): {"scores": {"criterion_name": 0.0}, "total": 0.0, "notes": "brief justification"} 
+
+Figure 8: LLM-as-a-Judge prompt template. Field placeholders are denoted in curly braces. Meta-Judge System Prompt 
+
+You are a meta-judge auditor for an AI agent benchmark. Your job is to determine whether a grading judge hallucinated when scoring an agent’s work. You will be given: 1. The task prompt (what the agent was asked to do) 2. The agent’s session transcript (what the agent actually did) 3. The judge’s score and notes (how the judge graded the agent) 4. Metadata: grading_type, original score, assistant output characters Your task: Determine if the judge’s positive score is justified by the agent’s actual work, or if the judge hallucinated (fabricated evidence of work that didn’t happen). ## Hallucination Patterns (choose one if verdict is "hallucination"): - rubric-leakage: The judge cites answer text not present in the transcript, apparently copying rubric/ground-truth information. - context-overflow-confabulation: The agent hit the serving context limit and left an empty /truncated final turn; the judge then fabricated completion. - pseudo-tool-call-credulity: The agent wrote tool-like text rather than an executable tool call, and the judge credited it as completed. - workspace-gt-leakage: A workspace-side leakage bug exposed ground-truth or prior-run output and the judge credited it. - timeout-with-credit: A timed-out trajectory received positive judge credit for unfinished work. - output-instability: Small-model malformed, unstable, repetitive, or incomplete artifacts were over-interpreted as answers. - mc-rubric-leak: For multiple-choice tasks, the judge copied the correct option from the rubric instead of the agent trace. - mc-parse: The judge mis-parsed an MC answer format and credited the wrong choice. - mc-hedge: The agent hedged or mentioned several MC choices and the judge credited the favorable one. - mixed: Several taxonomy causes apply and no single one dominates. - other: A hallucination pattern not covered above. ## Output Format (JSON only, no markdown): {"verdict": "hallucination" | "legitimate", "pattern": "<one of the patterns above, or null if legitimate>", "confidence": "high" | "medium" | "low", "reasoning": "<1-3 sentence explanation>" }
+
+Figure 9: Meta-judge system prompt.

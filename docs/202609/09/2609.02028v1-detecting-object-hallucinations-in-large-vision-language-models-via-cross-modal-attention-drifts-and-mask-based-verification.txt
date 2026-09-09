@@ -1,0 +1,470 @@
+Title: Detecting Object Hallucinations in Large Vision-Language Models via Cross-Modal Attention Drifts and Mask-Based Verification
+
+URL Source: https://arxiv.org/pdf/2609.02028v1
+
+Published Time: Thu, 03 Sep 2026 00:33:13 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Detecting Object Hallucinations in Large Vision-Language Models via Cross-Modal Attention Drifts and Mask-Based Verification 
+
+# Xuanbing Wen 1, Boxu Chen 1, Le Yang 1, Jiakai Wang 2, Zhengyu Zhao 1, Chenhao Lin 1, Chao Shen 1
+
+> 1
+
+Xi’an Jiaotong University, Xi’an 710049, China 
+
+> 2
+
+Zhongguancun Laboratory, Beijing 100194, China 22009200389@stu.xidian.edu.cn, chenboxu@stu.xjtu.edu.cn, yangle15@xjtu.edu.cn, jk_buaa_scse@buaa.edu.cn, zhengyu.zhao@xjtu.edu.cn, linchenhao@xjtu.edu.cn, chaoshen@mail.xjtu.edu.cn 
+
+Abstract 
+
+Despite recent advances in large vision-language models (LVLMs), object hallucination remains a major barrier to their reliable deployment. Existing detection methods often charac-terize visual grounding using attention from individual layers, leaving its evolution across layers underexplored. We propose CADMP, a lightweight object hallucination detection frame-work that combines adjacent-layer cross-modal attention drift with prediction sensitivity to targeted visual masking. During decoding, CADMP quantifies distributional changes between consecutive cross-modal attention maps to capture abrupt transitions in visual grounding. It then selects the transition with the largest drift, locates the corresponding visually rel-evant regions, and measures the change in prediction proba-bility after masking these regions. These two signals provide complementary evidence: attention drift characterizes the sta-bility of internal visual grounding, while probability varia-tion verifies whether a prediction truly depends on the iden-tified visual evidence. A lightweight detector integrates both signals to identify hallucinated predictions. Experiments on multiple benchmarks and representative open-source LVLMs demonstrate that CADMP achieves consistently competitive detection performance. Ablation studies further confirm the complementary contributions of adjacent-layer drift modeling and mask-based grounding verification. 
+
+# Introduction 
+
+Large Vision-Language Models (LVLMs) have made sub-stantial progress in multimodal understanding and genera-tion (Li et al. 2023a; Zhu et al. 2023), enabling applications in areas such as autonomous driving (Wei et al. 2024) and robotics (Kim et al. 2024). Nevertheless, their reliability is still limited by object hallucination (OH), where a model mentions objects that are absent from or unsupported by the input image (Bai et al. 2024). Such errors compromise the factual consistency of model output and may pose serious risks in safety-critical applications. Existing hallucination assessment techniques obtain evi-dence from either external resources or internal model sig-nals. External evaluation frameworks use reference annota-tions, auxiliary evaluators, or additional reasoning pipelines to assess image-text consistency (Fu et al. 2023; Wang et al. 
+
+Copyright © 2027, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. 
+
+Figure 1: Overview of CADMP, detecting OHs by modeling cross-modal attention drifts and verifying visual grounding through drifted attention-guided masks. 2023; Jing et al. 2024). Although effective for offline eval-uation, they may require additional annotations, models, or computational resources. Instead, internal detection meth-ods characterize predictions using signals available within the LVLM, including predictive uncertainty (Malinin and Gales 2021), hidden representations (Park and Li 2025; Jiang et al. 2025b), and cross-modal attention (Zhang et al. 2025). Among these signals, cross-modal attention is particularly relevant to visual grounding because it characterizes the in-teractions between output and visual tokens. Prior attention-based studies have used cross-modal at-tention patterns for hallucination detection (Zhang et al. 2025), highlighted the importance of intermediate layers in visual processing (Jiang et al. 2025b), and modeled inter-layer changes in aggregated image-token attention for hallu-cination mitigation (Xu et al. 2025). However, changes in the full attention distribution on visual tokens between consecu-tive layers remain underexplored for hallucination detection. Our analysis shows that grounded and hallucinated predic-arXiv:2609.02028v1 [cs.CV] 2 Sep 2026 tions exhibit distinct layer-wise drift profiles, motivating us to treat adjacent-layer attention drift as a diagnostic signal. Based on this observation, we propose CADMP, which com-bines attention drift modeling with mask-based probability verification. As illustrated in Figure 1, CADMP computes the KL divergence between consecutive cross-modal atten-tion distributions to obtain a layer-wise drift profile. It then uses the attention map immediately before the maximum-drift transition to identify and mask relevant visual regions, and measures the resulting change in the probability of the same token. The drift profile captures the evolution of vi-sual grounding, while the probability change estimates the prediction’s dependence on visual evidence. CADMP feeds the layer-wise drift profile, the prediction probabilities before and after masking, and their difference into a small MLP detector, while keeping the target LVLM frozen and training only the detector. Experiments on three representative open-source LVLMs across multiple halluci-nation benchmarks demonstrate strong and consistent detec-tion performance. The main contributions of this work are summarized as follows: 
+
+• We reveal distinct adjacent-layer attention drift patterns between grounded and hallucinated predictions, estab-lishing attention drift as an effective detection signal. 
+
+• We propose CADMP, which integrates layer-wise atten-tion drift with mask-based probability verification using a lightweight detector without retraining the LVLM. 
+
+• Experiments on three LVLMs and four benchmarks show that CADMP achieves the best average ACC–AUROC in eight of nine primary settings, with ablations validating both components. 
+
+# Related Work 
+
+Large Vision-Language Models (LVLMs) Large Vision-Language Models (LVLMs) integrate computer vision and natural language processing to enable multimodal under-standing and generation (Liu et al. 2023; Bai et al. 2025a; Wang et al. 2024b; Lu et al. 2024). An LVLM typically consists of three components: a vision encoder, a language model, and a connector. The vision encoder, such as ViT, extracts visual features from images and represents them as dense embeddings. The language model, usually a pre-trained large language model such as LLaMA (Touvron et al. 2023), Qwen (Bai et al. 2023), or Vicuna, is responsible for language understanding and generation. The connector (Li et al. 2023b; Liu et al. 2023, 2024b) bridges the visual and textual modalities by transforming visual features into rep-resentations that can be processed by the language model. Through the collaboration of these components, LVLMs achieve strong multimodal perception and reasoning capa-bilities. 
+
+Hallucination in LVLMs Hallucination in LVLMs refers to cases where the generated output is inconsistent with vi-sual input or factual reality (Liu et al. 2024c). Such errors may arise from several factors, including conflicting train-ing data (Delétang et al. 2023), overly strong language pri-ors (Liu et al. 2023), and the loss or weakening of visual information during processing (Favero et al. 2024). Existing studies generally categorize hallucinations into three types: object hallucination (Li et al. 2023c), attribute hallucina-tion, and relational hallucination (Jing et al. 2024). Among them, object hallucination is the most directly related to our setting, as it occurs when the model mentions objects that do not appear in the image. By contrast, attribute hallucina-tion involves incorrect descriptions of an object’s properties, while relational hallucination concerns errors in the spatial or semantic relationships between objects. 
+
+Detecting Hallucination in LVLMs Hallucination detec-tion in LVLMs has attracted increasing attention in recent years (Wang et al. 2024a; Augustin, Neuhaus, and Hein 2025; Arteaga, Schön, and Pielawski 2024). Although many ex-isting studies focus on hallucination mitigation (Hu et al. 2023; You et al. 2023), accurately detecting hallucinations is equally important for improving the reliability of LVLMs. Existing detection methods mainly fall into three categories. First, some methods estimate the uncertainty of model out-puts and use it as a signal for hallucination detection (Zhou et al. 2024). Second, representation-based methods such as GLSim (Park and Li 2025) and IC (Jiang et al. 2025a) em-ploy Logits Lens-style techniques to project hidden repre-sentations and measure their similarity to target objects for hallucination detection. Third, attention-based methods such as DHCP (Zhang et al. 2025) detect hallucinations by mod-eling cross-modal attention patterns in internal layers. Dif-ferent from these methods, our work focuses on cross-modal attention drifts during decoding and examines whether the model genuinely grounds its predictions in visual evidence, thereby enabling more precise hallucination detection. 
+
+# Method 
+
+In this section, we introduce CADMP , an object hallucination detection framework that keeps the target LVLM unchanged. As shown in Figure 2, CADMP computes KL divergences between consecutive cross-modal attention distributions to capture layer-wise grounding drift. It then uses the atten-tion map preceding the maximum-drift transition to mask relevant visual regions and measures the resulting probabil-ity change. Grounded predictions are expected to be more sensitive to removing visual evidence, whereas hallucinated predictions typically show smaller changes. These comple-mentary signals are combined for hallucination detection. 
+
+Adjacent-Layer Cross-Modal Attention Drifts 
+
+We first investigate cross-modal attention drifts to charac-terize how visual grounding evolves across decoding layers. Based on previous findings that cross-modal attention pat-terns are important for hallucination detection (Zhang et al. 2025), we further evaluate if hallucinated predictions are more likely to exhibit abrupt changes in their attention dis-tributions over visual tokens, and grounded predictions tend to maintain more consistent cross-layer attention patterns. Given an image-text input pair, we focus on the cross-modal attention from the currently generated token to the visual tokens. Let N denote the number of visual tokens (e.g., 
+
+N = 576 for LLaVA-1.5-7B), H the number of attention Figure 2: Overview of the proposed framework. (a) Extract KL divergence: Compute adjacent-layer KL divergences and the original target-token probability. (b) Visual Masking: Use cross-modal attention to identify key image regions and generate masked images. (c) Hallucination Detector: Feed the extracted features into a MLP model for hallucination detection. heads, and L the number of decoder layers (e.g., L = 32 
+
+for LLaVA-1.5-7B). For each layer i, we average the cross-modal attention weights over all heads and obtain an attention vector on the visual tokens: 
+
+Ai =
+
+h
+
+a(1)  
+
+> i
+
+, . . . , a (N )
+
+> i
+
+i
+
+, a (m) 
+
+> i
+
+= 1
+
+H
+
+> H
+
+X
+
+> h=1
+
+Attn i,h (y, v m).
+
+Attn i,h (y, v m) denotes the attention weight assigned by the query position whose logits predict y to the m-th visual token 
+
+vm at layer i and head h. By collecting the attention vectors from all layers, we obtain a layer-wise attention sequence: 
+
+A = {A1, A 2, . . . , A L}.
+
+After normalization, Ai can be viewed as a discrete prob-ability distribution over the visual-token index space. Let 
+
+pi(x) denote the normalized attention probability assigned to token index x at layer i, and let pi−1(x) denote the cor-responding distribution at layer i − 1. To quantify the cross-layer attention drifts, we measure the discrepancy using the Kullback–Leibler (KL) divergence: 
+
+Ki = DKL (Ai∥Ai−1) = X
+
+> x
+
+pi(x) log pi(x)
+
+pi−1(x) .
+
+Here, Ki measures how much the attention distribution in layer i deviates from that in layer i − 1 over the visual-token space. A larger Ki indicates a stronger redistribution of attention across visual tokens between adjacent layers, while a smaller value suggests that the cross-modal attention remains relatively stable. By computing the KL divergence across all consecutive layer pairs, we obtain (L − 1) dimensional drift features, 
+
+Fdrift = [ K2, K 3, . . . , K L]. From analytical experiments in Figure 3, we see whether layer-wise KL divergence provides an informative signal for hallucination detection, we analyze the drift features extracted from Qwen2.5-VL-7B on 5,000 images from MSCOCO dataset. The blue and red curves show the average attention drift for grounded and halluci-nated objects. Hallucinated objects show stronger attention drift in middle layers, particularly around layers 8-16, sug-gesting that adjacent-layer attention drift can provide a use-ful signal of potential instability in visual grounding. There-fore, We use cross-modal attention drifts to capture layer-wise variations in the model’s internal visual grounding and treat them as diagnostic signals for hallucination detection. 
+
+Figure 3: Average cross-modal attention drift across layers for grounded and hallucinated samples. 
+
+Drift-guided Adaptive Masking 
+
+The preceding analysis establishes adjacent-layer attention drift as an informative signal for hallucination detection. However, drift alone characterizes how visual attention is redistributed across layers, but does not reveal whether a prediction depends on the attended visual content. Since the drift is defined over visual-token attention distributions, the transition with the largest drift provides a principled cue for targeted visual perturbation. We use the attention map imme-diately before this transition, which represents the model’s visual allocation before its strongest reorganization, to lo-cate and mask highly attended regions. We then measure the probability change of the same output token. A larger de-crease suggests a stronger dependence on the removed visual content, whereas a smaller change is more consistent with the reliance on language priors. Thus, drift-guided masking complements internal attention dynamics with a counterfac-tual measure of visual dependency. Given an input image v, a text prompt t, a generated pre-fix Y<t , and a target token y, we first compute its original prediction probability: 
+
+Porig = P (y | v, t, Y <t ).
+
+Let Ki denote the attention drift between layers i − 1 and i,as defined in the preceding section, we select the layer before the maximum-drift transition as the masking layer: 
+
+i∗ = arg max  
+
+> i∈{ 2,...,L }
+
+Ki, lmask = i∗ − 1.
+
+The attention map at lmask is then used to identify the visual regions most relevant to the current prediction. After selecting lmask , we use its attention map to identify the visual regions most relevant to the prediction of the target token. Let A(i, j ) denote the attention value at spatial loca-tion (i, j ). We then generate a binary mask by thresholding the attention map: 
+
+M (i, j ) = 
+
+1, A(i, j ) ≥ Percentile( A, 100 − τ ),
+
+0, otherwise ,
+
+In our experiments, we set τ = 30 , so we mask pixels at or above the 70th percentile of A(i, j ). We replace the selected regions with a neutral gray value of 128 while keeping the remaining regions unchanged, thereby obtaining the masked image. Detailed masking procedures are provided in the Ap-pendix. The masked image, together with the original prompt t, is then fed back into the model, and the prediction probability of the same answer token is recomputed as 
+
+Pmasked = P (y | vmasked , t, Y <t ).
+
+Importantly, we compare the probability of the same token under the original and masked visual conditions, which pro-vides a direct measure of confidence change after removing the relevant visual evidence. Finally, we define the probabil-ity variation as 
+
+∆P = Porig − Pmasked ,
+
+Hallucination Detection 
+
+Leveraging the differences in cross-modal attention drifts and probability variations between grounded and halluci-nated samples, we design a detector to verify the factuality of the answer produced by the model. We train a lightweight MLP detector by feeding it the extracted KL-divergence pro-file together with the prediction probabilities before and after masking. For example, LLaVA-1.5-7B contains 32 layers, producing 31 adjacent-layer KL-divergence values. We then put the 31-dimensional feature vector, together with Porig ,
+
+Pmasked and ∆P , into the MLP detector. The detector out-puts a hallucination score for each object prediction, which is converted into a probability through a sigmoid function. To address the class imbalance between hallucinated and grounded samples, we employ weighted random sampling during training, assigning each sample a weight inversely proportional to the size of its class. 
+
+# Experiments 
+
+Datasets To evaluate the effectiveness and generalizabil-ity of the proposed method for hallucination detection in LVLMs, we conduct experiments on four datasets. Specifi-cally, we use POPE (Li et al. 2023c) and Pascal VOC (Ev-eringham et al. 2010) to evaluate object-existence halluci-nation detection. In addition, we construct a COCO-Caption setting based on MSCOCO (Lin et al. 2014), where LVLM-generated captions are annotated using the CHAIR met-ric (Rohrbach et al. 2018) to evaluate descriptive object hal-lucination detection. We also conduct experiments on AM-BER (Wang et al. 2023), which covers object, attribute, and relation hallucinations. More details about the datasets are provided in the supplementary materials. 
+
+Evaluation Metrics To evaluate detection performance, we report two metrics: (1) the area under the receiver op-erating characteristic curve (AUROC), (2) classification ac-curacy (ACC). These metrics are commonly used in OH detection and provide complementary views of model per-formance (Park and Li 2025; Hoang-Xuan et al. 2026). 
+
+Implementation. We evaluate our method on three repre-sentative LVLMs: LLaVA-1.5-7B (Liu et al. 2023, 2024b), Qwen2.5-VL-7B (Bai et al. 2025b), and InternVL-2.5-4B (Chen et al. 2024). Also, we compare the proposed CADMP with recent OH detection baselines, including Inter-nal Confidence (IC) (Jiang et al. 2025a), Global-Local Simi-larity (GLSim) (Park and Li 2025), Negative Log-likelihood (NLL) (Zhou et al. 2024), a token probability-based un-certainty method denoted as Entropy (Malinin and Gales 2021), summed Visual Attention Ratio (SVAR) (Jiang et al. 2025b), and the cross-modal attention pattern-based method DHCP (Zhang et al. 2025). For fair comparison, all methods are evaluated on the same training and test splits under the same experimental protocol. More details are provided in the supplementary materials. 
+
+Experimental results 
+
+Results on OH Detection As shown in Table 1, CADMP achieves the best result in 16 of the 18 model–dataset–metric combinations, demonstrating consistent effectiveness across architectures and evaluation settings. The gains are partic-ularly pronounced on COCO-Caption, where CADMP im-proves AUROC over the strongest baseline by 5.6, 8.4, and 4.6 percentage points for LLaVA-1.5-7B, Qwen2.5-VL-7B, and Model Method COCO-Cap. POPE VOC ACC AUROC ACC AUROC ACC AUROC LLaVA-1.5-7B IC (ICLR’25) 77 .7±0.5 76 .5±0.6 73 .6±0.4 73 .7±0.3 80 .2±0.3 79 .9±0.6
+
+GLSim (NeurIPS’25) 74 .7±0.4 52 .9±1.5 71 .8±0.7 62 .7±0.5 78 .7±0.6 63 .4±0.7
+
+NLL (ICLR’24) 76 .0±0.5 71 .5±0.4 78 .2±0.1 79 .2±0.1 90 .6±0.3 76 .7±0.2
+
+Entropy (ICLR’21) 75 .3±0.1 72 .6±0.4 80 .6±0.5 81 .1±0.4 92 .2±0.1 85 .8±0.1
+
+SVAR (CVPR’25) 75 .4±1.0 80 .9±0.7 62 .5±0.7 70 .2±0.8 72 .2±0.6 85 .9±0.5
+
+DHCP (MM’25) 76 .4±0.7 81 .8±0.6 70 .6±0.2 60 .7±1.2 91 .0±0.2 92 .2±0.3
+
+CADMP (Ours) 82 .0±0.2 87 .4±0.2 84 .9±1.1 81 .4±0.2 94 .5±0.2 94 .9±0.2
+
+Qwen2.5-VL-7B IC (ICLR’25) 86 .7±0.5 66 .1±2.9 55 .3±1.5 53 .4±1.4 75 .4±0.4 72 .2±0.5
+
+GLSim (NeurIPS’25) 86 .7±1.3 68 .3±0.8 60 .4±0.6 63 .8±0.5 70 .8±0.3 76 .8±0.7
+
+NLL (ICLR’24) 86 .9±0.7 63 .6±2.7 84 .2±0.4 80 .6±0.2 88 .6±0.8 86 .9±0.1
+
+Entropy (ICLR’21) 86 .7±0.8 65 .4±3.4 84 .6±0.5 80 .8±0.3 89 .9±0.4 90 .9±0.5
+
+SVAR (CVPR’25) 86 .9±0.5 74 .2±0.4 84 .5±0.1 70 .1±0.4 87 .1±0.5 67 .0±0.6
+
+DHCP (MM’25) 86 .6±0.6 72 .0±2.2 86 .8±0.3 74 .7±0.6 94 .0±0.1 91 .2±0.4
+
+CADMP (Ours) 87 .6±0.7 82 .6±1.0 85 .8±0.8 82 .5±0.5 96 .5±0.1 92 .1±0.6
+
+InternVL-2.5-4B IC (ICLR’25) 87 .1±0.3 72 .7±0.9 78 .5±0.3 61 .6±0.3 77 .7±0.8 71 .3±0.8
+
+GLSim (NeurIPS’25) 87 .2±0.3 61 .5±2.5 70 .7±0.8 60 .6±1.1 72 .6±0.6 61 .1±0.7
+
+NLL (ICLR’24) 87 .3±0.4 61 .8±1.4 86 .0±0.1 82 .5±0.2 95 .1±0.4 89 .0±0.1
+
+Entropy (ICLR’21) 87 .3±0.3 62 .4±1.3 86 .9±0.7 83 .2±0.4 92 .8±0.1 89 .9±0.9
+
+SVAR (CVPR’25) 87 .4±0.5 82 .5±1.8 70 .1±1.0 62 .5±0.8 80 .6±0.1 72 .2±1.4
+
+DHCP (MM’25) 87 .2±0.3 78 .8±0.9 72 .5±0.5 72 .2±0.5 67 .6±0.2 78 .8±1.2
+
+CADMP (Ours) 89 .0±0.4 87 .1±1.1 88 .2±1.1 81 .1±1.5 97 .5±0.1 92 .8±0.4
+
+Table 1: Comparison of object hallucination detection performance in terms of accuracy (ACC) and area under the ROC curve (AUROC) across three models and three datasets. Higher values indicate better performance. InternVL-2.5-4B, respectively. On Pascal VOC, CADMP ranks first in both ACC and AUROC across all three models, reaching up to 97.5% ACC and 94.9% AUROC. It also re-mains competitive on POPE, although its ACC on Qwen2.5-VL-7B and AUROC on InternVL-2.5-4B are slightly below the corresponding best baselines. Overall, these results indi-cate that combining adjacent-layer attention drift with mask-based probability verification provides robust and comple-mentary signals for object hallucination detection. 
+
+Results on AMBER To further evaluate whether CADMP generalizes beyond OH detection, we conducted experiments on the AMBER discriminative dataset, which covers three types of hallucinations: object, attribute, and relation hallu-cinations. As shown in Table 2, CADMP consistently out-performs representative baselines across all three hallucina-tion types on Qwen2.5-VL-7B. These results suggest that the proposed attention-drift modeling and adaptive mask-based grounding verification are not limited to object hallucina-tion, but can also provide useful detection signals for more fine-grained hallucination types. 
+
+Efficiency Analysis To evaluate the practical overhead of CADMP, we performed an efficiency analysis covering la-tency and ACC (Figure 4). Compared to GLSim (Park and Li 2025), our method without additional masked-image forward pass can achieve higher accuracy with lower latency. More-
+
+Method Object Attribute Relation ACC AUROC ACC AUROC ACC AUROC Entropy 92.89 86.92 82.16 78.99 58.59 55.38 DHCP 93.51 81.67 74.19 70.96 53.91 54.89 GLSim 87.54 86.76 71.35 67.52 56.25 60.19 
+
+CADMP 93.69 87.11 82.50 80.75 72.40 73.05 
+
+Table 2: Hallucination detection performance on the AM-BER benchmark using Qwen2.5-VL-7B. over, compared to the forward based detection method in (Liu et al. 2024a), our method still achieves an accuracy of 88.2% with faster inference speed, demonstrating the effectiveness of CADMP. 
+
+Cross-dataset Generalization Analysis. To further eval-uate whether CADMP captures intrinsic hallucination cues rather than dataset-specific patterns, we train the detector on a source dataset and then evaluate it on different tar-get datasets without any additional adaptation (Source →
+
+Target). As shown in Table 3, our method consistently out-performs DHCP across all target datasets and all hallucina-tion types. For example, CADMP obtains AUROC scores of 73.2% on AMBER-object, 76.7% on AMBER-Attribute and 66.4% on AMBER-relation, demonstrating its ability to generalize across diverse types of hallucinations. It also Figure 4: (a) Efficiency analysis on InternVL-2.5-4B using the POPE dataset; (b) Different masking-layer selection strategies; (c) Different masking-region selection strategies.                                          
+
+> Model Setting DHCP CADMP
+> LLaVA-1.5-7B POPE →VOC 77.8 86.7
+> VOC →POPE 65.9 74.8
+> InternVL-2.5-4B POPE →VOC 78.9 82.6
+> VOC →POPE 71.8 75.5
+> Qwen2.5-VL-7B VOC →POPE 71.2 74.4
+> POPE →VOC 73.1 87.6
+> POPE →Am-Obj 70.2 73.2
+> POPE →Am-Attr 72.5 76.7
+> POPE →Am-Rel 50.4 66.4
+
+Table 3: Cross-dataset AUROC results comparison between DHCP and our method across three LVLMs. maintains favorable performance on Pascal VOC. These re-sults suggest that CADMP captures more robust and trans-ferable hallucination signals, rather than relying primarily on dataset-specific characteristics. 
+
+Ablation Studies 
+
+We further conducted a series of ablation studies for the pro-posed CADMP detection method to evaluate the contribution of each component.                     
+
+> Metric LLaVA-1.5 Qwen2.5-VL InternVL-4B Avg. Cosine 86.6 80.8 86.5 84.6 Euclidean 86.4 80.6 86.9 84.6 Pearson 86.7 80.5 86.7 84.6 KL 87.5 81.5 87.9 85.6
+
+Table 4: Comparison of AUROC across different cross-modal attention drift methods on the MSCOCO dataset. 
+
+Selection of cross-layer evaluation metrics As shown in Table 4, we compare several methods for measuring cross-modal attention drift, including Cosine Similarity, Eu-clidean Distance, Pearson Correlation, and Kullback–Leibler (KL) Divergence, across different models on the MSCOCO dataset. Among them, KL divergence achieves the best over-all performance, with an average AUROC of 85.6%, outper-forming the other methods. This result is consistent with our formulation of cross-modal attention drift as redistribution over visual tokens and suggests that KL divergence is better suited to capture abnormal grounding transitions. 
+
+Layer Selection for Cross-modal Attention Masking To validate whether the layer immediately preceding the largest attention drift can better capture useful grounded informa-tion, we conduct an ablation study using four methods: the previous layer of the largest drift appearance, the subsequent layer, a fixed middle layer and the final layer. As shown in Fig-ure 4 (b), experiments on LLaVA-1.5 and Qwen2.5-VL show that selecting the previous layer achieves the best perfor-mance. These results suggest that the attention distribution immediately before the most abrupt cross-layer redistribu-tion may provide a somewhat more informative signal for grounding verification. 
+
+Masking Region Selection We compare four region selec-tion methods under the same 30% masking ratio and identical replacement method. In addition to the top-attention mask-ing, we also conduct experiments on random masking, the least-attention masking and center masking. As shown in Figure 4 (c), top-attention masking achieves the highest AU-ROC and ACC among the compared region-selection meth-ods. These results indicate that detector’s performance gains arise from removing the visual evidence attended to by the model, rather than from arbitrary image perturbations. 
+
+Effectiveness of different components in CADMP. As shown in Figure 2, the proposed CADMP is built based on Cross-Modal Attention Drifts (CMAD) and Mask-based Ver-ification (MV). Table 5 reports the hallucination detection performance of each component in our method on COCO. The results show that both attention drift and probability fea-tures provide informative signals for hallucination detection, while their combination yields the best overall performance. Specifically, on LLaVA-1.5-7B, the attention drift feature can achieve an AUROC of 85.7%, while the probability signal obtains an AUROC of 72.8%. By combining these comple-mentary signals, CADMP can improve the AUROC to 87.4% and achieve the best detection performance. The same trend is also observed on Qwen2.5-VL-7B and InternVL-2.5-4B. Figure 5: CADMP visualization of grounded (top) and hallucination (bottom) cases.                          
+
+> Model CMAD MV AUC (%) ACC (%)
+> LLaVA-1.5-7B
+> ✓85.7 80.0
+> ✓72.8 76.2
+> ✓✓87.4 82.1
+> Qwen2.5-VL-7B
+> ✓80.3 87.3
+> ✓66.1 86.8
+> ✓✓82.6 87.6
+> InternVL-2.5-4B
+> ✓86.3 88.0
+> ✓57.8 88.0
+> ✓✓87.1 89.1
+
+Table 5: Ablation study of CMAD and MV modules for CADMP with different LVLMs. 
+
+Ablation Study of KL Drift Formulations. To investigate which cross-layer KL formulation is most suitable for hal-lucination detection, we conducted an ablation study on the Pascal VOC dataset using four drift variants over the cross-modal attention sequence SA = {A1, A 2, . . . , A L}, where 
+
+Ai denotes the attention distribution at layer i. Specifically, 
+
+Adjacent-layer computes KL (Ai∥Ai−1) to capture local layer-to-layer changes, First-anchor computes KL (Ai∥A1)
+
+to measure deviations from the initial grounding state, 
+
+Last-anchor computes KL (Ai∥AL) to reflect discrepan-cies from the final attention state, and First-last computes 
+
+KL (A1∥AL) as a global summary of cross-layer change. As shown in Table 6, experiments on both LLaVA-1.5-7B and Qwen2.5-VL-7B show that Adjacent-layer consistently achieves the best performance among the four variants. This suggests that hallucination is better characterized by adja-cent cross-layer attention drift than by deviations from a fixed anchor or a single global discrepancy, highlighting the importance of modeling fine-grained grounding transitions. 
+
+Visualization Analysis. We present qualitative visualiza-tions in Figure 5. As shown, hallucinated cases exhibit sub-                  
+
+> Model Method AUROC (%) ACC (%)
+> LLaVA-1.5-7B Adjacent-layer 94.9 94.5
+> Last-anchor 93.9 93.5 First-anchor 93.2 93.3 First-last 88.6 92.9 Qwen2.5-VL-7B Adjacent-layer 92.1 96.5
+> Last-anchor 90.4 94.6 First-anchor 86.3 93.9 First-last 84.1 90.1
+
+Table 6: Ablation study of different KL drift formulations. stantially stronger cross-modal attention drifts in the critical intermediate layers and smaller probability drops after mask-ing relevant visual regions, indicating weaker visual ground-ing. In contrast, grounded cases show relatively milder atten-tion changes and greater sensitivity to visual perturbation. These results further support the effectiveness of our design in distinguishing hallucinated and grounded cases. 
+
+# Conclusion 
+
+In this paper, we proposed CADMP, a hallucination detec-tion framework for large vision-language models. CADMP detects object hallucinations by measuring distribution shifts between layers and further verifying the visual grounding of model predictions through mask-based probability variation analysis. By jointly capturing internal attention drifts and perturbation-based visual dependence, our method provides a more fine-grained and complementary empirical signal for hallucination detection. Extensive experiments on three rep-resentative LVLMs, including LLaVA-1.5-7B, Qwen2.5-VL-7B, and InternVL-2.5-4B, demonstrate the effectiveness and generalizability of the proposed method across different hal-lucination detection settings. References 
+
+Arteaga, G. Y.; Schön, T. B.; and Pielawski, N. 2024. Hal-lucination detection in llms: Fast and memory-efficient fine-tuned models. arXiv preprint arXiv:2409.02976 .Augustin, M.; Neuhaus, Y.; and Hein, M. 2025. Dash: De-tection and assessment of systematic hallucinations of vlms. In Int. Conf. Comput. Vis. , 22748–22759. Bai, J.; Bai, S.; Chu, Y.; Cui, Z.; Dang, K.; Deng, X.; Fan, Y.; Ge, W.; Han, Y.; Huang, F.; et al. 2023. Qwen technical report. arXiv preprint arXiv:2309.16609 .Bai, S.; Cai, Y.; Chen, R.; Chen, K.; Chen, X.; Cheng, Z.; Deng, L.; Ding, W.; Gao, C.; Ge, C.; et al. 2025a. Qwen3-vl technical report. arXiv preprint arXiv:2511.21631 .Bai, S.; Chen, K.; Liu, X.; Wang, J.; Ge, W.; Song, S.; Dang, K.; Wang, P.; Wang, S.; Tang, J.; Zhong, H.; Zhu, Y.; Yang, M.; Li, Z.; Wan, J.; Wang, P.; Ding, W.; Fu, Z.; Xu, Y.; Ye, J.; Zhang, X.; Xie, T.; Cheng, Z.; Zhang, H.; Yang, Z.; Xu, H.; and Lin, J. 2025b. Qwen2.5-VL Technical Report. arXiv preprint arXiv:2502.13923 .Bai, Z.; Wang, P.; Xiao, T.; He, T.; Han, Z.; Zhang, Z.; and Shou, M. Z. 2024. Hallucination of Multimodal Large Lan-guage Models: A Survey. arXiv preprint arXiv:2404.18930 .Chen, Z.; Wu, J.; Wang, W.; Su, W.; Chen, G.; Xing, S.; Zhong, M.; Zhang, Q.; Zhu, X.; Lu, L.; et al. 2024. Internvl: Scaling up vision foundation models and aligning for generic visual-linguistic tasks. In IEEE Conf. Comput. Vis. Pattern Recog. , 24185–24198. Delétang, G.; Ruoss, A.; Duquenne, P.-A.; Catt, E.; Ge-newein, T.; Mattern, C.; Grau-Moya, J.; Wenliang, L. K.; Aitchison, M.; Orseau, L.; et al. 2023. Language modeling is compression. arXiv preprint arXiv:2309.10668 .Everingham, M.; Van Gool, L.; Williams, C. K.; Winn, J.; and Zisserman, A. 2010. The pascal visual object classes (voc) challenge. Int. J. Comput. Vis. , 88(2): 303–338. Favero, A.; Zancato, L.; Trager, M.; Choudhary, S.; Perera, P.; Achille, A.; Swaminathan, A.; and Soatto, S. 2024. Multi-modal hallucination control by visual information grounding. In IEEE Conf. Comput. Vis. Pattern Recog. , 14303–14312. Fu, C.; Chen, P.; Shen, Y.; Qin, Y.; Zhang, M.; Lin, X.; Yang, J.; Zheng, X.; Li, K.; Sun, X.; et al. 2023. Mme: A comprehensive evaluation benchmark for multimodal large language models. arXiv preprint arXiv:2306.13394 .Hoang-Xuan, N.; Vu, M.; Thai, M. T.; and Bhattarai, M. 2026. PAS: Prelim Attention Score for Detecting Object Hallucinations in Large Vision-Language Models. In IEEE Conf. Comput. Vis. Pattern Recog. 
+
+Hu, H.; Zhang, J.; Zhao, M.; and Sun, Z. 2023. Ciem: Con-trastive instruction evaluation method for better instruction tuning. arXiv preprint arXiv:2309.02301 .Jiang, N.; Kachinthaya, A.; Petryk, S.; and Gandelsman, Y. 2025a. Interpreting and Editing Vision-Language Repre-sentations to Mitigate Hallucinations. In Int. Conf. Learn. Represent. 
+
+Jiang, Z.; Chen, J.; Zhu, B.; Luo, T.; Shen, Y.; and Yang, X. 2025b. Devils in middle layers of large vision-language models: Interpreting, detecting and mitigating object halluci-nations via attention lens. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,25004–25014. Jing, L.; Li, R.; Chen, Y.; and Du, X. 2024. Faithscore: Fine-grained evaluations of hallucinations in large vision-language models. In Findings of the Association for Compu-tational Linguistics: EMNLP 2024 , 5042–5063. Kim, M. J.; Pertsch, K.; Karamcheti, S.; Xiao, T.; Balakr-ishna, A.; Nair, S.; Rafailov, R.; Foster, E.; Lam, G.; Sanketi, P.; et al. 2024. Openvla: An open-source vision-language-action model. arXiv preprint arXiv:2406.09246 .Li, C.; Wong, C.; Zhang, S.; Usuyama, N.; Liu, H.; Yang, J.; Naumann, T.; Poon, H.; and Gao, J. 2023a. Llava-med: Train-ing a large language-and-vision assistant for biomedicine in one day. Adv. Neural Inform. Process. Syst. , 36: 28541– 28564. Li, J.; Li, D.; Savarese, S.; and Hoi, S. 2023b. Blip-2: Boot-strapping language-image pre-training with frozen image en-coders and large language models. In Int. Conf. Machine Learn. , 19730–19742. PMLR. Li, Y.; Du, Y.; Zhou, K.; Wang, J.; Zhao, W. X.; and Wen, J.-R. 2023c. Evaluating object hallucination in large vision-language models. In Proceedings of the 2023 conference on empirical methods in natural language processing , 292–305. Lin, T.-Y.; Maire, M.; Belongie, S.; Hays, J.; Perona, P.; Ramanan, D.; Dollár, P.; and Zitnick, C. L. 2014. Microsoft coco: Common objects in context. In Eur. Conf. Comput. Vis. , 740–755. Springer. Liu, F.; Lin, K.; Li, L.; Wang, J.; Yacoob, Y.; and Wang, L. 2024a. Mitigating hallucination in large multi-modal models via robust instruction tuning. Int. Conf. Learn. Represent. 
+
+Liu, H.; Li, C.; Li, Y.; and Lee, Y. J. 2024b. Improved base-lines with visual instruction tuning. In IEEE Conf. Comput. Vis. Pattern Recog. , 26296–26306. Liu, H.; Li, C.; Wu, Q.; and Lee, Y. J. 2023. Visual instruction tuning. Adv. Neural Inform. Process. Syst. , 36: 34892–34916. Liu, H.; Xue, W.; Chen, Y.; Chen, D.; Zhao, X.; Wang, K.; Hou, L.; Li, R.; and Peng, W. 2024c. A survey on hal-lucination in large vision-language models. arXiv preprint arXiv:2402.00253 .Lu, H.; Liu, W.; Zhang, B.; Wang, B.; Dong, K.; Liu, B.; Sun, J.; Ren, T.; Li, Z.; Yang, H.; et al. 2024. Deepseek-vl: towards real-world vision-language understanding. arXiv preprint arXiv:2403.05525 .Malinin, A.; and Gales, M. 2021. Uncertainty Estimation in Autoregressive Structured Prediction. In Int. Conf. Learn. Represent. 
+
+Park, S.; and Li, S. 2025. GLSim: Detecting Object Hal-lucinations in LVLMs via Global-Local Similarity. In The Thirty-ninth Annual Conference on Neural Information Pro-cessing Systems .Rohrbach, A.; Hendricks, L. A.; Burns, K.; Darrell, T.; and Saenko, K. 2018. Object hallucination in image caption-ing. In Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing , 4035–4045. Touvron, H.; Lavril, T.; Izacard, G.; Martinet, X.; Lachaux, M.-A.; Lacroix, T.; Rozière, B.; Goyal, N.; Hambro, E.; Azhar, F.; et al. 2023. Llama: Open and efficient founda-tion language models. arXiv preprint arXiv:2302.13971 .Wang, C.; Chen, X.; Zhang, N.; Tian, B.; Xu, H.; Deng, S.; and Chen, H. 2024a. Mllm can see? dynamic correc-tion decoding for hallucination mitigation. arXiv preprint arXiv:2410.11779 .Wang, J.; Wang, Y.; Xu, G.; Zhang, J.; Gu, Y.; Jia, H.; Wang, J.; Xu, H.; Yan, M.; Zhang, J.; et al. 2023. Amber: An llm-free multi-dimensional benchmark for mllms hallucination evaluation. arXiv preprint arXiv:2311.07397 .Wang, P.; Bai, S.; Tan, S.; Wang, S.; Fan, Z.; Bai, J.; Chen, K.; Liu, X.; Wang, J.; Ge, W.; et al. 2024b. Qwen2-vl: Enhancing vision-language model’s perception of the world at any resolution. arXiv preprint arXiv:2409.12191 .Wei, Y.; Wang, Z.; Lu, Y.; Xu, C.; Liu, C.; Zhao, H.; Chen, S.; and Wang, Y. 2024. Editable scene simulation for au-tonomous driving via collaborative llm-agents. In IEEE Conf. Comput. Vis. Pattern Recog. , 15077–15087. Xu, X.; Chen, H.; Lyu, M.; Zhao, S.; Xiong, Y.; Lin, Z.; Han, J.; and Ding, G. 2025. Mitigating Hallucinations in Multi-modal Large Language Models via Image Token Attention-Guided Decoding. You, H.; Zhang, H.; Gan, Z.; Du, X.; Zhang, B.; Wang, Z.; Cao, L.; Chang, S.-F.; and Yang, Y. 2023. Ferret: Refer and ground anything anywhere at any granularity. arXiv preprint arXiv:2310.07704 .Zhang, Y.; Xie, R.; Sun, X.; Huang, Y.; Chen, J.; Kang, Z.; Wang, D.; and Wang, Y. 2025. Dhcp: Detecting hallu-cinations by cross-modal attention pattern in large vision-language models. In Proceedings of the 33rd ACM Interna-tional Conference on Multimedia , 3555–3564. Zhou, Y.; Cui, C.; Yoon, J.; Zhang, L.; Deng, Z.; Finn, C.; Bansal, M.; and Yao, H. 2024. Analyzing and Mitigating Object Hallucination in Large Vision-Language Models. In 
+
+Int. Conf. Learn. Represent. 
+
+Zhu, D.; Chen, J.; Shen, X.; Li, X.; and Elhoseiny, M. 2023. Minigpt-4: Enhancing vision-language understand-ing with advanced large language models. arXiv preprint arXiv:2304.10592 .Further Ablation Studies 
+
+Effect of Masking Ratios 
+
+We investigate the effect of the masking ratio τ on the MSCOCO dataset using LLaVA-1.5-7B by varying τ from 10% to 50%. As shown in Table 7, CADMP achieves the best performance at a masking ratio of 30%, obtaining an AUROC of 87.97% and an ACC of 82.88%. These results suggest that a small masking ratio may fail to cover the key object regions, whereas a large ratio may introduce substan-tial visual perturbations. A masking ratio of 30% achieves a favorable balance between removing critical visual evidence and preserving the overall image context. Masking Ratio τ AUROC (%) ACC (%) 10% 87.17 82.32 20% 87.27 81.84 30% 87.97 82.88 
+
+40% 87.26 82.44 50% 87.31 81.57 Table 7: Effect of different masking ratios on the MSCOCO dataset using LLaVA-1.5-7B. 
+
+Effect of Mask Filling Values 
+
+To study the choice of fill color for masked image re-gions, we conduct an experiment using LLaVA-1.5-7B on the MSCOCO dataset. As shown in Table 8, filling the masked regions with the default gray value of 128 achieves the best performance, with an AUROC of 87.97% and an ACC of 82.88%. Compared with black, white and the ImageNet mean RGB value (123 , 116 , 103) , gray filling achieves the best per-formance. Therefore, we adopt gray filling with a value of 128, as it effectively masks the selected visual evidence with-out introducing excessively dark or bright perturbations.           
+
+> Filling Value AUROC (%) ACC (%) Gray 87.97 82.88
+> Black 87.23 82.02 White 87.38 82.02 Mean 87.31 81.72
+
+Table 8: Effect of different mask filling values on the MSCOCO dataset using LLaVA-1.5-7B. 
+
+Multi-token Objects 
+
+To compute the KL divergence sequence and the probability variation for a target object token, we select the first token of each multi-token object. To evaluate this design choice, we conduct an ablation study comparing three strategies: using the first token, using the last token and taking the average across all tokens. We conduct experiments on MSCOCO dataset across three LVLMs in Table 9. The results show that the first-token strategy is most effective, likely because the first token often captures the core semantic meaning of the object.          
+
+> Strategy LLaVA-1.5-7B Qwen2.5-VL-7B InternVL2.5-4B First 87.97 82.60 88.47
+> Last 86.34 81.46 88.17 Average 87.65 81.97 88.16
+
+Table 9: AUROC (%) of different token selection strategies on the MSCOCO dataset.               
+
+> Variant AUROC (%) ACC (%) Full KL sequence 87 .97 82 .88
+> Statistical summary 80 .58 79 .01
+> Peak centered (5) 79 .05 78 .23
+> Mean KL 78 .20 78 .62
+> Peak centered (3) 76 .50 77 .94
+> Maximum KL 72 .68 76 .27
+
+Table 10: Ablation of KL-drift feature representations on MSCOCO using LLaVA-1.5-7B. 
+
+Ablation of Drift Feature Representations 
+
+To examine whether the complete layer-wise drift sequence is necessary for hallucination detection, we compare six KL feature representations. Let Ki = DKL (Ai∥Ai−1) denote the attention drift between two adjacent decoder layers, and let k∗ = arg max i Ki denote the position of the largest drift. The Full KL sequence uses the complete sequence 
+
+[K2, . . . , K L]. Maximum KL and Mean KL compress the sequence into its maximum and average values, respectively, while Statistical summary represents it using the mean, max-imum, and standard deviation. For the Peak-centered local window variants, we select three or five consecutive KL values centered around k∗, capturing the local drift pattern around the strongest transition. As shown in Table 10, the full KL sequence achieves the best performance, reaching an AUROC of 87 .97% and an ACC of 82 .88% . Compressing the sequence into statistical summaries decreases the AUROC by 7.39 percentage points, while using only the maximum KL value leads to a substan-tial reduction of 15 .29 points. These results indicate that hallucination information is distributed across the layer-wise drift sequence rather than being confined to the largest drift or its immediate neighboring layers. 
+
+Distribution of Peak Attention-Drift Layers 
+
+Figure 6 shows the distribution of layers where the maximum adjacent-layer attention drift occurs on Qwen2.5-VL-7B. For hallucinated samples, the maximum attention drift most fre-quently occurs at Layers 15, 10, and 13, suggesting that abrupt cross-modal attention redistribution tends to emerge in the intermediate layers. This observation further sup-ports the effectiveness of CADMP in capturing hallucination-related signals from layer-wise attention dynamics. Figure 6: Distribution of the layers exhibiting the maximum adjacent-layer cross-modal attention drift for grounded and hallucinated samples on Qwen2.5-VL-7B. 
+
+# Experiment Datasets 
+
+COCO-Caption 
+
+To evaluate hallucination detection in open-ended gener-ation, we construct the COCO-Caption setting from the COCO-val2014 split of MSCOCO (Lin et al. 2014). We select 5,000 images from COCO-val2014 and independently generate captions using each evaluated LVLM. Caption gen-eration is performed with greedy decoding, and the maxi-mum number of newly generated tokens is set to 128. We apply the CHAIR annotation protocol (Rohrbach et al. 2018) to extract object mentions from each generated caption and determine whether each mentioned object is supported by the corresponding image. For multi-token objects, CADMP uses only the first subtoken for probability, attention, and masking. Because one generated caption may contain multiple ob-ject mentions, directly splitting object-level instances could place objects extracted from the same image in different sub-sets and introduce information leakage. We therefore perform an image-level split using a ratio of 70%/10%/20% for train-ing, validation, and testing, respectively. 
+
+POPE 
+
+POPE (Li et al. 2023c) is designed to evaluate object-existence hallucinations in Large Vision-Language Models. It formulates the evaluation as a binary question-answering task by asking whether a particular object is present in an input image. The benchmark is constructed from images in MSCOCO (Lin et al. 2014) and contains three subsets, namely Random, Popular, and Adversarial. The Random sub-set uniformly samples objects that do not appear in the image, the Popular subset selects frequently occurring object cate-gories, and the Adversarial subset selects absent objects that commonly co-occur with the objects present in the image. For implementation, we use 1,500 images. For each im-age, three positive questions and three negative questions are constructed, where positive questions query objects present in the image and negative questions query absent objects. This results in a total of 9,000 image-question pairs. 
+
+Pascal VOC 
+
+Pascal VOC is a widely used benchmark for object detec-tion and recognition in computer vision (Everingham et al. 2010). It provides image-level and object-level annotations for 20 common object categories, covering animals, vehicles, household objects, and people. Owing to its diverse visual scenes and reliable category annotations, Pascal VOC offers a suitable testbed for evaluating whether an LVLM can cor-rectly determine the presence or absence of specific objects. In our experiments, we use images from the VOC2012 split to construct an additional evaluation set for object hal-lucination detection. Specifically, for each image, we create one positive sample by querying an object category that is present according to the ground-truth annotations, together with three negative samples based on categories absent from the image. This results in a total of 9,000 samples in the Pascal VOC-based evaluation set. 
+
+AMBER 
+
+AMBER (Wang et al. 2023) is a benchmark designed to evaluate hallucinations in multimodal large language models without relying on an external language model as the evalu-ator. It contains 1,004 images and provides both generative and discriminative evaluation settings. While the generative setting assesses hallucinations in free-form model responses, the discriminative setting uses targeted questions to examine whether a model can accurately distinguish visually sup-ported information from unsupported claims. The discriminative component covers three representative hallucination types: object existence, attribute, and relation hallucinations. Object-existence hallucination occurs when a model claims that an object is present even though it does not appear in the image. Attribute hallucination refers to as-signing an incorrect property, such as color, number, size, or state, to an existing object. Relation hallucination occurs when the model incorrectly describes the spatial or seman-tic relationship between objects. By jointly evaluating these three dimensions, AMBER provides a broader and more fine-grained assessment than benchmarks focusing only on object presence. 
+
+# Baselines 
+
+We compare CADMP with six representative object halluci-nation detection baselines. 
+
+Negative Log-Likelihood (NLL) 
+
+NLL (Zhou et al. 2024) uses the generation probability of the target object token as the hallucination score, where j
+
+denotes the positional index of object o:
+
+sNLL (o) = − log P (o | v, t, Y <j ).
+
+For a multi-token object, we use its first token. A larger NLL score indicates a higher likelihood of hallucination. 
+
+Entropy 
+
+Entropy (Malinin and Gales 2021) measures predictive un-certainty from the vocabulary distribution at the target object-token position: 
+
+sEnt (o) = − X
+
+> w∈V
+
+P (w) log P (w),
+
+where V denotes the vocabulary. Higher entropy indicates greater uncertainty in the object prediction. 
+
+IC 
+
+IC (Jiang et al. 2025a) applies the Visual Logit Lens to project the hidden representation of each visual token at every decoder layer into the vocabulary space: 
+
+VLL l(vi) = hl(vi)WU ,
+
+where hl(vi) denotes the hidden representation of visual token vi at layer l, and WU is the language-model unem-bedding matrix. The IC score is defined as the maximum probability assigned to the target object token across all de-coder layers and visual positions: 
+
+sIC (o) = max  
+
+> l,i
+
+Softmax (VLL l(vi)) o .
+
+A higher IC score indicates stronger internal visual support for the presence of the target object. 
+
+SVAR 
+
+SVAR (Jiang et al. 2025b) measures the visual attention re-ceived by a generated object token. For an object token o,the Visual Attention Ratio at layer ℓ and attention head h is defined as 
+
+VAR ℓ,h (o) = 
+
+> N
+
+X
+
+> i=1
+
+Aℓ,h (o, v i).
+
+where A(ℓ,h )(o, v i) denotes the attention weight from the object token o to the i-th visual token vi, and N is the number of visual tokens. SVAR then averages the VAR scores across all attention heads and sums them over Layers 5–18: 
+
+sSVAR (o) = 1
+
+H
+
+> 18
+
+X
+
+> ℓ=5
+> H
+
+X
+
+> h=1
+
+VAR (ℓ,h )(o),
+
+where H denotes the number of attention heads. A higher SVAR score indicates that the generated object token assigns more attention to visual information. 
+
+GLSim 
+
+GLSim (Park and Li 2025) is an object hallucination de-tection method that jointly evaluates global scene-level con-sistency and local visual grounding. It measures whether a predicted object is semantically compatible with the overall image context and whether relevant visual regions provide sufficient evidence for its presence. For evaluation on POPE, we extract the queried object from each question and use its token representation to compute the GLSim score. 
+
+DHCP 
+
+DHCP (Zhang et al. 2025) detects object hallucinations by modeling cross-modal attention patterns within LVLMs. It uses the attention assigned by generated tokens to visual to-kens across decoder layers as internal evidence to distinguish visually grounded predictions from hallucinated ones. 
+
+Baselines Details 
+
+For experiments on LLaVA-1.5-7B using coco-caption dataset, we implement all baselines using the following con-figurations. For SVAR, we aggregate the attention assigned by the generated object token to all visual tokens over Lay-ers 5-18 and normalize the resulting score by the number of attention heads. For GLSim, we set the image layer and text layer to 32 and 31, respectively, select the top 32 visual tokens for local similarity computation, and combine the global and local similarity scores using weights of 0.6 and 0.4; the vi-sual sequence contains 576 tokens arranged in a 24 ×24 grid. DHCP extracts head-averaged attention from the generated object token to the visual tokens at each layer, pads each layer to 576 visual positions, and flattens the resulting features. Its MLP classifier consists of a 128-dimensional hidden layer followed by a two-class output layer and is trained using Adam with a learning rate of 1 × 10 −3, a batch size of 256, and 30 epochs. We use cross-entropy loss and a Weighted Random Sampler with inverse class-frequency weights. 
+
+# Experiment Settings 
+
+Models 
+
+We evaluate CADMP on three representative open-source LVLMs, including LLaVA-1.5-7B, Qwen2.5-VL-7B-Instruct, and InternVL2.5-4B, which differ in model archi-tecture, visual-language alignment strategy, and parameter scale. All experiments are conducted using Python 3.10 and PyTorch 2.6.0 on a single NVIDIA A6000 GPU with 48GB of memory. 
+
+Mask Construction 
+
+After identifying the layer transition with the maximum at-tention drift, we select its preceding layer as the suspicious layer. We extract the cross-modal attention from the target output token to all visual tokens and reshape it into an H ×W
+
+attention map according to the spatial layout of the visual feature map. The resulting attention map is then upsampled to the original image resolution using bilinear interpolation, such that each pixel is assigned a continuous attention weight. Next, a threshold is determined according to a predefined percentile of the upsampled attention values. Pixels whose attention weights are greater than or equal to this thresh-old are replaced with a neutral gray value of 128 , while the remaining pixels are left unchanged. The resulting masked image is subsequently fed into the LVLM for a second for-ward pass to measure the change in the prediction probability of the target token. 
+
+Implementation Details 
+
+For the COCO-Caption experiments, LLaVA-1.5-7B, Qwen2.5-VL-7B, and InternVL2.5-4B use the same MLP detector configuration. The input consists of the layer-wise KL-divergence drift sequence and three probability-based features: the target-token probability under the original im-age, the probability under the masked image, and their dif-ference. All features are standardized using StandardScaler before being passed to a two-hidden-layer MLP. The two hidden layers contain 128 and 64 neurons, respectively, and each is followed by Batch Normalization, ReLU activation, and Dropout with a rate of 0.3. The detector is trained using AdamW with a learning rate of 5 × 10 −4, a batch size of 128, and a weight decay of 1 × 10 −4. Training is performed for at most 150 epochs, with early stopping using a patience of 20 epochs to select the best checkpoint on the validation set. The data are divided into training, validation, and test sets using a ratio of 70%/10%/20%. For AUROC computation, hallucinated samples are treated as the positive class. For threshold-based evaluation, predictions are obtained from the probability of the grounded class, with the decision threshold selected on the validation set by maximizing the F1 score. All experiments are con-ducted using three random seeds: 42, 7777, and 37, and the final results are reported as the mean and standard deviation across the three runs. 
+
+# Visualization of CADMP 
+
+To qualitatively examine the effectiveness of CADMP, we present visualization examples from both the POPE and COCO-Caption datasets in Figure 7. Figure 7: Visualization of CADMP for detecting hallucinations on the POPE and COCO-Caption datasets

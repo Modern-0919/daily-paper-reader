@@ -1,0 +1,368 @@
+Title: How to Speculate about Uncertainty in Agentic Coding? A Draft-Model Gate Method
+
+URL Source: https://arxiv.org/pdf/2609.05274v1
+
+Published Time: Mon, 07 Sep 2026 01:09:52 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# How to Speculate about Uncertainty in Agentic Coding? A Draft-Model Gate Method 
+
+Konstantin Grotov *
+
+Tel Aviv University Tel Aviv, Israel 
+
+konstantin.grotov@gmail.com 
+
+Valentin Malykh 
+
+IITU Almaty, Kazakhstan 
+
+valentin.malykh@phystech.edu 
+
+Abstract 
+
+LLM agents deployed for software engineering fail expensively: they act confidently wrong ,and bad actions are recognized only after costly execution and retry. We present Speculative Uncertainty (SU) , a method that recovers a pre-dictive failure signal for a black-box agent from its output tokens alone, with no access to log-its, weights, activations, or repeated sampling. Inverting speculative decoding, a small open-weight draft model scores the agent’s already-generated trajectory in a single forward pass. From these speculative cross-likelihoods we extract phase-aware features by separating the reasoning and action spans, and calibrate them against a verifiable objective. SU produces a failure-likelihood score that any downstream policy, such as routing, human intervention, or extra test-time compute, can consume di-rectly. To show the signal is actionable, we in-stantiate one such policy, a pre-execution veto gate, on software engineering agents Qwen3-Coder-480B and closed-source Claude 3.5 Son-net, cutting execution error rate by 6–8 per-centage points and token cost by 14–19% in deployment, transferring to out-of-distribution benchmarks without retraining, and generaliz-ing across agent models. 
+
+1 Introduction 
+
+LLM agents are increasingly deployed in produc-tion software engineering workflows, where they autonomously draft patches, run tests, and query databases (Jimenez et al., 2024; Badertdinov et al., 2026; Yang et al., 2026). Yet behind strong bench-mark scores lies an expensive failure mode: agents are often confidently wrong (Kaddour et al., 2026). They propose an action with no signal that it could fail, and the failure appears only when an environ-ment rejects it—after the code has run, the context has been filled up, and the retry has been paid for. At production scale, these silent failures inflate API  
+
+> *Corresponding author.
+
+cost and latency, since a rejected action is appended to the context and the agent pays for the retry — frequently looping on the same problem until the budget is exhausted (Kaddour et al., 2026). Two properties of realistic deployments con-strain the space of admissible methods. First, the most capable deployed agents are closed API-served models exposing no logits, weights, or ac-tivations, so any method that needs internal sig-nals is something that we cannot use for mod-els. Second, sampling-based uncertainty estima-tors require many generations per step, which is prohibitive at agentic horizons. Taken together, these requirements rule out most of the uncertainty-quantification toolbox: single-turn calibration ig-nores features specific to the trajectories (Guo et al., 2017; Kuhn et al., 2023), white-box probing needs internal access, whereas sampling is too costly. The closest prior work, Holistic Trajectory Calibration (HTC) (Zhang et al., 2026), fits a calibrator on an agent’s full log-probability sequence. However, it still assumes white-box access and treats the tra-jectory as a homogeneous token stream. Both as-sumptions break in the real deployments we care about. We address the access constraint with an idea in-verted from speculative decoding (Leviathan et al., 2023; Chen et al., 2023): rather than having a small draft model propose tokens to accelerate a large one, we have it score the large agent’s already-generated tokens via teacher-forced cross-likelihood. The agent doesn’t share its internal state, the draft reads only its output text and re-covers a rich uncertainty signal in a single forward pass. We empirically observed that agent genera-tion has a phase structure: a high-entropy reasoning phase is followed by a sharply lower-entropy action phase pinned down by syntax and tool-call struc-ture. Averaging over the whole trajectory, as HTC does, dissolves this failure-relevant signal into the noise of the reasoning phase, while reading the two arXiv:2609.05274v1 [cs.LG] 4 Sep 2026 phases apart surfaces it. Combining these considerations, we shape the method of Speculative Uncertainty (SU) : a small draft scores the agent’s trajectory, phase-aware fea-tures are extracted separately from reasoning and action spans, and a linear calibrator maps them to a probability that the next action will follow the verifiable objective. We study code execution in software engineering agents, but the approach ap-plies to any agent producing reasoning-then-action trajectories under a verifiable objective. This study shows that the uncertainty of a black-box agent can be recovered from its trajectory alone , before the environment is ever called, and that the recovered signal is reliable enough to act positively in deployment. We insert a lightweight gate between code generation and execution that predicts whether the next action will be executed without exceptions. When failure is likely, this triggers a cheap replan instead of an expensive execute-fail-retry cycle. On two agentic coding benchmarks (Jimenez et al., 2024; Huang et al., 2024) the gate cuts per-call execution error rate by 6-8 percentage points and average token cost by 14–19%, with gains transferring to an out-of-distribution benchmarks. 
+
+Contributions. 
+
+1. A black-box uncertainty estimation method. 
+
+By inverting speculative decoding, a small draft scores the agent’s generated tokens and recovers a usable failure signal without white-box access. This is exactly the regime where sampling is too costly and internals are hidden, making it usable with the closed-source APIs that dominate production. 2. Deployment guidance. As one downstream policy, a pre-execution veto gate cuts per-call execution error rate by 6–8 points and token cost by 14–19% on SWE-Bench Verified and DA-Code, with a tunable false-veto rate and zero-shot out-of-distribution transfer. We fur-ther find that a distilled 4B draft is capable enough, the training objective barely matters, and a draft trained on one agent transfers to others well above the untrained baseline. 
+
+2 Background and Related Work 
+
+Uncertainty quantification for LLMs and agents. 
+
+Single-turn LLM calibration is well-studied (Guo et al., 2017; Geng et al., 2024; Kuhn et al., 2023; Lin et al., 2023), spanning post-hoc scal-ing, semantic-consistency sampling, and verbal-ized self-reflection. The agentic setting adds a layer of complexity: uncertainty is no longer a property of a single output but something that accumulates across interdependent steps (Zhang et al., 2026; Duan et al., 2025; Zhao et al., 2024). HTC (Zhang et al., 2026) confronts this directly, extracting hand-crafted trajectory features from an agent’s full log-probability sequence and fitting a logistic-regression calibrator. We adopt HTC’s trajectory-feature view and depart from it in two respects that prove decisive for deployment: we separate reasoning from action spans, and we ob-tain the signal from a separate draft model rather than the agent’s model own logits. 
+
+Hallucinations and uncertainty in tool-using agents. A line of recent work probes confidence in tool-using agents. Healy et al. (2026); Subra-mani et al. (2025) train probes on a target model’s internal states to anticipate erroneous tool calls. Agents that reason before acting hallucinate tool calls more often (Yin et al., 2025). While those methods are effective, but operated on white-box access. Xuan et al. (2026); Kaddour et al. (2026) documents a systematic gap between expressed and actual confidence in tool-use agents. 
+
+Speculative decoding and draft models. Specu-lative decoding (Leviathan et al., 2023; Chen et al., 2023) pairs a small draft model with a large target, accepting drafted tokens with alignment-specific probability. Its purpose is mainly to accelerate in-ference (Xia et al., 2024; Leviathan et al., 2023). We retain the machinery and invert the objective: the small model does not generate, it evaluates ,scoring the target’s committed tokens after the fact. 
+
+3 Method 
+
+3.1 Problem Setup 
+
+Let p be the large, possibly black-box agent model 
+
+(further simply the agent ), and q a small open-weight draft model . Given a task with initial con-text x, the agent produces a trajectory of alternating reasoning and action spans: 
+
+T =  r1, a 1, r 2, a 2, . . . , r N , a N
+
+,
+
+where ri ∈ Σ∗ is the i-th reasoning span and ai ∈
+
+Σ∗ is the i-th action span. Let y = ( y1, . . . , y T )
+
+be the in-order concatenation of all tokens; each Black-box Agent Trajectory     
+
+> Reason Action Reason Action
+
+# … Reason  Next Action     
+
+> Small Draft Model Phase-Aware Features Calibrator
+> Veto Gate Execute Replan confident likely fail
+
+Figure 1: The Speculative Uncertainty pipeline. A black-box agent generates a trajectory of alternating reasoning and action spans, exposing only its output tokens. A small open-weight draft model scores these tokens in a single forward pass, producing per-token uncertainty signals. Features are extracted separately from the reasoning and action spans, and a lightweight calibrator maps them to a calibrated success probability. Before execution, a threshold gate forwards confident actions or triggers a cheaper replan. 
+
+carries a component label τt ∈ { reason , action },read off the harness’s message structure: in Open-Hands (Wang et al., 2025) the assistant’s free-form text forms the reasoning span and the subsequent structured tool call (the invoked function and its serialized arguments) forms the action span. Each agent is paired with a verifiable objective :a binary function Ω( a, x ) ∈ { 0, 1} that an exter-nal oracle evaluates on action a given context x.SU operates at step granularity: for each step i it predicts the oracle verdict Ω( ai, x ) on that step’s action before ai executes. Rather than condition-ing on the full trajectory, which grows long and increasingly noisy over many steps, in this study we condition on a fixed lookback window of the 
+
+k = 3 most recent steps. Let 
+
+Wi =  ri−k+1 , a i−k+1 , . . . , r i−1, a i−1, r i, a i
+
+
+
+be the window ending at the step under evaluation (truncated at the start of the trajectory when i < k ). We seek a calibration function F that maps the window to a calibrated probability that the step’s action will pass its check, before Ω is evaluated: 
+
+ˆy = F(Wi) ∈ [0 , 1] ,
+
+EΩ( ai, x ) | F (Wi) = c ≈ c. 
+
+In our deployment Ω is code-execution success, but the framework is agnostic to the objective. 
+
+3.2 Speculative Cross-Likelihoods 
+
+For each token yt we run the draft model q in 
+
+teacher-forcing mode : conditioned on the prefix 
+
+(x, y <t ), we read off q’s next-token distribution and evaluate it at the token p actually produced. A single forward pass over the trajectory yields three token-level signals at no cost to the agent pipeline: 
+
+st = − log q(yt | x, y <t ),gt = log q(ˆ yt | x, y <t ) − log q(yt | x, y <t ),Ht = −X
+
+> v∈V
+
+q(v | x, y <t ) log q(v | x, y <t ),
+
+where ˆyt = arg max v q(v | x, y <t ). We call st the 
+
+speculative surprisal , gt the speculative gap , and 
+
+Ht the speculative entropy . All three depend only on the observed token stream; p’s logits are never needed at inference. 
+
+Why a black-box proxy works. In speculative decoding, a drafted token is accepted with proba-bility αt = min(1 , p (yt|· )/q (yt|· )) . When p is a black box, p(yt|· ) is hidden, therefor if q tracks p
+
+reasonably well, a high speculative surprisal st im-plies p too would face a low acceptance rate there, making st a usable proxy for p’s own uncertainty. This is why aligning q to p matters. 
+
+3.3 Component-Aware Feature Extraction 
+
+An agentic trajectory alternates between a high-entropy reasoning span and a sharply lower-entropy action span, so the speculative signals carry phase-dependent meaning (we analyze this phase structure in Appendix A). We therefore com-pute features separately for the reasoning and ac-tion tokens within the lookback window Wi. For each of the two phases (reasoning, action) and each of the three signals ( s, g, H), we summarize the corresponding tokens with eight statistics—mean, variance, max, min, skewness, trend, and the mean over the first and last 10% of tokens, giving 48 fea-tures in total. Adding the two span lengths yields the full feature vector ϕ(Wi) ∈ R50 (full taxonomy in Appendix C). Computing the phases separately keeps the noisy reasoning signal from masking the small, failure-relevant deviations in the action span, and the short window keeps those deviations from being noised by earlier steps. 
+
+3.4 Calibrator and Downstream Policy 
+
+Following HTC (Zhang et al., 2026) framework, we fit an ℓ1-regularized logistic regression on labeled windows. With given features ϕ(Wi) ∈ R50 and binary labels y ∈ { 0, 1}, the calibrator F(ϕ) = 
+
+σ(w⊤ϕ + b) is fit by minimizing 
+
+min 
+
+> w,b
+
+X
+
+> j
+
+L yj , σ (w⊤ϕ + b) + λ∥w∥1,
+
+where L is the binary cross-entropy, σ the logistic function, and λ the ℓ1 penalty that selects a sparse, auditable subset of the 50 features. We deliberately keep the calibrator simple, since a linear model is cheap to train and it is robust in the small-data regime typical of SWE benchmarks. The output of SU is a single scalar failure-likelihood score: the estimated probability ˆy =
+
+F∗(ϕ(Wi)) that the next action will follow the ver-ifiable objective. What a system does with that probability is a separate, application-level decision, and the framework is deliberately agnostic to it. A calibrated failure signal can drive many policies, for instance, routing the step to a larger or more capable model when confidence is low, escalating to a human reviewer or allocating extra test-time compute (e.g., resampling) to risky steps. 
+
+The veto gate. To make the deployment impact measurable, we study the policy we deploy and evaluate in this work: a veto gate inserted be-tween code generation and execution (Algorithm 1). When the predicted success probability falls be-low a threshold τ , the gate blocks the action and triggers a cheaper replan instead of an execute-fail-retry cycle. We choose this policy because its effect is transparent. It maps the probability to a single, auditable accept-replan decision, so the error and cost reduction numbers in Section 4.3 are directly attributable to the quality of the underlying signal. The threshold τ trades true vetoes (blocking code that would fail) against false vetoes (blocking code that would succeed). τ is selected on the training split and frozen for all reported evaluations. We emphasize that the gate is one policy among many the signal could drive, not a requirement of the 
+
+Algorithm 1 SU Veto-Gate Policy 
+
+Require: Window Wi, threshold τ , max retries K 
+
+> 1:
+
+Compute ϕ(Wi) via draft teacher forcing ▷
+
+single pass, O(|W i|) 
+
+> 2:
+
+ˆy ← F ∗(ϕ(Wi)) ▷ calibrated P (success ) 
+
+> 3:
+
+if ˆy ≥ τ then  
+
+> 4:
+
+execute: send action ai to the environment  
+
+> 5:
+
+else if retries < K then  
+
+> 6:
+
+replan: append a failure hint and re-invoke the agent  
+
+> 7:
+
+else  
+
+> 8:
+
+abstain: return with a low-confidence flag  
+
+> 9:
+
+end if 
+
+framework: any of the alternatives described above could consume ˆy in its place. 
+
+4 Experimental Results 
+
+We evaluate SU in agentic software engineering tasks, where Ω is whether generated code runs with-out exceptions: action spans are long, syntactically and contextually constrained, and the objective is binary verifiable feedback from the execution envi-ronment. 
+
+Setup. We train both draft model and calibra-tor on the SWE-rebench OpenHands trajecto-ries (Trofimova et al., 2025), real-world GitHub is-sues from SWE-rebench (Badertdinov et al., 2026) solved by Qwen3-Coder-480B under the Open-Hands scaffold (Wang et al., 2025). Further, we evaluate out-of-distribution on a held-out split, on SWE-Bench Verified (Jimenez et al., 2024), and on DA-Code (Huang et al., 2024). Success is scored using the execution data derived from the agentic trajectories. We use Qwen3-Coder-480B (Qwen Team, 2026) and the fully closed-source Claude 3.5 Sonnet (Anthropic, 2024) as agent models ( p), and Qwen3-4B (Yang et al., 2025) as a draft model ( q). In the study we val-idate base model, SFT-tuned model, and teacher-forced (TF) distilled variants. As a baselines we use Verbalized Confidence (Tian et al., 2023) made by the agent; Last-TP and Global-TP, mean log-probability of the final block and whole trajectory respectively under p counting it as a white-box; and HTC (Zhang et al., 2026) on agent’s own log-probabilities. We ablate SU-Uniform, our signals without phase separation. We report AUROC, Pre-cision at Recall 80 (P@R80) calibration metrics. For the gate mechanism evaluation we addition-Table 1: Code-execution failure prediction (agent: Qwen3-Coder-480B; SU uses Qwen3-4B draft). † In-distribution held-out split; SWE-Bench Verified shares the agent and scaffold and differs only in task distribu-tion; DA-Code additionally changes domain and tool interface.                                                         
+
+> SWE-rebench †SWE-Bench Ver. DA-Code Method AUC P@R80 AUC P@R80 AUC P@R80
+> Verbalized Conf. .58 .50 .57 .49 .59 .51 Last-TP .70 .61 .68 .59 .69 .60 Global-TP .67 .57 .65 .55 .66 .56 HTC (Agent) .85 .77 .82 .74 .83 .75 SU, no train .63 .54 .61 .52 .63 .54 SU-Uniform (SFT) .74 .65 .71 .62 .72 .63
+> SU, SFT .79 .70 .76 .67 .77 .68
+> SU, TF .80 .71 .77 .68 .78 .69
+
+ally report true-/false-veto rates and net error/cost change. Implementation details, training recipes, and compute budgets are described in Appendix B. 
+
+4.1 Failure-Prediction Quality 
+
+Table 1 shows failure-prediction quality across the three splits. First, importance of alignment : an untrained draft aligns poorly with the agent and is barely above verbalized confidence (.61 AUROC on SWE-Bench Verified), while distillation lifts SU to .77, and both SFT and TF land within 1. Second, phase separation is worth +5–6 AUROC: dropping it (SU-Uniform, .71) confirms the action-span signal becomes worse once phases are pooled. Third, SU recovers most of the white-box ceiling: it lifts AUROC from .57 (verbalized confidence) to .77, approaching HTC (.82), using only output tokens and showing improvements over the white-box log-probability baselines (Last-/Global-TP). It does not exceed HTC, and not expected to: a black-box proxy approaching its white-box ceiling is the credible outcome. 
+
+4.2 Calibration 
+
+Discrimination and calibration are distinct proper-ties, and SU delivers them unequally. Table 3 re-ports proper-scoring and calibration metrics on the held-out SWE-rebench split against a constant pre-dictor that always emits the base rate. Alignment is what produces utility: distillation improves the Brier score from .1265 to .1012 and the Brier skill score from .019 to .215 over the constant reference, consistent with the AUROC gains of Section 4.1. We therefore describe SU’s raw output as a failure-likelihood score rather than a calibrated probability, and note that the veto gate of Sec-
+
+Table 2: Deployment impact of the SU veto gate (Qwen3-Coder-480B agent, Qwen3-4B draft). SWE-Bench Verified and DA-Code are evaluated without ad-ditional fine-tuning.                      
+
+> SWE-Bench Verified DA-Code
+> No-veto error rate 21% 14% SU-gated error rate 15% 6%
+> ∆error −6 pp −8 pp
+> Token savings / task −14% −19%
+> No-veto task success 49% 64% SU-gated task success 44% 63%
+> ∆success −5 % −1 % True-veto recall 0.72 0.69 False-veto rate 0.14 0.16
+
+Table 3: Calibration and proper-scoring metrics on the held-out SWE-rebench split (agent: Qwen3-Coder-480B, Qwen3-4B draft). The constant reference always predicts the base rate, it is trivially reliable and carries no information.                     
+
+> Method ECE ↓MCE ↓Brier ↓NLL ↓BSS ↑
+> Constant (base rate) .008 .008 .129 .426 .000 SU, no train .015 .054 .127 .422 .019
+> SU, SFT .024 .060 .101 .364 .215
+
+tion 4.3 requires only a monotone score plus a threshold, so its results depend on ranking quality alone and are unaffected by the residual miscali-bration. Standard post-hoc recalibration, such as temperature scaling or isotonic regression is order-preserving and would leave AUROC and the gate unchanged while reducing ECE. We did not apply it here, and we flag closing the reliability gap as required work before SU’s output is consumed by any policy that reads the probability value itself rather than thresholding it. 
+
+4.3 Deployment Impact: Fewer Errors, Lower Cost 
+
+We lead with the result that matters most for deploy-ment: does the gate (Algorithm 1) actually change how the agent behaves on the two axes a practi-tioner is accountable for—error rate and compute? Table 2 shows that it does. 
+
+Error rate. At the operating threshold, SU cuts the per-call execution error rate from 21% to 15% on SWE-Bench Verified and from 14% to 6% on DA-Code. Crucially, the DA-Code result was ob-tained without additional fine-tuning: the calibrator was trained on the SWE-rebench trajectories and applied without retraining. Compute. Each failing trajectory, left alone, trig-gers a retry. By catching failures before execution and swapping the full retry loop for a cheaper re-plan, the gate cuts average tokens per task by 14– 19% on both benchmarks. At production volume this is a direct reduction in API spend and latency. 
+
+Task success rate. A natural question is whether cutting errors before execution also lifts end-to-end task success. On SWE-Bench Verified the resolved rate moves slightly down, from 49% to 44%, and on DA-Code it is essentially unchanged (64% to 63%). The reason is structural: the veto gate sup-presses confidently-wrong actions and swaps the execute-fail-retry loop for a cheaper replan, but a replan is not guaranteed to recover the task, and a small fraction of false vetoes block actions that would have succeeded. The deployment value of SU therefore lies in the cost and silent-failure axes, fewer wasted execute-fail-retry cycles and 14–19% lower token spend, rather than in raising the bench-mark scores. Raising task success would require a downstream policy stronger than the simple re-plan we study here, which we leave as a promising direction for further research. 
+
+4.4 Cross-Agent Transfer 
+
+A deployment-critical question is whether a trained draft generalizes to agents it was not specifically aligned with, since teams frequently serve several agents behind a single interface. We examine this through several training configurations, summa-rized in Table 4. When a strong open-weight agent is available, the draft can be aligned to it via SFT or TF distil-lation. However, the two objectives yield closely matched scores (.76 vs. .77 on Qwen), showing that while the alignment is crucial, the particular distillation method is not as important. More im-portantly, a draft aligned to one agent still transfers to a different agent: a Qwen-distilled draft reaches .69 AUROC on Claude 3.5 Sonnet, well above the untrained baseline (.60). We attribute this to two factors. First, fine-tuning on agent trajectories improves alignment to the software engineering do-main rather than to the specific agent alone. Second, the adapted draft is less surprised by in-domain tra-jectories than the base model, so its speculative signal remains informative even when the target agent differs. Most notably, training on the open-weight cor-pus alone is close to and competitive with mixed-            
+
+> Table 4: Cross-agent transfer on SWE-Bench Verified (AUROC / P@R80; Qwen3-4B draft). Claude 3.5 Son-net is fully black-box (no logits).
+> Train corpus Qwen3-480B Claude 3.5 Sonnet
+> —.61 / .52 .60 / .52 Qwen (TF) .77 / .68 .69 / .61 Qwen (SFT) .76 / .67 .69 / .60 Claude (SFT) .69 / .61 .76 / .67 Mixed (SFT) .76 / .67 .75 / .66
+
+corpus training: a Qwen-distilled draft reaches .69 on Claude, within a few points of the mixed-corpus result (.75). This is promising, as it suggests that an open, logit-accessible agent can serve as an effec-tive proxy for aligning drafts toward closed-source targets, motivating the post-training methods that exploit logit access or hidden representation on the open model while still transferring to black-box agents. 
+
+5 Discussion and Practical Takeaways 
+
+The deployment recipe. For teams running fron-tier API agents: pair the agent with a distilled 4B open-weight draft, distill it on a few thousands labeled trajectories from the target agent (or a mixed corpus if several agents are in play), fit a linear calibrator with phase-aware features, and insert the veto gate before execution. The whole pipeline adds one small forward pass per step and no changes to the agent, and in our study returns 6–8 pp lower error and 14–19% lower token cost. 
+
+Transfer beyond code. SU needs only two things from a domain: trajectories with identifiable reasoning and action spans, and an external binary oracle over actions. Both hold beyond software engineering, such as SQL agents ( Ω checks query results), web agents ( Ω checks a target state), and tool-orchestration agents ( Ω checks the right call with the right arguments). In each, the deliberation-then-commitment structure persists, and with it the entropy divergence SU relies on. We have not mea-sured these settings and make no quantitative claim about them; confirming the transfer is the natural next step. 
+
+From observation to intervention. The veto gate is not a passive monitor but an excplicit in-tervention: it reshapes the trajectory by injecting a replanning prompt exactly where failure is pre-dicted. A natural extension is a streaming veto that watches the action span’s entropy token by token and interrupts the instant it diverges and catching failure mid-generation, before the block is finished. We leave this to future work. 
+
+6 Conclusion 
+
+Production agents fail confidently and expensively, paying for each erroneous action before its conse-quences reveal the error. Speculative Uncertainty 
+
+anticipates the failure instead: a small open-weight draft model scores a black-box agent’s trajectory in a single forward pass, and a linear calibrator turns the result into a failure-likelihood score that gates execution. Deployed this way it cut the per-call execution error rate by 6–8 percentage points and token cost by 14–19%, with gains that trans-fer zero-shot and extend to a fully closed-source agent. Two design choices enable this: scoring the agent through a separate model rather than its in-ternals, and respecting the reasoning–action phase structure of generation. We expect both to trans-fer to other verifiable-objective settings in which an agent reasons its way to a committed action. Where that structure recurs, an agent’s failure can be anticipated rather than merely discovered. 
+
+Limitations 
+
+Quality of resulted models. SU consists of sev-eral interacting components, each of which influ-ences final performance: the choice of draft model and its size, the alignment procedure, the feature construction, and the calibrator training. The com-binatorial space these define is large, and we do not claim to identify its optimum. Our contribution is instead a lightweight and scalable framework together with empirical guidance on reasonable op-erating points. Tuning any individual component further is likely to yield additional gains we do not pursue here. 
+
+A single objective and domain. Our evidence is drawn entirely from code-execution success as the verifiable objective. While the framework it-self is agnostic to the objective—requiring only trajectories with identifiable reasoning and action spans and an external binary oracle—we provide no quantitative evidence for other settings. Extend-ing SU to additional domains and objectives is an important direction for future work. 
+
+Single-run estimates. All reported numbers are single-run point estimates on fixed evaluation sets; we do not report seed variance or confidence in-tervals. Differences of a few AUROC points, and the 5 percentage points SWE-Bench Verified task-success change, should be read with that in mind. 
+
+The draft cost is objective-dependent. Through-out, we treat the draft’s per-step forward pass as effectively free relative to the agent and the avoided retries, which holds for the code-execution setting we study. This assumption may not transfer to objectives that demand a larger or more capable draft to produce an informative speculative signal, in which case the per-step overhead must be re-evaluated against the downstream savings. The favorable cost balance we report is therefore spe-cific to our workload and should not be assumed to hold universally. 
+
+Acknowledgments 
+
+We acknowledge the use of LLMs for text polish-ing and language improvements throughout this manuscript. All technical content, ideas, and sub-stantial writing remain the original work of the authors. 
+
+References        
+
+> Anthropic. 2024. Claude Sonnet 3.5. https://www. anthropic.com/news/claude-3-5-sonnet .Ibragim Badertdinov, Alexander Golubev, Maksim Nekrashevich, Anton Shevtsov, Simon Karasik, An-drei Andriushchenko, Maria Trofimova, Daria Litv-intseva, and Boris Yangel. 2026. Swe-rebench: An automated pipeline for task collection and decon-taminated evaluation of software engineering agents.
+> Advances in Neural Information Processing Systems ,38. Charlie Chen, Sebastian Borgeaud, Geoffrey Irving, Jean-Baptiste Lespiau, Laurent Sifre, and John Jumper. 2023. Accelerating large language model decoding with speculative sampling. arXiv preprint arXiv:2302.01318 .Jinhao Duan, James Diffenderfer, Sandeep Madireddy, Tianlong Chen, Bhavya Kailkhura, and Kaidi Xu. 2025. Uprop: Investigating the uncertainty propaga-tion of llms in multi-step agentic decision-making.
+> arXiv preprint arXiv:2506.17419 .Jiahui Geng, Fengyu Cai, Yuxia Wang, Heinz Koeppl, Preslav Nakov, and Iryna Gurevych. 2024. A sur-vey of confidence estimation and calibration in large language models. In Proceedings of the 2024 Con-ference of the North American Chapter of the Asso-ciation for Computational Linguistics: Human Lan-guage Technologies (Volume 1: Long Papers) , pages 6577–6595.
+
+Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q Wein-berger. 2017. On calibration of modern neural net-works. In International conference on machine learn-ing , pages 1321–1330. PMLR. Kait Healy, Bharathi Srinivasan, Visakh Madathil, and Jing Wu. 2026. Internal representations as indica-tors of hallucinations in agent tool selection. arXiv preprint arXiv:2601.05214 .Yiming Huang, Jianwen Luo, Yan Yu, Yitong Zhang, Fangyu Lei, Yifan Wei, Shizhu He, Lifu Huang, Xiao Liu, Jun Zhao, and 1 others. 2024. Da-code: Agent data science code generation benchmark for large language models. In Proceedings of the 2024 Con-ference on Empirical Methods in Natural Language Processing , pages 13487–13521. Carlos E Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik Narasimhan. 2024. Swe-bench: Can language mod-els resolve real-world github issues? In International Conference on Learning Representations , volume 2024, pages 54107–54157. Jean Kaddour, Srijan Patel, Gbètondji Dovonon, Leo Richter, Pasquale Minervini, and Matt J Kusner. 2026. Agentic uncertainty reveals agentic overconfidence. 
+
+arXiv preprint arXiv:2602.06948 .Lorenz Kuhn, Yarin Gal, and Sebastian Farquhar. 2023. Semantic uncertainty: Linguistic invariances for un-certainty estimation in natural language generation. 
+
+arXiv preprint arXiv:2302.09664 .Yaniv Leviathan, Matan Kalman, and Yossi Matias. 2023. Fast inference from transformers via spec-ulative decoding. In Proceedings of the 40th Interna-tional Conference on Machine Learning , ICML’23. JMLR.org. Zhen Lin, Shubhendu Trivedi, and Jimeng Sun. 2023. Generating with confidence: Uncertainty quantifi-cation for black-box large language models. arXiv preprint arXiv:2305.19187 .Qwen Team. 2026. Qwen3-coder-next technical report. 
+
+arXiv preprint arXiv:2603.00729 .Nishant Subramani, Jason Eisner, Justin Svegliato, Ben-jamin Van Durme, Yu Su, and Sam Thomson. 2025. Mice for cats: Model-internal confidence estimation for calibrating agents with tools. In Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Lin-guistics: Human Language Technologies (Volume 1: Long Papers) , pages 12362–12375. Katherine Tian, Eric Mitchell, Allan Zhou, Archit Sharma, Rafael Rafailov, Huaxiu Yao, Chelsea Finn, and Christopher D Manning. 2023. Just ask for cali-bration: Strategies for eliciting calibrated confidence scores from language models fine-tuned with human feedback. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing ,pages 5433–5442. Maria Trofimova, Anton Shevtsov, Badertdinov Ibragim, Konstantin Pyaev, Simon Karasik, and Alexander Golubev. 2025. Openhands trajec-tories with qwen3-coder-480b-a35b-instruct. 
+
+Nebius blog . https://nebius.com/blog/posts/ openhands-trajectories-with-qwen3-coder-480b .Xingyao Wang, Boxuan Li, Yufan Song, Frank F Xu, Xi-angru Tang, Mingchen Zhuge, Jiayi Pan, Yueqi Song, Bowen Li, Jaskirat Singh, and 1 others. 2025. Open-hands: An open platform for ai software developers as generalist agents. In International Conference on Learning Representations , volume 2025, pages 65882–65919. Heming Xia, Zhe Yang, Qingxiu Dong, Peiyi Wang, Yongqi Li, Tao Ge, Tianyu Liu, Wenjie Li, and Zhi-fang Sui. 2024. Unlocking efficiency in large lan-guage model inference: A comprehensive survey of speculative decoding. Findings of the Association for Computational Linguistics: ACL 2024 , pages 7655– 7671. Weihao Xuan, Qingcheng Zeng, Heli Qi, Yunze Xiao, Junjue Wang, and Naoto Yokoya. 2026. The confidence dichotomy: Analyzing and mitigating miscalibration in tool-use agents. arXiv preprint arXiv:2601.07264 .An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, and 1 others. 2025. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .John Yang, Kilian Lieret, Carlos Jimenez, Alexander Wettig, Kabir Khandpur, Yanzhe Zhang, Binyuan Hui, Ofir Press, Ludwig Schmidt, and Diyi Yang. 2026. Swe-smith: Scaling data for software engineer-ing agents. Advances in Neural Information Process-ing Systems , 38. Chenlong Yin, Zeyang Sha, Shiwen Cui, Changhua Meng, and Zechao Li. 2025. The reasoning trap: How enhancing llm reasoning amplifies tool halluci-nation. arXiv preprint arXiv:2510.22977 .Jiaxin Zhang, Caiming Xiong, and Chien-Sheng Wu. 2026. Agentic confidence calibration. arXiv preprint arXiv:2601.15778 .Qiwei Zhao, Xujiang Zhao, Yanchi Liu, Wei Cheng, Yiyou Sun, Mika Oishi, Takao Osaki, Katsushi Mat-suda, Huaxiu Yao, and Haifeng Chen. 2024. Saup: Situation awareness uncertainty propagation on llm agent. arXiv preprint arXiv:2412.01033 .A The Phase Structure in Tool Augmented Agents 
+
+An agentic trajectory is the sequence of tokens an agent emits while solving a task. The exact format depends on the harness, but the dominant pattern across modern agent frameworks based on the reasoning LLMs is roughly the same: within each step the model first generates a reasoning 
+
+span (planning, analysis) and then an action span (the tool call or code to be executed). Although both come from a single autoregressive pass, their token-level dynamics differ significantly. Figure 2 traces per-token entropy along agen-tic generations, with position normalized so that 
+
+x = 0 marks the start of reasoning, x = 0 .5 marks the transition to the action span, and x = 1 marks its end, separately for successful and failing ac-tions over 500 SWE-rebench OpenHands trajec-tories (250 success, 250 failure). Two empirical findings stand out, and each shapes the method. First, reasoning is highly exploratory: entropy is high as the model weighs alternatives, then col-lapses sharply at the transition. Second, and most important, the failure signal is implicitly present in 
+
+both phases. This drop of entropy has a direct, practical con-sequence. Since the failure signal points one way during reasoning and the opposite way inside the action span, any calibrator that combines the two phases into the single sequence of tokens does not merely represent the signal. Moreover, it actively 
+
+cancels it: the elevated-reasoning and suppressed-action contributions offset each other. This moti-vates the central design choice of our method: ex-tract features from the reasoning and action spans 
+
+separately .The phase structure in Figure 2 is shown for a single step; in practice we aggregate these per-phase statistics over a short window of recent steps (Section 3.1) to give the calibrator local trajectory context without the noise of the full history. 
+
+B Reproducibility: Data, Training, and Compute 
+
+This appendix documents every step needed to re-produce the results in Section 4. We organize it as the pipeline runs: trajectory collection and labeling, draft-model training, calibrator fitting, and the gate simulation. 
+
+B.1 Trajectory Collection and Labeling 
+
+All trajectories are collected under a single agen-tic scaffold, OpenHands (Wang et al., 2025), so that train and test distributions differ only in task content, not in formatting or tool interface; this isolates genuine distribution shift from harness ar-tifacts. For each task the agent emits a sequence of reasoning and action spans: we map the assistant message’s free-form text to the reasoning span and its structured tool call (the invoked function and its serialized arguments) to the action span, which we parse directly into the component labels τt of Section 3.1. Each action step is labeled by its ex-ecution outcome, the oracle verdict Ω( ai, x ) the gate predicts (Section 3.1): 1 if the tool call exe-cutes without error (exit code 0), 0 otherwise. We took SWE-rebench OpenHands trajectories, which were generated by Qwen3-Coder-480B. We use 10,000 of these trajectories for training and a held-out 1,000 for testing, plus 500 SWE-Bench Verified and 500 DA-Code trajectories used only for out-of-distribution evaluation. These trajectories are long-horizon: ∼65 agent turns and ∼54 thousands tokens of context on average. Across the training split this totals ∼0.54B context tokens for train-ing. Table 5 summarizes the splits and their base tool-call success rates, this rate is the positive-class prevalence the calibrator must handle.           
+
+> Table 5: Dataset splits and base tool-call success rate (Qwen3-Coder-480B): the fraction of action steps whose tool call executes without error (exit code 0). Its complement is the base per-call execution-error rate.
+> Dataset #Traj. #Calls Succ. %
+> SWE-rebench (train) 10,000 327,098 84.7 SWE-rebench (held-out) 1,000 32,585 84.7
+
+B.2 Draft-Model Training 
+
+We compare three regimes for each draft size. 
+
+No training uses the released Qwen3-4B check-point as-is. SFT fine-tunes the draft to repro-duce the agent’s trajectories with a standard next-token cross-entropy loss on the agent’s emitted to-kens. Teacher-forced (TF) distillation addition-ally aligns the draft’s full next-token distribution to the agent’s. We keep training-time and inference-time access separate: at inference SU is strictly black-box, reading only the agent’s realized output tokens, whereas draft training is a one-time offline step. Because the agent Qwen3-Coder-480B is 1 2 3 4       
+
+> Step index (each step unit width)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Mean entropy (nats)
+> Aggregated over all trajectories
+> mean ±1 SD
+> 00.25 0.5 (transition) 0.75 1
+> Normalized position in step generation
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Entropy of top-5 logprobs (nats)
+> Reasoning Tool call
+> Entropy profile: successful vs failed steps Qwen3-Coder-480B
+> successful step failed (non-zero exit / Traceback)
+
+Figure 2: Speculative entropy of agentic generations. Left: mean entropy aggregated over all steps—the per-step reasoning-to-action entropy drop is washed out and not visible. Right: entropy along a normalized step (reasoning 
+
+x < 0.5, action x > 0.5) for successful (navy) vs. failing (red) actions, revealing the sharp collapse at the transition. The failure signal appears in both phases with opposite sign, failures are more uncertain during reasoning, less so in the action span, which is why phase-aware features help. Bands show ±1σ over 500 training trajectories. 
+
+open-weight, we recover its logits in a single for-ward pass over the collected trajectories and distill the smaller draft against this full distribution. This soft-distribution supervision yields only marginal gains over realized-token SFT (Table 1), consis-tent with our finding (Section 4.4) that the training corpus matters more than the distillation objective. The fully closed Claude 3.5 Sonnet exposes no log-its and therefore cannot be TF-distilled; the draft used there is aligned by SFT on realized tokens alone. Table 6 shows hyperparameters, which were used for draft model training. 
+
+Table 6: Draft-model fine-tuning hyperparameters, held fixed across sizes. 
+
+Hyperparameter Value 
+
+Base model Qwen3-4B Optimizer AdamW ( β1=0 .9, β 2=0 .95 )Learning rate 1e-5 (cosine, 5% warmup) Weight decay 0.1 Gradient clipping 1.0 Epochs 2Effective batch size 32 sequences Max sequence length 32768 tokens Context extension YaRN Loss masking assistant tokens only Precision bf16 LoRA / full FT full fine-tuning 
+
+B.3 Calibrator Fitting 
+
+The calibrator is an ℓ1-regularized logistic regres-sion over the ϕ(Wi) ∈ R50 features of Appendix C. Features are standardized (zero mean, unit vari-ance) using statistics computed on the training split only, to avoid leakage into the OOD evaluations. The regularization strength λ is selected by 5-fold cross-validation on the SWE-rebench training split over the grid {10 −3, . . . , 10 1}, optimizing valida-tion AUROC; the selected value is then frozen for all test evaluations, including the zero-shot DA-Code transfer. 
+
+B.4 Compute and Latency 
+
+Table 7 reports the cost of each pipeline stage. The figure most relevant to deployment is the per-step draft latency, since it is the only overhead SU adds on the critical path: a single teacher-forced forward pass over the trajectory-so-far, with no generation. For the 4B draft model this is ≈100 ms per step on a single A100 GPU, against much larger latencies of agent model, so the gate’s overhead is a small fraction of a step. 
+
+Table 7: Compute budget by pipeline stage. Per-step latency is the only overhead on the agent’s critical path. 
+
+Stage Hardware Cost 
+
+Draft SFT/TF (4B) 4×A100 ∼50 GPU-h Calibrator fit 64 ×CPU <1 min Draft scoring (per step, 4B) 1×A100 ≈100 ms 
+
+C Feature Taxonomy 
+
+Table 8 enumerates all 50 features in ϕ(T ).The construction is deliberately uniform: for each of the two component types ( R = reasoning, 
+
+A = action) and each of the three speculative signals (s = surprisal, g = gap, H = entropy), we compute the same eight aggregate statistics over the corre-sponding token subset, giving 2 × 3 × 8 = 48 
+
+statistical features; the final two are the reasoning-and action-span lengths. The eight statistics are chosen to capture complementary aspects of a sig-nal’s distribution within a span : location (mean), spread (variance), extremes (max, min), asymme-try (skewness), drift (trend ∆ = μlast − μfirst ), and boundary behavior (mean over the first/last 10% of tokens). The boundary and trend statistics are what let a linear calibrator pick up the late action-span entropy uptick of Figure 2: that uptick raises 
+
+μlast and the trend ∆ specifically within the action component, while leaving the reasoning component untouched, which is only possible because the two components are featurized separately (Section 3.3). 
+
+Table 8: Feature taxonomy for ϕ(T ) ∈ R50 .

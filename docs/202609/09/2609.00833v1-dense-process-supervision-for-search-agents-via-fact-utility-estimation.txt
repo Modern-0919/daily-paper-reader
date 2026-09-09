@@ -1,0 +1,746 @@
+Title: Dense Process Supervision for Search Agents via Fact Utility Estimation
+
+URL Source: https://arxiv.org/pdf/2609.00833v1
+
+Published Time: Wed, 02 Sep 2026 00:53:37 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Dense Process Supervision for Search Agents via Fact Utility Estimation 
+
+Rongzhi Zhu 1,∗ Xiangyu Liu 1,∗ Yi Liu 1 Shuo Zhang 2 Ruirui Zhang 2
+
+Rui Wu 2 Tao Jiang 2 Zequn Sun 1,† Wenhao Xu 2 Wei Hu 1,31 State Key Laboratory for Novel Software Technology, Nanjing University, China  
+
+> 2
+
+Ant Group, China  
+
+> 3
+
+National Institute of Healthcare Data Science, Nanjing University, China 
+
+{rzzhu, xyl, yiliu07}.nju@gmail.com, {sunzq, whu}@nju.edu.cn {suzhang.zs, zhangruirui.zrr, guli.wr, tara.jt, hao.xuwh}@antgroup.com 
+
+Abstract 
+
+Reinforcement learning (RL) for search agents typically relies on outcome rewards. However, it often fails to achieve effective credit assign-ment, due to the unclear value of intermediate steps. It is hard to separate their contributions from the final result. In this paper, we propose a dense process supervision method based on fact utility estimation, which models the rea-soning process as the accumulation of discrete evidence facts. We first extract structured facts from raw observations and organize them into an explicit fact store. To support credit assign-ment, we then cluster semantically equivalent facts and infer the posterior utility of each fact cluster using Bayesian estimation over group rollouts. Finally, we convert the estimated fact utilities into dense step-level rewards to guide RL training. Experiments on seven single-hop and multi-hop QA benchmarks show that our method consistently outperforms existing base-lines. Ablation studies validate clear relative improvements on multi-hop QA compared to outcome reward-only training. 
+
+1 Introduction 
+
+Large language models (LLMs) have shown strong capabilities in reasoning and language understand-ing. However, applying LLMs to complex, real-world scenarios remains a challenge (Mialon et al., 2023; Phan et al., 2025). To bridge this gap, LLM agents have been introduced, which can call exter-nal tools (Yao et al., 2022; Schick et al., 2023), such as programming interpreters (Gao et al., 2023), mathematical solvers (Das et al., 2024), and re-trieval engines (Zong et al., 2024; Zhang et al., 2025), to solve problems that pure generation can-not handle. Notably, recent proprietary systems like Deep Research (Google, 2024; OpenAI, 2025; Team et al., 2025) have achieved remarkable suc-cess in autonomous information gathering. These 
+
+> *Equal contribution.
+> †Corresponding author.
+
+systems are able to quickly retrieve and analyze a large number of web resources, and generate in-depth reports for specific domains within a short time. Such tasks require strong agentic and tool-use abilities like planning and information extraction. Reinforcement learning (RL) has been proven to be an effective training strategy to enhance tool-use abilities (Jin et al., 2025; Feng et al., 2025). Most existing RL methods for reasoning and search-based agents rely on outcome-based supervision, where the agent is rewarded solely according to the correctness of the final answer (Chen et al., 2025; Sun et al., 2025). However, this signal is not only sparse and delayed, but also lacks fine granularity. Crucially, the contribution of a specific tool call is often implicit and context-dependent. A correct final answer does not imply that every retrieved evidence was necessary, nor does a failure invali-date all prior reasoning steps. As a result, it is hard to determine which intermediate actions are truly helpful, limiting the training effectiveness. To address this challenge, we propose a search agent training method, FactAgent, for dense pro-cess supervision via fact utility estimation. Our key idea is to represent intermediate evidence as struc-tured facts, estimate their utility from group roll-outs, and use these utilities to provide dense step-level rewards. FactAgent incorporates a fact store to explicitly maintain these structured facts. This design departs from standard ReAct agents (Yao et al., 2022), which rely on raw text history. In addition to the search and answer steps, we inte-grate an assert step to extract structured facts from retrieved observations and write them into the fact store. We treat these facts as discrete semantic units that influence the trajectory’s success. To enable credit assignment, we propose a Bayesian utility estimation method. We cluster semantically equiv-alent facts and estimate the posterior utility of each fact cluster with Bayesian estimation from group-level rollouts, capturing their statistical association arXiv:2609.00833v1 [cs.CL] 1 Sep 2026 with successful outcomes. This enables more pre-cise credit assignment to intermediate steps that uncover high-value evidence, guiding the agent to-ward more effective exploration. Our contributions are summarized as follows: • FactAgent framework. We introduce FactA-gent, a fact-centric search agent that extracts retrieved evidence into structured facts and organizes them in an explicit fact store. It replaces raw interaction history with a com-pact representation, effectively handling long contexts as interactions grow. • Bayesian-grounded dense process supervi-sion. Motivated by the view that the utility of an intermediate fact is implicit and only re-flected in final outcomes, we estimate the pos-terior utility of fact clusters from group-level rollout statistics. This yields dense process rewards directly from sparse outcome signals, without requiring external reward models. • Strong performance. FactAgent consistently outperforms baselines on seven QA bench-marks with Qwen2.5-3B-Instruct and -7B-Instruct backbones. With the 7B backbone, it achieves an average EM of 51.2, surpass-ing the strongest baseline by +3.2 EM. Abla-tions and further analyses show that our dense process supervision can particularly improve evidence precision and retrieval quality. 
+
+2 Related Work 
+
+2.1 RAG and Search-Based LLM Agents 
+
+Although LLMs are capable, their internal knowl-edge can be incomplete or outdated, which may cause factual errors (Mousavi et al., 2024). Retrieval-augmented generation (RAG) (Lewis et al., 2020) mitigates this issue by grounding gen-eration on an external corpus via retrieval. Early RAG often assumes a largely static knowledge base. Many works improve retrieval quality by intro-ducing graph structures and entity-level matching (Edge et al., 2024; Guo et al., 2024; Zhu et al., 2025). More recently, retrieval is increasingly treated as an on-demand tool that LLMs can call when needed (Zhao et al., 2025b). In this tool-use setting, the LLM is equipped with multiple tools (e.g., web search and browsing) and acts as a search agent (Zong et al., 2024; Li et al., 2025) that iteratively collects and synthesizes evidence, as ex-plored in recent multi-agent frameworks (Zhang et al., 2025; Hong et al., 2023) and deep-research style systems (OpenAI, 2025; Google, 2024; Hu et al., 2025). Several benchmarks evaluate multi-step retrieval and reasoning (Mialon et al., 2023; Phan et al., 2025; Wei et al., 2025). These bench-marks also show that planning and optimizing multi-step search remains challenging. Beyond retrieval quality, prior work has also examined whether retrieved evidence appropriately and suf-ficiently supports the generated answer through fine-grained citation evaluation (Zhao et al., 2024). 
+
+2.2 RL for Search Agents 
+
+Recent advancements leverage RL to evolve LLMs into autonomous search agents capable of inter-acting with dynamic environments (Zheng et al., 2025; Wu et al., 2025a; Tao et al., 2025; Sun et al., 2025). Many methods jointly optimize reasoning and search. Search-R1 (Jin et al., 2025) and Re-Search (Chen et al., 2025) model search actions as part of the reasoning trajectory and apply group relative policy optimization (GRPO) with sparse outcome rewards. RL is also used to support long-horizon information seeking by improving memory management. MemSearcher (Yuan et al., 2025) and MEM1 (Zhou et al., 2025) maintain a com-pact memory state that is updated over time, while Memory-R1 (Yan et al., 2025) treats memory oper-ations (e.g., ADD, DELETE) as learnable actions. ReSum (Wu et al., 2025b) extends search beyond the context window by summarizing intermediate states. Recent works have explored process-level supervision to tackle the credit assignment chal-lenge. AutoRefine (Shi et al., 2025) uses retrieval-specific rewards, and GIGPO (Feng et al., 2025) computes step-level advantages by clustering the same intermediate states. In contrast, our method performs clustering over extracted factual units rather than raw agent states, deriving dense intrin-sic supervision directly from rollout statistics. 
+
+3 Preliminaries 
+
+Problem formulation. We model the multi-turn reasoning of an LLM agent as a Markov Decision Process (MDP) ⟨S , A, P, R⟩ . Given an original question Q, at step t the agent observes ot (e.g., retrieved text) and maintains an explicit knowledge state Ft. We define the state st = ( Q, o t, Ft). Un-like other agents that primarily rely on unstructured history as implicit memory, we use Ft as a compact and interpretable representation of accumulated ev-Question: 𝑄            
+
+> Trace 𝜏 !
+> Trace 𝜏 "
+> Trace 𝜏 #
+> “A born in New York” “A is NY born” “A’s origin: New York City” “B’s origin: CA” “B born in California”
+> GRPO Trajectories (Group) Triple Clustering
+> 𝑃 𝐶 $=𝑆 𝐶 $+ 𝜖 𝑁 𝐶 $+ 2𝜖 +𝑃 %&'() = 1𝐺 .
+> *+! ,
+> 𝑅(𝜏 *)𝑉 𝐶 $= 𝑃 𝐶 $− + 𝑃 %&'()
+> Cluster Value Calculation
+
+(b) Triple Semantic Clustering & Value Calculation 
+
+Process Advantage & Credit Assignment 
+
+> potential  Φ
+
+Potential Function Φ! = tanh(∑ 𝑉(𝐶 ")) 
+
+Time Steps(t) t
+
+> ΔΦ -
+> (Incremental Process Adv.)
+
+(c) Potential-based Credit Assignment Mechanism 
+
+𝐴 (𝑠 !,𝑎 ! =ASSERT) 
+
+> 80% to Assert Adv.
+
+𝐴 (𝑠 !#" ,𝑎 !#" =SEARCH) 
+
+> 20% Back-prop to Prev. Search Adv.
+
+Total Step Adv. 𝑨 𝒔, 𝒂 = 𝑨 𝑶𝒖𝒕 𝝉 + 𝝎 ∗ [Assigned Process Adv.] 
+
+GRPO Rollout & Trace Generation 
+
+(a) Rollout & Trace Generation            
+
+> GRPO Trace Sampling
+> a!!= SEARCH a!"= SEARCH a!#= SEARCH
+> Answer Answer Answer ASSERT [Subj, Rel, Obj] ASSERT [Subj, Rel, Obj] ASSERT [Subj, Rel, Obj] ASSERT [Subj, Rel, Obj] ASSERT [Subj, Rel, Obj] Outcome
+> Adv. 𝐴 1(-(𝜏 !)
+> Outcome
+> Adv. 𝐴 1(-(𝜏 ")
+> Outcome
+> Adv. 𝐴 1(-(𝜏 #)a""= SEARCH
+> “B’s origin:CA” Search “A born in New York City”
+> 𝝉 𝟏
+> 𝝉 𝟐
+> Search “A born in New York” “A’s origin: New York City”
+> 𝝉 𝒋
+> …“A originates from New York City”… …“A born in NY”…“B’s origin is CA”… …“A is NY born” … “B born in CA”…
+> Search “A is NY born” “B’s origin: California”
+> 𝝉 𝒌 …“B born in Califonia”…
+> Search “B born in City of CA” “A originates from California City” “B born in City of CA”
+
+Figure 1: Framework overview. (a) Group rollouts with Assert actions populate the fact store. (b) Facts are clustered for Bayesian utility estimation. (c) Utilities are converted into dense rewards for fine-grained credit assignment. 
+
+idence updated throughout the trajectory. 
+
+Fact store representation. Each entry in Ft con-sists of structured facts derived from observations, paired with a short description to summarize the source and reliability. We write e ∈ F t for a seman-tic fact unit, and denote the newly asserted facts at step t by Kt. As detailed in Section 4, we treat these units not merely as text strings, but as dis-crete semantic variables that serve as explicit units of evidence extracted from the observation. 
+
+Actions and transition. The action space A con-tains three actions: (i) search , which generates a query and receives a new observation; (ii) assert ,which distills the unstructured observation into structured triples and updates the explicit fact store; and (iii) answer , which terminates the episode and outputs the final response. The state transition P
+
+is defined mainly based on the symbolic update of the fact store: after an assert action, the fact store updates as Ft+1 = Ft ∪ K t, representing the acquisition of new semantic evidence units. 
+
+Training. The objective is to maximize expected outcome rewards: max π Eτ ∼π [Routcome (τ )] . In practice, Routcome is sparse and only observed at the end of trajectories, making direct optimization difficult. As a result, recent search agents adopt GRPO to optimize a surrogate objective defined over groups of sampled trajectories. Specifically, given a group of rollouts {τi}Gi=1 generated under the current policy, GRPO updates the policy by maximizing a relative advantage objective: 
+
+LGRPO (π) = Eq∼D ,{τi}∼ π
+
+
+
+> 1
+> GG
+
+P
+
+> i=1 1
+> |τi|
+
+P
+
+> tπ
+
+(ait|sit)
+
+> πold
+
+(ait|sit) Ai
+
+
+
+, (1) where Ai = R(τi)−μσ is the advantage normalized by the group mean μ and standard deviation σ.While outcome supervision provides a global sig-nal, it obscures individual contributions, making it difficult to identify necessary steps. To address this limitation, we introduce dense process supervision by constructing informative step-level signals for credit assignment and advantage estimation under GRPO, as described in Section 4. 
+
+4 Methodology 
+
+4.1 FactAgent Framework 
+
+To support dense supervision and credit assignment, we propose FactAgent. Standard ReAct agents rely on the full interaction history, which leads to rapid context growth and limits reasoning depth. Instead of using such raw text history, we maintain a persis-tent fact store F as the working memory. During interaction, the agent sees the original question Q,the current fact store F, and only the most recent observation ot. This keeps the prompt length ap-proximately constant across steps while allowing the agent to reason over structured evidence. At each step t, the agent observes the current state and selects one action from the following three types: 1. Search (information seeking). When exter-nal information is needed, the agent issues a query. The environment returns an observa-tion ot. Crucially, we overwrite the previous observation in the prompt with ot. This en-sures the input context size remains constant regardless of the trajectory length. 2. Assert (information distillation). Given ot,the agent extracts a small set of structured triples and adds them into the fact store as Kt.Each Kt also includes a short textual descrip-tion to verbalize the triples. 3. Answer (termination). Once the information is enough to answer the question, the agent produces the final answer based on Q and F,without relying on long raw histories. From the lens of partial information, Ft provides an explicit and compact representation of the ev-idence accumulated so far. We formally prove in Appendix A that the fact store serves as a suffi-cient statistic of the interaction history, ensuring the Markov property of the fact-centric state tran-sitions and the preservation of policy optimality. This structure not only allows the agent to perform multi-step reasoning efficiently under strict context length constraints, but also enables intermediate supervision on fact store updates. 
+
+4.2 Dense Process Rewards via Fact Utility Estimation 
+
+We propose a strategy for deriving dense process-level rewards from sparse outcome signals under the GRPO setting. To tackle the credit assignment challenge in complex reasoning, we reframe the problem as a Bayesian estimation task. Specifi-cally, we aggregate semantically related reasoning facts to enable stable advantage estimation. The resulting cluster-level fact utilities are then trans-formed into dense process rewards via potential-based shaping, ensuring policy invariance while providing fine-grained supervision. 
+
+Reasoning trajectories and semantic facts. 
+
+Given a query q, a policy πθ generates a reason-ing trajectory τ = ( a1, s 1), (a2, s 2), . . . , (aT , s T ),
+
+which terminates with a binary outcome reward 
+
+R(τ ) ∈ { 0, 1} indicating the correctness of the final answer. We assume that each trajectory in-duces a set of discrete semantic facts extracted from the agent’s explicit belief state (fact store): 
+
+F(τ ) = {f1, f 2, . . . , f L}, where each fj repre-sents a fact. These facts serve as a structured sum-mary of the agent’s intermediate knowledge. The optimization objective is to maximize the expected terminal reward Eτ ∼πθ [R(τ )] . However, this terminal-only signal provides no direct super-vision for intermediate decisions, leading to severe credit assignment challenges. Ideally, one would like to quantify the contribution of each fact f via 
+
+v(f ) ≈ Pr( R = 1 | f ∈ F (τ )) , (2) but such estimation is infeasible in practice due to the extreme sparsity and high dimensionality of the space of natural language facts. In typical GRPO group rollouts, most individual facts appear only once or not at all, making fact-level empirical estimates statistically unreliable. 
+
+Semantic abstraction of reasoning facts. To address the sparsity issue, we aggregate seman-tically equivalent facts into clusters. Let C =
+
+{C1, . . . , C M } denote a partition of the discovered fact space, where each cluster represents a distinct semantic concept (e.g., grouping “A was born in B” and “A originates from B”). We employ a two-stage strategy to determine if two facts are semantically equivalent ( fi ∼ fj ): first via coarse-grained em-bedding similarity, followed by fine-grained logical rule verification which enforces constraints such as negation consistency, exact numeric matching, and relation-level similarity, to prevent spurious merges (detailed in Appendix C). Formally, each cluster 
+
+Ck is defined as an equivalence class: 
+
+Ck = {f ∈ F (τ ) | f ∼ frep }, (3) where frep ∈ Ck is a representative fact. Instead of estimating utility for a rare isolated fact f , we estimate it for the semantic cluster Ck containing 
+
+f . This shares statistical strength across facts. 
+
+Bayesian estimation of cluster-level fact utility. 
+
+We aim to estimate the utility of each cluster Ck,denoted as a latent success probability θk. Intu-itively, θk represents the likelihood that a trajectory leads to a correct answer, given that its extracted facts overlap with the semantic concept Ck:
+
+θk = Pr( R = 1 | F (τ ) ∩ Ck̸ = ∅). (4) However, in GRPO, the group size G is typically small (e.g., G ∈ [4 , 16] ). In such small-sample regimes, simply calculating the empirical win rate yields high-variance estimates, where a single co-incidental success could skew the probability to extreme values. To enable robust estimation under this data sparsity, we adopt a Bayesian formulation by placing a symmetric Beta prior on each cluster 
+
+θk ∼ Beta (ϵ, ϵ ), (5) where ϵ > 0 controls prior smoothing. Given a GRPO group of trajectories, let N (Ck)
+
+denote the number of trajectories where cluster Ck
+
+is present, and S(Ck) the number of those trajecto-ries with R = 1 . Under a Bernoulli likelihood for 
+
+R conditioned on the presence of Ck, the posterior distribution of θk is           
+
+> θk|S(Ck), N (Ck)∼Beta (S(Ck) + ϵ, N (Ck)−S(Ck) + ϵ).
+
+(6) We use the posterior mean as a stable estimate: 
+
+P (Ck) = E[θk | S(Ck), N (Ck)] = S(Ck )+ ϵN (Ck )+2 ϵ . (7) 
+
+Relative utility and GRPO advantage approx-imation. In GRPO, optimization depends on rel-ative performance within a sampled group rather than absolute success probabilities. Let 
+
+¯Pgroup = 1
+
+G
+
+> G
+
+X
+
+> i=1
+
+R(τi) (8) denote the empirical success rate of the current group. We define the relative utility of cluster Ck:
+
+V (Ck) = P (Ck) − ¯Pgroup . (9) This quantity represents the posterior gain over the group baseline, serving as a cluster-level proxy for the advantage function. A positive value in-dicates that the presence of Ck is associated with above-average success, while a negative value sug-gests correlation with failure. Centering by the group mean also stabilizes optimization and aligns naturally with GRPO’s relative policy updates. 
+
+Process reward via potential-based shaping. To transform static cluster utilities into dense, step-wise feedback, we adopt Potential-Based Reward Shaping (PBRS), which preserves policy optimal-ity. Let Ut = {Ck ∈ C | Ck ∩ F (st)̸ = ∅} denote the set of unique semantic clusters covered by the facts in the fact store at step t. The potential func-tion over partial states is defined as 
+
+Φ( st) = tanh 
+
+ X 
+
+> C∈U t
+
+V (C)
+
+
+
+. (10) Using only unique clusters prevents reward hack-ing through redundant or paraphrased fact asser-tions. The tanh nonlinearity bounds the potential, improving training stability. The raw shape reward at step t is then 
+
+rshape  
+
+> t
+
+= ∆Φ t = Φ( st) − Φ( st−1). (11) This reward is non-zero only when new semantic information is acquired, providing immediate feed-back for informative steps while staying consistent with the original sparse-reward objective. 
+
+Credit assignment between search and assert actions. Although potential gains materialize at as-sert steps, the correctness of an assertion is causally dependent on prior search actions that retrieved rel-evant evidence. To address this temporal lag, we redistribute the reward. Let t be an assert step and 
+
+t′ < t be the specific SEARCH step that yielded the asserted fact. Let α ∈ [0 , 1] denote the attribution coefficient. The process rewards are assigned as 
+
+rproc  
+
+> t
+
+= (1 − α) rshape  
+
+> t
+
+, rproc  
+
+> t′
+
+= α r shape  
+
+> t
+
+. (12) This mechanism explicitly encourages the policy to generate high-quality search queries that lead to valuable knowledge acquisition. 
+
+Auxiliary process penalties. Finally, we add aux-iliary step-level penalties to discourage invalid or degenerate behaviors, including: (1) format vio-lations, (2) repetitive searches, and (3) premature answers with an empty fact store. In the last case, we additionally enforce a hard constraint by setting the terminal reward R(τ ) = 0 , ensuring that cor-rect answers must be grounded in explicit evidence. 
+
+4.3 RL Training 
+
+We employ GRPO as our training backbone. Un-like standard proximal policy methods that require a separate value network, GRPO estimates the base-line using the group mean, significantly reducing memory overhead. Unlike ReAct agents that op-timize over a single growing prompt, our agent operates on step-specific state contexts constructed from the current fact store. Consequently, we per-form optimization at the action level: each decision 
+
+ai,j is conditioned on a compact state si,j and is up-dated via policy gradients weighted by its specific hybrid advantage Atotal  
+
+> i,j
+
+.
+
+Advantage composition. We first compute the outcome advantage for each trajectory. Let 
+
+Routcome (τi) be the reward derived from the final result of trajectory τi. We normalize this reward against the group statistics to obtain the outcome advantage Aoutcome  
+
+> i
+
+:
+
+Aoutcome  
+
+> i
+
+= Routcome (τi)−Mean ({Routcome (τk )}Gk=1 )  
+
+> Std ({Routcome (τk)}Gk=1 )+ η
+
+.
+
+(13) This global signal is then broadcast to all actions within the trajectory. The total advantage for the 
+
+j-th action in the i-th trajectory, denoted as Atotal  
+
+> i,j
+
+,is computed by augmenting this global signal with the process advantage from the previous section. Specifically, we directly utilize the redistributed process reward rproc  
+
+> i,j
+
+as the process advantage term: 
+
+Atotal  
+
+> i,j
+
+= Aoutcome  
+
+> i
+
++ Ω · rproc  
+
+> i,j
+
+, (14) where Ω is a coefficient balancing the impact of lo-cal process supervision against the global objective. We use Ω = 0 .5 by default and report a sensitiv-ity study in Appendix F. Since rproc  
+
+> i,j
+
+represents a difference in value potentials ( ∆Φ ), it intrinsically serves as a proxy for the step-wise value improve-ment, justifying its use as a local advantage signal. 
+
+Optimization objective. Since our trajectories consist of multiple discrete steps under iteratively updating fact store contexts, we define the opti-mization objective by aggregating gradients over all individual actions across the group. Let ni be the number of steps in trajectory τi, and si,j denote the state at step j (comprising the user query and the current fact store). The policy πθ is optimized by maximizing the following objective:             
+
+> J(θ) = Eq∼D ,{τi}∼ πθold
+> 1
+> P
+> iniGX
+> i=1
+> niX
+> j=1
+> 
+> Lclip
+> i,j (θ)
+> −βDKL
+>  πθ(· | si,j )∥πref (· | si,j )
+> ,
+
+(15) where β controls the KL divergence penalty to pre-vent the policy from deviating excessively from the reference model πref . The step-wise clipped surrogate loss, denoted by Lclip  
+
+> i,j
+
+(θ), is defined as:           
+
+> Lclip
+> i,j (θ) = min
+> 
+> ρi,j Atotal
+> i,j ,clip (ρi,j ,1−ϵclip ,1 + ϵclip )Atotal
+> i,j
+> 
+> ,
+
+(16) where ρi,j = πθ (ai,j |si,j )    
+
+> πθold (ai,j |si,j )
+
+denotes the importance sampling ratio. This formulation ensures that ev-ery reasoning step contributes to the policy update, weighted by its specific hybrid advantage Atotal  
+
+> i,j
+
+.
+
+5 Experiment 
+
+5.1 Experiment Setups Datasets and metrics. Following Search-R1 (Jin et al., 2025), we evaluate our method on seven QA benchmarks, covering both single-hop and multi-hop settings. The single-hop QA datasets include Natural Questions (NQ) (Kwiatkowski et al., 2019), TriviaQA (Joshi et al., 2017), and PopQA (Mallen et al., 2022). The multi-hop QA datasets include HotpotQA (Yang et al., 2018), 2WikiMultiHopQA (2Wiki) (Ho et al., 2020), MuSiQue (Trivedi et al., 2022), and Bamboogle (Press et al., 2023). More details can refer to Appendix B.2. We report the weighted average EM over all datasets, computed as the total number of exact matches divided by the total number of questions. 
+
+Baselines. To isolate the effect of RL optimiza-tion, we evaluate our method before RL train-ing and compare our method against two groups of baselines: (1) retrieval-based methods without RL training, such as Naive RAG (Lewis et al., 2020); and (2) retrieval-based methods with RL training, including Search-R1 (Jin et al., 2025), ReSearch (Chen et al., 2025), AutoRefine (Shi et al., 2025), GiGPO (Feng et al., 2025), and Ze-rosearch (Sun et al., 2025). Notably, Zerosearch and ReSearch rely on Google Search, while all other methods (including ours) retrieve from a lo-cal Wiki-18 index following Search-R1. 
+
+Implementation. We train and evaluate our method on Qwen2.5-7B-Instruct and Qwen2.5-3B-Instruct. We adopt the E5 embedding model (Wang et al., 2022) as the dense retriever. We perform RL training based on verl (Sheng et al., 2025). Fol-lowing Search-R1, we construct the training set by merging the training splits of NQ and HotpotQA. We set the smoothing parameter ϵ = 0 .5, the return coefficient α = 0 .2, and the aggregation weight 
+
+Ω = 0 .5. The agent is allowed to run at most 8 rounds per question (including the answer action). The outcome reward is defined as the answer-level F1 score. Additional details are in Appendix B. 
+
+5.2 Main Results 
+
+Table 1 reports the EM results on seven QA bench-marks. Overall, our method with RL achieves the best weighted average performance among all base-lines on both Qwen2.5-3B-Instruct and Qwen2.5-7B-Instruct. With the 7B backbone, our method surpasses the strongest baseline by +3.2 EM on average. Notably, the performance gap is more Backbone Method Single-Hop QA Multi-Hop QA Avg. NQ TriviaQA PopQA HotpotQA 2Wiki MuSiQue Bamboogle                                                                                                                         
+
+> 3B RAG 34.8 54.4 38.7 25.5 22.6 4.7 8.0 34.4 Search-R1 34.1 54.5 37.8 32.4 31.9 10.3 26.4 37.7 Zerosearch 41.4 57.4 44.8 27.4 30.0 9.8 11.1 39.5 GiGPO 42.0 59.5 42.4 36.9 37.0 12.6 64.1 42.7 ReSearch 20.4 33.5 17.3 35.6 39.3 17.3 37.6 29.1 AutoRefine 43.6 59.7 44.7 40.4 38.0 16.9 33.6 44.3 FactAgent (w/o RL) 22.1 41.1 20.1 26.1 23.3 4.3 18.4 25.7 FactAgent (w/ RL) 43.9 60.3 42.3 42.6 43.1 16.9 32.8 45.4
+> 7B RAG 34.9 58.5 39.2 29.9 23.5 5.8 20.8 36.4 Search-R1 39.3 61.0 39.7 37.0 41.4 14.6 36.8 43.2 Zerosearch 43.6 65.2 48.8 34.6 35.2 18.4 27.8 45.2 GiGPO 46.4 64.7 46.1 41.6 43.6 18.9 68.9 47.7 ReSearch 40.9 63.7 44.6 43.5 47.6 22.3 42.4 48.0 FactAgent (w/o RL) 33.0 55.1 36.7 29.2 23.8 9.1 20.8 34.9 FactAgent (w/ RL) 46.3 69.4 46.7 44.6 51.5 19.4 44.0 51.2
+
+Table 1: Performance comparison on single-hop and multi-hop QA datasets with Qwen2.5-Instruct backbones. 
+
+significant on multi-hop datasets (e.g., HotpotQA, 2Wiki) than on single-hop tasks. This confirms that our dense process supervision effectively guides the LLM through complex reasoning chains, where sparse outcome rewards often fail. We observe sim-ilar improvements on the 3B backbone, indicating that our method is effective across different model sizes and does not require strong backbone. It is also worth noting that two strong baselines, Zerosearch and ReSearch, rely on Google Search to access real-time web information, whereas Fac-tAgent retrieves exclusively from a local Wiki-18 index. Despite operating under this more restricted retrieval setting, our approach still achieves supe-rior overall performance, suggesting that it can more effectively identify and utilize relevant in-formation from limited retrieval results. We also evaluate our method before RL training to assess the impact of RL optimization. As shown in Table 1, the model without RL performs poorly and even underperforms a simple one-shot RAG baseline, particularly on the 3B backbone. This is expected, as the LLM has not yet adapted to the spe-cialized “Search–Assert–Answer” workflow. After RL training, performance improves substantially and becomes state-of-the-art. This highlights that RL is essential for grounding the agent’s behavior in the proposed fact-centric reasoning process. Since Qwen2.5-3B-Instruct and Qwen2.5-7B-Instruct exhibit similar trends, we conduct analysis on Qwen2.5-7B-Instruct for clarity and brevity.                
+
+> Variant Single-Hop Multi-Hop Avg.
+> FactAgent (w/ RL) 55.5 45.8 51.2 w/ EM-only clustering 52.4 44.4 48.9 w/o reward redistribution 50.6 38.7 45.4 w/o dense process reward 47.5 31.4 40.5
+
+Table 2: Ablation study on Qwen2.5-7B-Instruct. 
+
+5.3 Analysis Ablation study. We conduct an ablation study to examine the effect of several key design choices, including back-propagation, dense process reward, and EM-only clustering. As shown in Table 2, removing these components consistently hurts per-formance, especially on multi-hop datasets. We first consider the effect of fact clustering. When restricting clustering to exact-match facts, performance decreases across all settings, with the average EM dropping from 51.2 to 48.9, indicating the importance of our clustering design across both single-hop and multi-hop tasks. Due to the inherent diversity in model-generated facts, semantically equivalent facts may differ in surface form, making exact-match clustering insufficient for grouping them and leading to incomplete fact aggregation and weaker utility estimation. Next, we remove reward redistribution and ob-serve a clear performance decrease on. The overall average drops from 51.2 to 45.4, with a larger re-duction on multi-hop datasets than on single-hop datasets. This indicates that propagating fact-level utility signals back to earlier retrieval steps is im-2 4 6 8
+
+> Turn
+> 0500 1000 1500 2000 2500 3000 3500 4000
+> Input Tokens
+> Observation (ReAct) Observation (Ours) Fact-Store (Ours)
+
+(a) Input token composition across turns. 100 200 300 400 500  
+
+> Step
+> 0.22 0.24 0.26 0.28 0.30 0.32
+> Triple Recall Mean
+> Ours Outcome Reward GRPO
+
+(b) Fact coverage over training. 100 200 300 400 500  
+
+> Step
+> 0.46 0.48 0.50 0.52 0.54 0.56 0.58
+> Outcome Reward
+> Ours Ours w/SFT
+
+(c) Cold-start RL training dynamics. 
+
+Figure 2: Analysis of dense process supervision. (a) Input token composition comparison between ReAct and FactAgent. (b) Fact coverage measured by the recall of reference triples improves over training. (c) Cold-start training curves show faster and more stable learning with dense process supervision. 
+
+portant for learning effective search strategies, espe-cially when multiple evidence must be combined. Finally, we remove dense process-level rewards and train the agent using only the final outcome reward under GRPO. This results in the largest per-formance degradation among all ablations. The results demonstrate that dense process supervision is a central component of our method. It provides essential credit assignment signals that cannot be recovered from outcome-only rewards, especially under settings with restricted input and retrieval budgets. Without dense process rewards, the agent fails to learn effective intermediate behaviors, par-ticularly for challenging multi-hop queries. 
+
+Efficiency analysis. To analyze input efficiency, we evaluate the trained model under the standard ReAct framework and record the average input length at different turns. We compare this with FactAgent under the same maximum number of ac-tions. As shown in Figure 2a, ReAct accumulates the full interaction history in the prompt, leading to an approximately linear growth in input length. At the 8th turn, the input length under ReAct is nearly four times larger than that of FactAgent. In contrast, our method maintains a compact input by storing only extracted evidence in the fact store. This efficiency offers two key advantages. First, it significantly reduces the computational cost of inference, as the LLM processes far fewer tokens at later steps. Second, it allows the agent to con-duct extensive multi-turn searches without quickly reaching the context window limit of the back-bone. This demonstrates that our fact store design is highly scalable for complex reasoning tasks that require multiple rounds of information gathering. 
+
+Fact coverage over training. To verify whether our method indeed extracts useful facts, we con-duct an analysis on the HotpotQA distractor setting. This variant provides supporting contexts relevant to the answer. We use GPT-OSS-120B to extract reference triples from the provided contexts. We then track the recall of reference facts within the agent’s fact store throughout the training process. As shown in Figure 2b, the two methods exhibit dis-tinct learning dynamics. Our method demonstrates a steady improvement in fact coverage, increasing the recall by nearly 40% relative to the initial stage. This indicates that the dense process rewards suc-cessfully reinforce the specific action of “asserting” relevant information. In contrast, the outcome-only GRPO baseline fails to show a clear upward trend. This reveals the ambiguity of sparse outcome re-wards. Since the reward depends solely on the final answer, the agent gets the same signal whether it actively stores facts or skips the step. Hence, the agent fails to establish a causal link between the assert action and the final success. 
+
+5.4 Effect of SFT Cold Start 
+
+Supervised fine-tuning (SFT) cold start is com-monly used before RL to bootstrap basic capabil-ities and enforce output formats, especially when the action space involves structured tool calls. In our setting, however, we find that SFT cold start does not improve the final performance ceiling. Al-though it changes early training dynamics, both cold-started and direct RL reach comparable final EM (Figure 2c). Meanwhile, direct RL from the base model can occasionally collapse at certain training steps, after which the LLM outputs gar-bled and non-executable JSON actions. We never observe this failure when training from the cold-started policy. Overall, these results suggest that cold start mainly serves as a stabilizer that anchors the policy to valid Search–Assert–Answer formats, rather than improving final task performance. De-tailed setup and results are provided in Appendix D. 6 Conclusion and Future Work 
+
+In this paper, we address the credit assignment challenge for search-based agents by proposing a dense process supervision method. Instead of treat-ing history as unstructured text, our method orga-nizes retrieved evidence into an explicit fact store, clusters semantically equivalent facts via Bayesian estimation, and converts these utilities into step-level rewards. Experiments show that FactAgent consistently outperforms baselines, with significant gains on multi-hop reasoning tasks. Future work can extend dense process supervision to richer fact representations and continuous utility signals. 
+
+Ethical Considerations 
+
+The datasets and LLMs used in this work are public with permissive licenses. 
+
+Limitations 
+
+Despite these advancements, our method has sev-eral limitations. First, recovering interaction con-texts to compute step-level updates increases GPU memory consumption compared to outcome-only baselines. Second, the accuracy of our utility es-timation relies on the quality of the clustering al-gorithm and the sufficiency of GRPO rollouts. Fi-nally, our evaluation is currently confined to static QA datasets; extending our FactAgent to dynamic, open-ended agentic tasks, e.g., GAIA (Mialon et al., 2023), remains a direction for future work. 
+
+Acknowledgments 
+
+This work was supported by National Natural Sci-ence Foundation of China (Nos. 62676187 and 62406136), Natural Science Foundation of Jiangsu Province (No. BK20241246), and Ant Group. 
+
+References 
+
+Mingyang Chen, Linzhuang Sun, Tianpeng Li, Haoze Sun, Yijie Zhou, Chenzheng Zhu, Haofen Wang, Jeff Z Pan, Wen Zhang, Huajun Chen, and 1 oth-ers. 2025. Learning to reason with search for LLMs via reinforcement learning. CoRR , abs/2503.19470. Debrup Das, Debopriyo Banerjee, Somak Aditya, and Ashish Kulkarni. 2024. MATHSENSEI: a tool-augmented large language model for mathematical reasoning. CoRR , abs/2402.17231. Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert Osazuwa Ness, and Jonathan Larson. 2024. From local to global: A graph RAG approach to query-focused summariza-tion. CoRR , abs/2404.16130. Lang Feng, Zhenghai Xue, Tingcong Liu, and Bo An. 2025. Group-in-group policy optimization for LLM agent training. CoRR , abs/2505.10978. Luyu Gao, Aman Madaan, Shuyan Zhou, Uri Alon, Pengfei Liu, Yiming Yang, Jamie Callan, and Gra-ham Neubig. 2023. PAL: Program-aided language models. In International Conference on Machine Learning , pages 10764–10799. Google. 2024. Gemini deep research — your personal research assistant. Accessed: 2025-03. Zirui Guo, Lianghao Xia, Yanhua Yu, Tu Ao, and Chao Huang. 2024. LightRAG: Simple and fast retrieval-augmented generation. CoRR , abs/2410.05779. Xanh Ho, Anh-Khoa Duong Nguyen, Saku Sugawara, and Akiko Aizawa. 2020. Constructing a multi-hop qa dataset for comprehensive evaluation of reasoning steps. CoRR , abs/2011.01060. Sirui Hong, Mingchen Zhuge, Jonathan Chen, Xiawu Zheng, Yuheng Cheng, Jinlin Wang, Ceyao Zhang, Zili Wang, Steven Ka Shing Yau, Zijuan Lin, and 1 others. 2023. MetaGPT: Meta programming for a multi-agent collaborative framework. In Interna-tional Conference on Learning Representations .Chen Hu, Haikuo Du, Heng Wang, Lin Lin, Mingrui Chen, Peng Liu, Ruihang Miao, Tianchi Yue, Wang You, Wei Ji, and 1 others. 2025. Step-DeepResearch technical report. CoRR , abs/2512.20491. Bowen Jin, Hansi Zeng, Zhenrui Yue, Jinsung Yoon, Sercan Arik, Dong Wang, Hamed Zamani, and Jiawei Han. 2025. Search-R1: Training LLMs to reason and leverage search engines with reinforcement learning. 
+
+CoRR , abs/2503.09516. Mandar Joshi, Eunsol Choi, Daniel S Weld, and Luke Zettlemoyer. 2017. TriviaQA: A large scale distantly supervised challenge dataset for reading comprehen-sion. CoRR , abs/1705.03551. Amirhossein Kazemnejad, Milad Aghajohari, Eva Portelance, Alessandro Sordoni, Siva Reddy, Aaron Courville, and Nicolas Le Roux. 2024. Vineppo: Re-fining credit assignment in rl training of llms. arXiv preprint arXiv:2410.01679 .Tom Kwiatkowski, Jennimaria Palomaki, Olivia Red-field, Michael Collins, Ankur Parikh, Chris Alberti, Danielle Epstein, Illia Polosukhin, Jacob Devlin, Ken-ton Lee, and 1 others. 2019. Natural questions: a benchmark for question answering research. Trans-actions of the Association for Computational Linguis-tics , 7:453–466. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Hein-rich Küttler, Mike Lewis, Wen tau Yih, Tim Rock-täschel, and 1 others. 2020. Retrieval-augmented generation for knowledge-intensive NLP tasks. Ad-vances in neural information processing systems ,33:9459–9474. Xiaoxi Li, Guanting Dong, Jiajie Jin, Yuyao Zhang, Yujia Zhou, Yutao Zhu, Peitian Zhang, and Zhicheng Dou. 2025. Search-o1: Agentic search-enhanced large reasoning models. CoRR , abs/2501.05366. Alex Mallen, Akari Asai, Victor Zhong, Rajarshi Das, Hannaneh Hajishirzi, and Daniel Khashabi. 2022. When not to trust language models: Investigating effectiveness and limitations of parametric and non-parametric memories. CoRR , abs/2212.10511. Grégoire Mialon, Clémentine Fourrier, Thomas Wolf, Yann LeCun, and Thomas Scialom. 2023. GAIA: a benchmark for general ai assistants. In International Conference on Learning Representations .Seyed Mahed Mousavi, Simone Alghisi, and Giuseppe Riccardi. 2024. Is your LLM outdated? benchmark-ing LLMs & alignment algorithms for time-sensitive knowledge. CoRR , abs/2404.08700. OpenAI. 2025. Introducing deep research. Accessed: 2025-02. Long Phan, Alice Gatti, Ziwen Han, Nathaniel Li, Josephina Hu, Hugh Zhang, Chen Bo Calvin Zhang, Mohamed Shaaban, John Ling, Sean Shi, and 1 others. 2025. Humanity’s last exam. CoRR ,abs/2501.14249. Ofir Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah A Smith, and Mike Lewis. 2023. Measuring and narrowing the compositionality gap in language models. In Findings of the Association for Computa-tional Linguistics: EMNLP 2023 , pages 5687–5711. Timo Schick, Jane Dwivedi-Yu, Roberto Dessì, Roberta Raileanu, Maria Lomeli, Eric Hambro, Luke Zettle-moyer, Nicola Cancedda, and Thomas Scialom. 2023. ToolFormer: Language models can teach themselves to use tools. Advances in Neural Information Pro-cessing Systems , 36:68539–68551. Guangming Sheng, Chi Zhang, Zilingfeng Ye, Xibin Wu, Wang Zhang, Ru Zhang, Yanghua Peng, Haibin Lin, and Chuan Wu. 2025. HybridFlow: A flexible and efficient RLHF framework. In European Confer-ence on Computer Systems , pages 1279–1297. Yaorui Shi, Sihang Li, Chang Wu, Zhiyuan Liu, Jun-feng Fang, Hengxing Cai, An Zhang, and Xiang Wang. 2025. Search and refine during think: Au-tonomous retrieval-augmented reasoning of LLMs. 
+
+CoRR , abs/2505.11277. Hao Sun, Zile Qiao, Jiayan Guo, Xuanbo Fan, Yingyan Hou, Yong Jiang, Pengjun Xie, Yan Zhang, Fei Huang, and Jingren Zhou. 2025. Zerosearch: Incen-tivize the search capability of LLMs without search-ing. CoRR , abs/2505.04588. Zhengwei Tao, Jialong Wu, Wenbiao Yin, Junkai Zhang, Baixuan Li, Haiyang Shen, Kuan Li, Liwen Zhang, Xinyu Wang, Yong Jiang, Pengjun Xie, Fei Huang, and Jingren Zhou. 2025. WebShaper: Agentically data synthesizing via information-seeking formaliza-tion. CoRR , abs/2507.15061. Tongyi DeepResearch Team, Baixuan Li, Bo Zhang, Dingchu Zhang, Fei Huang, Guangyu Li, Guoxin Chen, Huifeng Yin, Jialong Wu, Jingren Zhou, and 1 others. 2025. Tongyi deepresearch technical report. 
+
+CoRR , abs/2510.24701. Harsh Trivedi, Niranjan Balasubramanian, Tushar Khot, and Ashish Sabharwal. 2022. MuSiQue: Multi-hop questions via single-hop question composition. 
+
+Transactions of the Association for Computational Linguistics , 10:539–554. Liang Wang, Nan Yang, Xiaolong Huang, Binx-ing Jiao, Linjun Yang, Daxin Jiang, Rangan Ma-jumder, and Furu Wei. 2022. Text embeddings by weakly-supervised contrastive pre-training. CoRR ,abs/2212.03533. Jason Wei, Zhiqing Sun, Spencer Papay, Scott McK-inney, Jeffrey Han, Isa Fulford, Hyung Won Chung, Alex Tachard Passos, William Fedus, and Amelia Glaese. 2025. BrowseComp: A simple yet chal-lenging benchmark for browsing agents. CoRR ,abs/2504.12516. Jialong Wu, Baixuan Li, Runnan Fang, Wenbiao Yin, Liwen Zhang, Zhengwei Tao, Dingchu Zhang, Zekun Xi, Yong Jiang, Pengjun Xie, Fei Huang, and Jingren Zhou. 2025a. WebDancer: Towards autonomous information seeking agency. CoRR , abs/2505.22648. Xixi Wu, Kuan Li, Yida Zhao, Liwen Zhang, Litu Ou, Huifeng Yin, Zhongwang Zhang, Yong Jiang, Pengjun Xie, Fei Huang, Minhao Cheng, Shuai Wang, Hong Cheng, and Jingren Zhou. 2025b. Re-Sum: Unlocking long-horizon search intelligence via context summarization. CoRR , abs/2509.13313. Sikuan Yan, Xiufeng Yang, Zuchao Huang, Ercong Nie, Zifeng Ding, Zonggen Li, Xiaowen Ma, Hin-rich Schütze, Volker Tresp, and Yunpu Ma. 2025. Memory-R1: Enhancing large language model agents to manage and utilize memories via reinforcement learning. CoRR , abs/2508.19828. Zhilin Yang, Peng Qi, Saizheng Zhang, Yoshua Bengio, William Cohen, Ruslan Salakhutdinov, and Christo-pher D Manning. 2018. HotpotQA: A dataset for diverse, explainable multi-hop question answering. In Conference on Empirical Methods in Natural Lan-guage Processing , pages 2369–2380. Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik R Narasimhan, and Yuan Cao. 2022. ReAct: Synergizing reasoning and acting in language models. In International Conference on Learning Representations .Qianhao Yuan, Jie Lou, Zichao Li, Jiawei Chen, Yaojie Lu, Hongyu Lin, Le Sun, Debing Zhang, and Xian-pei Han. 2025. MemSearcher: Training LLMs to reason, search and manage memory via end-to-end reinforcement learning. CoRR , abs/2511.02805. Wentao Zhang, Ce Cui, Yilei Zhao, Yang Liu, and Bo An. 2025. AgentOrchestra: A hierarchical multi-agent framework for general-purpose task solving. 
+
+CoRR , abs/2506.12508. Suifeng Zhao, Tong Zhou, Zhuoran Jin, Hongbang Yuan, Yubo Chen, Kang Liu, and Sujian Li. 2024. Awecita: Generating answer with appropriate and well-grained citations using llms. Data Intelligence , 6(4):1134– 1157. Yida Zhao, Kuan Li, Xixi Wu, Liwen Zhang, Dingchu Zhang, Baixuan Li, Maojia Song, Zhuo Chen, Chenxi Wang, Xinyu Wang, and 1 others. 2025a. Repur-posing synthetic data for fine-grained search agent supervision. arXiv preprint arXiv:2510.24694 .Zhejun Zhao, Yuehu Dong, Alley Liu, Lixue Zheng, Pingsheng Liu, Dongdong Shen, Long Xia, Ji-ashu Zhao, and Dawei Yin. 2025b. TURA: Tool-augmented unified retrieval agent for AI search. 
+
+CoRR , abs/2508.04604. Yuxiang Zheng, Dayuan Fu, Xiangkun Hu, Xiaojie Cai, Lyumanshan Ye, Pengrui Lu, and Pengfei Liu. 2025. DeepResearcher: Scaling deep research via reinforce-ment learning in real-world environments. CoRR ,abs/2504.03160. Zijian Zhou, Ao Qu, Zhaoxuan Wu, Sunghwan Kim, Alok Prakash, Daniela Rus, Jinhua Zhao, Bryan Kian Hsiang Low, and Paul Pu Liang. 2025. MEM1: Learning to synergize memory and reasoning for effi-cient long-horizon agents. CoRR , abs/2506.15841. Rongzhi Zhu, Xiangyu Liu, Zequn Sun, Yiwei Wang, and Wei Hu. 2025. Mitigating lost-in-retrieval prob-lems in retrieval augmented multi-hop question an-swering. CoRR , abs/2502.14245. Chang Zong, Yuchen Yan, Weiming Lu, Jian Shao, Yongfeng Huang, Heng Chang, and Yueting Zhuang. 2024. Triad: A framework leveraging a multi-role LLM-based agent to solve knowledge base question answering. In Conference on Empirical Methods in Natural Language Processing , pages 1698–1710. 
+
+A Theoretical Analysis 
+
+In this section, we provide a theoretical justifica-tion for replacing the raw interaction history with the structured fact store. We distinguish between the environment feedback (search results) and the 
+
+agent state used for decision-making. We show that under the assumption of semantic sufficiency, the fact store constitutes a valid state abstraction of the full history, preserving the Markov property and the optimality of policies. 
+
+A.1 Problem Definitions 
+
+Let the search task be modeled as a sequential de-cision process over T steps. • Action ( at): The command issued by the agent after observing ot−1, either a Search action, an Assert action, or an Answer action that terminates the episode. We set o0 = ∅.• Environment feedback ( ot): The raw textual output returned by the search engine/environ-ment in response to the most recent Search action (e.g., search snippets). In the context of search agents, this is often termed an “obser-vation”, but structurally it serves as input to the state transition. If at is not Search, no new feedback is generated and we set ot = ot−1.• History ( ht): The complete sequence of inter-actions up to time t:
+
+ht = ( Q, o 0, a 1, o 1, a 2, o 2, . . . , a t, o t). (17) The baseline is the history-based MDP. Stan-dard LLM agents typically treat the full history 
+
+ht as the state shist  
+
+> t
+
+. Since ht contains all histor-ical information available to the agent, the pro-cess defined over ht satisfies the Markov property: 
+
+Pr( ht+1 |h0: t, a ) = Pr( ht+1 |ht, a ).
+
+A.2 Proposed: The FactAgent MDP 
+
+We propose a state representation that discards raw history in favor of a structured fact store. Let the proposed state be: 
+
+sfact  
+
+> t
+
+= ( Q, o t, Ft), (18) where Ft is the set of accumulated facts. The state transition is governed by a deterministic update function T :
+
+Ft+1 = T (Ft, o t, a t+1 ), (19) where at+1 is chosen after observing ot. In particu-lar, T (F, o, a ) = F if a is not Assert. 
+
+A.3 Equivalence Analysis 
+
+To prove that the FactAgent is not an approximation but an equivalent formulation, we introduce the 
+
+Semantic Sufficiency Assumption .
+
+Assumption 1 (semantic sufficiency) . The fact store Ft is a sufficient statistic of the history ht
+
+for predicting future environment feedback and fi-nal rewards. Formally, let Φ be the mapping such that sfact  
+
+> t
+
+= Φ( ht). For any two histories ht, h ′
+
+> t
+
+such that Φ( ht) = Φ( h′
+
+> t
+
+), we assume: 
+
+Pr( ot+1 | ht, a t+1 ) = Pr( ot+1 | Φ( ht), a t+1 ),
+
+Pr( R | ht, a t+1 ) = Pr( R | Φ( ht), a t+1 ). (20) For non-Search actions, the feedback is deter-ministic (e.g., ot+1 = ot), so the first condition holds trivially. 
+
+Theorem 1 (Markov property of fact state) . Under Assumption 1, the stochastic process defined over the fact-centric states sfact  
+
+> t
+
+is a MDP. 
+
+Proof. We examine the transition probability for the fact-centric state. Given sfact  
+
+> t
+
+= ( Q, o t, Ft) and action at+1 , the next feedback ot+1 is generated by the environment, and the fact store is updated deterministically via T .
+
+Pr( sfact  
+
+> t+1
+
+| sfact  
+
+> 0: t
+
+, a 1: t+1 ) = Pr( Ft+1 , o t+1 | sfact  
+
+> 0: t
+
+, a 1: t+1 )= Pr( Ft+1 | ot+1 , s fact  
+
+> 0: t
+
+, a 1: t+1 ) · Pr( ot+1 | sfact  
+
+> 0: t
+
+, a 1: t+1 )
+
+> (i)
+
+= 1[Ft+1 = T (Ft, o t, a t+1 )] · Pr( ot+1 | sfact  
+
+> 0: t
+
+, a 1: t+1 )
+
+> (ii )
+
+= 1[Ft+1 = T (Ft, o t, a t+1 )] · Pr( ot+1 | sfact  
+
+> t
+
+, a t+1 )= Pr( sfact  
+
+> t+1
+
+| sfact  
+
+> t
+
+, a t+1 ).
+
+(21) Step (i) follows from the determinism of T .Step (ii) follows from Assumption 1, which im-plies that ot+1 depends on the past only through 
+
+sfact  
+
+> t
+
+= Φ( ht) and the current action. 
+
+Theorem 2 (optimal policy equivalence) . Under Assumption 1, for any history h, the optimal value is preserved under the mapping Φ: V ∗
+
+> hist
+
+(h) =
+
+V ∗
+
+> fact
+
+(Φ( h)) .
+
+Proof. Consider the Bellman optimality equation for the history-based agent: 
+
+V ∗
+
+> hist
+
+(ht) = max  
+
+> a
+
+E[r(ht, a ) + γV ∗
+
+> hist
+
+(ht+1 ) | ht, a ] .
+
+(22) Under Assumption 1, for any two histories ht, h ′
+
+> t
+
+such that Φ( ht) = Φ( h′
+
+> t
+
+), both the environment feedback distribution and the expected reward are identical:           
+
+> Pr( ot+1 |ht, a ) = Pr( ot+1 |Φ( ht), a ),r(ht, a ) := E[R|ht, a ] = E[R|Φ( ht), a ] =: ¯ r(Φ( ht), a ).
+
+(23) Therefore, the induced transition and reward model over the compressed state sfact  
+
+> t
+
+= Φ( ht) is well-defined, and the optimal control problem can be equivalently written on this state space. In par-ticular, restricting attention to policies that depend only on Φ( h) is without loss of optimality, yielding 
+
+V ∗
+
+> hist
+
+(h) = V ∗
+
+> fact
+
+(Φ( h)) .This analysis demonstrates that our method is theoretically grounded. By treating the search re-sults ot as environment feedback driving the tran-sitions of a fact-based state sfact  
+
+> t
+
+= ( Q, o t, Ft), we construct a valid MDP that allows for dense pro-cess supervision without violating the fundamental assumptions of reinforcement learning. 
+
+B Experiment Setup and Implementation 
+
+B.1 RL Training Setup 
+
+All training runs are conducted on 8× NVIDIA A100 GPUs, while evaluation is performed on 4× NVIDIA A100 GPUs. We implement RL training based on the verl framework. Unless otherwise specified, we use the same hyperparameter config-uration across all datasets and model scales. The RL hyperparameters are summarized in Table 3. 
+
+B.2 Dataset Details 
+
+We evaluate our search agent on seven QA bench-marks covering both single- and multi-hop settings. The detailed statistics of the evaluation splits in our experiments are summarized in Table 4. 
+
+C Clustering Algorithm 
+
+In this section, we describe our clustering design. The key step is to decide whether two triples have the same meaning. 
+
+C.1 Two-Stage Fact Aggregation Strategy 
+
+We use a simple two-stage test. First, we com-pute the cosine similarity between the embeddings of two triples, and only pairs above a similarity threshold are passed to the next stage. Second, we apply conservative rule filtering, where all of the following conditions must be satisfied. We require negation consistency: if one relation is negated but the other is not, we never merge them. We also enforce numeric consistency: if either triple con-tains numbers, then both must contain numbers and the numeric parts must match exactly, since embeddings can be unreliable for fine-grained nu-meric differences. Additionally, we require the re-lation phrases themselves to be sufficiently similar, measured by either surface-form matching or by relation-embedding similarity above a threshold. Parameter Value Parameter Value Parameter Value                                 
+
+> Learning rate 0.00001 Training batch size 128 Global steps 500 Number of training epochs 1Number of rollouts 6Rollout temperature 0.7 KL loss coefficient 0.001 Clip ratio 0.2 Clustering similarity threshold 0.95 Parse error penalty - 0.1 Duplicate search penalty - 0.01
+> Table 3: Hyperparameters setting of our RL training.
+> Dataset NQ TriviaQA PopQA HotpotQA 2Wiki MuSiQue Bamboogle
+> Evaluation set size 3,610 11,313 14,267 7,405 12,576 2,417 125
+> Table 4: The statistics of seven QA datasets.
+
+To handle possible subject-object inversion (e.g., “A founded B” vs. “B was founded by A”), we test both configurations: the original triple pair and the pair with one triple’s subject and object swapped. If either configuration passes all the above filter-ing rules, we treat the two triples as semantically equivalent and merge them. 
+
+C.2 Calibration of Similarity Thresholds and Filtering Rules 
+
+To ensure the robustness of our clustering algo-rithm, we conducted a rigorous calibration study. We utilized GPT-5.2 to generate positive and nega-tive examples across 19 distinct scenarios, covering a wide range of linguistic variations including para-phrasing, negation, numeric alteration, and struc-tural inversion. Our analysis of the embedding similarity distribution (using the E5-base model) revealed the following patterns: 1. High similarity for semantic equivalence: 
+
+When two triples were semantically identical (e.g., simple paraphrases or formatting dif-ferences), their cosine similarity consistently exceeded 0.95. 2. False positives in specific error cases: De-spite the high discrimination power for gen-eral cases, we identified three specific cate-gories where the embedding model assigned high similarity scores ( > 0.95 ) to semanti-cally distinct triples: • Affirmation vs. Negation: The model often failed to distinguish between a statement and its negation (e.g., “A is B” vs. “A is not B”). • Numeric differences: Slight variations in numbers (e.g., dates or quantities) re-sulted in indistinguishably high similar-ity scores, despite representing factual contradictions. • Relation ambiguity: When the subject and object were identical but the relation changed slightly (e.g., “investor in” vs. “CEO of”), embeddings alone were insuf-ficient to separate the meanings reliably. Based on these findings, we established a “high-recall, strict-filtering” strategy. We set a lenient similarity threshold ( σsim = 0 .95 ) to capture di-verse paraphrases, while implementing determin-istic rules to filter out the false positives identi-fied above (Negation Consistency, Numeric Con-sistency, and Relation-Specific checks). Furthermore, to address the issue of Subject-Object Inversion, we introduced a bidirectional test. Since rigid subject/object matching rules might incorrectly exclude these semantically equivalent but structurally inverted pairs, we explicitly test both the original configuration and the swapped configuration. If either configuration passes the similarity threshold and the consistency rules, the triples are merged. 
+
+D Complete Results for Ablation Study 
+
+In this section, we provide detailed results for the ablation study based on Qwen2.5-7B-Instruct. As shown in Table 5, we report per-dataset EM scores across seven QA benchmarks. 
+
+E Cold-Start Analysis 
+
+We implement cold start with a lightweight SFT stage to teach the Search–Assert–Answer workflow. Specifically, we construct 600 trajectories via re-jection sampling by rolling out the base model and filtering samples that are answer-correct, contain valid assert actions, and strictly follow the JSON Variant NQ TriviaQA PopQA HotpotQA 2Wiki MuSiQue Bamboogle Avg.                                  
+
+> w/ EM-only clustering 43.5 65.8 44.0 45.2 48.8 19.1 42.4 48.9 w/o reward redistribution 42.1 63.9 42.1 38.3 43.7 14.0 38.4 45.4 w/o process reward 37.1 58.8 41.2 37.7 31.6 10.6 36.8 40.5
+> Table 5: Detailed ablation results of Qwen2.5-7B-Instruct on seven QA benchmarks (EM).
+> Parameter Value Parameter Value
+> Learning rate 0.00002 Global batch size 64 Warmup ratio 0.05 Total epochs 2
+> Table 6: SFT cold-start training hyperparameters.
+
+schema. We implement SFT using the verl frame-work, and summarize the SFT hyperparameters in Table 6. Complete results are reported in Table 7. From Table 7, we observe that the SFT cold-start checkpoint does not consistently improve the ini-tial performance of the agent. In fact, after SFT, the model exhibits a lower average EM compared to the naive initialization. Moreover, after subse-quent RL training, the SFT-initialized agent still underperforms the counterpart trained from a naive initialization with the same RL procedure. These results suggest that, in our setting, the primary ben-efit of SFT cold-start lies in improving training sta-bility and reducing early-stage degeneration, rather than increasing the final performance upper bound. 
+
+F Hyperparameter Sensitivity Analysis 
+
+This section studies the sensitivity of our method to the aggregation weight Ω, with results summa-rized in Table 8. We observe that the final per-formance is sensitive to the choice of Ω. When 
+
+Ω is relatively small, incorporating process-level rewards already yields substantial improvements over outcome-only supervision; for example, set-ting Ω = 0 .3 improves the average EM by 7.3 points compared to pure outcome-based training. However, as Ω becomes too large, the dominance of process rewards can negatively affect overall performance, leading to performance degradation. Based on this analysis, we use Ω = 0 .5 as the default setting in all experiments. 
+
+G Training Efficiency and Computational Cost 
+
+To improve transparency regarding efficiency and computational overhead, we report additional la-tency and training statistics. During inference, eval-uated under concurrency 128 on 4 ×A100 GPUs, FactAgent requires an average latency of 21.1 sec-onds per question and performs 3.8 reasoning steps on average. During RL training, we observe that the average number of interaction steps naturally decreases as the policy improves, dropping from approximately 4.3 steps at initialization to 3.2 steps near convergence. We further study the cost and performance tradeoff under different rollout group sizes in Fig. 9. Increasing rollout count from 4 to 6 substantially improves performance, while increasing further to 8 only yields marginal gains. To isolate Fac-tAgent’s additional overhead, we further measure fact collection and clustering cost. The additional clustering stage requires only 2.75 seconds on aver-age per training step. Under rollout_n=6, average training step time remains close to standard GRPO (231.1s vs. 225.2s). These results suggest that FactAgent introduces only minor computational overhead while providing substantial performance gains. 
+
+H Utility Distribution Analysis 
+
+To better understand the structure of utility esti-mation, we rerun NQ, HotpotQA, and TriviaQA using multiple sampled trajectories and analyze fact-cluster distributions. For each question, asserted facts are clustered and normalized into probability masses. Across all datasets, utility distributions remain highly con-centrated rather than uniformly sparse. Table 10 reports cumulative cluster mass statistics. The first three clusters already explain more than 93% of total utility mass across all datasets, sug-gesting that successful reasoning trajectories rely primarily on a small number of highly informative evidence facts. We further analyze question diffi-culty by grouping questions according to empirical success rates. Hard questions require slightly more evi-dence aggregation, but utility distributions remain strongly concentrated. These findings empirically support our design assumption that successful search trajectories depend on a small number of in-Method NQ TriviaQA PopQA HotpotQA 2Wiki MuSiQue Bamboogle Avg.                 
+
+> SFT (cold-start) 32.9 50.9 35.1 26.0 20.6 8.6 24.8 32.3 SFT + RL 44.8 66.0 46.1 46.2 49.0 19.6 40.0 49.5
+
+Table 7: Cold-start results on seven QA benchmarks (EM) for Qwen2.5-7B-Instruct.                                         
+
+> ΩNQ TriviaQA PopQA HotpotQA 2Wiki MuSiQue Bamboogle Avg.
+> 037.1 58.8 41.2 37.7 31.6 10.6 36.8 40.5 0.3 44.5 66.6 42.8 42.2 47.5 16.8 40.0 47.8 0.5 46.3 69.4 46.7 44.6 51.5 19.4 44.0 51.2 0.7 42.6 62.5 42.2 40.9 42.7 12.5 36.8 45.2
+
+Table 8: Sensitivity analysis of the aggregation weight Ω.               
+
+> Rollouts (n)Time / Step (s) Total Time (h) EM
+> 4145.5 20.2 48.5 6 (Default) 231.1 32.2 51.2 8281.3 39.1 51.4
+
+Table 9: Cost–quality tradeoff under different rollout group sizes.             
+
+> Dataset Top-1 Top-2 Top-3
+> NQ 0.450 0.879 0.973 HotpotQA 0.414 0.822 0.936 TriviaQA 0.438 0.858 0.968
+
+Table 10: Cumulative probability mass captured by top-ranked fact clusters. 
+
+formative evidence facts rather than exponentially growing intermediate states. 
+
+I Comparison with Related Process Supervision Methods 
+
+We compare FactAgent against representative process-supervision approaches. In Table 12, compared with E-GRPO (Zhao et al., 2025a), which provides trajectory-level en-tity supervision, FactAgent performs step-level utility estimation without requiring additional an-notation. Compared with VinePPO (Kazemne-jad et al., 2024), FactAgent avoids expensive per-step branching and Monte Carlo rollout expansion, while achieving stronger performance across bench-marks. 
+
+J System Prompts 
+
+Table 13 presents the full system prompt used for the search agent. We strictly enforce the output format to ensure the executability of the generated actions.             
+
+> Dataset Easy Medium Hard
+> NQ 2.32 2.43 2.54 HotpotQA 2.43 2.51 2.70 TriviaQA 2.45 2.55 2.66
+
+Table 11: Average number of unique fact clusters across difficulty groups.                            
+
+> Method E-GRPO VinePPO FactAgent
+> NQ 42.6 43.8 46.3 TriviaQA 62.8 62.1 69.4 PopQA 44.6 43.4 46.7 HotpotQA 35.1 34.4 44.6 2Wiki 44.2 47.1 51.5 MuSiQue 18.9 15.9 19.4 Bamboogle 40.8 40.0 44.0 Avg. EM 45.8 45.9 51.2
+
+Table 12: Comparison with representative process su-pervision approaches. 
+
+K AI Assistance Statement 
+
+We used ChatGPT by OpenAI 1 and Gemini 2 for linguistic polishing and stylistic editing of the draft to enhance clarity and readability. 
+
+> 1https://openai.com/chatgpt/
+> 2https://blog.google/products/gemini/ gemini-3-gemini-app/
+
+**Response Format:** 1. **Reasoning**: First, output your thought process inside <think>...</think> tags. You can quote documents directly here without worrying about JSON format. 2. **Action**: Then, output exactly ONE valid JSON object inside a markdown block ``` json ... ``` .**JSON Action Schema:** - Search: {"action": "search", "parameters": {"query": "..."}} - Assert: {"action": "assert", "parameters": {"triples": [{"subject":"...", "relation ":"...", "object":"..."}], "evidence_summary":"..."}} - Answer: {"action": "answer", "parameters": {"response": "..."}} **Rules:** - **<think> First**: Always think before you act. - **Search**: Execute 'search' whenever you require external information. And the observation is correspond to the last query in the history. - **Assert**: Extract facts from the Observation into the fact store. You may assert multiple facts in a single action. - **Evidence**: Include an 'evidence_summary' that synthesizes useful details from the Observation and the asserted facts. - **Answer**: Utilize both the current Observation and the fact store to derive your answer .- **Conciseness**: The final answer must be short. Make the answer extremely concise (e.g., a single word, entity name, or short phrase). Do NOT use full sentences. **Example (Multi-Triple Assert):** User: Where was Richard Grant from and who hit him? Assistant: <think> The observation says 'James Butler hit Richard Grant after a fight' and 'Richard Grant came from Harlem, New York'. I need to extract two facts: one about the fight, and one about his origin. </think> 
+
+``` json {"action": "assert", "parameters": { "triples": [ {"subject": "James Butler", "relation": "hit", "object": "Richard Grant"}, {"subject": "Richard Grant", "relation": "from", "object": "Harlem, New York"} ], "evidence_summary": "Observation states James Butler hit Richard Grant, who was from Harlem." }}
+
+Table 13: The system prompt used for agents.
