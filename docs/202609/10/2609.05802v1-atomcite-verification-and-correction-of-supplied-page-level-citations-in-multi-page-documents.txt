@@ -1,0 +1,492 @@
+Title: AtomCite: Verification and Correction of Supplied Page-Level Citations in Multi-Page Documents
+
+URL Source: https://arxiv.org/pdf/2609.05802v1
+
+Published Time: Wed, 09 Sep 2026 00:21:31 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# AtomCite: Verification and Correction of Supplied Page-Level Citations in Multi-Page Documents 
+
+# Chen Qian 1 Yimeng Wang 1 Yu Chen 2 Lingfei Wu 2 Andreas Stathopoulos 1
+
+> 1
+
+William & Mary 2Anytime AI 
+
+{cqian03,ywang139,axstat}@wm.edu {ychen,lwu}@anytime-ai.com 
+
+Abstract 
+
+When answering questions based on multi-page documents, large language models are expected to cite the supporting pages. However, supplied citations are sometimes inaccurate, and current evaluations score citations at generation time or against text passages: no existing benchmark enables evaluat-ing whether a system can verify and correct a page-level cita-tion already attached to an answer. To address this gap, we pro-pose AtomCite , an agentic framework that parses an answer into claims, checks each claim against the image of its cited page, and applies a deterministic repair policy. To evaluate it, we introduce DocCite , to our knowledge the first benchmark for evaluating systems that verify and correct page-level cita-tions in document images. Built on MP-DocVQA and DUDE, it combines 928 validated injected instances with 2,468 candi-date natural errors harvested from frontier- and efficiency-tier models, of which a two-annotator audit confirms 1,909 as genuine errors. Primary labels are assigned deterministically, not by LLM judges, and the human audit is a separate val-idation layer on top of them. Across three model families (Gemini, Claude, and GPT), AtomCite reaches around 93% binary verification accuracy on the injected benchmark, sig-nificantly outperforming every OCR-only condition, including a compute-matched control, and exceeding every prior text-based baseline given the same OCR text. Its repair policy lifts citation precision on the injected mix from its constructed 34% to 87–90% while retaining over 90% of correct claims. AtomCite also transfers: with frozen prompts and zero train-ing, it raises the hallucination-detection scores of two open 7–8B models on five public benchmarks above the same mod-els prompted as direct judges. Finally, a two-annotator audit shows that noise in automatic labels biases measured verifier accuracy and can reverse system rankings, so evaluations that rely only on synthetic or automatic labels risk mismeasuring verification capability. 
+
+# 1 Introduction 
+
+Large language models increasingly answer questions about long, visually complex documents (Ma et al. 2024), such as contracts, medical records, and financial filings, and are expected to justify each claim with a citation to a specific page (Magesh et al. 2025). Supplied citations matter: a re-viewer who trusts a wrong page number may act on unverified content, and a fabricated claim with a plausible-looking ci-tation is more dangerous than an uncited one. Courts have sanctioned attorneys for filing AI-fabricated authority, with over a thousand documented decisions worldwide (Mata v. Avianca, Inc. 2023; Charlotin 2026). Yet the reliability of supplied page-level citations is largely unmeasured. Attri-bution work evaluates citations to retrieved text passages in open-domain settings (Rashkin et al. 2023; Liu, Zhang, and Liang 2023); multi-page document QA benchmarks record which page holds the evidence only as ground truth for an-swering (Tito, Karatzas, and Valveny 2023; Landeghem et al. 2023); and recent benchmarks that pair citations with docu-ment images (Ma et al. 2026; Zhou et al. 2025) enable scoring those citations only as the answer is generated . Post-hoc re-pair exists for text settings: CiteFix repoints passage-level RAG citations and RARR revises unsupported claims (Ma-heshwari, Tenneti, and Nakkiran 2025; Gao et al. 2023a). To our knowledge, no existing benchmark, in the attribution, document-QA, or citation-repair line above, supports eval-uating whether a system can verify and correct page-level citations already attached to an answer over a multi-page document. We study the closed-world version of this problem: given an answer, its claims, the cited pages, and the source doc-ument (as page images with OCR text), verify each (claim, cited page) pair and repair the citation layer. The closed world reflects the deployment setting of document-grounded assis-tants, isolates citation verification from retrieval quality, and bounds all claims in this paper. Verification here is multimodal. On text, prompted frontier judges are competitive detectors (Tang, Laban, and Durrett 2024; Hu, Long, and Wang 2025). On document images, we find prompting insufficient at every tested scale. The same claim may be supported by a table cell, a signature block, or a stamp OCR renders poorly or not at all; conversely, a page whose OCR text seems to support a claim may contradict it visually. In our experiments, neither layout-aware OCR nor a compute-matched text condition closes this gap. We make three primary contributions. (1) AtomCite , an agentic verify-and-correct framework for supplied page-level citations (Fig. 1). It parses the answer into atomic units (claim + cited page pairs) and checks each claim with par-allel grounding sub-agents that read the OCR text and the image of the cited page. The verdict for a claim uses the cited page only ; surrounding pages contribute correction propos-als, never verdicts. A typed policy maps verdicts to actions (keep, fix-page, remove). (2) DocCite , to our knowledge arXiv:2609.05802v1 [cs.CL] 5 Sep 2026 the first benchmark for evaluating systems that verify and correct supplied page-level citations in multi-page document images. It has two components: DocCite-Syn , 928 controlled injected instances whose labels are individually validated by deterministic document-wide scans, and DocCite-Nat ,2,468 naturally occurring candidate citation errors harvested from frontier- and efficiency-tier model generations over MP-DocVQA and DUDE documents, with audit-validated labels. Ground truth is two-layered: deterministic page-localization (no LLM judge assigns primary test labels) plus a separately reported human-audited semantic layer. The audited layer is necessary: we show noise in automatic natural-error labels biases measured verifier accuracy (flat OCR appears to beat image grounding under them). (3) Evidence that the results are not an artifact of one setup: the modality and architecture findings replicate across three model families and two OCR engines, and the framework transfers with frozen prompts and zero training to five public hallucination benchmarks, improving two open 7–8B backbones. Across three model families, image-aware verification beats every OCR-only condition. AtomCite reaches 93 .7% 
+
+binary accuracy with Gemini, 93 .0% with Claude, and 93 .0% 
+
+with GPT; every OCR rung of the conditions ladder falls sig-nificantly below it in every family. A compute-matched OCR control does not close the gap in any family, and a sequential single-transcript chain at matched compute also trails sig-nificantly in all three. The correction policy raises citation precision from 34 .3% to 87 –90% while retaining ≈92% 
+
+of correct claims across all three families, versus 50 .3% 
+
+and 36 .8% for reimplemented CiteFix and adapted RARR. Under the deterministic Layer-1 labels, natural errors appear systematically harder to detect than injected ones ( 70 –90% 
+
+across conditions vs. 92 –97% ); a two-annotator audit shows much of that gap is label noise rather than verifier failure. 
+
+# 2 Related Work 
+
+Answer attribution and citation evaluation. A large body of work asks whether generated answers are supported by cited evidence. The AIS framework (Rashkin et al. 2023) formalized human judgments of attribution, later automated as AutoAIS (Bohnet et al. 2023); ALCE (Gao et al. 2023b) established benchmark protocols for the citation quality of generated answers, and audits of generative search engines found supplied citations frequently fail to support their statements (Liu, Zhang, and Liang 2023). Subsequent work refines the unit of analysis via decomposition into atomic claims (Min et al. 2023; Song, Kim, and Iyyer 2024), builds automatic evaluators of citation quality (Xu et al. 2025; Li et al. 2024), and contrasts generation-time with post-hoc citation (Saxena et al. 2025). In high-stakes legal settings, fabricated or unsupported citations are documented in de-ployed retrieval-augmented tools (Dahl et al. 2024; Magesh et al. 2025), and fabricated scholarly references motivate reference-verification benchmarks (Shi et al. 2026). Across this line the evidence is free text (passages, long contexts, or bibliographic records), and the object of study is generating or scoring citations. None of these efforts centers on verify-ing, and then repairing, page-level citations already supplied with an answer over a document rendered as images. 
+
+Multi-page document QA. Document VQA (Mathew, Karatzas, and Jawahar 2021) has been extended to multi-page settings (Tito, Karatzas, and Valveny 2023; Landeghem et al. 2023), with long-document suites that annotate evidence pages (Ma et al. 2024). These resources supply questions with gold evidence-page annotations, but the page label serves as ground truth for answering ; the benchmarks pose neither verification nor correction of a citation attached to a claim. We build on this line rather than compete with it: our testbeds derive documents, questions, and evidence-page annotations from MP-DocVQA and DUDE, which jointly provide native page imagery and redistribution-friendly licenses. Con-current work has begun to couple citations with document images and long multimodal contexts (Ma et al. 2026; Feng et al. 2026; Zhou et al. 2025; Tran et al. 2026). These efforts evaluate or produce citations at generation time, leaving supplied-citation verification and correction unaddressed. 
+
+Verification and correction systems. Grounding detec-tors score claim–evidence consistency with NLI-style or purpose-built models (Laban et al. 2022; Zha et al. 2023; Tang, Laban, and Durrett 2024; Li, Luo, and Mendelevitch 2024; Kovács and Recski 2025) or sampling-based con-sistency (Manakul, Liusie, and Gales 2023). ContextCite (Cohen-Wang et al. 2024) and SelfCheckGPT presume access to the generator (its internals or its samples), which a post-hoc auditor lacks; among NLI-style detectors we bench-mark the four recent ones that report superseding SummaC, plus a general-purpose DeBERTa NLI model (Laurer et al. 2024). On the correction side, RARR (Gao et al. 2023a) retrieves evidence and revises unsupported statements, and CiteFix (Maheshwari, Tenneti, and Nakkiran 2025) repairs RAG citations with lexical and semantic matching. These detectors and correctors consume clean text spans, so we adapt them to our setting as baselines under explicitly disclosed input-faithfulness tiers (Sec. 5). Text-grounded detection also has established public benchmarks with hu-man labels, including RAGTruth (Niu et al. 2024), TofuEval (Tang et al. 2024), FaithBench (Bao et al. 2025), HalluMix (Emery et al. 2025), and VeriGray (Ding et al. 2025). Finally, because LLM evaluators favor their own generations (Panickssery, Bowman, and Feng 2024), our primary test labels are deterministic and are not assigned by LLM judges at evaluation time. Concurrent benchmarks evaluate adjacent problems (multimodal claim–evidence consistency (Lal et al. 2025; Ansari et al. 2026); legal citation retrieval and reliability (Ern et al. 2026; Chen, Yin, and Zhou 2026)), but none evaluates systems that verify and correct supplied page-level citations in multi-page document images; to our knowledge, ours is the first benchmark centered on that task. 
+
+# 3 Testbeds and Ground Truth 
+
+Task. A citation instance is a pair (atomic claim, cited page). Given the source document as page images with per-page OCR, a system decides whether the cited page supports the claim (supported vs. not): the deployment question is whether the citation stands as supplied, and this binary cited-page support is the primary metric. For correction, non-supported verdicts are further typed by whether the document Supplied Answer   
+
+> Source Document Page-images OCR-text
+> Parse 1
+> Collect evidence Cited ±2 pages Repaired Answer
+
+Step 1. Deterministic parse 
+
+Extract sentence-scoped (claim, cited page) pairs. 
+
+Step 2. Verify each pair independently 
+
+Verdict = support from the cited page only; Window = correction proposals only. 
+
+Step 3. Typed correction 
+
+Map verdicts to auditable actions. [Supplied answer] 
+
+> Total revenue was $4.2M (p. 7). The company operated 12 retail locations at year end (p. 3). The audit was signed by the CFO on March 3, 2024 (p. 11). Net profit was $0.8M (p. 5).
+
+[Typed policy]           
+
+> V-NEARBY FIX-PAGE C1
+> C2
+> C3
+> C4
+> VERIFIED KEEP
+> FALSE REMOVE
+> INCONSISTENT KEEP+FLAG
+> VERIFIED-NEARBY found in p.9 OCR-text: NOT-VERIFIED Page-image: NOT-VERIFIED
+> $4.2M revenue 7C1
+> 12 retail locations 3C2
+> CFO signed on Mar. 3, 2024 11 C3
+> Net profit was $0.8M 5C4 ID claim page
+> C4
+> C1
+> C3
+> C2 cited p.7; window pp.5-9 cited p.3; window pp.1-5 cited p.11; window pp.9-13 cited p.5; window pp.3-7
+> window scan
+> window scan
+> VERIFIED no scan needed OCR-text: VERIFIED Page-image: VERIFIED FALSE not found in scan OCR-text: NOT-VERIFIED Page-image: FALSE INCONSISTENT no-scan + flag OCR-text: VERIFIED Page-image: FALSE
+
+[Repaired answer]   
+
+> Total revenue was $4.2M (p. 9). The company operated 12 retail locations at year end (p. 3). Net profit was $0.8M (p. 5 ⚑).
+> ⚑Flagged for review: Data discrepancy noted on page 5: the OCR text captured $0.8M, but the source image displays a loss of ($0.8M). Pending further review, the citation has been kept unchanged.
+> 23
+> Single family per run for all sub-agent calls Failed units prompt a window scan
+> Gemini / Claude / GPT
+
+Figure 1: The AtomCite pipeline on a four-claim answer, the five stages grouped into parse, verify, and correct. Each parsed (claim, cited page) pair is checked by text and image sub-agents on the cited page only; window pages contribute correction proposals, never verdicts. The example covers all four actions: a true claim cited to the wrong page is repointed (fix-page), a verified claim kept, a claim supported nowhere removed, and a hard text–image conflict (inconsistent) kept and flagged, never deleted. supports the claim elsewhere (wrong-location, repairable) or nowhere (unsupported, removable). Supported-claim recall is reported alongside it. Systems may abstain; absten-tions are excluded from accuracy and reported per condition. 
+
+Two-layer ground truth. Primary test labels are never as-signed by an LLM judge at evaluation time. Layer 1 is de-terministic page-localization, a proxy for support: a citation is correctly localized iff the cited page belongs to the in-stance’s gold page set. Evidence can legitimately appear on several pages. Gold sets are therefore expanded from the source benchmarks’ single evidence pages by a document-wide fuzzy-matching scan, adding 505 evidence pages across 2,058 QA pairs. Scan parameters were frozen on the develop-ment split, and the expansion is human-audited. Layer 2 is se-mantic claim support: a stratified human calibration of Layer-1 labels on ≥300 instances (including ≥150 abstractive claims). The Layer-1 ↔Layer-2 discrepancy rate and its con-fidence interval are reported alongside every headline table. 
+
+Documents. We build on MP-DocVQA and DUDE doc-uments spanning forms, letters, reports, tables, and mixed print–handwriting scans. A frozen seeded selection fixes three disjoint pools: an injection corpus of 240 docu-ments (180 MP-DocVQA, 60 DUDE; 3,398 pages), a150-document natural-generation pool (100/50), and a 30-document development split for parameter freezing. MP-DocVQA pages are OCR’d with a uniform Tesseract 5.5.2 pass; DUDE pages use the dataset-shipped Azure OCR. We pick Tesseract (Tesseract OCR 2026) as the primary engine because its pinned version keeps the text layer fully repro-ducible; a stronger learned engine (MinerU 2.5; Wang et al. 2026) replicates the whole OCR ladder in Sec. 5. A layout-aware serialization (region tags, reading order, table cell sep-arators) is derived for the OCR-only conditions of Sec. 5. 
+
+DocCite-Nat: natural errors. Six generator configu-rations (three model families × frontier/efficiency tiers) answer document questions with required page citations. A deterministic marker parser extracts (claim, cited page) instances from the raw answers (sentence-scoped claims; page lists, ranges, footnotes), so the pool exercises answer parsing end-to-end. The pool is built as a funnel, each step reported: Layer-1 labeling of all generations yields 2,468 
+
+answer-bearing candidate errors (a claim carrying the gold answer, cited to a page outside the expanded gold set). A two-annotator blind audit then adjudicates every candidate on which any verifier arm disagreed with the Layer-1 label (two census waves: 608 disputed by a family’s AtomCite verdict, 306 by only the OCR-only or staged arms). The remaining 
+
+1,554 candidates, disputed by no arm, keep the Layer-1 error label, and a seeded 50-item spot-check tests that region. Par-tial support counts as an error: a citation must fully support its claim. The audit thus partitions the pool ( 608+306+1 ,554 )into 1,909 audit-validated errors (240 of them partial-support), 450 confirmed-supported claims (Layer-1 label noise, reported as a finding), and 109 annotator-mixed items excluded from all denominators. Detection is scored against the validated errors; false alarms against the confirmed-supported claims (Sec. 5). Candidate-error prevalence ranges from 44 .7% to 61 .2% across generators, and cross-family probes bound self-preference effects. 
+
+DocCite-Syn: validated injection. For controlled mea-surement we inject 1,000 instances over the same documents at the natural-error mix: clean (318), wrong-page (402), par-tially supported (127), fabricated (92), and value-perturbed (61). Every non-clean template is validated by a deter-ministic document-wide scan with quote-anchored value extraction and normalization. The scan guarantees, e.g., that a “perturbed” value appears nowhere in the document and that a “wrong page” does not carry the claim. Instances fail-ing their scan are discarded: of 1,000 constructed, 32 were found accidentally supported and 40 carried duplicate evi-dence, leaving the 928 we score (318 clean, 362 wrong-page, 113 partially supported, 82 fabricated, 53 value-perturbed). Labels follow a single template-first rule set shared in code by the generator, the scorer, and the audit trace. 
+
+# 4 The AtomCite Framework 
+
+AtomCite processes an answer in five stages (Fig. 1); the design constraint throughout is that uncertainty must never silently delete content or grant it false authority .The name reflects the unit of verification: each parsed claim is checked whole as one atomic unit against its cited page (a finer decomposition variant is ablated later). 
+
+(1) Parse. Deterministic extraction of claims and citation markers (inline page references, ranges, multi-cite groups, footnotes), producing (claim, cited page) instances. 
+
+(2) Evidence. For each citation: the cited page (image + OCR), and a context window of ±2 pages capped at five evidence pages. The cited page is the only admissible verdict evidence; window pages feed correction proposals exclusively. This separation is enforced in the type system, not by prompting. 
+
+(3) Ground. Per claim, parallel sub-agents check the cited page through two channels: a text channel over the page OCR and an image channel over the page image. Units that fail on the cited page trigger a window scan (per channel) whose only output is a candidate supporting page. 
+
+(4) Synthesize. Channel results merge under typed rules: a hard conflict (one channel verified, the other false) yields inconsistent, which is excluded from scoring and reported per condition (Statistics); on softer disagreements the image channel is authoritative on document cases, since OCR omissions are the dominant error source. Channel verdicts aggregate conservatively (any false dominates), with a verified-nearby verdict when the claim verifies on a window page instead of the cited page. For scoring, verified maps to supported (labels of Sec. 3), verified-nearby to wrong-location, and the remaining verdicts to unsupported. A flag-only consistency check then compares verdicts across the answer’s citations and marks mutually contradictory ones inconsistent (excluded downstream); it can flag but never alter a per-citation verdict. 
+
+(5) Correct. A typed policy maps verdicts to actions: verified →keep; verified-nearby →fix-page (repoint to the supported page); not-verified/false →remove (whole-claim removal at sentence boundaries); inconsis-tent/abstain →keep with a flag. The headline configuration is this conservative, fully label-scorable mode; a full mode adds rewrite-claim and is evaluated in the human-calibrated stratum. We report ( ∆precision, supported-claim retention) so deletion-heavy strategies cannot pass as improvements. All stages run identically across model families; per-condition compute (calls, tokens, list-price cost) is logged per instance and reported with every comparison. 
+
+# 5 Experiments 
+
+Conditions as ablations. The conditions ladder is the paper’s ablation study: each condition changes exactly one ingredient, so each pairwise comparison isolates one design question. Codes group by axis: A-series = OCR-text input, B-series = prompting, C = the full framework. The modality axis asks what the image channel contributes. (A1) runs the identical framework with the page image replaced by flat OCR text (remove the image, keep everything else). 
+
+(A2) upgrades to layout-aware OCR serialization (does lost 
+
+layout explain the gap?). (A3) additionally spends the image condition’s budget on four deterministic text passes (entities, numbers, page-location, tables) aggregated by pre-specified conjunction (does budget explain it?). The prompting axis asks whether a strong or staged prompt matches the framework. (B1) replaces the entire pipeline with one direct verification call (is any structure needed?). (B2) 
+
+adds a structured claim-by-claim checklist to that single call. 
+
+(B3) executes the framework’s stages as one growing single-transcript chain over the same evidence at matched call count (same compute and staged reasoning, without the agentic decomposition into typed parallel sub-tasks). (C) is the full framework: claim-level verification with both channels. Both compute-matched controls are calibrated to a fixed reference budget ( 3.4× layout-OCR list cost; 3.5 calls/item) that upper-bounds (C)’s own cost, so neither control lacks budget. Further pipeline ablations appear with the results. All LLM conditions run the family’s frontier backbone under pinned identifiers ( gemini-3.1-pro-preview ,
+
+claude-opus-4-8 , gpt-5.6-sol ), with greedy de-coding where the API exposes temperature (0.0) and provider defaults otherwise, and a fixed 4,096-token output cap; the efficiency identifiers ( gemini-3-flash-preview ,
+
+claude-sonnet-5 , gpt-5.6-luna ) enter as DocCite-Nat generators and in the tier-robustness check of Ap-pendix B. OCR text follows the per-source engines of Sec. 3 (Tesseract 5.5.2 / Azure); the whole A ladder is replicated under a second, stronger engine (MinerU 2.5; Table 1). Base-line tiers are disclosed as T1 (as intended), T2 (adapted), T3 (reimplemented). 
+
+Statistics. Paired cluster bootstrap on condition differences (document clusters, B=10 ,000 ); significance in Table 2 Gemini Claude GPT Condition Acc Sup. R Acc Sup. R Acc Sup. R (A1) Tesseract flat 84.5 59.7 84.8 63.5 83.7 58.5 (A2) Tesseract layout 85.2 62.3 84.2 63.8 85.2 61.9 (A3) Tesseract matched 86.2 62.6 86.7 71.7 87.8 69.2 (A1 ′) MinerU flat 87.7 69.8 88.4 70.8 89.0 73.6 (A2 ′) MinerU layout 88.5 72.0 89.1 74.5 88.1 71.4 (A3 ′) MinerU matched 88.7 72.6 90.5 78.6 89.0 75.8 (B1) direct 87.9 81.4 81.8 90.6 88.4 94.7                    
+
+> (B2) structured 88.1 80.8 88.6 88.4 89.3 88.4 (B3) seq. matched 87.5 75.2 89.1 83.3 90.6 85.8 (C) AtomCite 93.7 90.4 93.0 90.4 93.0 91.0
+
+Table 1: DocCite-Syn conditions ladder ( n=928 ; %). Acc = binary cited-page support accuracy (primary metric); Sup. R = recall on truth-supported instances. (C) is claim-level AtomCite (its decomposition variant is ablated with the re-sults). Bold = per-family best among image-grounded con-ditions; the two (B1) Sup. R cells above (C) reflect lenient acceptance, not sharper discrimination (see Architecture vs. Prompting); paired differences with CIs in Table 2. The matched control (A3) reaches its score with near-zero wrong-location recall.                 
+
+> Difference Gemini Claude GPT
+> Modality axis: what does the image channel contribute?
+> (C) −(A1 ′) +5.9 [3.8,8.0] +4.5 [2.4,6.5] +3.9 [2.0,5.8] (C) −(A2 ′) +5.1 [3.2,7.1] +3.7 [1.8,5.6] +4.8 [2.8,6.8] (C) −(A3 ′) +4.9 [3.0,6.9] +2.3 [0.3,4.2] +3.9 [2.1,5.8]
+> Prompting axis: does staged prompting close the gap?
+> (C) −(B1) +5.9 [3.4,8.5] +11.2 [8.7,13.8] +4.8 [2.6,6.9] (C) −(B2) +5.5 [3.4,7.6] +4.4 [2.4,6.6] +3.8 [1.9,5.7] (C) −(B3) +6.2 [3.7,8.7] +3.8 [1.9,5.7] +2.5 [0.5,4.4]
+
+Table 2: Key paired differences in binary accuracy (pp; doc-cluster bootstrap, B=10 4, 95% CIs). Condition codes as in Table 1; the modality rows use the stronger MinerU engine (corpus-engine gaps are larger). All 18 differences are Holm-significant (CIs per-comparison). is Holm-corrected across its 18 comparisons (family-wise 
+
+α=0 .05 ), and other comparisons report per-comparison 95% CIs. Abstention is zero in every main-matrix cell after retry exhaustion. Excluded verdicts (inconsistent or unparseable output) are at most 13 of 928 per cell ( ≤1.4% ), nearly all (C)’s own consistency flags. Scoring every exclusion as an error, the worst case for (C), keeps 16 of Table 2’s 18 dif-ferences Holm-significant. The two exceptions, (C) −(A3 ′)Claude and (C) −(B3) GPT, keep positive point estimates. Run-to-run variance is small where measured (three (C) re-peats span 0.33 pp) and other cells are single runs. Text-quoted differences are paired on commonly scored instances and computed before rounding, so they can deviate slightly from rounded table entries. 
+
+5.1 Image-Aware vs. OCR-Only Verification 
+
+Removing the image channel (Table 1) costs 2–6pp under MinerU (Table 2), 5–9pp under the corpus engines, and the loss concentrates in supported-claim recall (Gemini: 90 .4% 
+
+with the image vs. at best 72 .6% without): on scan-dominated corpora, OCR-only verification rejects correctly cited claims. Two alternative explanations are tested by controls; neither closes the gap. Lost layout information? Layout-aware seri-alization (A2) recovers at most 1.5pp over flat OCR ( +0 .8
+
+Gemini, −0.7 Claude, +1 .5 GPT; only GPT’s gain is sig-nificant). Less compute? The matched control (A3), which spends the image budget on four extra deterministic text passes, moves a non-significant +1 .0pp beyond (A2) (Gem-ini; see below for the replication families). A tripling of text-side tokens across (A1) →(A2) →(A3) buys +1 .7pp on Gem-ini, +1 .9pp on Claude, and +4 .1pp on GPT in total (Cross-Family Replication below), against same-engine image gaps of +5 .1 to +8 .9pp: budget alone is an unlikely explanation. 
+
+5.2 Architecture vs. Prompting 
+
+The prompting axis of Table 2 reads top to bottom as progressively stronger prompting, and every staged arm trails the framework significantly in every family. Even the sequential matched-compute chain (the framework’s own stages in one growing transcript, at the larger matched budget) remains 2.5–6.2pp below (C). Direct prompting’s two high cells (GPT’s 94 .7 and Claude’s 90 .6 Sup. R) reflect lenient acceptance, not sharper discrimination: (B1) verifies 
+
+14 .9% (GPT) and 22 .8% (Claude) of unsupported instances, two-and-a-half to four times (C)’s 5–6% . Staged-prompting recovery is family-dependent: Claude and GPT climb monotonically across (B1) →(B3), while Gemini’s three staged arms are flat within half a point, leaving the residual gap largest for Gemini and smallest for GPT ( 2.5pp). 
+
+5.3 Cross-Family Replication 
+
+Both replication families reproduce the modality result (modality block of Table 2): every OCR rung loses to (C) in every family, every confidence interval excludes zero, and the intervals overlap across families: the same effect at compara-ble magnitude (overlapping CIs), with the same supported-recall signature. The decomposition variant replicates the pattern at slightly smaller margins: it trails (C) by 1.2–1.8pp yet still clears flat OCR by 6.3–7.5pp in every family (per-comparison CIs exclude zero; Ablations below). Extra text-side compute buys a little in some families (at most +2 .6pp, Claude and GPT), and in none does it approach the image gap. 
+
+OCR-engine robustness. Because the A rungs inherit the corpus OCR engines, we re-OCR every page of the injection corpus with MinerU 2.5 and re-run the whole A ladder in every family with the serialization formats held fixed (rows (A1 ′)–(A3 ′) of Table 1). The stronger engine lifts the OCR-only rungs by +1 .2 to +5 .3pp binary and +6 .6 to +15 .1pp supported recall, yet every gap to (C) stays significant; the modality rows of Table 2 report these MinerU gaps as the headline numbers, the conservative choice (corpus-engine gaps are larger). The modality gap narrows but never closes. System Tier Acc Sup. R CiteEval-Auto (Gem/Cl/GPT) T2 89.0/88.2/88.9 —HHEM T1 83.9 64.5 MiniCheck T1 82.9 57.5 LettuceDetect T1 81.7 52.5 AlignScore T1 76.0 33.0 DeBERTa-NLI T1 72.8 81.4 ALCE-AutoAIS T2 70.3 —  
+
+> AtomCite (C) , same backbones — 93.7/93.0/93.0 90.4–91.0
+
+Table 3: Text-Baseline Tier on DocCite-Syn ( n=928 ; %; de-tector operating point 0.5). T1 = specialized detectors run as intended; T2 = adapted protocols. Same-family paired dif-ferences, (C) −CiteEval-Auto: +4 .5 [2 .0, 7.1] Gemini, +4 .9[2 .2, 7.7] Claude, +4 .1 [1 .7, 6.7] GPT, all significant. 
+
+5.4 Ablations 
+
+Beyond the conditions ladder, four pipeline ablations change one internal design choice each, holding everything else fixed. Decomposition : adding a decomposition stage that splits each claim into finer-grained facts and aggregates by strict conjunction lowers accuracy by 1.2–1.8pp (significant for Gemini and Claude; the 1.2pp gap for GPT does not reach significance, p=0 .075 ). Per-fact grounding noise compounds on multi-fact claims. AtomCite therefore verifies claims whole, offering decomposition only for fine-grained auditing. Correction window (under this variant; Gemini): a sweep from ±1 to ±5 pages leaves binary accuracy exactly unchanged ( 91 .9% at every width): verdicts are decided by the cited page alone, wider windows degrade repair preci-sion, and the pre-registered ±2 default stands. Consistency stage (same setup): disabling the multi-citation coherence check gives 91 .8% (−0.1pp, ns): it guards coherence, not per-citation verdicts. Both probe the typed evidence separation, identical with and without decomposition. 
+
+Channel arbitration : replacing the image-authoritative rule for soft channel disagreements with a symmetric pessimistic meet collapses (C) from 93 .7% to 86 .3% (−7.4pp [5 .1, 9.8] )and supported recall from 90 .4% to 65 .0% , near OCR levels. The rule was fixed at design time, before any condition was scored. Ground truth backs it: the image channel is right in 
+
+77 –87% of decisive soft disagreements. 
+
+5.5 Text-Baseline Tier 
+
+Table 3 compares AtomCite against five specialized support detectors and two protocol baselines. Every text baseline trails the framework; the strongest, CiteEval-Auto, shares the framework’s own backbone and still trails by 4.1–4.9pp. Because backbone strength is a confound, we re-run CiteEval-Auto on all three frontier backbones and test the 
+
+same-family paired difference. It favors (C) in every family, all significant (caption of Table 3), so the advantage does not reduce to backbone strength. T1 detectors are compared against the OCR conditions, their fair reference class. Empty-OCR pages (image-only) score zero for all text systems.                          
+
+> Gemini Claude GPT Condition Det FA Acc Det FA Acc Det FA Acc
+> AtomCite (C) 97.7 5.5 97.1 97.3 5.4 96.8 98.6 12.3 96.5
+> Flat OCR (A1) 99.7 43.8 91.4 99.8 48.2 90.7 99.7 49.3 90.3 Seq. chain (B3) 91.1 16.9 89.6 87.2 10.0 87.7 96.3 12.4 94.6
+
+Table 4: DocCite-Nat against audit-validated labels (%; best per column in bold). Partial support counts as an error. Det = detection of the 1,909 audit-validated errors; FA = false-alarm rate on the 450 human-confirmed supported claims; Acc = overall accuracy on the 2,359 audited instances. Rates are over the audited candidate pool, not all supplied citations. Balanced accuracy: C 96 .1/96 .0/93 .1, A1 78 .0/75 .8/75 .2, B3 
+
+87 .1/88 .6/91 .9 (Gemini/Claude/GPT). 
+
+5.6 Natural Errors 
+
+A fixed-protocol human audit evaluates the naturals: two annotators with document-analysis experience, independent and blind . Sheets show only the claim and the cited-page im-age (no verdicts or labels; order shuffled per annotator), and disagreements remain unadjudicated. They labeled four sets: a census of every instance where any family’s claim-level (C) verdict disagreed with the Layer-1 label ( n=608 , agreement 
+
+0.89 ), a census of the region where only the OCR-only or staged arms disagreed ( n=306 , agreement 0.837 ), a strat-ified 320-item calibration sample ( κ=0 .87 ), and a seeded 50-item spot-check of the undisputed region ( 0% noise, Wil-son 95% CI [0 , 7.3] ). Consensus rules: both-supported =
+
+label noise, both-partial or both-unsupported = validated er-ror, annotator-mixed = excluded. With the 1,554 undisputed candidates kept at Layer-1, the partition covers 2,468 .Verifier conditions are (C), flat OCR (A1), and the sequential chain (B3); the intermediate rungs are isolated on DocCite-Syn. Table 4 reports performance against the resulting human labels. AtomCite (C) detects 97 .3–98 .6% 
+
+of audit-validated errors at the lowest false-alarm rate, and every miss is a partial-support item: on fully unsupported claims its detection is 100% . Flat OCR misses almost nothing (99 .7–99 .8% ) only by false-alarming on nearly half the gen-uinely supported claims, and the matched sequential chain (B3) misses 4–13% of errors, including fully unsupported ones. The two census waves test whether the audit favors (C): label noise is 72 .9% among the instances (C) disputed but 
+
+2.3% where only (A1) or (B3) did. Two findings generalize beyond our system. First, automatic natural-error labels understate verifiers : under the raw Layer-1 labels flat OCR appeared better than image-grounded verification, an inver-sion driven by false alarms agreeing with the noise. Second, the pre-registered label-downgrade rule fired for the natural strata: calibration-sample discrepancy is 65 .3% [55 .7, 73 .9] 
+
+on extractive-natural and 36 .7% [29 .4, 44 .6] on abstractive items, so those labels are reported only with this audit. The injected strata passed ( 7.2% [3 .1, 15 .9] ): the labels behind the primary DocCite-Syn results pass human calibration. System Precision Retention Coverage Fix-reach                             
+
+> AtomCite (Gemini) 34.3 →89.9 91.8 95.4 68.9
+> AtomCite (Claude) 34.3 →87.7 91.8 94.1 72.9
+> AtomCite (GPT) 34.3 →87.0 92.5 94.1 67.7 CiteFix (T3, reimpl.) 34.3 →50.3 100.0 †54.9 80.5
+> RARR (T2, adapted) 34.3 →36.8 94.0 15.7 0.0
+
+Table 5: Correction on DocCite-Syn (conservative mode; %). Precision = citation precision before → after correction; Retention = correct claims kept; Coverage = error instances acted on; Fix-reach = exact gold-page recovery on window-reachable wrong-location citations. †CiteFix is replacement-only (cannot remove): its 100% retention is uninformative.                         
+
+> Qwen2.5-7B Llama-3-8B Benchmark (metric) direct AtomCite direct AtomCite
+> RAGTruth (F1) 49.5 71.2 56.4 66.2
+> FaithBench (bAcc) 50.8 57.0 52.8 56.9
+> HalluMix (acc) 76.3 80.0 58.0 59.7
+> TofuEval (bAcc) 67.7 69.1 54.3 64.2
+> VeriGray resp. (F1) 29.8 44.6 39.7 54.7
+
+Table 6: Transfer to five public hallucination bench-marks (%), under official test sets and metrics (n=2 ,700 /750 /6,500 /534 /329 ): F1 = response-level F1, bAcc = balanced accuracy, acc = accuracy. The direct arm is a same-backbone single-call judge; AtomCite is the frame-work in text mode. 
+
+5.7 Correction 
+
+AtomCite lifts citation precision from 34 .3% , the synthetic mix’s constructed prevalence, to 87 –90% while retaining 
+
+91 .8–92 .5% of correct claims across all backbones (Ta-ble 5). The baselines fail in complementary ways. RARR’s edit-only agreement gate rarely fires on wrong-page cita-tions and its edits damage 6% of correct claims. CiteFix repoints well (Table 5) but cannot remove fabricated claims. Repointing and removal fail independently: a correction system needs both. On the audited naturals the policy acts on 97 .2–98 .6% of validated errors, retains 88 .0–94 .7% 
+
+of confirmed-supported claims, and lands 50 .8–58 .7% 
+
+of fix-page targets. Fix-reach conditions on reachability: 
+
+69 .3% of wrong-page instances hold their gold page within 
+
+±2; the rest fall to remove (Ethics). 
+
+5.8 Transfer to Public Hallucination Benchmarks 
+
+To test external validity we transplant AtomCite to five public hallucination benchmarks, keeping its staged verification de-sign and dropping the image channel and correction policy. The direct arm is a single-call judge, the (B1) analogue. Prompts are frozen once for all five benchmarks. Back-bones are Qwen2.5-7B (Qwen et al. 2025) and Llama-3-8B (AI@Meta 2024), matching the 7–8B scale of open detec-tors evaluated by HalluMix and VeriGray. VeriGray is scored response-level from its sentence labels: a summary is unfaith-ful when it contains a fabricated or contradicting sentence. AtomCite improves on the direct judge in all ten cells of Table 6. Reference numbers are quoted from the cited pa-pers’ tables on the same test sets and metrics, so no baseline is weakened. On RAGTruth Qwen reaches 71.2 F1 ( +21 .7[18 .4, 25 .0] ), above every reported zero-training system (best 63.4) and below detectors fine-tuned on its training split (79.2–83.9). On FaithBench it reaches 57.0, within 0.7 of the best published number (57.7, GPT-4-Turbo). On HalluMix it lands within a point of fine-tuned 7–8B specialists (80.0 against 80.8). On TofuEval both backbones clear the open 13B–33B evaluators reported there ( 50 –60 ). Every specialist above needs task-specific fine-tuning. AtomCite needs none. 
+
+# 6 Discussion, Limitations, and Ethics 
+
+What the results support. In the closed-world supplied-citation setting, image-aware verification outperforms every text-only condition in all three families: neither extra text passes nor sequential inference recovers the gap. A conser-vative typed policy converts verification into large precision gains without deletion gaming. We claim no cross-domain text-vs-image generality, no open-retrieval setting, and no model-insensitivity beyond consistent within-family modality gains. On cost, (C) spends 2–3× the layout-OCR list price, so the ladder gives deployments a cost–accuracy choice: (A2) at a third the cost where a missed false citation is tolerable, the full verifier where it is not. 
+
+Limitations. (i) Layer-1 ground truth is page-localization rather than entailment. The human audit corrects this for the naturals: both disagreement regions are censused. (ii) Gold-set expansion has finite recall: missed duplicate evidence deflates stronger systems (conservative for our claims). (iii) Baseline tiers T2/T3 are adaptations, not the original systems (deviations in Appendix B). (iv) Our documents are English business/legal images: other scripts, born-digital PDFs, and non-page granularities are out of scope. 
+
+Ethics and impact. A citation verifier is itself an authority: a false remove deletes truthful content, and fix-page can re-point a fabricated claim to a plausible page. Uncertainty never deletes, actions are typed and auditable, retention is reported alongside precision, and high-stakes deployments should keep a human in the loop for remove. The benchmark redis-tributes only what licenses permit (DUDE CC-BY; identifiers and scripts for MP-DocVQA), and code, prompts, labels, au-dit adjudications, and run ledgers are released with the paper. 
+
+# 7 Conclusion 
+
+We introduced AtomCite, which verifies claims against cited page images and repairs failures with a typed policy, and DocCite, a benchmark for the task. Across three families and two OCR engines, the page image beat every OCR-only and staged condition, including both compute-matched controls. Correction raised precision from 34 .3% to 87 –90% at ≈92% 
+
+retention. AtomCite improved two open 7–8B backbones on five hallucination benchmarks. A two-annotator audit showed that noisy automatic labels bias measured verifier accuracy enough to reverse system rankings, so DocCite ships human-audited labels. References 
+
+AI@Meta. 2024. Llama 3 Model Card. https://huggingface.co/ meta-llama/Meta-Llama-3-8B-Instruct. Accessed: 2026-07-26. Ansari, A.; Zhang, D. C.; Zou, Z.; Yin, W.; and Lee, D. 2026. M2-Verify: A Large-Scale Multidomain Benchmark for Checking Multimodal Claim Consistency. arXiv:2604.01306. Bao, F. S.; Li, M.; Qu, R.; Luo, G.; Wan, E.; Tang, Y.; Fan, W.; Tamber, M. S.; Kazi, S.; Sourabh, V.; Qi, M.; Tu, R.; Xu, C.; Gon-zales, M.; Mendelevitch, O.; and Ahmad, A. 2025. FaithBench: A Diverse Hallucination Benchmark for Summarization by Modern LLMs. In Chiruzzo, L.; Ritter, A.; and Wang, L., eds., Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 2: Short Papers) , 448–461. Albuquerque, New Mexico: Association for Computational Linguistics. ISBN 979-8-89176-190-2. Bohnet, B.; Tran, V. Q.; Verga, P.; Aharoni, R.; Andor, D.; Soares, L. B.; Ciaramita, M.; Eisenstein, J.; Ganchev, K.; Herzig, J.; Hui, K.; Kwiatkowski, T.; Ma, J.; Ni, J.; Saralegui, L. S.; Schuster, T.; Cohen, W. W.; Collins, M.; Das, D.; Metzler, D.; Petrov, S.; and Webster, K. 2023. Attributed Question Answering: Evaluation and Modeling for Attributed Large Language Models. arXiv:2212.08037. Charlotin, D. 2026. AI Hallucination Cases Database. https://www. damiencharlotin.com/hallucinations/. Accessed: 2026-07-26. Chen, S.; Yin, H.; and Zhou, S. 2026. LegalCiteBench: Evaluating Citation Reliability in Legal Language Models. arXiv:2605.10186. Cohen-Wang, B.; Shah, H.; Georgiev, K.; and Madry, A. 2024. Con-textCite: attributing model generation to context. In Proceedings of the 38th International Conference on Neural Information Process-ing Systems , NIPS ’24. Red Hook, NY, USA: Curran Associates Inc. ISBN 9798331314385. Dahl, M.; Magesh, V.; Suzgun, M.; and Ho, D. E. 2024. Large Legal Fictions: Profiling Legal Hallucinations in Large Language Models. Journal of Legal Analysis , 16(1): 64–93. Ding, Q.; Luo, L.; Cao, Y.; and Luo, P. 2025. The Gray Zone of Faithfulness: Taming Ambiguity in Unfaithfulness Detection. arXiv:2510.21118. Emery, D.; Goitia, M.; Vargus, F.; and Neagu, I. 2025. Hallu-Mix: A Task-Agnostic, Multi-Domain Benchmark for Real-World Hallucination Detection. arXiv:2505.00506. Ern, S. L. Y.; Feng, K.; Du, Y.; Jia, C. L. E.; and Sun, Z. 2026. SG-LegalCite: A Principle-Augmented Benchmark for Legal Citation Retrieval in Singapore Law. arXiv:2605.21057. Feng, X.; Zhou, J.; Huang, Z.; Wang, K.; Ye, S.; Hu, J.; Chen, Z.; Luo, Y.; and Zhang, J. 2026. DocScope: Benchmarking Veri-fiable Reasoning for Trustworthy Long-Document Understanding. arXiv:2605.08888. Gao, L.; Dai, Z.; Pasupat, P.; Chen, A.; Chaganty, A. T.; Fan, Y.; Zhao, V.; Lao, N.; Lee, H.; Juan, D.-C.; and Guu, K. 2023a. RARR: Researching and Revising What Language Models Say, Using Lan-guage Models. In Rogers, A.; Boyd-Graber, J.; and Okazaki, N., eds., Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 16477–16508. Toronto, Canada: Association for Computational Linguistics. Gao, T.; Yen, H.; Yu, J.; and Chen, D. 2023b. Enabling Large Language Models to Generate Text with Citations. In Bouamor, H.; Pino, J.; and Bali, K., eds., Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , 6465–6488. Singapore: Association for Computational Linguistics. Hu, Q.; Long, Q.; and Wang, W. 2025. Decomposition Dilemmas: Does Claim Decomposition Boost or Burden Fact-Checking Perfor-mance? In Chiruzzo, L.; Ritter, A.; and Wang, L., eds., Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) , 6313–6336. Albuquerque, New Mexico: Association for Computational Linguistics. ISBN 979-8-89176-189-6. Kovács, Á.; and Recski, G. 2025. LettuceDetect: A Hallucination Detection Framework for RAG Applications. arXiv:2502.17125. Laban, P.; Schnabel, T.; Bennett, P. N.; and Hearst, M. A. 2022. SummaC: Re-Visiting NLI-based Models for Inconsistency Detec-tion in Summarization. Transactions of the Association for Com-putational Linguistics , 10: 163–177. Lal, Y. K.; Bandham, M.; Hasan, M. S.; Kashi, A.; Koupaee, M.; and Balasubramanian, N. 2025. MuSciClaims: Multimodal Scientific Claim Verification. In Inui, K.; Sakti, S.; Wang, H.; Wong, D. F.; Bhattacharyya, P.; Banerjee, B.; Ekbal, A.; Chakraborty, T.; and Singh, D. P., eds., Proceedings of the 14th International Joint Con-ference on Natural Language Processing and the 4th Conference of the Asia-Pacific Chapter of the Association for Computational Linguistics , 3285–3307. Mumbai, India: The Asian Federation of Natural Language Processing and The Association for Computa-tional Linguistics. ISBN 979-8-89176-298-5. Landeghem, J. V.; Powalski, R.; Tito, R.; Jurkiewicz, D.; Blaschko, M.; Borchmann, Ł.; Coustaty, M.; Moens, S.; Pietruszka, M.; Ack-aert, B.; Stanisławek, T.; Józiak, P.; and Valveny, E. 2023. Doc-ument Understanding Dataset and Evaluation (DUDE). In 2023 IEEE/CVF International Conference on Computer Vision (ICCV) ,19471–19483. Laurer, M.; van Atteveldt, W.; Casas, A.; and Welbers, K. 2024. Less Annotating, More Classifying: Addressing the Data Scarcity Issue of Supervised Machine Learning with Deep Transfer Learning and BERT-NLI. Political Analysis , 32(1): 84–100. Li, M.; Luo, R.; and Mendelevitch, O. 2024. HHEM-2.1-Open. Li, Y.; Yue, X.; Liao, Z.; and Sun, H. 2024. AttributionBench: How Hard is Automatic Attribution Evaluation? In Ku, L.-W.; Martins, A.; and Srikumar, V., eds., Findings of the Association for Computational Linguistics: ACL 2024 , 14919–14935. Bangkok, Thailand: Association for Computational Linguistics. Liu, N.; Zhang, T.; and Liang, P. 2023. Evaluating Verifiability in Generative Search Engines. In Bouamor, H.; Pino, J.; and Bali, K., eds., Findings of the Association for Computational Linguistics: EMNLP 2023 , 7001–7025. Singapore: Association for Computa-tional Linguistics. Ma, D.; Li, J.; Wang, Z.; Wang, Y.; Kong, J.; Zeng, W.; Xiao, J.; Yang, J.; Zhang, W.; Wang, B.; and He, C. 2026. CiteVQA: Benchmarking Evidence Attribution for Trustworthy Document In-telligence. arXiv:2605.12882. Ma, Y.; Zang, Y.; Chen, L.; Chen, M.; Jiao, Y.; Li, X.; Lu, X.; Liu, Z.; Ma, Y.; Dong, X.; Zhang, P.; Pan, L.; Jiang, Y.-G.; Wang, J.; Cao, Y.; and Sun, A. 2024. MMLONGBENCH-DOC: benchmark-ing long-context document understanding with visualizations. In 
+
+Proceedings of the 38th International Conference on Neural Infor-mation Processing Systems , NIPS ’24. Red Hook, NY, USA: Curran Associates Inc. ISBN 9798331314385. Magesh, V.; Surani, F.; Dahl, M.; Suzgun, M.; Manning, C. D.; and Ho, D. E. 2025. Hallucination-Free? Assessing the Reliability of Leading AI Legal Research Tools. Journal of Empirical Legal Studies , 22(2): 216–242. Maheshwari, H.; Tenneti, S.; and Nakkiran, A. 2025. CiteFix: Enhancing RAG Accuracy Through Post-Processing Citation Cor-rection. In Rehm, G.; and Li, Y., eds., Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 6: Industry Track) , 310–317. Vienna, Austria: Association for Computational Linguistics. ISBN 979-8-89176-288-6. Manakul, P.; Liusie, A.; and Gales, M. 2023. SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models. In Bouamor, H.; Pino, J.; and Bali, K., eds., 
+
+Proceedings of the 2023 Conference on Empirical Methods in Nat-ural Language Processing , 9004–9017. Singapore: Association for Computational Linguistics. Mata v. Avianca, Inc. 2023. 678 F. Supp. 3d 443 (S.D.N.Y.). No. 22-cv-1461, opinion and order on sanctions. Mathew, M.; Karatzas, D.; and Jawahar, C. V. 2021. DocVQA: A Dataset for VQA on Document Images. In IEEE Winter Conference on Applications of Computer Vision, WACV 2021, Waikoloa, HI, USA, January 3-8, 2021 , 2199–2208. IEEE. Min, S.; Krishna, K.; Lyu, X.; Lewis, M.; Yih, W.-t.; Koh, P.; Iyyer, M.; Zettlemoyer, L.; and Hajishirzi, H. 2023. FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation. In Bouamor, H.; Pino, J.; and Bali, K., eds., Pro-ceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , 12076–12100. Singapore: Association for Computational Linguistics. Niu, C.; Wu, Y.; Zhu, J.; Xu, S.; Shum, K.; Zhong, R.; Song, J.; and Zhang, T. 2024. RAGTruth: A Hallucination Corpus for Developing Trustworthy Retrieval-Augmented Language Models. In Ku, L.-W.; Martins, A.; and Srikumar, V., eds., Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 10862–10878. Bangkok, Thailand: Association for Computational Linguistics. Panickssery, A.; Bowman, S. R.; and Feng, S. 2024. LLM evaluators recognize and favor their own generations. In Proceedings of the 38th International Conference on Neural Information Processing Systems , NIPS ’24. Red Hook, NY, USA: Curran Associates Inc. ISBN 9798331314385. Qwen; :; Yang, A.; Yang, B.; Zhang, B.; Hui, B.; Zheng, B.; Yu, B.; Li, C.; Liu, D.; Huang, F.; Wei, H.; Lin, H.; Yang, J.; Tu, J.; Zhang, J.; Yang, J.; Yang, J.; Zhou, J.; Lin, J.; Dang, K.; Lu, K.; Bao, K.; Yang, K.; Yu, L.; Li, M.; Xue, M.; Zhang, P.; Zhu, Q.; Men, R.; Lin, R.; Li, T.; Tang, T.; Xia, T.; Ren, X.; Ren, X.; Fan, Y.; Su, Y.; Zhang, Y.; Wan, Y.; Liu, Y.; Cui, Z.; Zhang, Z.; and Qiu, Z. 2025. Qwen2.5 Technical Report. arXiv:2412.15115. Rashkin, H.; Nikolaev, V.; Lamm, M.; Aroyo, L.; Collins, M.; Das, D.; Petrov, S.; Tomar, G. S.; Turc, I.; and Reitter, D. 2023. Measur-ing Attribution in Natural Language Generation Models. Compu-tational Linguistics , 49(4): 777–840. Saxena, Y.; Bommireddy, R.; Padia, A.; and Gaur, M. 2025. Generation-Time vs. Post-hoc Citation: A Holistic Evaluation of LLM Attribution. arXiv:2509.21557. Shi, K.; Sun, W.; Zhang, Z.; Sun, L.; Chawla, N. V.; and Ye, Y. 2026. CiteAudit: You Cited It, But Did You Read It? A Benchmark for Verifying Scientific References in the LLM Era. arXiv:2602.23452. Song, Y.; Kim, Y.; and Iyyer, M. 2024. VeriScore: Evaluating the factuality of verifiable claims in long-form text generation. In Al-Onaizan, Y.; Bansal, M.; and Chen, Y.-N., eds., Findings of the Asso-ciation for Computational Linguistics: EMNLP 2024 , 9447–9474. Miami, Florida, USA: Association for Computational Linguistics. Tang, L.; Laban, P.; and Durrett, G. 2024. MiniCheck: Efficient Fact-Checking of LLMs on Grounding Documents. In Al-Onaizan, Y.; Bansal, M.; and Chen, Y.-N., eds., Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing ,8818–8847. Miami, Florida, USA: Association for Computational Linguistics. Tang, L.; Shalyminov, I.; Wong, A.; Burnsky, J.; Vincent, J.; Yang, Y.; Singh, S.; Feng, S.; Song, H.; Su, H.; Sun, L.; Zhang, Y.; Man-sour, S.; and McKeown, K. 2024. TofuEval: Evaluating Hallucina-tions of LLMs on Topic-Focused Dialogue Summarization. In Duh, K.; Gomez, H.; and Bethard, S., eds., Proceedings of the 2024 Con-ference of the North American Chapter of the Association for Com-putational Linguistics: Human Language Technologies (Volume 1: Long Papers) , 4455–4480. Mexico City, Mexico: Association for Computational Linguistics. Tesseract OCR. 2026. Tesseract Open Source OCR Engine. https: //github.com/tesseract-ocr/tesseract. Accessed: 2026-07-26. Tito, R.; Karatzas, D.; and Valveny, E. 2023. Hierarchical mul-timodal transformers for Multipage DocVQA. Pattern Recogn. ,144(C). Tran, D. Q. T.; Dang, Q. V.; Tyagi, V.; Veeravalli, S. S. R.; Nguyen, T.; Rossi, R. A.; Dernoncourt, F.; Lipka, N.; Goswami, K.; and Basu, S. 2026. MultAttnAttrib: Training-Free Multimodal Attribution in Long Document Question Answering. arXiv:2607.01420. Wang, B.; He, T.; Ouyang, L.; Wu, F.; Zhao, Z.; Chu, T.; Qu, Y.; Jin, Z.; Zeng, W.; Miao, Z.; Xu, B.; Niu, J.; Cai, M.; Qiu, J.; Zhang, Q.; Ma, D.; Sun, Y.; Dong, H.; Zhang, W.; Xiao, J.; Shi, J.; Liao, P.; Zhao, X.; Zhong, H.; Wei, L.; Yu, J.; Yang, J.; Li, W.; Wang, S.; Wu, Q.; Zhou, X.; Li, W.; Li, Z.; Tu, Z.; Wu, J.; Wu, L.; Xu, C.; Chen, K.; Zhang, W.; Qiao, Y.; Zhou, B.; Lin, D.; and He, C. 2026. MinerU2.5-Pro: Pushing the Limits of Data-Centric Document Parsing at Scale. arXiv:2604.04771. Xu, Y.; Qi, P.; Chen, J.; Liu, K.; Han, R.; Liu, L.; Min, B.; Castelli, V.; Gupta, A.; and Wang, Z. 2025. CiteEval: Principle-Driven Ci-tation Evaluation for Source Attribution. In Che, W.; Nabende, J.; Shutova, E.; and Pilehvar, M. T., eds., Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , 32759–32778. Vienna, Austria: Associ-ation for Computational Linguistics. ISBN 979-8-89176-251-0. Zha, Y.; Yang, Y.; Li, R.; and Hu, Z. 2023. AlignScore: Evaluat-ing Factual Consistency with A Unified Alignment Function. In Rogers, A.; Boyd-Graber, J.; and Okazaki, N., eds., Proceedings of the 61st Annual Meeting of the Association for Computational Lin-guistics (Volume 1: Long Papers) , 11328–11348. Toronto, Canada: Association for Computational Linguistics. Zhou, K.; Tang, Z.; Ming, L.; Zhou, G.; Chen, Q.; Qiao, D.; Yang, Z.; Qin, L.; Qiu, M.; Li, J.; and Zhang, M. 2025. MM-LongCite: A Benchmark for Evaluating Fidelity of Long-Context Vision-Language Models. arXiv:2510.13276. Appendix: Supplementary Material A Testbed Construction Detail 
+
+Document selection. Seeded, frozen selections (seed 20260716) fix three disjoint document pools, chosen be-fore any system output was scored: the injection corpus of 240 documents (180 MP-DocVQA, expanded from a 100-document pilot pool, plus 60 DUDE; 3,398 pages), a 150-document natural-generation pool (100 MP-DocVQA, 50 DUDE; 2,068 pages), and a 30-document development split (425 pages) on which the gold-expansion scan param-eters were frozen. No document appears in more than one pool. Every selected page was rendered and OCR-processed with a single engine version; per-page TSV output addition-ally feeds the layout-aware serialization (region blocks with coordinates, reading order, |-separated table cells) used by conditions (A2)/(A3). 
+
+Gold-set expansion. Source benchmarks give one evi-dence page per QA pair; duplicate evidence (running head-ers, repeated fields, summary pages) makes single-page gold sets wrong for localization scoring. We scan every document for near-matches of each QA’s evidence string: sliding win-dow of 10 tokens, fuzzy threshold 0.85 , minimum match length 12, and a distinctiveness guard discarding matches whose text occurs on more than 3 pages (boilerplate). Pa-rameters were frozen on a development split before test scor-ing; the expansion added 505 evidence pages across 2,058 QA pairs. A random n=50 human audit of expansion de-cisions is reported with the release. The human expansion audit (all 76 added pages from the n=50 QA sample, two annotators, 89 .5% agreement) finds 60 .5% [49 .3, 70 .8] of added pages carry fully equivalent evidence ( 71 .1% under an either-annotator reading): expansion trades some gold-set precision for recall, and both error directions are covered by the Layer-2 calibration above. 
+
+DocCite-Syn templates. Each instance derives from a QA pair with a verified answer-bearing claim. clean : claim + correct page. wrong_page : claim + shifted page; shifts that land inside the (expanded) gold set are re-shifted at gener-ation. perturb : an entity/number in the claim is replaced by a type-compatible alternative (same interrogative class and surface shape); a document-wide scan verifies the perturbed value appears nowhere. partial : a supported base claim with an appended unsupported statement whose value the scan verifies absent. fabricated : a claim foreign to the document, scan-verified. Scan value extraction is quote-anchored with digit/comma normalization; instances failing their scan are discarded (of 1,000 constructed, 32 accidentally supported and 40 duplicate-evidence instances are removed; the 928 validated instances are scored). The discards by template are wrong_page 40, partial 14, fabricated 10, and perturb 8, leav-ing a final mix of 318 clean, 362 wrong-page, 113 partial, 82 fabricated, and 53 perturbed. Among the 362 wrong-page instances, 251 ( 69 .3% ) have their nearest gold page within the ±2 correction window (237 at distance 1, 14 at distance 2); the 111 beyond-window instances are unreachable by fix-page and fall to remove under the policy. Label derivation is a single template-first rule set shared in code by generator, scorer, and audit traces. 
+
+Natural-error harvest. Six generator configurations (Claude, Gemini, GPT families × frontier/efficiency tiers) produced cited answers for the selected QA pairs. Layer-1 labeling against expanded gold sets yielded 2,468 answer-bearing candidate errors across all six configurations, far exceeding the pre-registered N ≥180 powering threshold (an interim two-family harvest of 433 already cleared it during construction). The two-annotator audit (two census waves plus spot-check) then partitioned the candidates into 1,909 audit-validated errors (240 of them partial-support, counted as errors under the strict metric), 450 confirmed-supported claims, and 109 annotator-mixed items (see the funnel fig-ure below). Matched correctly-localized generations serve as negatives in the stratified calibration sample. 
+
+Candidate-error prevalence per generator. Table A1 reports, for each generator configuration, the number of answer-bearing cited claims and the fraction Layer-1 labels as candidate errors. Prevalence spans 44 .7–61 .2% and neither tier is uniformly cleaner: the Claude frontier generator errs more often than its efficiency sibling, while the Gemini and GPT frontier generators err less. GPT generators produce far fewer answer-bearing cited claims than the other families. Counts are computed on the current generation snapshot, which reproduces 2,392 of the 2,468 pool rows; the remain-ing 76 originate from superseded generation passes retained for pool-index stability and lack denominators, so they are excluded here.                      
+
+> Generator AB claims Cand. errors Prev. (%) Gemini frontier 954 426 44.7 Gemini efficiency 1,076 556 51.7 Claude frontier 1,037 590 56.9 Claude efficiency 1,098 601 54.7 GPT frontier 284 134 47.2 GPT efficiency 139 85 61.2
+
+Table A1: Layer-1 candidate-error prevalence by generator (AB = answer-bearing cited claims). Candidate status is the Layer-1 localization label; the two-annotator human audit validates 77 .4% of pooled candidates as genuine errors (par-tial support counted as error). 
+
+Annotation ethics. The audited documents are public-benchmark pages; annotation involved no crowd work and no personal data beyond what the source benchmarks release. 
+
+Audit trail. Before launch, the pipeline passed a 20-case micro-audit and an independent two-author hand-trace of scorer arithmetic (which caught and fixed two real defects: a duplicated label-derivation path and a wrong-page shift landing inside a multi-page gold set — both now regression-tested); all amendments are date-logged in the released exe-cution record. 
+
+# B Additional Results 
+
+Condition codes. A1/A2/A3 = flat/layout/compute-matched OCR input; B1/B2/B3 =direct/structured/sequential-chain prompting; C = the full framework. C-atom denotes C’s atomic-decomposition variant. Released artifacts key these conditions as d/d2 /d2s 
+
+(A-series), a/a2 /a3 (B-series), c, and e (C-atom). 
+
+Text-pool testbed (AtomCite-Legal). On a 500-run legal QA benchmark with bounded text-context pools, strict ci-tation precision of unassisted frontier generation is 31 .4% 
+
+(37 .8% lenient) — establishing that supplied citations are unreliable even in the easy, text-only case. Verification con-ditions on the 400-question test split ( n=2 ,687 claim-citation pairs per cell; ≤ 5 abstentions per GPT cell, zero elsewhere): Gemini (C-atom) 92 .3% binary vs. (C) 92 .7% ; Claude (C-atom) 90 .9% vs. (C) 92 .3% ; GPT (C-atom) 91 .3% vs. (C) 
+
+92 .4% . In all three families, on short single-source legal claims the claim-level default matches or slightly exceeds the decomposition variant on binary accuracy. The small spread across conditions here motivates the document-image set-ting, where the architectural gaps appear. 
+
+Detector threshold sweeps. Body results fix the detector operating point at 0.5. Sweeps (appendix diagnostics only, never operating points): MiniCheck peaks at 84 .9% (τ =0 .1), HHEM at 83 .9% (τ =0 .5), LettuceDetect 83 .2% (τ =0 .1), AlignScore 80 .0% (τ =0 .3), DeBERTa-NLI 77 .7% (τ =0 .9). Even at test-set-optimal thresholds every detector remains below the default (C) by ≥ 8pp. 
+
+Baseline adaptations (T2/T3). T1 detectors run as re-leased (operating point 0.5; sweeps above). CiteFix (T3) is reimplemented from its paper, which released no code: each claim is one factual point carrying one citation, the candidate pool is the evidence window, and we run both the keyword and the LLM matching variants, reporting the LLM matcher (both recorded in the release); the fine-tuned-BERTScore variant requires the authors’ private training data and is omitted. CiteFix by design only replaces citations, so it cannot remove fabricated claims. RARR (T2) ports the official chain and prompts verbatim, swaps the deprecated 
+
+text-davinci-003 backbone for our pinned runners, and skips web retrieval: the cited page’s OCR text serves as the evidence for the agreement gate and editor, with the up-stream edit-distance guard at its default. RARR is edit-only — it never proposes a page repoint — so its exact-page recov-ery of 0.0 (Table 5) is structural, not a tuning artifact, and its agreement gate rarely fires on wrong-page citations whose text the page still supports. AutoAIS (T2) reduces in our single-citation setting to its degenerate case of one NLI call (cited page as premise, claim as hypothesis); the 11B TRUE-NLI checkpoint is substituted by the DeBERTa NLI already run in the detector tier (a pre-registered swap). CiteEval-Auto (T2) runs the native context-attribution, citation-editing, and rating chain with verbatim prompts through the same pinned backbones as the framework (the same-family pairing of Ta-ble 3). Full deviation catalogues accompany the code release. 
+
+Per-condition compute. Per-item averages from the run ledger (list prices, uncached calls): (C-atom) 3.5 calls / 7,488 tokens / $0.030; (B3) 3.5 / 8,283 / $0.029; (B1) 1.0 / 5,664 / $0.018; (B2) 1.0 / 5,870 / $0.020; (A2) 1.3 / 1,582 / $0.009; (A3) 4.0 / 4,681 / $0.028. The decomposition variant costs                          
+
+> Condition Binary acc. (%) $/item Calls/item (C) AtomCite 93.7 0.024 ∗2.8 (C-atom) 91.9 0.030 3.5 (B3) seq. chain 87.5 0.029 3.5 (A3) Tesseract matched 86.2 0.028 4.0 (B2) checklist 88.1 0.020 1.0 (B1) direct 87.9 0.018 1.0 (A2) Tesseract layout 85.2 0.009 1.3
+
+Table A2: Cost-effectiveness on DocCite-Syn (Gemini back-bone; list prices, uncached calls, per-item ledger averages). 
+
+> ∗
+
+(C) measured on its two cache-disabled repeats (run-to-run variance paragraph); its original run shared cached ground-ing calls with (C-atom) on single-atom claims. Call/token structure is identical across families; absolute prices differ by provider list price. 
+
+3.4× the layout-OCR condition per item at list prices. The default (C), measured on its two cache-disabled repeats (its original run shared cached grounding calls with (C-atom) on single-atom claims), averages 2.8 calls / 5,951 tokens / $0.024 per item — cheaper than the variant, as the structure implies: one call fewer per item (no decomposition) and one grounding pass per channel per claim rather than per atom. Whether the image premium justifies its cost is deployment-dependent, and the conditions ladder is exactly the menu for that decision. 
+
+Natural-error audit trail. Under the deterministic Layer-1 labels (before the human audit), detection of the 2,468 candidate natural errors is: (A1) 89 .1/90 .1/90 .0% ,(C-atom) 81 .6/84 .1/83 .7% , (C) 80 .0/79 .4/82 .4% , (B3) 
+
+76 .2/70 .3/78 .9% (Gemini/Claude/GPT) — every image-grounded condition below flat OCR, the opposite ordering from DocCite-Syn, and the anomaly that triggered the au-dit. The stratified calibration sample ( n=320 ; 150 abstrac-tive; 60 -item oversampled leniency stratum) gave κ=0 .87 ,false-support prevalence 30 .3% [24 .2, 37 .0] among Layer-1 natural-error labels, false-wrong-location 3.0% , and 52 /60 
+
+leniency-stratum items resolved in the framework’s favor — corroborated by an automated probe finding 66% of the framework’s rescue quotes verbatim in the flat OCR the (A1) condition read and missed. The first census wave then ad-judicated all 608 disputed instances: 72 .9% both-supported (label noise), 17 .6% partial support, 9.5% annotator-mixed (excluded from all denominators), and zero consensus-unsupported — no family missed a single clean error. Un-der the strict metric (partial support counts as an error), (C)’s detection is 97 .3–98 .6% and every one of its misses is a partial-support item. False alarms are measured on the census-confirmed supported set, and the undisputed region is covered by the spot-check and the stratified sample. Cross-family probes (verifier × generator, condition (C)): Gemini-generated errors are hardest for every verifier ( 73 .8–76 .9% 
+
+under Layer-1 labels); residual self-leniency is small and in-consistent (Claude −4 to −6pp on its own errors, GPT none), so difficulty is generator-specific, not verifier-specific. Second census wave (A1/B3-only disagreement region). 
+
+The first wave covers every instance where a (C) verdict disagreed with the Layer-1 label. Its complement, instances where only the flat-OCR or sequential-chain arms disagreed, contains 306 instances after removing the 50 spot-check items ( 299 B3-only, 6 both, 1 A1-only; region rule and seeds frozen in the released artifacts). The two annotators ran the identical blind protocol on all of them (raw agreement 0.837 ). Consensus buckets: 7 label noise, 139 fully unsupported, 110 
+
+partial support (validated errors under the strict metric), 50 
+
+annotator-mixed. Noise among the 306 disputed labels is 
+
+2.3% (Wilson 95% [1 .1, 4.6] ; 2.7% [1 .3, 5.5] of consensus-decided items, 4.8% [2 .3, 9.6] under a lenient reading that also excludes partials), versus 72 .9% [69 .2, 76 .2] of the 608 
+
+(C)-disputed labels under the same definition: label noise concentrates where (C) disputed the labels, so the census design does not manufacture (C)’s advantage. The headline partition ( 1,909 /450 /109 ) folds in both waves. Orderings are metric-robust: under the lenient reading (C) keeps the lowest false-alarm rate ( 5.5/5.4/12 .3) and (B3)’s detection rises to 92 .1/93 .7/98 .3 because many of its apparent misses are partial-support items, while it still misses errors (C) does not. 
+
+Spot-check noise propagation. The undisputed region (1,553 retained errors) is covered by the seeded 50-item spot-check (0% noise, Wilson 95% CI [0 , 7.3] ). Propagating the upper bound reassigns at most 113 of those errors to sup-ported. Because every arm flags them, the shift is symmetric: detection moves by at most 0.8pp for any system, worst-case false-alarm rates rise for all systems together (C 24 .4–29 .9,B3 28 .1–33 .6, A1 55 .1–59 .5), and no cross-condition order-ing reverses. (C) keeps the lowest false-alarm rate and the highest balanced accuracy ( 84 .3–86 .5 vs. B3 78 .5–83 .0, A1 
+
+70 .1–72 .3) in every family under this worst case. 
+
+Per-condition exclusions and the excluded-as-error re-compute. Abstention after retry exhaustion is zero in ev-ery main-matrix cell. Excluded verdicts (inconsistent or unparseable output) range from 0 to 13 of 928 per cell; the largest are GPT (C-atom) 13, Claude (C-atom) 12, and the (C) cells at 6–8; all Tesseract OCR-only cells are 0 (one MinerU cell has 1, one prompting cell 2). Because these flags are almost entirely (C)’s own, we recompute all 18 headline paired differences scoring every excluded verdict as an error, the worst case for (C). Sixteen of 18 remain Holm-significant with nearly unchanged estimates. The two weakest comparisons keep positive point estimates but lose significance: (C) −(A3 ′) Claude moves from +2 .3 [0 .3, 4.2] 
+
+to +1 .9 [0 .0, 4.0] (Holm p=0 .11 ) and (C) −(B3) GPT from 
+
++2 .5 [0 .5, 4.4] to +1 .8 [ −0.2, 3.9] (Holm p=0 .11 ). No order-ing reverses under this treatment ( itt_channel.json ). 
+
+Channel-disagreement audit (basis of the image-authoritative rule). On the (C) runs over DocCite-Syn, the two grounding channels agree on 704 –741 of 928 in-stances per family; hard conflicts (verified vs. false) num-ber 6–8 and become inconsistent. Among the decisive soft disagreements (exactly one channel returns verified): Gemini 91, Claude 120, GPT 100. Of these, 86 –99% are text-negative/image-positive (90/91, 103/120, 97/100), the OCR-omission signature, and scan-derived ground truth sides with the image channel in 86 .8/76 .7/80 .0% (Gem-ini/Claude/GPT). Following the text channel instead would be correct in 13 –23% . This audit is post-hoc explanation, not rule fitting: the rule was fixed at design time from the qualitative observation that OCR omits stamps, handwriting, and table structure, was frozen before any full condition was scored (decision log in the released ledger), and an end-to-end ablation measures its effect ( −7.4pp when replaced by a symmetric meet). 
+
+Correction on natural errors. Applying the conservative correction policy to DocCite-Nat and scoring against the human-audited partition: on the 450 human-confirmed sup-ported claims, keep retention is 94 .7% (Gemini), 94 .7% 
+
+(Claude), and 88 .0% (GPT); on the 1,909 validated er-rors, the policy acts (fix-page or remove) on 97 .2–98 .6% 
+
+(the remainder are flagged keeps and partial-support items the verifier judged verified). Of the fix-page proposals, 
+
+50 .8/58 .7/51 .6% (Gemini/Claude/GPT) land inside the ex-panded gold set. The last figure is a conservative lower bound: the expansion audit puts the gold sets’ own equivalent-evidence precision at 60 .5% with limited recall, so a proposal outside the set is not necessarily wrong; item-level human scoring of fix targets is left to future work. 
+
+Run-to-run variance. Running the flagship (C) condition three times on the Gemini backbone — the original run plus two repeats with caching disabled — gives binary ac-curacy 93 .70 /93 .36 /93 .37% — range 0.33 pp, standard devi-ation 0.17 pp — with only 5 of 916 common items ( 0.5% )changing their binary outcome in any repeat (the common set drops items excluded — inconsistent or unparseable — in any of the three repeats). Run-to-run noise is an or-der of magnitude smaller than every effect we report (the smallest significant paired difference has a CI lower bound of +0 .3pp). 
+
+Source stratification. Splitting DocCite-Syn by source corpus, condition (C): MP-DocVQA 94 .7–95 .4% binary across the families (n=716 –718 ); DUDE 86 .8–87 .8% 
+
+(n=204 –205 ) — DUDE’s born-digital/scanned mix and longer documents are uniformly harder, and the family rank-ing is unchanged within each source. 
+
+OCR-engine robustness (full breakdown). The corpus OCR engines are Tesseract 5.5.2 (MP-DocVQA) and the dataset-shipped Azure OCR (DUDE). To test whether the modality gap depends on engine quality, we re-OCR every page of the injection corpus with MinerU 2.5 (MinerU2.5-Pro-2604-1.2B , vLLM serving, greedy decoding) and rebuild both A-serializations from its out-put with the formats held fixed: (A1) reading-order flat text with tables flattened row-wise; (A2) the same [region 
+
+x, y w×h] block headers as the corpus-engine serializer, coordinates normalized to 0–1000. (A3) then reuses its stan-dard construction on top of the MinerU passes. Table A3 gives the full breakdown. MinerU lifts supported recall by 
+
++6 .6 to +15 .1pp on every rung in every family — it gen-uinely recovers evidence the corpus engines miss — yet all Condition Bin Sup. R Gap to (C) 95% CI Gem.  (A1) flat 87.7 69.8 +5 .9 [3 .8, 8.0]                                         
+
+> (A2) layout 88.5 72.0 +5 .1[3 .2,7.1]
+> (A3) matched 88.7 72.6 +4 .9[3 .0,6.9]
+> Cl.  (A1) flat 88.4 70.8 +4 .5[2 .4,6.5]
+> (A2) layout 89.1 74.5 +3 .7[1 .8,5.6]
+> (A3) matched 90.5 78.6 +2 .3[0 .3,4.2]
+> GPT  (A1) flat 89.0 73.6 +3 .9[2 .0,5.8]
+> (A2) layout 88.1 71.4 +4 .8[2 .8,6.8]
+> (A3) matched 89.0 75.8 +3 .9[2 .1,5.8]
+
+Table A3: Full MinerU 2.5 replication of the A ladder (n=928 ; %). Gap = paired difference (C) −rung, doc-cluster bootstrap, B=10 4; all nine are Holm-significant ( α=0 .05 ,family of nine). Against the corpus-engine ladder, the stronger engine lifts every rung (supported recall by +8 –
+
+15 pp) without closing the image gap in any family. nine paired gaps to (C) remain significant under a Holm correction (these MinerU gaps are the modality rows of Ta-ble 2). The corpus-engine gaps, also all Holm-significant, are larger: (C) −(A1)/(A2)/(A3) = +8 .6/+7 .8/+6 .8 Gem-ini, +7 .8/+8 .6/+6 .0 Claude, +8 .9/+7 .5/+5 .1 GPT (95% CI lower bounds 2.3–6.3). 
+
+Full metric breakdown. Table A4 reports wrong-location recall for every condition and family, alongside binary ac-curacy and supported recall. The key pattern: the matched OCR control (A3) trades localization away entirely (WL R 
+
+≤1.4) for its binary score, while both AtomCite configura-tions keep wrong-location recall in the 50 –58 range — the capability the correction policy consumes. 
+
+Correction-window sweep. Widening or narrowing the correction window leaves verification untouched — binary accuracy is exactly 91 .9% at every width from ±1 to ±5,five-point confirmation that verdicts are decided by the cited page alone — but correction quality degrades monotonically with width: repair precision falls from 91 .8% (±1) to 86 .9% 
+
+(±5) and exact gold-page recovery collapses beyond ±3 (Ta-ble A5). Wider windows admit more candidate pages, and repair proposals scatter onto plausible-but-wrong neighbors; the distribution of wrong-location offsets (65.5% within ±1,69.3% within ±2, 92.5% within ±5) means wider windows raise the reachable ceiling while lowering realized repair quality. Note the evidence-page cap (5 pages) truncates the nominal ±4/±5 windows on longer documents with a low-page bias, so those two rows underestimate what an uncapped wide window could reach — but the monotone precision de-cline already visible under the cap, together with rising token cost, is what the window decision trades against. The pre-registered ±2 default sits at the balance point. 
+
+Correction detail. Conservative-mode action distribu-tions and per-template outcomes; FIX_PAGE candidates come only from the ±2 window, so 111 of 362 wrong-location instances are structurally unreachable (gold page outside every window) — reachable-subset recovery is the                                                                                  
+
+> Condition Binary Sup. R WL R Gemini (A1) Tesseract flat 84.5 59.7 56.9 (A2) Tesseract layout 85.2 62.3 57.7 (A3) Tesseract matched 86.2 62.6 0.6 (B1) direct 87.9 81.4 59.9 (B2) structured 88.1 80.8 55.8 (B3) seq. matched 87.5 75.2 58.6 (C-atom) AtomCite +dec 91.9 84.6 50.0 (C) AtomCite 93.7 90.4 52.8 Claude (A1) Tesseract flat 84.8 63.5 62.7 (A2) Tesseract layout 84.2 63.8 61.9 (A3) Tesseract matched 86.7 71.7 1.4 (B1) direct 81.8 90.6 55.5 (B2) structured 88.6 88.4 54.7 (B3) seq. matched 89.1 83.3 61.3 (C-atom) AtomCite +dec 92.0 86.5 55.6 (C) AtomCite 93.0 90.4 57.2 GPT (A1) Tesseract flat 83.7 58.5 60.5 (A2) Tesseract layout 85.2 61.9 58.3 (A3) Tesseract matched 87.8 69.2 0.3 (B1) direct 88.4 94.7 58.6 (B2) structured 89.3 88.4 47.0 (B3) seq. matched 90.6 85.8 61.3 (C-atom) AtomCite +dec 91.9 85.1 51.2 (C) AtomCite 93.0 91.0 53.3
+
+Table A4: Full metric breakdown of the conditions ladder (n=928 ; %). WL R = recall on truth-wrong-location in-stances. The compute-matched OCR control (A3) reaches its binary score with no localization ability: its wrong-location recall collapses to ≤1.4 in every family — its bi-nary gains come entirely from coarse supported/unsupported calls. Wrong-location recognition is the capability the cor-rection policy builds on. honest denominator reported in the body alongside the over-all rate. 
+
+The decomposition variant (C-atom). A single optional stage splits each claim into finer-grained checkable facts (atoms ) using one pinned decomposer model; each atom is grounded separately and the claim verdict is the strict conjunction of atom verdicts. Wherever decomposition ap-pears in a comparison the same pinned, cached decomposi-tion is shared by every system, eliminating atom-alignment bias. On DocCite-Syn the variant reaches 91 .9/92 .0/91 .9% 
+
+binary (Gemini/Claude/GPT) — 1.2–1.8pp below the claim-level default on paired differences, significant for Gem-ini and Claude ( +1 .8, +1 .2) and not significant for GPT (+1 .2, p=0 .075 ) — while beating every OCR condition ((C-atom) −(A1) = +6 .7/+6 .3/+7 .5, all SIG) and the strongest protocol baseline ( +2 .7/+3 .8/+2 .7 vs. CiteEval-Auto, all SIG). Against the matched sequential chain: +4 .3 [1 .9, 6.8] 
+
+on Gemini and +2 .8 [0 .8, 4.9] on Claude (both significant), 
+
++1 .1 [ −0.8, 2.9] (ns) on GPT — the variant clears the chain in two families and is level in the third, where staged in-ference is strongest. In correction it holds the same 89 .9% 
+
+precision as (C) at 86 .5% retention ( −5.3pp; atom-level ver-dicts remove more correct claims), and on the human-audited Window Bin Prec. Ret. Reach All Pages                                
+
+> ±191.9 91.8 85.8 69.2 45.3 1.77
+> ±2(default) 91.9 89.9 86.5 65.3 45.3 3.33
+> ±391.9 88.6 86.5 62.9 45.9 3.77
+> ±491.9 88.0 86.2 47.1 36.5 4.00
+> ±591.9 86.9 87.7 38.5 35.6 4.00
+
+Table A5: Correction-window sweep (Gemini, n=928 ; %; run under the decomposition-variant configuration — veri-fication is window-invariant in both configurations, and the correction trade-off direction carries over). Bin = verification binary accuracy (invariant by design); Prec. = post-correction citation precision; Reach = exact recovery on wrong-location citations reachable within each window; All = exact recov-ery over all wrong-location citations; Pages = mean effec-tive window size after document-boundary and evidence-cap truncation. Marginal re-run token cost rises monotonically with width (from ∼2.2k/item at ±1 to ∼4.2k at ±5). naturals it detects 98 .6–99 .4% of validated errors at 11 .1–
+
+19 .5% false alarms — between (C) and flat OCR on both axes. The variant remains the right tool for fine-grained au-diting (atom-level verdicts, partial detection); it is not the accuracy-optimal default. 
+
+Why claim-level is the default (decomposition mecha-nism). Decomposition is the one pipeline stage whose re-moval helps (+1 .2 to +1 .8pp; significant for Gemini and Claude, p=0 .075 for GPT), and the mechanism localizes cleanly. Splitting DocCite-Syn by the shared decomposition’s atom count: on single-atom claims ( n=724 ) the paired (C-atom) −(C) difference is −0.3/+0 .3/+0 .6pp (all ns) — the two configurations are the same procedure there. On multi-atom claims ( n=203 ) it is −7.5/−6.5/−7.6pp (all SIG): un-der strict conjunction, each atom’s grounding noise com-pounds, and the over-flag rate on true claims rises from 
+
+∼10% at one atom to ∼31% at two and ∼79% at three or more — a family-invariant curve. Claim-level verifica-tion recovers multi-atom supported recall from 52 –62% to 
+
+89 –92% while giving back 1–2pp of error sensitivity ( 98 .1–
+
+98 .7% to 96 .8–97 .4% ). Decomposition remains available for fine-grained auditing (atom-level verdicts, partial detection), but it is not the accuracy-optimal default. 
+
+External text benchmark (sanity check only). Running the framework’s text-pair path (Gemini backbone, condition (C-atom)) on the balanced 500-item in-domain test sample of AttributionBench (Li et al. 2024) yields 70 .2% accuracy under the strict mapping (attributable ⇔ Verified), with a sharply precision-skewed profile: 83 .4% precision but 50 .4% 
+
+recall on the attributable class. The misses are a construct dif-ference, not a transfer failure: false negatives concentrate in the long-form subsets (ExpertQA 67 of 124) and average 
+
+3.2 atoms per claim, and half of them have some-but-not-all atoms verified — the strict all-atoms conjunction reads Attri-butionBench’s lenient holistic “attributable” label as partial support. Counting Partially Verified as attributable raises accuracy to 77 .0% . We claim no generalization from this single configuration; it confirms only that the pipeline be-haves as designed — a strict, precision-first verifier — on an external text benchmark it was never tuned for. 
+
+Model-tier 2×2 (H4). Holding the framework fixed and swapping the backbone tier (DocCite-Syn, n=928 per cell): Gemini frontier (C-atom) 91 .9% / efficiency (C-atom) 
+
+91 .5% ; GPT frontier (C-atom) 91 .9% / efficiency (C-atom) 
+
+92 .7% ; Claude frontier (C-atom) 92 .0% / efficiency (C-atom) 86 .0% . In two of three families the efficiency tier 
+
+with the framework matches or exceeds the frontier tier with the framework at roughly one-third the list price; Claude’s efficiency tier does not ( −6.0pp), so the substitution is backbone-dependent, not free. The image-over-OCR gap fol-lows the same split: the paired (C-atom) −(A1) difference is 
+
++6 .7pp (Gemini frontier, CI [+4 .5, +9 .1] ), +7 .1pp (Gem-ini efficiency, CI [+4 .8, +9 .4] ), +7 .5pp (GPT frontier, CI 
+
+[+5 .3, +9 .9] ), and +6 .9pp (GPT efficiency, CI [+4 .3, +9 .7] )— all significant, all ≈ +7 pp — but collapses to +0 .3pp (ns, CI [−2.4, +3 .1] ) on Claude-efficiency under the vari-ant, whose supported-recall drops to 64 .9% . The claim-level cell isolates the cause: under (C) the same backbone reaches 
+
+93 .0% binary ( 86 .8% supported recall), +7 .1pp [5 .2, 9.0] 
+
+over its (C-atom) cell and +7 .4pp [4 .9, 10 .1] over flat OCR (both significant) — the collapse is strict atom conjunction compounding the weaker backbone’s grounding noise, not an inability to read the page image. Under the flagship claim-level configuration, efficiency-tier (C) reaches 93 .4% (Gem-ini), 93 .0% (Claude), and 93 .5% (GPT), matching or exceed-ing the frontier (C) cells at roughly one-third the list price; the tier swap remains a deployment decision to validate per family and configuration. 
+
+# C Transfer Suite: Protocols, Anchors, and Boundary 
+
+Protocol details. All transfer runs use frozen prompts and greedy decoding; nonzero temperature appears only in bounded parse-retry rounds. Every reported cell finishes with zero unparsed outputs. The direct arm uses our frozen single-call JSON judge prompt in every cell, not each benchmark’s native prompt. TofuEval source dialogues are reconstructed with the benchmark’s released instructions from the Meet-ingBank transcripts and a MediaSum mirror. Llama-3-8B reads long sources in 24k-character chunks because of its 8k context. The VeriGray response-level protocol counts a sum-mary as unfaithful when it contains at least one fabricated or contradicting sentence and drops 83 summaries whose sentences carry only gray labels, leaving 329; it is a derived protocol with no published reference row. 
+
+Fairness anchors. On RAGTruth the Qwen gain is +21 .7
+
+F1 with 95% CI [18 .4, 25 .0] . On TofuEval Qwen exceeds GPT-4 on the MediaSum main-topic slice (66.5 against 63.7) while GPT-4 stays well ahead on marginal topics. On VeriGray our direct arm reproduces the published 7–8B de-tector floor under the official sentence-level protocol (33.5 F1 against 35.9 for Lynx-8B and 35.1 for MiniCheck-7B), so the harness does not inflate or deflate baselines. One input de-viation under that official protocol: both of our arms receive the document and the sentence only, without the surrounding Input: answer A; document D (pages: OCR text + image) 1: C ← Parse (A) ▷ (claim, cited page) pairs 2: for each (x, p ) ∈ C in parallel:                                                         
+
+> 3: E←Evidence (D, p )▷cited page +±2window 4: vtxt ←Ground (x, OCR( p)) ▷text channel
+> vimg ←Ground (x, Img( p)) ▷image channel 5: v←Merge (vtxt , v img )▷hard →inc.; soft →image wins 6: if v̸=verified: scan window of Efor support page q
+> 7: if qfound: v←verified-nearby (q)
+> 8: flag-only consistency check across C▷cannot alter verdicts 9: for each (x, p, v )∈C: action ←Policy (v)
+> ▷verified →keep; verified-nearby →fix-page (q);else →remove
+> Output: per-citation verdicts +repaired citation layer
+
+Figure A1: Algorithm 1: AtomCite (conservative mode, claim-level default). summary. 
+
+Boundary conditions. Three negative results delimit where the framework applies. (i) Pre-atomized inputs. On an LLM-AggreFact mirror pool (12,949 items) the direct arm reproduces the leaderboard’s published Qwen2.5-7B number to 0.3 points, and the framework scores −2.6 [ −3.7, −1.5] :claim-granularity input gives decomposition no room to work. (ii) Single-fact extractive answers. On 300-item strati-fied pilots of TRIVIA+ and HaluBench the framework drops F1 from 65.2 to 43.0 and accuracy from 75.3 to 57.6. Hallucinations there are wrong selections whose content is verbatim-present in the passage (median framework-missed response length 16 characters), so per-claim support verifi-cation passes them. (iii) Evaluation unit. On VeriGray, with the same data and the same labels, the framework loses 4.7 F1 when scored per sentence and gains 14.8 when scored per response. Together these place the framework’s domain at multi-claim long-form responses; the unit of evaluation, not the dataset, sets the boundary. 
+
+# D Algorithm, Funnel, and Qualitative Cases 
+
+DocCite-Nat construction funnel. Figure A2 summarizes the DocCite-Nat audit funnel. 
+
+Qualitative failure cases. Three recurring patterns, one real instance each (claims abridged): 
+
+• OCR false alarm, image rescue (the dominant pattern behind flat OCR’s 44 –49% false-alarm rate): the claim “Safflower contains 78 (poly) fat in its FA composition” is supported by a nutrient-composition table cell on the cited page; the table’s column structure survives in the image but not in the OCR stream, so (A1) flags a genuinely supported claim while (C) verifies it. 
+
+• Claim-level false alarm (GPT) : for “The document as a whole pertains to Youngstown State University,” the cited first page supports the whole-document claim only via letterhead and context; GPT’s (C) judged it unsupported — document-scope claims anchored to a single page are the residual false-alarm class ( 12 .3% vs. 5.4–5.5% else-where).                            
+
+> six generator configurations →Layer-1 labeling
+> 2,468 answer-bearing candidate errors verifier–label disagreement split
+> 608 (C)-disputed ·306 A1/B3-only ·1,554 undisputed blind census waves (608 +306) +50-item spot-check
+> 450 label noise ·240 partial ·109 mixed human-truth evaluation sets (partial =error)
+> 1,909 validated errors +450 confirmed-supported
+
+Figure A2: DocCite-Nat audit funnel. The spot-check found 
+
+0% noise ( [0 , 7.3] ) in the undisputed region, whose Layer-1 labels stand. 
+
+• Chain miss (B3) : “The foundation named at the bottom of the page is ‘NUTRITION FOUNDATION’ ” cites a page whose footer names a different entity; the single-transcript chain, carrying its earlier reasoning about neighboring pages, accepts the familiar footer text — state carry-over is exactly what typed per-claim sub-tasks avoid. 
+
+# E Reproducibility and Artifacts 
+
+All experiments use pinned model versions: gemini-3.1-pro-preview / gemini-3-flash-preview ;
+
+claude-opus-4-8 / claude-sonnet-5 ; gpt-5.6-sol / gpt-5.6-luna (frontier / efficiency). The decom-position stage of the C-atom variant uses one pinned decom-poser, shared and cached across all systems. All random-ized procedures (sampling, bootstrap, annotation item order) use fixed seeds derived from a single registered constant; paired comparisons use doc-cluster bootstrap with B=10 4.All prompts are frozen verbatim in the released repository. Code, prompts, the benchmark (instances, labels, audit ad-judications, annotation records), and per-run ledgers are re-leased with the paper under licenses permitted by the source datasets (DUDE CC-BY; identifier-and-script release for MP-DocVQA). Preview-designated endpoints (the two Gemini identifiers) may be deprecated by the provider; the authors’ full call ledger records every request against these pinned identifiers, so results remain traceable to the exact serving configuration.

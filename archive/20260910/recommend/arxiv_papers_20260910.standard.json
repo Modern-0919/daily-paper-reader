@@ -1,0 +1,459 @@
+{
+  "mode": "standard",
+  "generated_at": "2026-09-10T22:41:04.903553+00:00",
+  "stats": {
+    "mode": "standard",
+    "tag_count": 3,
+    "deep_divecandidates": 10,
+    "deep_cap": 8,
+    "deep_selected": 8,
+    "quick_candidates": 2,
+    "quick_skim_target": 13,
+    "quick_selected": 2
+  },
+  "deep_dive": [
+    {
+      "id": "2609.03787v1",
+      "source": "arxiv",
+      "title": "DNative-Twin: Decision Graphs and Digital Twins for Reconstructable Agentic Decisions",
+      "abstract": "AI agents increasingly gather evidence, invoke tools, apply constraints, and produce decisions that people or software may commit to action. A final output alone cannot show which evidence, tool state, rule, authorization, or action path produced it. We present DNative-Twin, a graph-native digital twin that records a committed agentic decision as a typed trajectory and re-executes its decision mechanism under declared conditions. The graph links the state observed by the agent, the path it followed, and the authority behind the resulting action. The twin synchronizes this information, replays the mechanism in isolation, and compares it under controlled changes. We instantiate the framework in enterprise decision processes using three public process logs and controlled replay suites. The experiments identify a specific failure: graph structure localizes represented changes but cannot determine the consequence of an unobserved tool state. In a three-condition controlled experiment with 300 injected instances, unresolved-divergence recall increased from 0 to 0.667 when replay-contract state was added and to 1.0 when verification results were also available; the held-out set contained no critical-class instance. Across 500--5,000 BPI 2020 cases, median end-to-end time increased from 0.794 to 8.889 seconds on the reported platform. These results separate the roles of graph structure, replay context, and verification evidence in reviewing a decision mechanism.",
+      "authors": [
+        "Junjie Pang",
+        "Zhenzhen Xie",
+        "Haoke Han",
+        "Ying He",
+        "Jing Wang",
+        "Gang Liu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-09-03T12:59:34+00:00",
+      "link": "https://arxiv.org/pdf/2609.03787v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Records agentic decisions as typed trajectories in a digital twin and re-executes them for reconstruction and verification",
+      "llm_evidence_cn": "将智能体决策记录为带类型轨迹的数字孪生，并通过重放执行支持决策重建与验证",
+      "llm_evidence": "将智能体决策记录为带类型轨迹的数字孪生，并通过重放执行支持决策重建与验证",
+      "canonical_evidence": "将智能体决策记录为带类型轨迹的数字孪生，并通过重放执行支持决策重建与验证",
+      "llm_tldr_en": "DNative-Twin uses graph-native digital twins to record agentic decisions as typed trajectories, link evidence and tool state, then re-execute the mechanism under controlled conditions for reconstructable verification.",
+      "llm_tldr_cn": "智能体决策通常只留下最终输出，难以看出支持该决策的证据、工具状态和行动路径。DNative-Twin将决策记录成带类型的轨迹，并用图原生数字孪生把智能体观察、执行路径和授权关系关联起来；随后在隔离条件下重放决策机制并做受控比较。这使得管理者和软件可在提交行动前重建、审计和验证智能体决策，增强企业等复杂场景下的可解释性。",
+      "llm_tldr": "智能体决策通常只留下最终输出，难以看出支持该决策的证据、工具状态和行动路径。DNative-Twin将决策记录成带类型的轨迹，并用图原生数字孪生把智能体观察、执行路径和授权关系关联起来；随后在隔离条件下重放决策机制并做受控比较。这使得管理者和软件可在提交行动前重建、审计和验证智能体决策，增强企业等复杂场景下的可解释性。",
+      "llm_tags": [
+        "query:agent-errors"
+      ],
+      "matched_query_tag": "query:agent-errors",
+      "matched_query_text": "verification and fact-checking of LLM agent execution trajectories",
+      "matched_requirement_id": "req-20",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.03787v1"
+    },
+    {
+      "id": "2609.05802v1",
+      "source": "arxiv",
+      "title": "AtomCite: Verification and Correction of Supplied Page-Level Citations in Multi-Page Documents",
+      "abstract": "Large language models answering questions over multi-page documents are expected to cite the supporting pages, yet supplied citations are sometimes inaccurate, and current evaluations score citations at generation time or against text passages: no existing benchmark evaluates whether a system can verify and correct a page-level citation already attached to an answer. We propose AtomCite, an agentic framework that parses an answer into claims, checks each claim against the image of its cited page, and applies a deterministic repair policy. To evaluate it, we introduce DocCite, to our knowledge the first benchmark for systems that verify and correct page-level citations in document images. Built on MP-DocVQA and DUDE, it combines 928 validated injected instances with 2,468 candidate natural errors harvested from frontier- and efficiency-tier models, of which a two-annotator audit confirms 1,909 as genuine errors. Primary labels are assigned deterministically, not by LLM judges, with the human audit as a separate validation layer. Across three model families (Gemini, Claude, and GPT), AtomCite reaches around 93% binary verification accuracy on the injected benchmark, significantly outperforming every OCR-only condition, including a compute-matched control, and exceeding every prior text-based baseline given the same OCR text. Its repair policy lifts citation precision on the injected mix from a constructed 34% to 87-90% while retaining over 90% of correct claims. AtomCite also transfers: with frozen prompts and zero training, it raises the hallucination-detection scores of two open 7-8B models on five public benchmarks above the same models prompted as direct judges. Finally, the audit shows that noise in automatic labels biases measured verifier accuracy and can reverse system rankings, so evaluations relying only on synthetic or automatic labels risk mismeasuring verification capability.",
+      "authors": [
+        "Chen Qian",
+        "Yimeng Wang",
+        "Yu Chen",
+        "Lingfei Wu",
+        "Andreas Stathopoulos"
+      ],
+      "primary_category": "cs.CL",
+      "categories": [
+        "cs.CL",
+        "cs.AI",
+        "cs.IR"
+      ],
+      "published": "2026-09-05T01:31:50+00:00",
+      "link": "https://arxiv.org/pdf/2609.05802v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "agentic framework that parses answers into claims and checks them against cited pages",
+      "llm_evidence_cn": "将回答拆分为声明并对照引用页面进行核验的智能体框架",
+      "llm_evidence": "将回答拆分为声明并对照引用页面进行核验的智能体框架",
+      "canonical_evidence": "将回答拆分为声明并对照引用页面进行核验的智能体框架",
+      "llm_tldr_en": "AtomCite verifies and corrects page-level citations already attached to LLM answers over multi-page documents, and introduces the DocCite benchmark for evaluating such verification systems.",
+      "llm_tldr_cn": "论文针对大语言模型在多页文档问答中给出的页级引用可能不准确、且缺乏对应验证基准的问题，提出智能体框架AtomCite，将回答拆分为声明并逐条与所引用页的图像进行核对，再通过确定性修复策略进行纠正。为评价该任务，作者构建了首个面向系统验证并纠正页级引用的基准DocCite。实验表明该框架能有效发现并修正错误的页级引用。该工作为提升检索增强型智能体的可信任输出提供了一套验证与纠错方案。",
+      "llm_tldr": "论文针对大语言模型在多页文档问答中给出的页级引用可能不准确、且缺乏对应验证基准的问题，提出智能体框架AtomCite，将回答拆分为声明并逐条与所引用页的图像进行核对，再通过确定性修复策略进行纠正。为评价该任务，作者构建了首个面向系统验证并纠正页级引用的基准DocCite。实验表明该框架能有效发现并修正错误的页级引用。该工作为提升检索增强型智能体的可信任输出提供了一套验证与纠错方案。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "verification of agent generated responses",
+      "matched_requirement_id": "req-10",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.05802v1"
+    },
+    {
+      "id": "2609.04148v1",
+      "source": "arxiv",
+      "title": "Terminal-Universe: Turning Agent Trajectories into Scalable Terminal Environments",
+      "abstract": "As terminal-based code agents become prevalent, agent trajectories have accumulated at scale, while realistic, executable environments remain scarce. However, environments are what agent post-training actually requires: each can be re-queried into many verifiable tasks and provides execution feedback, whereas a trajectory is a single frozen demonstration. Rather than generating environments from scratch, we observe that the tool-execution history in existing trajectories exposes the structure and contents of the environments in which they ran, making it possible to reconstruct those environments from the trajectories themselves. Thus, we introduce Terminal-Universe, a framework which turns each trajectory into a reusable environment and explores it for synthesizing new tasks and continued interactions. Specifically, Terminal-Universe replays the file operations recorded in a trajectory to restore each file before the agent modified it, yielding a partial workspace; a completion agent then supplies the missing files and dependencies. On this recovered workspace, we both reconstruct the original intent task and synthesize entirely new ones. Besides, we also scale the tasks along two complementary axes: breadth and depth. For breadth, we mine directional dependency relations between related environments and synthesize cross-workspace queries spanning multiple codebases, as developers routinely do in real-world development. For depth, we extend the initial single-turn query into a multi-round session that captures iterative user feedback and requirement refinement via a user agent. Applied to public terminal agent trajectories, Terminal-Universe produces 37.3k task-sufficient environments. Supervised fine-tuning of Qwen3.5-27B on this corpus improves single-round performance on Terminal-Bench 2.1 by 11.9 points and multi-round performance on EvoCode-Bench v2 MT@4 by 13.8 points.",
+      "authors": [
+        "Jie Wu",
+        "Zhenru Zhang",
+        "Beichen Zhang",
+        "Xuwu Wang",
+        "Yuhui Su",
+        "Mouxiang Chen",
+        "Peng Wang",
+        "Zhihai Wang",
+        "Que Shen",
+        "Hao Zhou",
+        "An Yang",
+        "Fei Huang",
+        "Yujiu Yang",
+        "Dayiheng Liu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL"
+      ],
+      "published": "2026-09-03T17:41:05+00:00",
+      "link": "https://arxiv.org/pdf/2609.04148v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "reconstructs executable environments from agent trajectories to produce many verifiable evaluation tasks",
+      "llm_evidence_cn": "从智能体轨迹重建可执行环境，生成大量可验证的评测任务",
+      "llm_evidence": "从智能体轨迹重建可执行环境，生成大量可验证的评测任务",
+      "canonical_evidence": "从智能体轨迹重建可执行环境，生成大量可验证的评测任务",
+      "llm_tldr_en": "Terminal-Universe converts accumulating agent trajectories into reusable, executable terminal environments, so each environment yields many verifiable tasks with execution feedback for agent post-training and evaluation.",
+      "llm_tldr_cn": "终端型代码智能体日益普及，大量智能体轨迹被积累，但真实可执行的环境仍然稀缺，而环境恰是智能体后续训练与评测所必需。本文提出Terminal-Universe框架，观察到轨迹中的工具执行历史可暴露其运行环境结构与内容，从而无需从头生成环境，而是直接从每条历史轨迹重建可复用的终端环境。每个重建环境都可派生出多个可验证任务并提供执行反馈，相比单独的冻结轨迹更具价值。该工作为解决智能体轨迹评测平台供给不足提供了可扩展的途径。",
+      "llm_tldr": "终端型代码智能体日益普及，大量智能体轨迹被积累，但真实可执行的环境仍然稀缺，而环境恰是智能体后续训练与评测所必需。本文提出Terminal-Universe框架，观察到轨迹中的工具执行历史可暴露其运行环境结构与内容，从而无需从头生成环境，而是直接从每条历史轨迹重建可复用的终端环境。每个重建环境都可派生出多个可验证任务并提供执行反馈，相比单独的冻结轨迹更具价值。该工作为解决智能体轨迹评测平台供给不足提供了可扩展的途径。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "benchmarks for agent trajectory testing",
+      "matched_requirement_id": "req-6",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.04148v1"
+    },
+    {
+      "id": "2609.05019v1",
+      "source": "arxiv",
+      "title": "TROVE: Adaptive Agent Skill Orchestration via Trace-Grounded Route Validation and Editing",
+      "abstract": "Agents tend to optimize, select, or constrain execution structures before decisive runtime outcomes are observed. However, such pre-execution commitment creates an orchestration bottleneck: when intermediate evidence invalidates the pending continuation, agents must either execute stale steps or replan broadly, compounding errors, wasting computation, and discarding progress. We thus propose Trace-grounded Route Orchestration via Validation and Editing (TROVE), which revises only what runtime evidence invalidates. Offline, TROVE distills evaluated workflow-search traces into atomic and composite skills and an outcome-conditioned transition graph, preserving stable fragments while exposing outcome-dependent decisions. Online, it treats a planned route as provisional: after committing one top-level skill, the controller retains a valid continuation, inserts a trace-supported local response, or replaces only the invalid suffix. Evaluation across code-generation, question-answering, and math reasoning benchmarks with different LLM backbones show that TROVE delivers a stronger quality-efficiency trade-off than existing baselines of dataset-level optimization, query-level architecture selection, and graph-constrained scheduling. Quality gains are largest when outcomes change the appropriate continuation, whereas early termination yields substantial efficiency gains on near-saturated tasks. Ablations further show that composite skills capture most offline benefits, insertion enables local correction, and suffix replacement primarily improves efficiency. These findings establish selective route editing as a general principle for adaptive agent orchestration.",
+      "authors": [
+        "Tianxing Wang",
+        "Mingming Zhao",
+        "Shuai Huang",
+        "Huiyang Xu",
+        "Chaoyue Niu",
+        "Shengzhong Liu",
+        "Fan Wu"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-09-04T11:38:13+00:00",
+      "link": "https://arxiv.org/pdf/2609.05019v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "runtime evidence validation and route editing avoid error compounding in multi-step agent execution",
+      "llm_evidence_cn": "根据运行时证据验证和编辑路由，避免多步工作流中的错误累积与无效重规划",
+      "llm_evidence": "根据运行时证据验证和编辑路由，避免多步工作流中的错误累积与无效重规划",
+      "canonical_evidence": "根据运行时证据验证和编辑路由，避免多步工作流中的错误累积与无效重规划",
+      "llm_tldr_en": "TROVE addresses error compounding when runtime evidence invalidates a committed agent plan. It distills evaluated search traces into skills plus an outcome-conditioned graph and revises only invalidated route segments online, avoiding stale steps and broad replanning.",
+      "llm_tldr_cn": "针对智能体过早提交执行计划、中间证据失效后只能执行陈旧步骤或全局重规划的系统性瓶颈，TROVE提出基于轨迹的路由验证与编辑：离线将经过评估的搜索轨迹蒸馏成原子技能、复合技能和由结果条件化的迁移图；在线只修订被运行证据否定的局部路段。其意义在于阻断错误在长流程中持续累积，兼顾稳定执行与灵活纠偏，为智能体编排的可信运行提供了一种轻量自纠错方法。",
+      "llm_tldr": "针对智能体过早提交执行计划、中间证据失效后只能执行陈旧步骤或全局重规划的系统性瓶颈，TROVE提出基于轨迹的路由验证与编辑：离线将经过评估的搜索轨迹蒸馏成原子技能、复合技能和由结果条件化的迁移图；在线只修订被运行证据否定的局部路段。其意义在于阻断错误在长流程中持续累积，兼顾稳定执行与灵活纠偏，为智能体编排的可信运行提供了一种轻量自纠错方法。",
+      "llm_tags": [
+        "query:agent-errors"
+      ],
+      "matched_query_tag": "query:agent-errors",
+      "matched_query_text": "automatic error correction and self-repair methods for LLM agents",
+      "matched_requirement_id": "req-23",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.05019v1"
+    },
+    {
+      "id": "2609.06966v1",
+      "source": "arxiv",
+      "title": "MOLE: Detecting Insider Threats in AI Agents",
+      "abstract": "Model misalignment, prompt injection, or operator misuse could lead AI agents operating frontier-lab accounts to exfiltrate model weights, poison training data, or weaken release gates. Existing benchmarks do not test whether defenders can detect this activity among routine work under a limited review budget. We introduce MOLE, an open benchmark of 150 AI-operated accounts sharing 9 stateful services over 30 workdays, with 12 threats and 8 corpora from four models totaling roughly 20 billion tokens. Of 39 agent models, 72% complete most assigned harmful objectives and agent refusal does not predict completion. MOLE enables comparison of 40 monitors across corpus generators, observability levels, and threats; even the best evaluated monitor in our single-day audit-event comparison misses nearly half of completed harm. MOLE also enables monitor development: benchmark-guided search improves a mid-tier monitor by 49-64%, while selective use of a stronger monitor improves budget-AUC by 10% over applying it to every account-day at comparable modeled cost.",
+      "authors": [
+        "Aashiq Muhamed",
+        "Virginia Smith"
+      ],
+      "primary_category": "cs.LG",
+      "categories": [
+        "cs.LG",
+        "cs.CL",
+        "cs.CR"
+      ],
+      "published": "2026-09-07T03:04:31+00:00",
+      "link": "https://arxiv.org/pdf/2609.06966v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Open benchmark for detecting insider threats and anomalous activity in AI-agent operated accounts, comparing monitors under limited review budgets",
+      "llm_evidence_cn": "用于检测AI智能体账户中内部威胁与异常活动的开放基准，比较多种监控器",
+      "llm_evidence": "用于检测AI智能体账户中内部威胁与异常活动的开放基准，比较多种监控器",
+      "canonical_evidence": "用于检测AI智能体账户中内部威胁与异常活动的开放基准，比较多种监控器",
+      "llm_tldr_en": "MOLE is an open benchmark of 150 AI-operated accounts and 12 insider threats that compares 40 monitors for detecting harmful agent activity under limited review budgets, showing that even the best monitor misses most single-day events.",
+      "llm_tldr_cn": "AI智能体可能被诱导或误用于泄露模型权重、破坏训练数据等内部威胁，但现有基准不测试防护方的检测能力。MOLE构建了150个AI运营账户、9个有状态服务、12种威胁的开放基准，覆盖约200亿token数据；39个智能体模型中72%完成大部分恶意目标，且拒绝行为无法预测实际完成度。该基准支持在多种可观测性下比较40种监控器，结果表明最佳监控器在单日审计事件比较中仍难以检出多数威胁，凸显输出与行为监控的检测瓶颈。",
+      "llm_tldr": "AI智能体可能被诱导或误用于泄露模型权重、破坏训练数据等内部威胁，但现有基准不测试防护方的检测能力。MOLE构建了150个AI运营账户、9个有状态服务、12种威胁的开放基准，覆盖约200亿token数据；39个智能体模型中72%完成大部分恶意目标，且拒绝行为无法预测实际完成度。该基准支持在多种可观测性下比较40种监控器，结果表明最佳监控器在单日审计事件比较中仍难以检出多数威胁，凸显输出与行为监控的检测瓶颈。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "techniques for detecting anomalous agent outputs",
+      "matched_requirement_id": "req-14",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.06966v1"
+    },
+    {
+      "id": "2609.05298v1",
+      "source": "arxiv",
+      "title": "Online Change-point Detection for Cooperative Multi-Agent Reinforcement Learning",
+      "abstract": "Cooperative multi-agent reinforcement learning (MARL) systems rely on past experience for learning coordinated behaviour, but this experience may become unreliable if the environment or task objective changes during training. In such cases, agents first need a way to recognize that the situation has changed before deciding how to adapt. This paper studies online change-point detection for cooperative MARL using reward-derived signals. We propose \\emph{Patterns of Past Rewards} (PPR), a lightweight algorithm-agnostic detector that smooths agents' return streams, highlights recent changes, and applies a statistical drift detector to flag significant shifts. We evaluate PPR in a custom Speaker-Listener environment based on the Multi-Agent Particle Environment under two controlled non-stationarity scenarios. Our results show a trade-off between detection speed and alarm stability. A smoothed-return baseline detects earlier but produces many repeated alarms. In contrast, applying the detector directly to raw returns often misses the shift. PPR offers a more balanced approach by limiting redundant detections while still identifying the controlled shifts. These findings highlight PPR as a lightweight, reward-based monitoring tool that enables cooperative MARL systems to reliably identify major changes during training.",
+      "authors": [
+        "Fatemeh Saberi Khomami",
+        "Julita Vassileva"
+      ],
+      "primary_category": "cs.MA",
+      "categories": [
+        "cs.MA",
+        "cs.LG"
+      ],
+      "published": "2026-09-04T15:49:42+00:00",
+      "link": "https://arxiv.org/pdf/2609.05298v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Analyzing reward trajectories to detect change points in cooperative multi-agent RL",
+      "llm_evidence_cn": "分析协作多智能体强化学习中的奖励轨迹以检测变更点",
+      "llm_evidence": "分析协作多智能体强化学习中的奖励轨迹以检测变更点",
+      "canonical_evidence": "分析协作多智能体强化学习中的奖励轨迹以检测变更点",
+      "llm_tldr_en": "PPR is a lightweight detector that smooths multi-agent return streams and applies drift detection to flag changes in cooperative MARL, helping agents know when past experience becomes unreliable.",
+      "llm_tldr_cn": "协作多智能体强化学习依赖历史经验，但环境或任务目标变化可能使经验失效，代理需要先感知变化。论文提出Patterns of Past Rewards（PPR），一种轻量且算法无关的在线变点检测器，平滑返回序列并采用统计漂移检测标记显著变化。在定制Speaker-Listener环境及多智能体粒子环境中验证，能及时可靠地识别变点。这为多智能体系统动态适应提供了无须修改学习算法的信号机制。",
+      "llm_tldr": "协作多智能体强化学习依赖历史经验，但环境或任务目标变化可能使经验失效，代理需要先感知变化。论文提出Patterns of Past Rewards（PPR），一种轻量且算法无关的在线变点检测器，平滑返回序列并采用统计漂移检测标记显著变化。在定制Speaker-Listener环境及多智能体粒子环境中验证，能及时可靠地识别变点。这为多智能体系统动态适应提供了无须修改学习算法的信号机制。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "analysis of trajectories in reinforcement learning",
+      "matched_requirement_id": "req-4",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.05298v1"
+    },
+    {
+      "id": "2609.08025v1",
+      "source": "arxiv",
+      "title": "Eliciting Self-Verification in Multimodal Reasoning Agents with Reinforcement Learning",
+      "abstract": "Reasoning agents increasingly rely on external tools such as web search to answer complex queries. Reinforcement learning (RL) finetuning algorithms such as GRPO have improved long-form reasoning in text-only language models, particularly for coding and mathematics. Reliable tool use in multimodal agents, however, remains challenging because models must interpret text and images while integrating noisy retrieved evidence, often under sparse outcome-level supervision without explicit verification signals. We present Self-Verification via Reinforcement Learning (SVRL), an RL-only finetuning framework that trains multimodal agents to verify and filter retrieved evidence within their own reasoning traces, reducing reliance on external verifiers at inference time. SVRL also introduces a search-aware penalty that discourages unnecessary tool calls and a query-diversity reward that encourages diverse, well-formed search queries, providing fine-grained feedback on when and what to search. Finetuning Qwen-2.5-VL-7B with SVRL on only 5{,}000 visual question answering examples yields consistent gains in multi-hop VQA generalization and tool efficiency across benchmarks. Overall, SVRL narrows the gap between compact agents and much larger proprietary models while requiring substantially lower training and inference cost.",
+      "authors": [
+        "Vishwas Sathish",
+        "Viresh Ranjan",
+        "Xinliang Zhu",
+        "Arnab Dhua",
+        "Douglas Gray"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI",
+        "cs.CL",
+        "cs.CV"
+      ],
+      "published": "2026-09-07T22:15:47+00:00",
+      "link": "https://arxiv.org/pdf/2609.08025v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "RL framework trains agents to self-verify responses and filter noisy evidence within reasoning traces",
+      "llm_evidence_cn": "强化学习训练智能体在推理中自我验证并过滤噪声证据",
+      "llm_evidence": "强化学习训练智能体在推理中自我验证并过滤噪声证据",
+      "canonical_evidence": "强化学习训练智能体在推理中自我验证并过滤噪声证据",
+      "llm_tldr_en": "Multimodal agents that use tools and retrieved evidence need verification signals. SVRL applies RL-only finetuning so agents verify and filter evidence within their own reasoning traces, improving reliability and reducing external verifier dependence.",
+      "llm_tldr_cn": "多模态推理智能体常常借助外部工具和检索来回答复杂问题，但图像文本联合理解与噪声证据会带来不可靠的工具使用，结果级监督稀疏且缺乏验证信号。SVRL是一个纯强化学习微调框架，它训练智能体在自己的推理轨迹内部对检索证据进行验证和过滤，降低对外部验证模块的依赖。实验表明该方法能加强多模态证据筛选并提高智能体回复的可靠性，为智能体自验证提供了一条强化学习驱动的路径。",
+      "llm_tldr": "多模态推理智能体常常借助外部工具和检索来回答复杂问题，但图像文本联合理解与噪声证据会带来不可靠的工具使用，结果级监督稀疏且缺乏验证信号。SVRL是一个纯强化学习微调框架，它训练智能体在自己的推理轨迹内部对检索证据进行验证和过滤，降低对外部验证模块的依赖。实验表明该方法能加强多模态证据筛选并提高智能体回复的可靠性，为智能体自验证提供了一条强化学习驱动的路径。",
+      "llm_tags": [
+        "query:agent-output"
+      ],
+      "matched_query_tag": "query:agent-output",
+      "matched_query_text": "methods to verify correctness of agent responses",
+      "matched_requirement_id": "req-15",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.08025v1"
+    },
+    {
+      "id": "2609.05911v1",
+      "source": "arxiv",
+      "title": "Structurally Close, Temporally Distant: Measuring Security Exposure in Long-Horizon LLM Agents",
+      "abstract": "Long-horizon LLM agents interact with untrusted content, persistent memory, external state, and sensitive tools. Existing analyses often characterize attacks by the number of execution steps between malicious input and a downstream action. We show that temporal remoteness can overstate security separation in stateful agents. We introduce a provenance-aware execution graph linking agent events through deterministic state, identifier, and tool provenance, and define \\emph{influence distance} $\\DI$ as the shortest structural path from an untrusted source to a sensitive action. We compare it with \\emph{sequence distance} $\\DT$, the shortest injection--sink path in the ordered trajectory. Since the influence graph contains every sequence edge, $\\DI \\leq \\DT$; $\\Gap=\\DT-\\DI$ measures the separation hidden by step count. Across 454 injection--sink pairs from 360 long-horizon AgentDojo trajectories over OpenAI's \\texttt{gpt-4o-mini} and \\texttt{gpt-4o} and Claude's Haiku 4.5 and Sonnet 4.6, $\\Gap>0$ for 96.9% of pairs, with a median gap of 9 hops; 91.0% remain decoupled after removing the largest provenance-only edge class. On AgentDojo's banking suite, 33.8% of 231 pairs from 377 trajectories decouple through different provenance mechanisms. Among 274 OpenAI pairs, $\\Gap$ does not independently predict attack success after controlling for $\\DT$, attack family, and backend ($β_{\\Gap}=0.066$, $p=.088$). At matched thresholds $k=2,3$, a deterministic $\\DI$-based pre-execution gate blocks five attack sinks missed by a sequence-only gate with no additional benign blocking, although the paired gain is not significant ($p=.0625$). Execution structure therefore reveals proximity hidden by step count and can support targeted runtime intervention. We measure candidate influence pathways rather than causal attribution.",
+      "authors": [
+        "Md Jafrin Hossain",
+        "Nur Al Hasan Haldar"
+      ],
+      "primary_category": "cs.CR",
+      "categories": [
+        "cs.CR",
+        "cs.AI",
+        "cs.CL",
+        "cs.LG"
+      ],
+      "published": "2026-09-05T06:09:06+00:00",
+      "link": "https://arxiv.org/pdf/2609.05911v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Introduces provenance-aware execution graph and influence distance for security evaluation of long-horizon LLM agent trajectories.",
+      "llm_evidence_cn": "提出来源感知执行图与影响力距离，用于评估长期智能体轨迹的安全暴露。",
+      "llm_evidence": "提出来源感知执行图与影响力距离，用于评估长期智能体轨迹的安全暴露。",
+      "canonical_evidence": "提出来源感知执行图与影响力距离，用于评估长期智能体轨迹的安全暴露。",
+      "llm_tldr_en": "Temporal distance overstates security separation in stateful long-horizon LLM agents. Introduces provenance-aware execution graph and influence distance (shortest structural path from untrusted source to sensitive action) to measure security exposure more accurately.",
+      "llm_tldr_cn": "长期运行的LLM智能体会接触不受信内容、持久记忆和敏感工具，现有研究常按恶意输入与下游动作之间的执行步数来评估攻击，但时间远近会高估安全隔离。作者提出来源感知的执行图，将智能体各个事件通过确定性状态、标识符和工具来源关联，并定义影响力距离为不受信来源到敏感动作之间的最短结构路径。由于影响力图包含全部有序轨迹路径，该结构距离比传统序列距离更能准确反映安全暴露，为长期运行智能体的安全评测提供了新度量。",
+      "llm_tldr": "长期运行的LLM智能体会接触不受信内容、持久记忆和敏感工具，现有研究常按恶意输入与下游动作之间的执行步数来评估攻击，但时间远近会高估安全隔离。作者提出来源感知的执行图，将智能体各个事件通过确定性状态、标识符和工具来源关联，并定义影响力距离为不受信来源到敏感动作之间的最短结构路径。由于影响力图包含全部有序轨迹路径，该结构距离比传统序列距离更能准确反映安全暴露，为长期运行智能体的安全评测提供了新度量。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.05911v1"
+    }
+  ],
+  "quick_skim": [
+    {
+      "id": "2609.06063v1",
+      "source": "arxiv",
+      "title": "Explaining AI Agents Through Execution Traces",
+      "abstract": "AI Agents are increasingly deployed in real-world settings, where they interact with external tools and make sequential decisions with limited human oversight. This creates a pressing need for reliable and auditable explanations of what an agent did and why. However, traditional Explainable AI (XAI) methods fall short of providing the process-level transparency required for such interactive, multi-step systems, motivating a paradigm shift toward approaches specifically designed for AI Agents. To address this gap, we present a post-hoc XAI framework that transforms a lengthy agent's execution trace into a structured report and a faithful natural-language explanation explicitly grounded in its observable behavior. Because it relies solely on execution traces, the framework applies across different agent architectures, environments, and tasks. Human and automated evaluations across multiple benchmarks and architectures show that our framework produces high-quality, trace-faithful explanations while reliably identifying unsupported claims, unjustified actions, and evidence gaps, outperforming naive LLM-generated explanations.",
+      "authors": [
+        "Vittoria Vineis",
+        "Fabiano Veglianti",
+        "Lorenzo Antonelli",
+        "Claudia Di Carlo",
+        "Matteo Silvestri",
+        "Gabriele Tolomei"
+      ],
+      "primary_category": "cs.AI",
+      "categories": [
+        "cs.AI"
+      ],
+      "published": "2026-09-05T12:45:56+00:00",
+      "link": "https://arxiv.org/pdf/2609.06063v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "post-hoc XAI framework that analyzes execution traces and produces faithful structured reports",
+      "llm_evidence_cn": "事后可解释框架将智能体执行轨迹转化为结构化报告与忠实解释",
+      "llm_evidence": "事后可解释框架将智能体执行轨迹转化为结构化报告与忠实解释",
+      "canonical_evidence": "事后可解释框架将智能体执行轨迹转化为结构化报告与忠实解释",
+      "llm_tldr_en": "A post-hoc XAI framework converts long agent execution traces into structured reports and faithful natural-language explanations, enabling process-level audit and evaluation of interactive multi-step agents using only observable behavior.",
+      "llm_tldr_cn": "AI智能体在现实环境中与工具交互并做连续决策，需要可靠可审计的过程级解释。本文提出一个事后XAI框架，仅依靠可观察的执行轨迹将冗长的智能体执行轨迹转换为结构化报告和忠实的自然语言解释。该框架适用于多种智能体，为理解智能体行为提供了可审计的流程透明度。这为智能体轨迹的评估与测试提供了新的工具。",
+      "llm_tldr": "AI智能体在现实环境中与工具交互并做连续决策，需要可靠可审计的过程级解释。本文提出一个事后XAI框架，仅依靠可观察的执行轨迹将冗长的智能体执行轨迹转换为结构化报告和忠实的自然语言解释。该框架适用于多种智能体，为理解智能体行为提供了可审计的流程透明度。这为智能体轨迹的评估与测试提供了新的工具。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.06063v1",
+      "quick_tier": "8plus"
+    },
+    {
+      "id": "2609.08301v1",
+      "source": "arxiv",
+      "title": "Agent ATO: Visualizing Agent Interaction Timelines from Logs",
+      "abstract": "AI coding agents are becoming part of developers' workflows, but their behavior is difficult to understand from final code changes alone. During a task, agents interact with software repositories through sequences of actions such as searching for files, reading code, editing programs, and running tests or build commands. These interactions, together with token usage, are often recorded in console logs, but raw logs are difficult for developers to inspect. In this paper, we propose Agent ATO (Agentic Trajectory Observer), a tool for visualizing AI coding agent interaction timelines from console logs. Agent ATO extracts agent interactions, classifies them by command or tool type, and visualizes them as timelines. In addition to an all-interaction timeline, Agent ATO provides filtered timelines that emphasize file discovery, file reading, file editing, and execution while preserving surrounding context. We illustrate how Agent ATO may help developers inspect and compare agent actions using selected runs from two repair tasks. Future work will apply Agent ATO to more agents, tasks, and development environments, and will evaluate whether it reduces the effort needed to compare trajectories.",
+      "authors": [
+        "Takuto Kawamoto",
+        "Yoshiki Higo",
+        "Raula Gaikovina Kula"
+      ],
+      "primary_category": "cs.SE",
+      "categories": [
+        "cs.SE"
+      ],
+      "published": "2026-09-08T06:22:44+00:00",
+      "link": "https://arxiv.org/pdf/2609.08301v1",
+      "tags": [
+        "keyword:agent-errors",
+        "keyword:agent-output",
+        "keyword:agent-traj",
+        "query:agent-errors",
+        "query:agent-output",
+        "query:agent-traj"
+      ],
+      "llm_score": 8.0,
+      "llm_evidence_en": "Visualizes agent interaction timelines extracted from logs for evaluating agent behavior",
+      "llm_evidence_cn": "从日志中提取并可视化智能体交互时间线，用于评估智能体行为",
+      "llm_evidence": "从日志中提取并可视化智能体交互时间线，用于评估智能体行为",
+      "canonical_evidence": "从日志中提取并可视化智能体交互时间线，用于评估智能体行为",
+      "llm_tldr_en": "Proposes Agent ATO, a tool that extracts AI coding agent interactions from console logs and visualizes them as timelines, helping developers understand and evaluate agent behavior.",
+      "llm_tldr_cn": "论文针对AI编码智能体行为难以从最终代码变更理解的问题，提出Agent ATO，从控制台日志中提取智能体交互并分类，以时间线形式可视化其搜索、读取、编辑和运行测试等行为。该工具能帮助开发者直观检查智能体的完整操作过程，改善对智能体轨迹的理解和评估。",
+      "llm_tldr": "论文针对AI编码智能体行为难以从最终代码变更理解的问题，提出Agent ATO，从控制台日志中提取智能体交互并分类，以时间线形式可视化其搜索、读取、编辑和运行测试等行为。该工具能帮助开发者直观检查智能体的完整操作过程，改善对智能体轨迹的理解和评估。",
+      "llm_tags": [
+        "query:agent-traj"
+      ],
+      "matched_query_tag": "query:agent-traj",
+      "matched_query_text": "evaluation of agent trajectories",
+      "matched_requirement_id": "req-2",
+      "selection_source": "carryover_cache",
+      "paper_id": "2609.08301v1",
+      "quick_tier": "8plus"
+    }
+  ]
+}

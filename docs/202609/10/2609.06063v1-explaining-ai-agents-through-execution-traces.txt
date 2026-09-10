@@ -1,0 +1,404 @@
+Title: Explaining AI Agents Through Execution Traces
+
+URL Source: https://arxiv.org/pdf/2609.06063v1
+
+Published Time: Wed, 09 Sep 2026 00:42:00 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Explaining AI Agents Through Execution Traces 
+
+# Vittoria Vineis 1∗, Fabiano Veglianti 1, Lorenzo Antonelli 1, Claudia Di Carlo 1, Matteo Silvestri 1,Gabriele Tolomei 1
+
+> 1
+
+Sapienza University of Rome, Rome, Italy 
+
+Abstract 
+
+AI Agents are increasingly deployed in real-world settings, where they interact with external tools and make sequential decisions with limited human oversight. This creates a press-ing need for reliable and auditable explanations of what an agent did and why. However, traditional Explainable AI (XAI) methods fall short of providing the process-level transparency required for such interactive, multi-step systems, motivating a paradigm shift toward approaches specifically designed for AI Agents. To address this gap, we present a post-hoc XAI frame-work that transforms a lengthy agent’s execution trace into a structured report and a faithful natural-language explanation explicitly grounded in its observable behavior. Because it re-lies solely on execution traces, the framework applies across different agent architectures, environments, and tasks. Hu-man and automated evaluations across multiple benchmarks and architectures show that our framework produces high-quality, trace-faithful explanations while reliably identifying unsupported claims, unjustified actions, and evidence gaps, outperforming naive LLM-generated explanations. 
+
+# 1 Introduction 
+
+Recent advances in Agentic AI are reshaping the capabilities of AI systems by enabling autonomous goal pursuit, adap-tive decision-making, and complex task execution with min-imal human oversight (Acharya, Kuppan, and Divya 2025). Unlike traditional AI models, AI Agents 1 interact with ex-ternal tools, maintain internal state, coordinate multiple ac-tions, and adapt their behavior over extended execution hori-zons. While these capabilities unlock significant opportu-nities across critical domains, they also introduce new chal-lenges for transparency, accountability, and governance (Zhu et al. 2026; Shah et al. 2026), making surface-level trans-parency no longer sufficient to support user trust or regula-
+
+> 1
+
+In this paper, we use the terms AI agents and agentic AI sys-tems interchangeably to refer primarily to LLM-based agents ca-pable of autonomous planning and tool use. While some of the challenges and solutions discussed may also apply to other types of autonomous AI systems, such as agents based on traditional rein-forcement learning, our focus is on tool-using LLM agents, which currently constitute the dominant paradigm of Agentic AI. 
+
+> ∗
+
+Corresponding author: vineis@diag.uniroma1.it. In this preprint version, the source code and trace dataset are are available upon request. 
+
+tory compliance (Khalid, Farooqi, and Bilal 2026). Recent studies further highlight novel failure modes, including error cascades, responsibility gaps, flawed execution monitoring, and multi-step error propagation that obscures the origins of system behavior and outcomes (Zhu et al. 2026; Shah et al. 2026), highlighting the need for a rethinking of current XAI practices. Existing explainability approaches, in fact, were pri-marily designed for static, single-step predictive models and are increasingly inadequate for explaining the behav-ior of autonomous agents operating in dynamic environ-ments (Chakrabarty 2025; Raza et al. 2026; Chaduvula et al. 2026). This challenge is further amplified by the interaction paradigm of Agentic AI, which introduces a complex triadic relationship among users, autonomous agents, and external digital resources, requiring explanation mechanisms that ac-count for multi-layered interactions across interconnected systems (Ehsan et al. 2026). For these reasons, researchers have called for a shift from traditional feature-level explana-tions toward system-level interpretability capable of captur-ing agent trajectories, reasoning processes, tool interactions, and execution histories (Zhu et al. 2026; Raza et al. 2026; Collaco et al. 2026). Emerging work advocates for explainability frameworks that treat transparency as a continuous lifecycle property and capable of answering not only what decisions were made, but also why, how, when, and by whom they were influenced (Raza et al. 2026). Similarly, other studies warn against the illusion of explainability that Chain-of-Thought disclosures may create, highlighting the need for human-centered approaches that support meaningful understanding rather than merely exposing internal reasoning traces (Ehsan et al. 2026). However, despite the growing recognition of these challenges, research at the intersection of XAI and Agentic AI remains relatively narrow in scope and is largely industry-driven, with a primary focus on tasks such as failure detection and debugging. As a result, existing approaches of-ten fall short of addressing the broader interpretability and accountability debt incurred by these systems across diverse stakeholder groups, including regulators, deployers, and end users. For these reasons, we introduce a post-hoc, log-grounded framework for generating faithful and auditable structured and natural-language explanations of AI agents’ decisions. arXiv:2609.06063v1 [cs.AI] 5 Sep 2026 Our approach leverages execution traces, which are often too lengthy and complex to be readily inspected or interpreted, particularly by non-technical users, to reconstruct and ex-pose the specific sequences of actions and environmental observations that shaped an agent’s behavioral trajectory and ultimately led to a given outcome. Because the framework operates exclusively on the logged interaction trace, it can be seamlessly applied across different underlying agent archi-tectures, tool ecosystems, and task domains, enabling broad applicability to real-world AI systems. Overall, our work makes the following contributions: 1. A framework for end-user explainability of AI agents. 
+
+We introduce a framework specifically designed to make AI agent behavior transparent and understandable to end users. To the best of our knowledge, existing approaches primarily target developer- and system-oriented objec-tives, such as debugging, monitoring, and failure analysis, rather than treating user-facing explanations as a primary objective. Our framework addresses this gap by defin-ing a process for transforming agent execution traces into faithful and human-readable explanations. 2. Two complementary trace-grounded XAI artifacts. 
+
+We introduce two complementary artifacts for explain-ing agent behavior: (i) a structured report that provides a systematic, step-by-step representation of the agent’s behavioral trajectory, and (ii) a concise natural-language narrative that communicates the relevant behavior to end users while remaining grounded in the execution trace. The structured report serves as an intermediate, auditable layer connecting the trace to the final explanation and enables precise identification of mismatches between the agent’s available knowledge and its observed behavior. 3. A taxonomy of agent behavior grounded in knowl-edge alignment. We develop a taxonomy that character-izes agent behavior according to the relationship between the agent’s available knowledge and information acquired through interaction with the environment. The taxonomy captures aligned and mismatched knowledge states, pro-viding a principled basis for identifying and interpreting different forms of agent behavior from execution traces. 4. An empirical evaluation of explanation quality. We evaluate the framework across two established agentic benchmarks, three agent architectures, and two baseline approaches to generating XAI artifacts. We assess ex-planations along four dimensions (faithfulness, exhaus-tiveness, linguistic quality, and overall satisfaction) using both human evaluation and LLM-as-a-judge. Our results show that the proposed method produces structured re-ports that are substantially more faithful to the execution trace than those obtained by directly prompting an LLM to generate them. Furthermore, for both human and LLM evaluators, narratives grounded in our reports are judged to be more faithful and exhaustive, and receive higher overall ratings, than narratives generated by prompting an LLM to explain the execution trace. 
+
+# 2 Related Work 
+
+While a growing body of work explores how agentic sys-tems can themselves support explainability tasks (He and Martens 2026; Mehta 2026; Vineis et al. 2026), to the best of our knowledge no prior work has proposed a framework for making the decision process of Agentic AI systems transpar-ent to end users. Instead, existing work has primarily focused on trace-based analysis for debugging, evaluation and fail-ure diagnosis. Nevertheless, this line of research provides valuable insights that can inform execution trace-grounded explainability methods. In this context, Mazhar, Suri, and Galhotra (2026) show that outcome-only evaluation system-atically overlooks contamination-induced failures that are only visible through trace inspection. Similarly, Deshpande et al. (2025), while introducing a formal taxonomy of agent failures and human-annotated traces (TRAIL benchmark), show that state-of-the-art LLMs remain unreliable at auto-matically identifying and diagnosing such failures. Address-ing procedural compliance in enterprise settings, Sharma, Barke, and Zorn (2026) propose a method (AgentPex) which employs an LLM-as-a-judge to verify whether agent exe-cutions satisfy safety and formatting requirements at scale. Likewise, Mulian et al. (2026) introduce AgentFixer, which analyzes execution logs to detect parsing errors, schema vio-lations, and reasoning inconsistencies before generating cor-rective actions. Moving beyond LLM-centric approaches, Wang (2026) reconstructing causal graphs from execution logs to localize failure root causes. Although these meth-ods leverage execution traces as we do, they are primar-ily designed as developer-facing analysis tools rather than explanation systems. Their objective is to identify why an agent failed, not to communicate how it reached a decision in a faithful and user-understandable manner. By contrast, our framework treats execution traces as the basis for gen-erating trace-grounded explanations that support end-user understanding while simultaneously providing a structured basis for inspecting and auditing agent behavior. This per-spective is further supported by Hu et al. (2026), who argue that explicit execution provenance, rather than increasingly sophisticated benchmarks, is a key missing infrastructure for responsibility attribution in Agentic AI. However, their ap-proach is validated only on a proof-of-concept system and does not provide a general framework for generating user-facing explanations, a gap that our work aims to address. 
+
+# 3 Trace-Grounded XAI Methodology 
+
+In this section, we formalize the core components of our methodology and their relationships (Section 3.1); then we describe their concrete operationalization in a sequential pipeline (Section 3.2). 
+
+## 3.1 Main Components 
+
+As visually summarize in Figure 1, the proposed frame-work transforms a heterogeneous agent execution trace into a structured, trace-grounded representation of the agent’s behavioral trajectory, which we refer to as the structured re-port (our first XAI artifact). The report is organized around the goal and its requirements, the actions and observations Raw Execution Trace                
+
+> Processes
+> 1. Normalize →τ
+> 2. Decompose → R
+> 3. Extract →β, ϵ int , ϵ ext
+> 4. Validate 5. Reconcile →δ, γ
+> Structured report
+> (first XAI artifact)
+> X(τ) = {G , n, (at, O t,Σt, δ t,Γt)}Tt=0
+> Narrator ψ
+> Natural-language explanation
+> (second XAI artifact)
+> E1, . . . , E T,¯E
+
+Figure 1: Framework overview. The raw AI agent execution trace is processed through a sequential operational pipeline that constructs the structured report X (τ ). Trace normalization maps heterogeneous execution logs to a canonical step sequence, while requirement decomposition constructs the requirement registry R, to decompose user’s goal. At each step, an LLM extracts candidate behavioral commitments and evidence with explicit pointers to the original trace; deterministic validation filters unsupported or ill-typed updates and enforces the framework’s grounding constraints. Deterministic reconciliation then computes the per-step state transitions δt and requirement-level grounding reports Γt, yielding the structured tuples (Σ t, δ t, Γt).Finally, the constrained narrator ψ renders X (τ ) into per-step explanations E1, . . . , E T and a concise overall summary ¯E.recorded during execution, and requirement-level states that capture both the agent’s behavioral commitments and the evidence available to support them. These components dis-tinguish what the agent appears to commit to from what can be established from the execution trace, while preserving the temporal structure needed to reconstruct how requirements evolve throughout the trajectory. The resulting representation provides the basis for both natural-language explanations 
+
+(our second XAI artifact) and grounding diagnostics. 
+
+Goal and Requirements. Consider a tool-using LLM agent tasked with achieving a goal G, specified by auser’s query. We assume that G can be decomposed into a set of atomic, independently verifiable requirements R =
+
+r1, r 2, . . . , r N , where each requirement ri represents a min-imal criterion that must be satisfied for the goal to be con-sidered complete. The agent pursues G through iterative in-teractions with external tools and the environment. 
+
+Objective. Our objective is to generate a post-hoc , trace-faithful explanation that makes the agent’s reconstructed be-havioral trajectory transparent and inspectable, including to non-technical users. Specifically, we produce two comple-mentary XAI artifacts: (i) a structured report that organizes the trajectory into a sequence of epistemically relevant ac-tions and observations, enabling the characterization of tran-sitions in the agent’s knowledge–action state and step-by-step inspection of its progress toward the goal; and (ii) a concise natural-language explanation that summarizes this trajectory in human-readable form. Crucially, the framework does not seek to assess the ob-jective correctness of the agent’s final answer, but rather to make transparent the process that led to it. Failure detection is likewise not its primary objective. Although the resulting artifacts can help localize potential errors and characterize inconsistencies exhibited by the agent, these signals concern mismatches between the agent’s behavior and the evidence available in the trace. They do not, by themselves, establish failures in the underlying tools or the incorrectness of the agent’s knowledge. 
+
+Event Trace. The fundamental input to our framework is an agent-specific execution trace, generated through the agent’s interaction with its environment. This raw trace records agent actions, tool invocations and outputs, together with heterogeneous execution metadata, including times-tamps, call identifiers, intermediate states, and framework-specific information. While the structure and granularity of such traces vary across agent implementations, we as-sume that the recorded information is sufficient to recon-struct the underlying behavioral trajectory. We denote the resulting epistemically meaningful event trace by τ =(e1, e 2, . . . , e T ), where each event et captures an action, observation, or other interaction that may alter the infor-mation available to the agent at that point in the trajectory. By convention, T denotes the terminal step at which the agent produces its final response to the user; all preceding steps t < T correspond to intermediate actions and ob-servations along the trajectory. This representation abstracts away implementation-specific logging details while preserv-ing the information required to characterize how the agent progresses from the initial query toward its goal. 
+
+Knowledge–Action State Transitions. The event trace τ
+
+provides the basis for constructing a structured representation of the agent’s behavioral trajectory. We denote by at the identifier of the agent action at step t and by ot,k the identifier of the k-th observation associated with that step. At each step 
+
+t, we reconstruct a requirement-indexed knowledge–action state 
+
+Σt =  Rt, {βt(r), ϵ t(r)}r∈R t
+
+ ,
+
+where Rt ⊆ R is the set of requirements introduced up to step t, βt(r) records the agent’s behavioral commit-ment with respect to requirement r, and ϵt(r) records the evidence available for that requirement in the execution trace. For each r ∈ R t, βt(r) ans ϵt(r) take values in 
+
+{open , satisfied }.The behavioral component βt is a trace-grounded recon-struction of the commitment expressed by the agent’s sub-sequent behavior. In particular, its value is inferred from the next relevant agent action: βt(r) = fβ (at+1 , r ), where fβ
+
+determines whether the action selected after step t indicates that the agent treats requirement r as resolved. The evidence component is instead decomposed into two provenance-specific channels: 
+
+ϵt(r) =  ϵint  
+
+> t
+
+(r), ϵ ext  
+
+> t
+
+(r),
+
+whose statuses may independently be open or satisfied 
+
+and may therefore disagree for the same requirement r at a given step t. The internal component is supported by obser-vations corresponding to the agent’s own surfaced informa-tion, such as reflections or tool inputs, whereas the external component is supported by observations returned by the en-vironment, such as tool outputs and execution feedback. On both behavioral and evidence axes, the satisfied 
+
+status requires an explicit supporting reference in the trace. Formally, ∀ r ∈ R ∗ 
+
+> t
+
+and ∀x ∈ { β} ∪ { ϵc : c ∈ { int , ext }} ,
+
+xt(r) = satisfied =⇒ supp x(r)̸ = ∅.
+
+with supp β (r) pointing to the action at+1 (or the goal 
+
+G) whose content expresses the commitment, and supp ϵc (r)
+
+pointing to at least one observation ot,k of the corresponding provenance whose content entails r. When no admissible ref-erence exists, the status remains open . This invariant makes every positive assertion in Σt pointer-cited and directly au-ditable against the raw trace. As the agent proceeds through the observed action– observation sequence, its Σt states evolve to reflect changes in requirements, behavioral commitments, and available ev-idence. We summarize each consecutive state change with a transition operator 
+
+δt = ∆(Σ t, Σt+1 ),
+
+which identifies changes in requirement status across β and 
+
+ϵ, including requirements becoming satisfied or reopening, as well as the introduction of new requirements. 
+
+Behaviour-Evidence Discrepancies. Given the status of 
+
+β and ϵ for each requirement r ∈ R t, we deterministically assign a grounding label based on the joint configuration of the agent’s behavioral commitment and the available internal and external evidence: 
+
+γt(r) = f  βt(r), ϵ int  
+
+> t
+
+(r), ϵ ext  
+
+> t
+
+(r) .
+
+The label characterizes whether the agent’s behavioral commitment is consistent with the evidence available in the trace and, when it is not, identifies the nature of the dis-crepancy. The complete 23 configuration space is reported in Table 1. We organize these configurations into two groups. 
+
+Concordant configurations are those in which the behavioral commitment is consistent with the available evidence. This group includes both cases in which a requirement is sup-ported by internal and/or external evidence and the genuine gap , in which the requirement remains unresolved and no supporting evidence is available. Mismatches are configu-rations in which the behavioral commitment diverges from the available evidence. The four mismatch categories consti-tute the core diagnostic output of γ. Aggregating γt over all requirements yields the per-step grounding report 
+
+Γt =    r, γ t(r) : r ∈ R t, γ t(r) ∈ L ,
+
+where L is the label set of Table 1. By construction Γt =
+
+∅ when every requirement is warranted, so Γt acts as the step-level record of the discrepancies between behavioral commitment and trace evidence. 
+
+Structured report. Aggregating across the trajectory, the framework’s first XAI artifact is the structured report 
+
+X (τ ) = 
+
+
+
+G,   at, Ot, Σt, δ t, Γt
+
+ Tt=0 
+
+
+
+,
+
+where Ot = {ot,k }Kt 
+
+> k=1
+
+denotes the set of observations asso-ciated with step t.The structured report records, for every step, the ac-tion taken, the observations received, the reconstructed knowledge–action state, the transition summary, and the grounding report (with δ0 omitted and δT defined against the terminal state). X (τ ) is directly inspectable and provides the audited input to the natural-language explanation described next. 
+
+Final Narrative. The second XAI artifact is then produced by a constrained narrator 
+
+ψ : X (τ ) −→  E1, E 2, . . . , E T , ¯E,
+
+where each per-step explanation 
+
+Et = ψstep (at, Ot, Σt, δ t, Γt)
+
+verbalizes the epistemic change at step t and any divergence recorded in Γt, and ¯E compresses the trajectory into an episode-level summary. 
+
+## 3.2 Operational Pipeline 
+
+Below, we describe the concrete instantiation of the frame-work components introduced above and their organization into a sequential operational pipeline. 
+
+Trace Normalization. The raw execution trace is mapped to the canonical step sequence required by the framework. Each step preserves the action, its observations, their seman-tic types, and the terminal condition. The representation uses a fixed observation vocabulary—user query, tool input, tool output, reflection, error, and final response—and separates tool inputs from tool outputs so that agent-emitted infor-mation remains distinguishable from environment-returned information. The resulting canonical sequence is the com-mon interface to all subsequent stages, decoupling the anal-ysis from the underlying agent architecture and enabling the same pipeline to be applied across heterogeneous paradigms. 
+
+Requirement Decomposition. The normalized goal is decomposed into the requirement registry R using asummarize-then-decompose strategy inspired from Cho et al. (2026). The decomposition targets atomicity at the level re-quired for independent status assessment: requirements con-cerning different entities are kept distinct whenever their sat-isfaction can be established independently. Each requirement is assigned a stable identifier and classified as either a content requirement (information that must appear in the answer) or a constraint requirement (formatting or structural condition). Depending on the application, requirements may be gener-ated upfront, incrementally, or through a hybrid strategy that admits newly discovered subgoals during execution. β ϵint ϵext Label Interpretation                                 
+
+> Concordant configurations (bahaviour matches available evidence)
+> 111Fully Grounded Resolved with both internal and external evidence. 110Self Grounded Resolved from internal evidence only. 101Externally Grounded Resolved from external evidence only. 000Genuine Gap Unresolved and no supporting evidence available.
+> Discordant configurations (behaviour and evidence disagree)
+> 100Ungrounded Resolved without trace-grounded evidence. 010Missed Internal Evidence Internal evidence is available but not reflected in behaviour. 001Missed External Evidence External evidence is available but not reflected in behaviour. 011Missed Recognition Both evidence sources are available but not reflected in behaviour.
+
+Table 1: Diagnostic configurations derived from behaviour–evidence reconciliation. Here, β, ϵint , and ϵext denote behavioral committment, internal evidence, and external evidence, respectively, measured with respect to a specific requirement r at step 
+
+t; each equals 1 when the corresponding state is satisfied .
+
+Local Behaviour–Evidence Extraction. At each step, an LLM produces local updates to the requirement-level state. Given the information available at step t together with the subsequent action at+1 , the extractor proposes behavioral commitments and evidence items, each accompanied by pointers to the specific trace elements that support them. We recall that behavioural commitment is inferred from at+1 ;evidence proposals are assigned to the internal or external channel according to the provenance of their cited observa-tions. 
+
+Validation and Grounding. Candidate updates are sub-jected to deterministic validation. Behavioral supports must correspond to the action designated as the behavioral basis, and evidence supports must reference observations present in the trace and admissible for their assigned channel; ill-typed or unsupported references are discarded. When entail-ment verification is enabled, an evidence channel is marked 
+
+satisfied only if the cited content additionally entails the corresponding requirement. Validated updates are then incor-porated into the state subject to the framework’s consistency and monotonicity constraints. 
+
+Deterministic Reconciliation. The validated state se-quence is processed deterministically to obtain the per-step summaries. Consecutive states yield the transition δt, and the joint status of behavioral commitment and the two evidence channels determines the label γt(r) for every requirement, which aggregate into the step-level report Γt. The resulting 
+
+(Σ t, δ t, Γt) tuples complete the structured report X (τ ).
+
+Narrative Generation. The narrator ψ is instantiated as a constrained LLM call over X (τ ). Because every belief, evidence item, and diagnostic has already been grounded in the trace, narrative generation reduces to verbalizing an au-dited execution history rather than reconstructing reasoning from raw logs. The narrator is constrained to reference only elements of its input—requirement identifiers, action iden-tifiers at, observation identifiers ot,k , and their statuses—so that every generated statement remains trace-grounded and no content is introduced beyond X (τ ). The resulting expla-nation reports what the agent attempted, what information it acquired, which requirements became satisfied, and where potential failures or inconsistencies occurred. 
+
+# 4 Experiments 
+
+We evaluate the framework through a controlled study to examine the reliability and trace-grounded fidelity of the structured report and the quality of the natural-language ex-planations it supports. The following sections describe the experimental setup (Section 4.1) and evaluation protocols (Section 4.2). 
+
+## 4.1 Experimental Setup 
+
+We evaluate the proposed framework on execution traces from two question-answering (QA) benchmarks and an ex-ternal trace corpus. The evaluation is designed along two complementary dimensions. First, we assess the contribution of the proposed structured analysis by comparing our XAI artifacts with outputs generated directly by an LLM under matched input and model conditions. Second, we evaluate the quality of the resulting artifacts using both human assessment and LLM-as-a-judge evaluation. This design allows us to dis-entangle the contribution of the structured, trace-grounded analysis from that of the underlying language model used for generation. 
+
+Trace Corpus. We focus our empirical evaluation on tool-empowered QA tasks because they provide a controlled setting for assessing explanations of agent behavior. QA benchmarks typically specify well-defined user goals and information-seeking objectives, making requirement satis-faction more amenable to systematic assessment and reduc-ing reliance on subjective judgments of task success. More-over, tool-mediated QA produces explicit action–observation sequences, enabling us to assess whether explanations faith-fully account for observable agent behavior rather than merely whether the final answer is correct. This makes QA well suited to evaluating transparency and auditability while enabling larger-scale evaluation at lower annotation cost than Structured report — failures (%) Narrative — failures (%) Benchmark Agent # traces Our LLM Our–Our LLM–Our LLM-only GAIA Plan-and-act 116 0 1 (0.9%) 0 — 25 (21.6%) GAIA ReAct 116 0 9 (7.8%) 0 — 40 (34.5%) GAIA TRAIL 116 0 3 (2.6%) 0 — 28 (24.1%) HotpotQA Plan-and-act 100 0 1 (1 .0%) 0 — 5 (5 .0%)              
+
+> HotpotQA ReAct 100 000—1 (1 .0%)
+> Total 548 014 (2.6%) 0—99 (18.1%)
+
+Table 2: Evaluation corpus and pipeline reliability. For each of the five (benchmark × agent) subsets we report the number of traces processed and the number of failed generations per pipeline configuration (percentages relative to the row total). The 
+
+Structured report block covers the intermediate representation ( X (τ )), produced either by our deterministic pipeline (Our) or by a single-shot LLM prompt with the same schema (LLM). The Narrative block covers the final natural-language explanation ( ¯E), produced by: (i)Our–Our, our narrator applied to our structured report (the full pipeline described in Section 3.2); (ii) LLM-Our, our narrator applied to an directly LLM-generated version of the structured report; and (iii) LLM-only, an LLM prompted to summarise the raw trace directly in natural language. tasks requiring extensive expert assessment. The choice of QA is specific to our empirical evaluation, not a limitation of the framework, which can be applied to other agentic tasks given suitable execution traces. Among existing QA resources, TRAIL (Deshpande et al. 2025) is, to our knowledge, the only dataset providing pub-licly available execution traces for a QA benchmark. We therefore use TRAIL as our external trace source and build our evaluation around its underlying GAIA (Mialon et al. 2024) question set. The original TRAIL agent and its execu-tion environment are not available to us, and the released tra-jectories do not expose explicit external tool calls, primarily capturing the agent’s internal reasoning. We therefore com-plement TRAIL with independently generated trajectories exhibiting richer and more heterogeneous tool use. Specifi-cally, we implement two additional agent configurations and execute them on the same GAIA questions, enabling con-trolled comparison across different agent architectures and execution structures while preserving a common task set. The first agent is a ReAct agent (Yao et al. 2022), which interleaves reasoning and tool use within a single execution loop. The second is a plan-and-act agent that follows an it-erative plan–act–reflect loop with an explicit step for routing between actions. Both agents use gemini-3.1-flash-lite 2as the underlying LLM and share a heterogeneous tool set compris-ing Wikipedia, Tavily web search, calculator, Python code execution, PDF reader, and text editor. This tool set covers information retrieval, web browsing, numerical computation, programmatic analysis, and document processing, yielding diverse tool interactions representative of practical agentic QA systems. For direct comparison with the external trace source, we use the 116 GAIA questions for which TRAIL provides ex-ecutions and run both independently implemented agents on the same questions. We additionally evaluate the two agents on 100 HotpotQA (Yang et al. 2018) questions sampled from 
+
+> 2https://deepmind.google/models/model-cards/gemini-3-1-flash-lite/
+
+the distractor validation split. This complementary multi-hop QA setting allows us to assess whether the framework gen-eralizes beyond the GAIA/TRAIL task distribution. The resulting evaluation corpus comprises five benchmark–agent subsets: GAIA–plan-and-act ( 116 traces), GAIA–ReAct ( 116 ), GAIA–TRAIL ( 116 ), HotpotQA–plan-and-act ( 100 ), and HotpotQA–ReAct ( 100 ), for a total of 548 
+
+execution traces. 
+
+XAI Artifact Generation. Each trace is processed inde-pendently using the pipeline described in Section 3.2. The LLM-based extraction and validation stage uses gemini-3.1-flash-lite , while state updates, reconciliation, and report con-struction follow the deterministic procedures defined by the framework. Requirements are generated in upfront mode, such that the complete requirement registry is constructed from the user goal at t = 0 . We evaluate both artifacts pro-duced by the framework: the structured report X (τ ) and its natural-language rendering. Across the 548 execution traces, we obtain 1,096 structured reports from the two structured-report configurations and 1,644 natural-language explana-tions from the three narrative configurations. 
+
+Baselines and Ablations. We consider two complemen-tary comparisons to isolate the contributions of the struc-tured representation and its trace-grounded construction. To distinguish the source of each artifact, we use paired notation 
+
+(S, N ), where S denotes the source of the structured report and N the source of the narrative. The Our–Our configuration denotes the complete pro-posed pipeline: the structured report is constructed by our trace-grounded pipeline and the resulting natural language explanation is rendered by our constrained narrator ψ.The LLM–Our configuration isolates the contribution of the structured-report construction procedure. The LLM re-ceives the same canonical trace representation, requirement vocabulary, and target schema used by our framework, but is prompted to generate the complete structured report au-tonomously. This preserves the conceptual representation introduced by our method while bypassing its multi-stage extraction, validation, state-update, and deterministic rec-onciliation procedures. The resulting report is then passed unchanged to the same constrained narrator ψ. This compari-son tests whether the benefits of our structured representation can be obtained simply by prompting an LLM to populate the proposed schema, or instead depend on the trace-grounded construction process. Finally, we use the LLM-only notation to denote direct narrative generation without an intermediate structured rep-resentation, which correspond to use the LLM directly as the explainer. In this case the original trace is provided to a single LLM call, which is prompted to generate the natural-language explanation directly. The prompt is designed based on a review of existing approaches to LLM-based generation and evaluation of XAI narratives (Silvestri et al. 2025), with the goal of providing a competitive baseline informed by the state of the art. This configuration therefore provides an end-to-end comparison in which the model must derive and verbalize the explanation directly from the execution trace. All configurations use gemini-3.1-flash-lite for LLM-based generation, including the construction of intermediate structured reports and final narratives. Where comparisons are available, configurations operate on the same input trace and use the same underlying model, varying only the repre-sentation and generation procedure. This controls for differ-ences in model capacity and focuses the comparison on the contribution of the proposed structured and trace-grounded pipeline. 
+
+Generation Failures. Original execution traces can be long and structurally complex, making single-shot genera-tion particularly demanding when the model must process the complete trajectory and produce the XAI artifacts. We therefore allow up to 20 generation attempts for each re-quested artifact. A generation is considered failed if the requested artifact has not been successfully produced af-ter these 20 attempts 3. Failed generations are excluded from downstream artifact-quality evaluation but are retained in the reliability analysis reported in Table 2. As shown in the table, failures occur primarily for the single-shot LLM con-figurations and are more frequent for the longer and more complex traces (TRAIL has shorter execution trace than the one obtained from our agentic configurations). Our proposed pipeline records no failures, owing to its design choices de-scribed in Section 3, which make the framework robust to long and structurally complex execution traces. 
+
+## 4.2 Evaluation 
+
+We evaluate the framework at two levels: the fidelity of the intermediate structured representation and the quality of the generated narratives. The evaluation uses two comple-mentary protocols. First, on a stratified subset of the execu-tion corpus, human annotators independently reconstruct the 
+
+> 3For LLM-only configuration, narrative generation may fail for excessively long inputs, as the trace and system prompt alone can exceed 250k tokens, thereby reaching the context-window limit of the free Gemini plan used for generating XAI outputs across all configurations.
+
+structured representation directly from the original execu-tion traces. These human-annotated representations provide a trace-grounded reference for evaluating the structured re-ports produced by our framework and by the LLM baseline. Second, we evaluate the generated narratives using both hu-man assessment and an LLM-as-a-judge protocol (Zheng et al. 2023),using Muse-Spark-1.2-Contributor as evaluation model. 
+
+Human evaluation subset and reference annotation. We conduct human evaluation on a stratified subset of the exe-cution corpus, comprising 32 traces from 12 queries across three agent systems (ReAct, plan-and-act, and TRAIL agent). The ReAct and plan-and-act agents contribute 12 traces each, covering 9 GAIA and 3 HotpotQA questions, while TRAIL contributes 8 GAIA traces 4. GAIA questions are selected through stratified random sampling over difficulty and num-ber of tool interactions, following the characterization pro-vided by the original GAIA benchmark paper. For HotpotQA, whose original difficulty characterization is based on query length and is not meaningful to our setting, we assign each query a difficulty level and tool-use stratum using the same criteria adopted for GAIA. For each selected trace, a human annotator independently constructs a structured representation directly from the orig-inal execution trace, following the representation schema defined in Section 3. This human-annotated representation serves as the reference for evaluating the two structured-report variants: the report produced by our full pipeline and the report obtained by prompting the LLM to instantiate the same schema. Because the reference is constructed directly from the trace and independently of both generated reports, it provides an independent basis for assessing the fidelity of the intermediate representation. Considering the two structured-output methods (Our and LLM) and the three narrative-generation settings (Our-Our, LLM-Our, and LLM-only), and excluding cases in which artifact generation failed (see Table 2), the human evaluation covers 63 structured reports and 89 narratives. 
+
+Structured Report Evaluation On the human-annotated subset, we assess the faithfulness of the two structured-report variants. Because this comparison requires reliable assess-ment of the correspondence between the structured repre-sentation and the underlying execution, and LLM-as-a-judge methods cannot be assumed to provide faithful judgments, particularly for lengthy and complex execution traces, we restrict this evaluation to the human-annotated subset. This provides a direct assessment of whether the intermediate rep-resentation accurately captures the behavior exhibited in the trace. We assess the fidelity of each generated structured report to the human-annotated reference obtain by the original exe-cution trace using an ad hoc metric we called the Normalized Faithfulness of the Intermediate representation (NFI). For a generated report, let RGT t denote the set of ground-truth 
+
+> 4One sampled GAIA question has no corresponding TRAIL execution and is therefore excluded from the TRAIL subset.
+
+Table 3: Narrative evaluation criteria and evaluation configurations.               
+
+> Metric Definition Evaluation configuration Scale M1 – Faithfulness
+> The narrative accurately reflects the relevant behavior represented by its reference, without unsupported claims, omissions, or semantic distortions.
+> M1-a – Source report: Human + LLM judge 3-point
+> M1-b – Trace level: Human judge 3-point
+> M1-a_our – Our report: LLM judge 3-point
+> M2 –Exhaustiveness
+> (Content) The narrative contains all essential information needed to understand the agent’s behavior and the relevant steps leading to its outcome. Human + LLM judge 4-point
+> M3 – Linguistic Quality
+> (Delivery) The narrative is clear, logically organized, con-cise, communicatively efficient, and easy to un-derstand, without unnecessary or unsupported verbosity. Human + LLM judge 4-point
+> M4 – Overall Quality
+> (Holistic) Overall, the narrative provides an appropriate and satisfactory explanation of the agent’s ex-ecution, considering both its content and pre-sentation. Human + LLM judge 4-point
+
+requirements associated with step t and Rgen t the correspond-ing requirements in the predicted report. We define 
+
+NFI = 
+
+P 
+
+> t
+
+matched  Rgen t , R GT t
+
+P 
+
+> t
+
+|RGT t | , (1) where matched( ·, ·) counts the ground-truth requirements correctly represented by the generated report. The denomina-tor is therefore the total number of ground-truth requirements across all steps, yielding a score in [0 , 1] . NFI directly mea-sures how much of the trace-grounded behavior captured by the human reference is recovered by each structured repre-sentation. To adopt a maximally strict criterion, we count as an error any discrepancy at a given step, including the omission of a ground-truth requirement, a missed δt or γt, or an incorrect classification of βt or ϵt, including an incorrect supporting evidence assignment. 
+
+Narrative Evaluation. Following consolidated practices identified in the narrative XAI literature (Silvestri et al. 2025), we evaluate natural language explanations along four dimensions, summarized in Table 3. 
+
+Faithfulness is assessed at two main levels: narrative-to-report faithfulness (M1-a) and trace-level faithfulness (M1-b). The former measures whether the narrative accurately reflects the behavior represented in the structured report from which it was generated, without introducing unsup-ported claims, omitting relevant information, or altering the meaning of the represented behavior. The narrative-to-source-report assessment applies to the Our-Our and LLM-Our narratives, for which the structured report is available. Trace-level faithfulness measures whether the narrative faith-fully reflects the behavior observed in the original execu-tion trace. This assessment requires comparison against the human-annotated ground truth and is therefore performed only through human evaluation on the human-evaluated sub-set, providing a direct assessment of trace-level faithfulness. As a further specification of narrative-to-report faithfulness, in the LLM-as-a-judge evaluation we also assess each narra-tive against the structured report produced by our framework (M1-a_our). This configuration is used for cross-validation: we compare the resulting LLM-judge scores with the cor-responding human assessments of the narrative’s trace-level faithfulness to the original execution trace. Agreement be-tween the two provides evidence that the structured represen-tation produced by our framework preserves the behaviour relevant to narrative faithfulness and can therefore serve as a suitable proxy for trace-level evaluation. This comparison also provides evidence that LLM-as-a-judge evaluation can capture, at least partially, trace-level faithfulness when the judge has access to the structured representation rather than the original execution trace. 
+
+Exhaustiveness (M2) measures whether the narrative cov-ers all the essential information required to explain the agent’s behavior. Linguistic quality (M3) assesses clarity, logical organization, conciseness, and the absence of unnecessary or unsupported verbosity. Overall quality (M4) captures the evaluator’s holistic assessment of the narrative as an expla-nation of the agent’s execution. To ensure consistent application of the evaluation criteria, we operationalize each metric through an explicit evalua-tion rubric, which specifies the criteria and corresponding rating anchors for both human and LLM-judge assessment. Faithfulness is evaluated on a three-point ordinal scale (“To-tally agree,” “Partially agree,” “Disagree”), whereas M2–M4 are evaluated on a four-point Likert scale (“Strongly agree,” “Agree,” “Disagree,” “Strongly disagree”). 
+
+Agreement analysis. Before using LLM-as-a-judge for scalable evaluation, we assess its alignment with human judg-ments, on the common scored subset. For each criterion rated by both evaluators, we report raw percentage agreement after collapsing the ordinal scale into positive and negative judg-ments, together with quadratic-weighted Cohen’s κ (κw), which preserves the ordinal structure of the ratings and pe-nalizes larger disagreements more strongly than near-misses. Table 4: NFI: mean and standard deviation by method and agent, overall and by number-of-steps group.                                                                                                 
+
+> Overall ≤10 11–30 ≥31
+> METHOD AGENT nmean std nmean std nmean std nmean std OUR ReAct 12 0.904 0.092 50.902 0.099 30.860 0.098 40.940 0.090 OUR Plan-and-act 12 0.842 0.212 80.794 0.237 40.938 0.125 –––OUR TRAIL 80.644 0.282 80.644 0.282 ––––––LLM ReAct 11 0.075 0.131 50.116 0.161 30.083 0.144 30.000 0.000 LLM Plan-and-act 12 0.057 0.149 80.062 0.177 40.045 0.090 –––LLM TRAIL 80.046 0.077 80.046 0.077 ––––––
+
+Both measures are interpreted in conjunction with the marginal distribution of the ratings. In particular, when nar-ratives from stronger configurations receive positive judg-ments almost uniformly, the negative class becomes small and chance-corrected agreement can be attenuated: high raw agreement may therefore coexist with a low κw when little disagreement remains for chance correction to capture. We therefore additionally report, for each criterion, the propor-tion of positive ratings assigned by each evaluator and the judge’s negative recall , defined as the proportion of cases rated negatively by humans that are also rated negatively by the judge. Negative recall is particularly relevant for scalable evaluation, as it measures whether the judge identifies the failures that human evaluators would flag, independently of a shared tendency to assign positive ratings. Statistics are pooled across the three narrative configura-tion. They are computed over the paired ratings available for each criterion; consequently, the effective sample size varies across criteria because of missing or inapplicable annota-tions. 
+
+Hypotheses and analysis protocol. We formulate four di-rectional hypotheses prior to analysis, corresponding to the principal claims tested in the evaluation: 
+
+• H0 – Structured-representation fidelity. Our structured report is more faithful and complete as a step-by-step rep-resentation of the execution trace than the freely LLM-generated report, as measured by the normalized faithful-ness index (NFI) against human-annotated ground truth (M0). H0 provides a further basis for using our structured report as the reference for evaluating narrative faithful-ness in M1-a_our. 
+
+• H1 – End-to-end superiority. Narratives produced by the full pipeline, Our-Our, receive higher ratings than narratives generated by directly prompting an LLM to ex-plain the execution trace, LLM-only, across all narrative-quality criteria: trace-level faithfulness (M1-b), exhaus-tiveness (M2), linguistic quality (M3), and overall satis-faction (M4). 
+
+• H2 – Value of the structured representation. Holding the narrator fixed, narratives produced from our structured report, Our-Our, receive higher ratings than those pro-duced from an LLM-generated structured report, LLM-Our, on structured-report faithfulness (M1-a), trace-level faithfulness (M1-b), exhaustiveness (M2), linguistic qual-ity (M3), and overall satisfaction (M4). 
+
+• H3 – Invariance across agent architectures. The direc-tion of the H1 and H2 effects is preserved across the three source agent architectures, such that the observed advan-tages of Our-Our over LLM-Only and Our-Our over LLM-Our do not depend on the architecture generating the execution trace. All comparisons are paired on the same execution traces. Because the human-evaluated subset comprises 12 queries, with each query executed by up to three agents, ratings as-sociated with the same query are not treated as independent observations. For each directional comparison, we therefore obtain p-values from a one-sided paired permutation test in which the sign of the paired difference is flipped at the query level and applied jointly to all agents associated with that query. With 12 queries, the resulting null distribution con-tains 212 possible sign assignments and can be enumerated exhaustively, yielding exact p-values. We control multiplic-ity using the Benjamini–Hochberg procedure across criteria within each hypothesis and designate M4 (overall satisfac-tion) as the primary confirmatory outcome, with the remain-ing criteria treated as secondary. Each comparison is reported together with the mean paired difference, a cluster bootstrap interval over queries, and the corresponding win, tie, and loss counts. For analysis, ordinal categories are mapped to consecutive integers in ascending order ( 1–3 for faithfulness, 
+
+1–4 for M2–M4), and ∆ denotes the mean paired difference on that coding; it should be read as an average movement in rating categories rather than as an interval-scale quantity. The tests themselves do not depend on this choice: under the null the sign-flip distribution is exact for any statistic computed from the paired differences, and the reported win, tie and loss counts are invariant under any order-preserving recoding of the categories. Confidence intervals for ∆ are obtained by a nonparametric cluster bootstrap with B = 5 ,000 replicates and a fixed seed. The resampling unit is the query: each repli-cate draws with replacement as many clusters as the contrast contains and takes each drawn cluster entire, with all of its (query, agent) blocks. The number of clusters per replicate is therefore fixed at k, whereas the number of blocks is ran-dom with expectation equal to the observed n, since a query contributes between one and three blocks; the statistic is the unweighted mean over the blocks of a replicate, matching the point estimate. Reported intervals are the 2.5th and 97 .5th percentiles of the B replicate means. The same procedure, with the same B and the same resampling unit, produces the intervals accompanying the correlations. At k ≈ 12 the per-Table 5: Agreement between the human annotator and the LLM judge, pooled over conditions (bold) and split by condition. H/J = percentage of ratings on the agree side for the human and judge, respectively; Agr. = raw agreement on the agree/disagree collapse; κw = quadratic-weighted Cohen’s κ; Neg. rec. = share of human-negative ratings also rated negative by the judge, with counts in parentheses. † marks rows with fewer than three human-negative ratings, for which κw is not informative; raw agreement and negative recall should be preferred. M1-a_our vs M1-b is a cross-level comparison: the judge scores the narrative against our structured report, whereas the human scores it against the original trace.                                                                                  
+
+> Measure Condition ( n)H/J (%) Agr. (%) κwNeg. rec.
+> M1-a All (63) 95/98 94 -0.09 0% (0/3)
+> Our–Our (32) 100/97 97 −0.06 †n/a LLM–Our (31) 90/100 90 −0.05 0% (0/3)
+> M1-a_our vs M1-b All (86) 81/60 74 0.63 88% (14/16)
+> Our–Our (32) 100/97 97 0.09 †n/a LLM–Our (31) 87/48 61 0.46 100% (4/4) LLM-only (23) 48/26 61 0.45 83% (10/12)
+> M2 All (86) 71/87 79 0.28 36% (9/25)
+> Our–Our (32) 94/94 94 0.22 †50% (1/2) LLM–Our (31) 48/71 71 0.36 50% (8/16) LLM-only (23) 70/100 70 0.00 0% (0/7)
+> M3 All (86) 81/86 84 0.52 44% (7/16)
+> Our–Our (32) 94/100 94 0.27 †0% (0/2) LLM–Our (31) 87/100 87 0.16 0% (0/4) LLM-only (23) 57/48 65 0.40 70% (7/10)
+> M4 All (86) 62/80 67 0.41 33% (11/33)
+> Our–Our (32) 97/91 94 0.13 †100% (1/1) LLM–Our (31) 55/68 68 0.48 50% (7/14) LLM-only (23) 22/83 30 -0.06 17% (3/18)
+
+centile bootstrap is known to under-cover, so on the human subset these intervals are indicative and no inference rests on them. H3 is evaluated through consistency of effect direction across agent architectures; in the current study, this analysis is limited to the human-evaluated subset, while LLM-as-a-judge-based assessment of the remaining architectures is left for future work. 
+
+# 5 Results 
+
+In the main text, we report the corresponding LLM-as-a-judge analysis, conducted on a larger evaluation corpus and therefore providing greater statistical power. Where relevant, we compare these results with the directional findings ob-served in the human evaluation. Detailed hypothesis tests and further analyses of the human-evaluation results are re-ported in Appendix A. 
+
+Structured-representation fidelity (H0). Table 4 reports NFI for the two structured-report variants against the human-annotated reference. Our structured reports substantially out-perform those generated by directly prompting the LLM: across 63 reports, our method achieves NFI = 0.816 
+
+(SD = 0 .219 ), compared with 0.061 (SD = 0 .124 ) for the LLM baseline. The advantage is consistent across all three agent architectures and shows no evident degradation with trace length, whereas the LLM-generated reports decline as the number of steps increases: under the strict matching cri-terion 74% of them score zero, versus none of ours. These results support H0 and the use of our structured report as the reference for evaluating narrative faithfulness. 
+
+LLM-as-judge validation. Before applying the LLM-as-judge evaluation at scale, we assess its agreement with human annotations on the subset evaluated by both methods (Ta-ble 5). Raw agreement is highest for Our-Our ( 94 –97% ), intermediate for LLM-Our ( 61 –90% ), and lower for LLM-only (up to 70% ). These values must be read together with the marginal distributions: where ratings are highly skewed— Our-Our has fewer than three human-negative ratings per criterion—high raw agreement carries little information and 
+
+κw is correspondingly attenuated. For criteria with sufficient variation, agreement is sub-stantial: pooled κw is 0.63 for cross-level faithfulness, 0.52 
+
+for linguistic quality, and 0.41 for overall quality. The main discrepancy sits in the calibration, since the judge is sys-tematically more positive than humans, most visibly on the weaker configurations (e.g., for M4 the LLM-only positive rate is 22% for humans but 83% for the judge), which com-presses the differences between conditions, particularly for exhaustiveness. Consequently the judge recovers only 9/25 
+
+human-negative M2 cases and 11 /33 M4 cases, so M2-based judge scores in particular cannot replace human assessment. This may reflect differing weightings of surface fluency, ap-parent completeness, and trace-grounded evidence between human and model-based evaluation. The cross-level faithfulness comparison (M1-a_our vs. M1-b) provides an additional test of the structured represen-Table 6: Hypothesis tests on the LLM-as-judge corpus and comparison with human-evaluation effects. Inferential statistics are reported for the LLM-as-judge corpus, while human-evaluation effects are reported for descriptive comparison only.                                                                          
+
+> Human LLM judge HMeasure n∆[95% CI] nWTL∆[95% CI] ppBH
+> H1 M2 26 0.85 [0.62, 1.07] 417 18 395 40.07 [0.02, 0.12] 0.0031 0.0031 H1 M3 26 1.04 [0.65, 1.36] 418 353 65 01.18 [1.12, 1.25] 0.0001 0.0001 H1 M4 26 1.35 [1.00, 1.64] 416 206 209 10.62 [0.55, 0.69] 0.0001 0.0001 H2 M2 31 1.03 [0.61, 1.45] 500 124 373 30.49 [0.41, 0.58] 0.0001 0.0001 H2 M3 31 0.39 [-0.03, 0.82] 500 30 438 32 -0.00 [-0.03, 0.03] 0.6418 0.8022 H2 M4 31 1.00 [0.58, 1.42] 497 186 305 60.82 [0.72, 0.93] 0.0001 0.0001
+
+Table 7: H3 direction consistency for the LLM-as-judge cor-pus. Cell = mean paired difference within that agent archi-tecture.                             
+
+> HMeasure ReAct Plan-and-act TRAIL H1 M2 +0.08 +0.03 +0.15 H1 M3 +1.18 +1.11 +1.37 H1 M4 +0.63 +0.55 +0.77 H2 M2 +0.45 +0.59 +0.39 H2 M3 -0.01 -0.01 +0.03 H2 M4 +0.76 +0.93 +0.73
+
+tation. Without access to the ground-truth trace, the judge nonetheless identifies 14 /16 narratives that humans judge unfaithful to the trace. Together with the NFI analysis, this supports using the structured report as a practical proxy for trace-level faithfulness assessment when direct trace-based evaluation is costly. 
+
+End-to-End Superiority (H1) We first evaluate H1, which tests whether the complete Our-Our pipeline yields higher scores than the LLM-only configuration. As shown in Ta-ble 6, all three metrics exhibit positive effects on the LLM-as-judge corpus. The effect is smallest for M2 ( ∆ = 0 .07 ), but remains statistically significant. The effects are substan-tially larger for M3 ( ∆ = 1 .18 ) and M4 ( ∆ = 0 .62 ), both with p < 0.0001 . The corresponding human-evaluation es-timates follow the same ordering for M3 and M4, although their magnitudes are larger. Overall, these results support H1: replacing the LLM-only pipeline with the complete proposed pipeline improves performance across all evaluated criteria, with the strongest advantage observed for M3. 
+
+Value of the Structured Representation (H2) H2 isolates the contribution of the structured representation by compar-ing configurations that differ in whether this representation is incorporated into the generation process. The results in Table 6 reveal a differentiated pattern across metrics. M2 shows a positive effect ( ∆ = 0 .49 ), as does M4, with a substantially larger effect ( ∆ = 0 .82 ); both effects are sta-tistically significant. In contrast, M3 shows essentially no difference between the two configurations ( ∆ ≈ 0, 95% CI 
+
+[−0.03 , 0.03] , p = 0 .6418 ). This pattern is also reflected in the human-evaluation estimates, although the effects are gen-erally larger in magnitude (see Appendix A). This is expected given that M3 evaluates linguistic realization, which depends on the narrator, and the two configurations compared under H2 share the same narrator. 
+
+Invariance Across Agent Architectures (H3) H3 exam-ines whether the effects observed under H1 and H2 are con-sistent across agent architectures. Table 7 reports the mean paired differences separately for ReAct, Plan-and-act, and TRAIL agent. Under H1, all three measures show a positive effect across all architectures, yielding consistent directions. The same pattern holds under H2 for M2 and M4, with positive effects across agent configurations. In contrast, M3 remains effectively null under H2 across all three architec-tures ( ∆ = −0.01 , −0.01 , and +0 .03 , respectively). This behavior is expected given that the two configurations com-pared under H2 share the same narrator across architectures, while M3 evaluates linguistic realization produced by that narrator. Thus, changing the underlying agent architecture does not introduce a systematic M3 difference between the two configurations. 
+
+# 6 Conclusion 
+
+We presented a post-hoc framework for explaining AI agents through their execution traces. By transforming heteroge-neous traces into an auditable structured representation that explicitly separates behavioral commitments from available internal and external evidence, the framework provides both step-level diagnostics and trace-grounded natural-language explanations. Across three agent architectures and two QA benchmarks, the structured reports were substantially more faithful to human references than direct LLM generation, while narratives produced from these reports achieved higher faithfulness, exhaustiveness, and overall quality than direct trace-to-text explanations. The results further show that the structured representation can serve as a practical proxy for trace-level faithfulness when direct trace inspection is costly. Current limitations include the evaluation’s focus on tool-mediated QA tasks and a relatively small human-evaluated subset. We stress that, by construction, the framework can explain only behavior and evidence recorded in the execution trace; incomplete or insufficient logging necessarily limits what can be reconstructed. Future work will evaluate the framework on a wider range of agentic tasks and increasingly complex execution scenarios. References 
+
+Acharya, D. B.; Kuppan, K.; and Divya, B. 2025. Agentic AI: Autonomous intelligence for complex goals—A compre-hensive survey. IEEe Access , 13: 18912–18936. Chaduvula, S.; Ho, J.; Kim, K.; Narayanan, A.; Alinoori, M.; Garg, M.; Ramachandram, D.; and Raza, S. 2026. From Fea-tures to Actions: Explainability in Traditional and Agentic AI Systems. arXiv preprint arXiv:2602.06841 .Chakrabarty, P. K. 2025. Causal inference in agentic AI: Bridging explainability and dynamic decision making. In-ternational Journal of Science and Research (IJSR) , 14(4): 10–21275. Cho, S.; Chawla, K.; Cai, P.; Liu, Z.; Zhu, C.; Zhang, S.-X.; and Sahu, S. 2026. Ask, Don’t Judge: Binary Questions for Interpretable LLM Evaluation and Self-Improvement. In 2nd Workshop on Compositional Learning: Safety, Interpretabil-ity, and Agents .Collaco, B. G.; Prabha, S.; Gomez-Cabello, C. A.; Haider, S. A.; Genovese, A.; Wood, N. G.; Gopala, N.; Raman, R.; Hester, E. O.; and Forte, A. J. 2026. Explainable Agen-tic Artificial Intelligence in Healthcare: A Scoping Review. 
+
+Bioengineering , 13(5): 513. Deshpande, D.; Gangal, V.; Mehta, H.; Krishnan, J.; Kan-nappan, A.; and Qian, R. 2025. Trail: Trace reasoning and agentic issue localization. arXiv preprint arXiv:2505.08638 .Ehsan, U.; Alabdulkarim, A.; Holstein, K.; Lee, M. K.; Riener, A.; and Weisz, J. D. 2026. Human-Centered Explain-able AI (HCXAI): Re-examining XAI in the Era of Agentic AI. In Proceedings of the Extended Abstracts of the 2026 CHI Conference on Human Factors in Computing Systems ,1–6. He, Y.; and Martens, D. 2026. An Agentic Approach to Gen-erating XAI-Narratives. arXiv preprint arXiv:2603.20003 .Hu, J.; Huang, X.; He, Q.; Sun, Y.; Dong, Y.; and Huang, X. 2026. Responsible Agentic AI Requires Explicit Provenance. 
+
+arXiv preprint arXiv:2605.17169 .Khalid, O.; Farooqi, A. U. H.; and Bilal, M. 2026. Agen-tic AI: a review, applications and open research challenges. 
+
+Computing , 108(6): 80. Mazhar, A.; Suri, H.; and Galhotra, S. 2026. Trace-Level Analysis of Information Contamination in Multi-Agent Sys-tems. In Proceedings of the ACM Conference on AI and Agentic Systems , 483–496. Mehta, S. 2026. Matrag: Multi-agent transparent retrieval-augmented generation for explainable recommendations. 
+
+arXiv preprint arXiv:2604.20848 .Mialon, G.; Fourrier, C.; Wolf, T.; LeCun, Y.; and Scialom, T. 2024. Gaia: a benchmark for general ai assistants. In Inter-national Conference on Learning Representations , volume 2024, 9025–9049. Mulian, H.; Zeltyn, S.; Levy, I.; Galanti, L.; Yaeli, A.; and Shlomov, S. 2026. AgentFixer: From Failure Detection to Fix Recommendations in Agentic Systems. In Proceedings of the 2026 International Workshop on Agentic Engineering ,96–103. Raza, S.; Radwan, A.; Chaduvula, S.; Alinoori, M.; and Em-manouilidis, C. 2026. Transparency in Agentic AI: A Survey of Interpretability, Explainability, and Governance. Shah, M. B.; Morovati, M. M.; Rahman, M. M.; and Khomh, F. 2026. Characterizing faults in agentic AI: A taxon-omy of types, symptoms, and root causes. arXiv preprint arXiv:2603.06847 .Sharma, R. K.; Barke, S.; and Zorn, B. 2026. Willful Disobe-dience: Automatically Detecting Failures in Agentic Traces. In Proceedings of the ACM Conference on AI and Agentic Systems , 584–596. Silvestri, M.; Vineis, V.; Gabrielli, E.; Giorgi, F.; Veglianti, F.; Silvestri, F.; and Tolomei, G. 2025. A survey on explain-able ai narratives based on large language models. Vineis, V.; Silvestri, M.; Antonelli, L.; Betello, F.; and Tolomei, G. 2026. PONTE: Personalized Orchestration for Natural Language Trustworthy Explanations. arXiv preprint arXiv:2603.06485 .Wang, Z. G. 2026. AgentTrace: Causal Graph Tracing for Root Cause Analysis in Deployed Multi-Agent Systems. 
+
+arXiv preprint arXiv:2603.14688 .Yang, Z.; Qi, P.; Zhang, S.; Bengio, Y.; Cohen, W.; Salakhut-dinov, R.; and Manning, C. D. 2018. HotpotQA: A dataset for diverse, explainable multi-hop question answering. In 
+
+Proceedings of the 2018 conference on empirical methods in natural language processing , 2369–2380. Yao, S.; Zhao, J.; Yu, D.; Shafran, I.; Narasimhan, K. R.; and Cao, Y. 2022. ReAct: Synergizing Reasoning and Acting in Language Models. In NeurIPS 2022 Foundation Models for Decision Making Workshop .Zheng, L.; Chiang, W.-L.; Sheng, Y.; Zhuang, S.; Wu, Z.; Zhuang, Y.; Lin, Z.; Li, Z.; Li, D.; Xing, E. P.; Zhang, H.; Gonzalez, J. E.; and Stoica, I. 2023. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. arXiv:2306.05685. Zhu, J.; Gandhi, D.; Joshi, H.; Mianroodi, A. R.; Kocak, S. A.; and Ramachandran, D. 2026. Interpreting Agentic Systems: Beyond Model Explanations to System-Level Ac-countability. arXiv preprint arXiv:2601.17168 .
+
+# A Detailed Human-Evaluation Results 
+
+End-to-end superiority (H1). H1 compares narratives produced by the full pipeline (Our-Our) with those gen-erated by directly prompting an LLM to explain the ex-ecution trace (LLM-only). The full pipeline significantly outperforms the direct explainer on all four criteria, with 
+
+pBH = 0 .0019 throughout (Table 8). The mean paired dif-ferences are ∆ = 1 .35 for overall quality, 1.11 for trace-level faithfulness, 1.04 for linguistic quality, and 0.85 for ex-haustiveness. Because Across the four criteria and 26 paired traces, Our-Our receives higher ratings in 80 of 104 com-parisons, ties in 23, and loses only once. The distribution of ratings (Figure 2) further clarifies the difference. For exhaustiveness, LLM-only receives positive ratings in 73% of cases but only 8% reach the highest cat-egory. This apparent strength does not extend to trace-level faithfulness: 46% of LLM-only narratives receive an out-right Disagree . Overall quality follows the faithfulness pat-tern: only 31% of LLM-only narratives are rated positively, versus 97% for Our-Our. Thus direct prompting can produce narratives perceived as reasonably complete and fluent, but these qualities do not translate into faithful explanations of the trace, consistent with the benefit of grounding generation in the structured, step-level representation. 
+
+Value of the Structured Representation (H2). H2 holds the narrator fixed and varies only the structured report, iso-lating the contribution of the structuring stage. Our-Our significantly outperforms LLM-Our on four of five crite-ria (Table 8): exhaustiveness ( ∆ = 1 .03 ), overall quality (∆ = 1 .00 ), faithfulness to the source report ( ∆ = 0 .55 ), and trace-level faithfulness ( ∆ = 0 .52 ). Linguistic quality does not significantly differ ( ∆ = 0 .39 ), consistent with both configurations sharing the same narrator. The effect is smaller and more frequently tied than in the end-to-end com-parison, with 75 wins, 70 ties, and 10 losses across 155 paired comparisons. The distribution of ratings (Figure 2) shows how the deficit in the LLM-generated report propagates: narratives built on it remain largely faithful to the report itself ( 90% positive M1-a) but exhibit substantially lower content quality (ex-haustiveness positive in 48% vs. 94% for Our-Our; overall quality 55% vs. 97% ), while linguistic quality stays similar (87% vs. 94% ). The primary effect of the structuring stage is thus on the content available to the narrator rather than on linguistic realization. For M1-a, 17 of 31 paired compar-isons are ties while Our-Our wins the remaining 14 and loses none: when the LLM report is adequate both configu-rations produce faithful narratives, and our pipeline’s advan-tage emerges primarily when the intermediate representation becomes limiting. 
+
+Invariance Across Agent Architectures (H3). Table 9 re-ports the H1 and H2 contrasts separately for each agent ar-chitecture. All subgroup effects are positive: none of the 27 architecture-specific effects reverses direction or is zero, so H3 is supported in terms of effect-direction consistency. The subgroups contain only 8–12 queries, insufficient for a reliable condition-by-architecture interaction test, so we report directions and magnitudes without p-values. The con-firmatory outcome, overall quality, is particularly stable (H1: 
+
++1 .33 , +1 .33 , +1 .38 ; H2: +1 .00 , +1 .08 , +0 .88 across ReAct, Plan-and-act, and TRAIL). Effect magnitudes vary for individual criteria—H2 faithfulness to the source report ranges from +0 .27 on ReAct to +1 .12 on TRAIL, and lin-guistic quality shows the smallest effects ( +0 .64 , +0 .33 ,
+
++0 .12 ). At the judge level, the same contrasts stay direction-consistent across architectures (Table 7), the one exception being H2 on M3, which is ≈ 0 everywhere as expected under a fixed narrator. 
+
+Relations among criteria. Figure 3 shows strong associ-ations between overall quality (M4) and trace-level faith-fulness ( ρ = 0 .85 ), exhaustiveness ( ρ = 0 .84 ), and deliv-ery ( ρ = 0 .81 ), suggesting that human holistic evaluation reflects substantive content and faithfulness rather than flu-ency alone. Faithfulness to the structured report (M1-a) is comparatively weakly associated with the narrative crite-ria ( ρ = 0 .23 –0.40 ): a narrative may faithfully reflect an imperfect report, so M1-a alone is insufficient to charac-terize explanation quality. NFI shows moderate associations (ρ = 0 .33 –0.48 ), indicating that the structured representa-tion constrains narrative quality without fully determining it. Table 8: Hypothesis tests on the human-evaluated subset (12 queries × 3agents). n = paired blocks; W, T and L = wins, ties and losses for the first condition; ∆ = mean paired difference with a cluster bootstrap CI over queries (indicative at 12 clusters); p = exact one-sided query-level permutation; pBH 
+
+= Benjamini–Hochberg corrected within hypothesis. Bold = pre-designated confirmatory outcome. H1: Our–Our > LLM-only; H2: Our–Our > LLM– Our; H0: our structured report > LLM structured report.                                                                                          
+
+> HMeasure nWTL∆[95% CI] ppBH
+> H1 M1-b 26 20 601.11 [0.79, 1.39] 0.0019 0.0019 H1 M2 26 18 710.85 [0.62, 1.07] 0.0010 0.0019 H1 M3 26 20 601.04 [0.65, 1.36] 0.0019 0.0019 H1 M4 26 22 401.35 [1.00, 1.64] 0.0010 0.0019 H2 M1-a 31 14 17 00.55 [0.32, 0.79] 0.0019 0.0032 H2 M1-b 31 13 17 10.52 [0.28, 0.71] 0.0029 0.0037 H2 M2 31 18 10 31.03 [0.61, 1.45] 0.0015 0.0032 H2 M3 31 12 15 40.39 [-0.03, 0.82] 0.0781 0.0781 H2 M4 31 18 11 21.00 [0.58, 1.42] 0.0015 0.0032 H0 NFI 31 31 000.75 [0.69, 0.82] 0.0002 0.0002
+
+Table 9: H3 direction consistency, accord-ing to human evaluations. Entries are mean paired differences within each agent architec-ture. H3 is supported when the effect retains its sign across all three architectures.                                         
+
+> HMeasure ReAct Plan-and-act TRAIL H1 M1-b +1.44 +0.78 +1.12 H1 M2 +0.56 +0.89 +1.12 H1 M3 +1.00 +0.89 +1.25 H1 M4 +1.33 +1.33 +1.38 H2 M1-a +0.27 +0.42 +1.12 H2 M1-b +0.82 +0.25 +0.50 H2 M2 +1.27 +0.83 +1.00 H2 M3 +0.64 +0.33 +0.12 H2 M4 +1.00 +1.08 +0.88
+
+Figure 2: Distribution of Likert ratings provided by human evaluators across the five evaluation dimensions. Bars show the proportion of responses in each category for Our–Our, LLM–Our, and LLM-only. By design, dimension M1-a does not include an LLM-only configuration. 
+
+Figure 3: Spearman correlation across evaluation dimensions. Coefficients are computed over pairwise-complete ratings: 
+
+n = 63 when at least one dimension in the pair evaluates only structured outputs, and n = 89 when both dimensions evaluate narratives.
